@@ -287,6 +287,16 @@ def default_persona(who) -> str:
     return got if got in ids else DEFAULT_PERSONA if DEFAULT_PERSONA in ids else (ids[0] if ids else DEFAULT_PERSONA)
 
 
+def auto_persona(who) -> str:
+    """The tester an automatic try uses when none is named (Petar, 22 November 2026: automatic testing is a
+    switch, with a tick for each tester who runs when it is on): the one who tries every change while they
+    are ticked, else the first ticked tester, else the one who tries every change, whose pause then says so."""
+    default = default_persona(who)
+    rows = list(_tester_rows(who).order_by("created_at", "id"))
+    free = [r.key for r in rows if r.paused_at is None]
+    return default if default in free else (free[0] if free else default)
+
+
 def set_default_persona(who, pid: str) -> str:
     from rouh.models import UserSetting
 
@@ -401,10 +411,10 @@ def _refuse_if_paused(who, pid: str) -> None:
     first = (row.name.split() or [pid])[0] if row else pid
     if everyone:
         said = (f"All testing is paused, so {first} did not start a try. Nothing failed: the trial was skipped. "
-                "Resume it on Evolution, Trials, Testers.")
+                "Turn automatic testing on at the top of Evolution, Testing.")
     else:
         said = (f"{first} is paused, so no try was started. Nothing failed: the trial was skipped. "
-                f"Resume {first} on Evolution, Trials, Testers.")
+                f"Tick {first} beside Automatic testing at the top of Evolution, Testing.")
     raise Paused(said, tester=pid, everyone=everyone)
 
 
@@ -584,7 +594,7 @@ def screen_name(title: str, key: str = "") -> str:
 
 def screen_key(url: str) -> str:
     """Which screen an address is, the same for every one of its kind: the path, with every number
-    in it taken out (`/evolution/trials/12` is `/evolution/trials/#`), and no query."""
+    in it taken out (`/evolution/testing/12` is `/evolution/testing/#`), and no query."""
     path = re.sub(r"^[a-z]+://[^/]+", "", str(url or "").strip(), flags=re.I).split("?", 1)[0].split("#", 1)[0]
     path = re.sub(r"(?<=/)(?:[A-Z]{2,5}-)?\d+(?=/|$)", "#", path or "/")
     return path.rstrip("/") or "/"
@@ -875,7 +885,7 @@ def job_line(j: dict) -> str:
     state = {"passed": "passed", "failed": "did not pass", "running": "running now", "queued": "waiting to start",
              "broken": "could not finish"}.get(latest.get("state"), "not tried yet")
     return (f"Job {j['number']}: {j['name']} - latest try {state}; {j['tries_count']} tries; {j['open']} problems "
-            f"open. Goal: {j['goal'] or '-'}  Page: /evolution/trials/job/{j['number']}")
+            f"open. Goal: {j['goal'] or '-'}  Page: /evolution/testing/job/{j['number']}")
 
 
 # --- problems ------------------------------------------------------------------------------------
@@ -1217,7 +1227,7 @@ def feedback_text(who, number) -> str:
              f"time{'' if d['count'] == 1 else 's'}"]
     if s:
         lines.append(f"Found by {s['persona_name']} in try {s['trial']}, step {s['step']} ({s['job_name']}): "
-                     f"/evolution/trials/{s['trial']}")
+                     f"/evolution/testing/{s['trial']}")
     for k, label in (("expected", "What should have happened"), ("actual", "What happened"),
                      ("decision", "Fix it like this"), ("fix", "Suggested fix")):
         if d.get(k):
@@ -1226,7 +1236,7 @@ def feedback_text(who, number) -> str:
     if quotes:
         lines += ["", "In their words:"] + [f"- \"{x['quote']}\" ({x['persona_name'] if x['source'] == 'persona' else 'me'})"
                                             for x in quotes]
-    lines += ["", f"The problem's page: /evolution/trials/problem/{d['number']}"]
+    lines += ["", f"The problem's page: /evolution/testing/problem/{d['number']}"]
     return "\n".join(lines)
 
 
@@ -1266,7 +1276,7 @@ def line_for_model(t: dict) -> str:
     return (f"Trial {t['number']} ({when}): {t['persona_name']} tried {t['job_name'] or t['subject'] or 'a page'}"
             f"{' (job ' + str(t['job']) + ')' if t.get('job') else ''}, round {t['round']} of "
             f"{ROUNDS}, {state}; managed it: {t['managed'] or '-'}; {t['steps']} steps; {t['problems']} problems. "
-            f"Goal: {t['goal']}  Page: /evolution/trials/{t['number']}")
+            f"Goal: {t['goal']}  Page: /evolution/testing/{t['number']}")
 
 
 def problem_line(p: dict) -> str:
@@ -1306,7 +1316,7 @@ def start(who, *, persona_id: str = "", goal: str = "", subject: str = "", gene:
         goal = _job(who, job_no).goal
     if not goal:
         raise Refused("A trial needs its goal: one sentence, as the person would put it.")
-    pid = persona(who, persona_id)["id"] if persona_id else default_persona(who)
+    pid = persona(who, persona_id)["id"] if persona_id else (default_persona(who) if mode == "review" else auto_persona(who))
     # A paused tester, or everyone while all testing is paused, starts no automatic try (Petar, 5 November
     # 2026); a review the owner asked for still starts, and leaves the pause as it was (7 November 2026).
     if mode != "review":
@@ -1680,7 +1690,7 @@ def _told_shipped(who, t) -> None:
         name = trial_dict(t)["persona_name"]
         notices.post(who, title=f"Shipped anyway: {name} still struggles with {t.subject or 'a change'} after two "
                                 f"rounds of fixes.",
-                     link=f"/evolution/trials/{t.number}", link_label="See the trial", kind="trials",
+                     link=f"/evolution/testing/{t.number}", link_label="See the trial", kind="trials",
                      key=f"trial-shipped-{t.org_id}-{t.id}")
     except Exception:  # noqa: BLE001 - the line is worth saying, never worth failing the trial over
         log.exception("trial %s: the owner could not be told", t.number)
@@ -1822,7 +1832,7 @@ def chosen(who, number) -> list[dict]:
 
 def fix_brief(t: dict, picked: list[dict]) -> str:
     lines = [f"‹Owner› went through review {t['number']} of {t['job_name'] or t['subject'] or 'a page of Rouh'} "
-             f"(/evolution/trials/{t['number']}) and chose these problems to fix, each the way they said. Fix these "
+             f"(/evolution/testing/{t['number']}) and chose these problems to fix, each the way they said. Fix these "
              "and nothing else from the review: every other problem it found is left as it is, because ‹owner› did "
              "not choose it.", ""]
     for p in picked:
@@ -1973,7 +1983,7 @@ A trial is a made-up person, a tester (Vesela unless the person made someone els
 
 ```sh
 rouh-trial run --url http://127.0.0.1:<port>/<page> --user <login> --password <pw> --goal "You want to ..." --job "What is tested"   # in a test world you stood up; prints PASS or FAIL
-rouh-trial queue --page /evolution/trials --goal "You want to ..." [--job "..."] [--persona boris] [--wait]   # or --gene <key>; Rouh stands a test world up and runs it
+rouh-trial queue --page /evolution/testing --goal "You want to ..." [--job "..."] [--persona boris] [--wait]   # or --gene <key>; Rouh stands a test world up and runs it
 rouh-trial jobs | job <n>                      # what is being tested, and one job with its tries
 rouh-trial list | read <n> | wait <n>          # the tries; one with its steps, the three answers and its ending
 rouh-trial problems [--status open|decided|fixed|set_aside|all] [--persona vesela] [--job 3] [--source owner|persona]
@@ -2006,11 +2016,11 @@ The person has paused usability testing, so this change has no trial stage: do n
 
 
 def build_paused(who) -> bool:
-    """Whether a build's automatic trial would be skipped now: all testing is paused, or the tester who tries
-    every change is."""
+    """Whether a build's automatic trial would be skipped now: automatic testing is off, or no tester is ticked
+    to run in it."""
     if who is None:
         return False
-    paused, _ = is_paused(who, default_persona(who))
+    paused, _ = is_paused(who, auto_persona(who))
     return paused
 
 
@@ -2035,7 +2045,7 @@ def stage_section(brief: str, who=None) -> str:
 
 
 def by_hand_brief(t: dict, name: str) -> str:
-    link = f"/evolution/trials/{t['number']}"
+    link = f"/evolution/testing/{t['number']}"
     return "\n".join([
         f"‹Owner› asked for a review: a made-up person, {name}, tries {t['job_name'] or t['subject'] or t['page'] or 'a page of Rouh'} the "
         f"way a real person would, with this goal: \"{t['goal']}\". {BY_HAND} It is a report for ‹owner› to read "
@@ -2043,6 +2053,8 @@ def by_hand_brief(t: dict, name: str) -> str:
         "",
         f"1. Stand up a test world with `./e2e.sh serve`, or one from `./e2e.sh serve --list` that has what "
         f"{t['page'] or 'the page'} needs, and note its address, sign-in and process id.",
+        *([f"It begins at Rouh's first screen, {t['page'] or '/'}, unless the goal names another page of Rouh: then begin "
+           "there, in step 2's --url, and say so."] if (t['page'] or '/') == '/' else []),
         f"2. Run `rouh-trial run --review --trial {t['number']} --url http://127.0.0.1:<port>{t['page'] or '/'} --user <its "
         "sign-in> --password <its password>` from your checkout. It drives the browser as "
         f"{name} and asks Rouh's tester at every step. Wait for it to finish, however long it takes.",

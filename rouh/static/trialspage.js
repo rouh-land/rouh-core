@@ -1,4 +1,5 @@
-/* Trials, in Evolution, at `/evolution/trials` (`rouh/web/trials.py`, `rouh/trials/`).
+/* Testing, in Evolution, at `/evolution/testing` (`rouh/web/trials.py`, `rouh/trials/`). It was called Trials, at
+   `/evolution/trials`, until 22 November 2026, when Petar renamed it: those addresses are sent here (`urls.py`).
 
    Petar, 4 November 2026, on the first version: "Terrible first version of trials." What he asked for:
    "1. I need to be able to see and manage the people testing the software. I want to be able to add more
@@ -20,14 +21,14 @@
    testers (the Cast) are in the header on every page, each with a pause button. Only real data: what the
    design drew from numbers Rouh does not record (cost, trait dials, a stop button for a run) is not here.
 
-   The pages, each its own address under /evolution/trials:
-     ''                 the Atlas: a verdict, the tiles, the latest tries, the pages of Rouh, what needs
+   The pages, each its own address under /evolution/testing:
+     ''                 the Dashboard (the Atlas until 22 November 2026): a verdict, the tiles, the latest tries, the pages of Rouh, what needs
                         you, and the jobs (what is being tested; who tried each is inside a job)
      job/<n>            one job: its goal and what it covers, its tries as a ladder and a list
      <n>                one try: its storyboard, step by step, how it ended, and its problems, worst first
      problems           the Fix list: every problem across the jobs, open first, worst first
      problem/<n>        one problem: its story, every sighting, its talk with Rouh, and what to do with it
-     testers            the Cast; testers/new adds one; tester/<key> one whole; tester/<key>/edit changes one
+     testers            the Testers (the Cast until 22 November 2026); testers/new adds one; tester/<key> one whole; tester/<key>/edit changes one
      how                how trials work, and the words they use
    `window.RouhTrials` is what `evolutionpage.js` mounts. Plain words only: Vesela tries this page too. */
 (function () {
@@ -46,8 +47,9 @@
   };
   var MANAGED = { yes: 'Yes', partly: 'Partly', no: 'No' };
   // Said of the tester, by name of what they are: "Confused them" left Vesela asking who "them" is (trial 21).
-  var BAD = { blocked: 'Stopped the tester', confused: 'Confused the tester', annoyed: 'Annoyed the tester', minor: 'Small' };
-  var BAD_SHORT = { blocked: 'Stopped', confused: 'Confused', annoyed: 'Annoyed', minor: 'Small' };
+  var BAD = { blocked: 'Couldn’t continue', confused: 'Confused the tester', annoyed: 'Annoyed the tester', minor: 'Small' };
+  // A type's own name, the words its icon says on hover everywhere it is drawn (Petar, 22 November 2026).
+  var BAD_SHORT = { blocked: 'Couldn’t continue', confused: 'Confused', annoyed: 'Annoyed', minor: 'Small' };
   var BAD_ORDER = ['blocked', 'confused', 'annoyed', 'minor'];
   var BAD_TONE = { blocked: 'rose', confused: 'amber', annoyed: 'violet', minor: 'slate' };
   var STAND = {
@@ -82,7 +84,7 @@
     });
     return a;
   }
-  var HOME = '/evolution/trials';
+  var HOME = '/evolution/testing';
   function call(path, body) {
     var init = { credentials: 'same-origin', cache: 'no-store' };
     // A read that never answers is said, never left as "Opening…" for ever (Vesela, trial 20). Rouh's
@@ -178,18 +180,31 @@
     tap: '<svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M5 7V2.5a1 1 0 0 1 2 0V7l3.5.8c.6.2 1 .8.9 1.4l-.6 3.3H5.5L3 9.5a1 1 0 0 1 1.4-1.4z"/></svg>',
     plus: '<svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M8 3v10M3 8h10"/></svg>'
   };
+  /* Each type's icon says what it is (Petar, 22 November 2026): a stop sign for Couldn't continue, a question
+     mark for Confused, an angry face for Annoyed, and a small i for Small. Drawn on a 12 by 12 grid. */
   var SHAPE = {
-    blocked: '<path d="M3.6 .6h4.8l3 3v4.8l-3 3H3.6l-3-3V3.6z" fill="var(--s-blocked)"/>',
-    annoyed: '<path d="M6 .6 11.5 11H.5z" fill="var(--s-annoyed)"/>',
-    confused: '<path d="M6 .4 11.6 6 6 11.6 .4 6z" fill="var(--s-confused)"/>',
-    minor: '<circle cx="6" cy="6" r="4" fill="none" stroke="var(--s-minor)" stroke-width="2.4"/>'
+    blocked: '<path d="M3.6 .4h4.8l3.2 3.2v4.8l-3.2 3.2H3.6L.4 8.4V3.6z" fill="var(--s-blocked)"/>' +
+      '<rect x="2.6" y="5" width="6.8" height="2" rx=".5" fill="#fff"/>',
+    confused: '<circle cx="6" cy="6" r="5.6" fill="var(--s-confused)"/>' +
+      '<path d="M4.2 4.6a1.85 1.85 0 1 1 2.6 1.7c-.5.25-.8.6-.8 1.2v.3" fill="none" stroke="var(--s-glyph, #161827)" stroke-width="1.5" stroke-linecap="round"/>' +
+      '<circle cx="6" cy="9.4" r=".85" fill="var(--s-glyph, #161827)"/>',
+    annoyed: '<circle cx="6" cy="6" r="5.6" fill="var(--s-annoyed)"/>' +
+      '<path d="M2.9 3.7l2.2 1.1M9.1 3.7 6.9 4.8M3.8 9.2c1.3-1.3 3.1-1.3 4.4 0" fill="none" stroke="var(--s-glyph, #161827)" stroke-width="1.3" stroke-linecap="round"/>' +
+      '<circle cx="4.2" cy="6.1" r=".75" fill="var(--s-glyph, #161827)"/><circle cx="7.8" cy="6.1" r=".75" fill="var(--s-glyph, #161827)"/>',
+    minor: '<circle cx="6" cy="6" r="4.6" fill="none" stroke="var(--s-minor)" stroke-width="1.6"/>' +
+      '<path d="M6 5.4v3" stroke="var(--s-minor)" stroke-width="1.6" stroke-linecap="round"/><circle cx="6" cy="3.6" r=".85" fill="var(--s-minor)"/>'
   };
   /* Only the fixed strings above ever go through innerHTML: nothing a person or a tester wrote. */
   function icon(name) { var s = el('span', 'tr-ic'); s.innerHTML = ICON[name] || ''; s.setAttribute('aria-hidden', 'true'); return s; }
+  /* A type's icon, with its name on hover and for a screen reader, wherever it is drawn. */
   function shape(bad, size) {
     var s = el('span', 'tr-shape');
+    var name = BAD_SHORT[bad] || BAD_SHORT.minor;
     s.innerHTML = '<svg width="' + (size || 12) + '" height="' + (size || 12) + '" viewBox="0 0 12 12" aria-hidden="true">' +
       (SHAPE[bad] || SHAPE.minor) + '</svg>';
+    s.title = name;
+    s.setAttribute('role', 'img');
+    s.setAttribute('aria-label', name);
     return s;
   }
   function sev(bad, long) {
@@ -386,7 +401,7 @@
     return { page: 'jobs' };
   }
 
-  /* What the header and the Atlas stand on: every job, the newest tries, the counts and the testers. */
+  /* What the header and the Dashboard stand on: every job, the newest tries, the counts and the testers. */
   function loadShell() {
     return call('').then(function (j) { S.shell = j; if (!where().page.match(/^jobs$/)) { drawTop(); } return j; });
   }
@@ -495,20 +510,19 @@
       var foot = el('nav', 'tr-foot');
       foot.setAttribute('aria-label', 'Back to a list');
       foot.appendChild(el('span', 'tr-dim', 'Back to:'));
-      [['The Atlas', HOME], ['The Fix list', HOME + '/problems'], ['The testers', HOME + '/testers'],
+      [['The dashboard', HOME], ['The Fix list', HOME + '/problems'], ['The testers', HOME + '/testers'],
        ['Add a tester', HOME + '/testers/new']].forEach(function (x) {
         foot.appendChild(link(x[0], x[1]));
       });
       main.appendChild(foot);
     }
     drawToast();
-    // The step strip stays pinned under the Trials header, which is itself pinned on a wide page.
-    if (S.top && getComputedStyle(S.top).position === 'sticky') { root.style.setProperty('--tr-top-h', S.top.offsetHeight + 'px'); }
-    else { root.style.setProperty('--tr-top-h', '0px'); }
     if (keep) { var back = document.getElementById(keep); if (back) { back.focus(); } }
   }
 
-  /* The header on every page: the four places, the testers with their pause buttons, and Run a trial. */
+  /* The header on every page (Petar, 22 November 2026): the four places, the switch for automatic testing with
+     a tick for each tester who runs while it is on, and Test something, which opens the start form. It scrolls
+     with the page: only Evolution's title bar and the Fix bar stay pinned. */
   function drawTop() {
     var top = S.top;
     if (!top) { return; }
@@ -519,10 +533,10 @@
       : page === 'tester' || page === 'testers' || page === 'form' ? 'testers' : 'how';
     var sh = S.shell;
     var nav = el('nav', 'tr-nav');
-    nav.setAttribute('aria-label', 'Trials');
-    [['jobs', 'Atlas', '', HOME], ['problems', 'Fix list', '', HOME + '/problems'], ['testers', 'Cast', 'Testers', HOME + '/testers'],
-     ['how', 'How it works', '', HOME + '/how']].forEach(function (v) {
-      var a = link('', v[3], 'tr-nav-a' + (v[2] ? ' is-two' : ''));
+    nav.setAttribute('aria-label', 'Testing');
+    [['jobs', 'Dashboard', HOME], ['problems', 'Fix list', HOME + '/problems'], ['testers', 'Testers', HOME + '/testers'],
+     ['how', 'How it works', HOME + '/how']].forEach(function (v) {
+      var a = link('', v[2], 'tr-nav-a');
       var top1 = el('span', 'tr-nav-w', v[1]);
       if (v[0] === 'problems' && sh && sh.counts && sh.counts.by) {
         var c = el('span', 'tr-nav-count', String(sh.counts.by.open));
@@ -530,59 +544,60 @@
         top1.appendChild(c);
       }
       a.appendChild(top1);
-      if (v[2]) { a.appendChild(el('span', 'tr-nav-sub', v[2])); }
       if (on === v[0]) { a.setAttribute('aria-current', 'page'); }
       nav.appendChild(a);
     });
     top.appendChild(nav);
-    var cast = el('div', 'tr-cast');
-    cast.setAttribute('role', 'group');
-    cast.setAttribute('aria-label', 'The testers');
-    cast.appendChild(el('span', 'tr-cast-lbl', 'Cast'));
-    var live = sh ? (sh.testers || []).filter(function (t) { return !t.archived; }) : [];
-    live.forEach(function (t) {
-      var held = !!t.paused || !!(sh && sh.paused_all);
-      var m = el('span', 'tr-member');
-      var a = link('', HOME + '/tester/' + t.key, 'tr-member-a');
-      a.appendChild(face(t, '', held));
-      a.setAttribute('aria-label', t.name + ', ' + (held ? 'paused' : 'testing'));
-      a.title = t.name + (held ? ', paused' : ', testing');
-      m.appendChild(a);
-      if (!(sh && sh.paused_all)) {
-        var b = button('tr-member-b', null);
-        b.appendChild(icon(t.paused ? 'play' : 'pause'));
-        b.setAttribute('aria-label', (t.paused ? 'Resume ' : 'Pause ') + t.first);
-        b.title = (t.paused ? 'Resume ' : 'Pause ') + t.first;
-        b.addEventListener('click', function () { setPause(t.key, !t.paused, t.first); });
-        m.appendChild(b);
-      }
-      cast.appendChild(m);
-    });
-    if (sh && live.length) { cast.appendChild(pauseAllButton(live, !!sh.paused_all, 'tr-btn')); }
-    top.appendChild(cast);
+    if (sh) { top.appendChild(autoControl(sh)); }
     var run = button('tr-btn tr-outline tr-run', null);
-    withIcon(run, 'phone', 'Run a trial');
+    withIcon(run, 'phone', 'Test something');
     run.addEventListener('click', function () { openStart(); });
     top.appendChild(run);
   }
 
-  /* One button for everyone: the switch that pauses every tester, or, when each is paused on their own,
-     resuming each of them. With every tester paused on their own, a second Pause only made people doubt (trial 37). */
-  function pauseAllButton(live, switchOn, cls) {
-    var every = live.length > 0 && live.every(function (t) { return t.paused; });
-    var b = button(cls || 'tr-btn', null);
-    if (switchOn) {
-      withIcon(b, 'play', 'Resume all');
-      b.addEventListener('click', function () { setPause('', false, ''); });
-    } else if (every) {
-      withIcon(b, 'play', 'Resume all');
-      b.addEventListener('click', function () { live.forEach(function (t) { setPause(t.key, false, t.first, true); }); toast('Every tester is testing again.'); });
-    } else {
-      withIcon(b, 'pause', 'Pause all');
-      b.addEventListener('click', function () { setPause('', true, ''); });
+  function liveTesters(sh) { return ((sh && sh.testers) || []).filter(function (t) { return !t.archived; }); }
+  function autoOn(sh) { return !(sh && sh.paused_all); }
+
+  /* Automatic testing: one ON/OFF switch, and beside it which testers run while it is on, a tick each, saved
+     at once. It is the same pause as before, said the other way round: off is every tester paused at once,
+     and an unticked tester is paused on their own. A test you start yourself runs either way. */
+  function autoControl(sh) {
+    var box = el('div', 'tr-auto');
+    var isOn = autoOn(sh);
+    var sw = button('tr-switch' + (isOn ? ' is-on' : ''), null);
+    sw.setAttribute('role', 'switch');
+    sw.setAttribute('aria-checked', isOn ? 'true' : 'false');
+    sw.id = 'tr-auto-switch';
+    var track = el('span', 'tr-switch-track');
+    track.setAttribute('aria-hidden', 'true');
+    track.appendChild(el('span', 'tr-switch-knob'));
+    sw.appendChild(track);
+    sw.appendChild(el('span', 'tr-switch-name', 'Automatic testing'));
+    sw.appendChild(el('b', 'tr-switch-state', isOn ? 'ON' : 'OFF'));
+    sw.title = isOn ? 'Testers try each change Rouh builds that you will see. Press to turn it off.'
+      : 'No tester tries a change by itself. A test you start still runs. Press to turn it on.';
+    sw.addEventListener('click', function () { setPause('', isOn, ''); });
+    box.appendChild(sw);
+    var live = liveTesters(sh);
+    if (live.length) {
+      var who = el('fieldset', 'tr-runs' + (isOn ? '' : ' is-off'));
+      who.appendChild(el('legend', 'tr-runs-lbl', 'Who runs'));
+      live.forEach(function (t) {
+        var l = el('label', 'tr-runs-t');
+        var c = el('input');
+        c.type = 'checkbox';
+        c.id = 'tr-runs-' + t.key;
+        c.checked = !t.paused;
+        c.addEventListener('change', function () { setPause(t.key, !c.checked, t.first); });
+        l.appendChild(c);
+        l.appendChild(face(t, 'xs'));
+        l.appendChild(el('span', '', t.first));
+        l.title = t.first + (t.paused ? ' does not run in automatic testing' : ' runs when automatic testing is on');
+        who.appendChild(l);
+      });
+      box.appendChild(who);
     }
-    b.setAttribute('aria-label', switchOn || every ? 'Resume all testing' : 'Pause all testing');
-    return b;
+    return box;
   }
 
   function choose(label, value, options, onChange) {
@@ -602,7 +617,7 @@
     return wrap;
   }
 
-  /* ---- the Atlas ---- */
+  /* ---- the Dashboard (the Atlas until 22 November 2026) ---- */
 
   function finished(t) { return t.state === 'passed' || t.state === 'failed'; }
   /* A try still going an hour after it began is stuck: a try takes minutes. Rouh has no way to stop one yet. */
@@ -667,7 +682,7 @@
   function drawJobs(root) {
     var sh = S.shell, d = S.data.jobs;
     moved('');
-    if (!sh || !d) { if (!S.error) { root.appendChild(el('p', 'tr-loading', 'Opening the Atlas…')); } return; }
+    if (!sh || !d) { if (!S.error) { root.appendChild(el('p', 'tr-loading', 'Opening the dashboard…')); } return; }
     root.appendChild(el('h1', 'tr-headline', verdictLine(sh)));
     var open = (S.open && S.open.problems) || [];
     var by = (sh.counts && sh.counts.by) || {};
@@ -748,13 +763,13 @@
     }
     tiles.appendChild(t3);
 
-    var live = (sh.testers || []).filter(function (t) { return !t.archived; });
-    var heldN = sh.paused_all ? live.length : live.filter(function (t) { return t.paused; }).length;
+    var live = liveTesters(sh);
+    var ticked = live.filter(function (t) { return !t.paused; });
     var t4 = stat('Testers', HOME + '/testers');
-    t4.appendChild(el('div', 'tr-big-n', (live.length - heldN) + ' of ' + live.length + ' testing'));
-    t4.appendChild(el('p', 'tr-cap', sh.paused_all ? 'All testing is paused. No tester starts a try by itself until you resume.'
-      : heldN ? live.filter(function (t) { return t.paused; }).map(function (t) { return t.first; }).join(' and ') + (heldN === 1 ? ' is' : ' are') + ' paused.'
-      : 'Every tester tries changes as usual.'));
+    t4.appendChild(el('div', 'tr-big-n', sh.paused_all ? 'Automatic testing off' : ticked.length + ' of ' + live.length + ' run'));
+    t4.appendChild(el('p', 'tr-cap', sh.paused_all ? 'No tester tries a change by itself. ' + (ticked.length ? ticked.map(function (t) { return t.first; }).join(' and ') + ' run' + (ticked.length === 1 ? 's' : '') + ' when it is on.' : '')
+      : ticked.length < live.length ? (ticked.length ? ticked.map(function (t) { return t.first; }).join(' and ') + ' run' + (ticked.length === 1 ? 's' : '') + ' in automatic testing.' : 'No tester is ticked to run.')
+      : 'Every tester runs in automatic testing.'));
     var faces = el('div', 'tr-faces');
     live.forEach(function (t) { faces.appendChild(face(t, 'xs', !!t.paused || !!sh.paused_all)); });
     t4.appendChild(faces);
@@ -892,24 +907,11 @@
     (sh.jobs || []).filter(function (j) { return j.latest && j.latest.state === 'broken'; }).forEach(function (j) {
       need('x', 'Try ' + j.latest.number + ' could not finish', j.name + ': the tester gave back no report, which is not the same as no problems.', HOME + '/' + j.latest.number);
     });
-    var live = (sh.testers || []).filter(function (t) { return !t.archived; });
+    var live = liveTesters(sh);
     var held = live.filter(function (t) { return t.paused; });
-    if (sh.paused_all || held.length) {
-      var sub = el('div', 'tr-need-s');
-      sub.appendChild(el('div', '', 'No automatic tries start while ' + (sh.paused_all || held.length === live.length ? (live.length === 2 ? 'they are' : 'everyone is') : (held.length === 1 ? held[0].first + ' is' : 'they are')) + ' paused. A trial you ask for still runs.'));
-      var actions = el('div', 'tr-flex');
-      if (sh.paused_all || held.length === live.length) { actions.appendChild(pauseAllButton(live, !!sh.paused_all, 'tr-btn tr-btn-s')); }
-      else {
-        held.forEach(function (t) {
-          var b = button('tr-btn tr-btn-s', null);
-          withIcon(b, 'play', 'Resume ' + t.first);
-          b.addEventListener('click', function () { setPause(t.key, false, t.first); });
-          actions.appendChild(b);
-        });
-      }
-      sub.appendChild(actions);
-      need('pause', sh.paused_all ? 'All testing is paused' : held.length === live.length ? (live.length === 2 ? 'Both testers are paused' : 'Every tester is paused')
-        : held.map(function (t) { return t.first; }).join(' and ') + (held.length === 1 ? ' is paused' : ' are paused'), sub, '');
+    if (sh.paused_all || (live.length && held.length === live.length)) {
+      need('pause', sh.paused_all ? 'Automatic testing is off' : 'No tester is ticked to run in automatic testing',
+        'No tester tries a change by itself until you turn it on at the top. A test you start still runs.', '');
     }
     open.filter(function (p) { return !p.awaiting_choice; }).slice(0, 3).forEach(function (p) {
       var s = el('div', 'tr-need-s');
@@ -970,13 +972,13 @@
   function drawJob(root, w) {
     var d = S.data.job;
     if (!d || String(d.job.number) !== w.n) {
-      root.appendChild(crumbs([['Atlas', HOME], ['Job ' + w.n]]));
+      root.appendChild(crumbs([['Dashboard', HOME], ['Job ' + w.n]]));
       if (!S.error) { root.appendChild(el('p', 'tr-loading', 'Opening the job…')); }
       return;
     }
     var j = d.job;
     moved(j.name);
-    root.appendChild(crumbs([['Atlas', HOME], [j.name]]));
+    root.appendChild(crumbs([['Dashboard', HOME], [j.name]]));
     var hub = el('div', 'tr-hub');
     var ph = el('section', 'tr-phone tr-hub-phone');
     ph.appendChild(el('h1', 'tr-h1', j.name));
@@ -1133,7 +1135,9 @@
     return box;
   }
 
-  /* Run a trial, from the header: pick a job and a tester, and the try opens and fills in as it goes. */
+  /* Test something, from the header (Petar, 22 November 2026): say in a sentence what needs testing, pick the
+     tester or testers, and Start. Each tester's test is a review, the same kind of try the old Run a trial
+     started: nothing is fixed from it until you choose what. With one tester its page opens and fills in as it goes. */
   function openStart() {
     var sh = S.shell;
     var dlg = el('dialog', 'tr-dlg');
@@ -1141,7 +1145,7 @@
     var f = el('form', 'tr-dlg-in');
     f.method = 'dialog';
     var head = el('div', 'tr-dlg-head');
-    var h = el('h2', 'tr-h2', 'Run a trial');
+    var h = el('h2', 'tr-h2', 'Test something');
     h.id = 'tr-dlg-h';
     head.appendChild(h);
     var x = button('tr-icon-btn', null);
@@ -1149,58 +1153,44 @@
     x.setAttribute('aria-label', 'Close');
     head.appendChild(x);
     f.appendChild(head);
-    f.appendChild(el('p', 'tr-dim', 'A tester who has seen nothing before tries the job from the start, and you watch the steps ' +
-      'arrive. It is a review you asked for: nothing is fixed from it until you choose what.'));
-    var jobs = (sh && sh.jobs) || [];
-    var testers = ((sh && sh.testers) || []).filter(function (t) { return !t.archived; });
-    var pickJob = el('fieldset', 'tr-pick');
-    pickJob.appendChild(el('legend', 'tr-label', 'Which job'));
-    jobs.forEach(function (j, i) {
-      var l = el('label');
-      var r = el('input');
-      r.type = 'radio'; r.name = 'job'; r.value = String(j.number);
-      if (i === 0) { r.checked = true; }
-      l.appendChild(r);
-      l.appendChild(el('b', '', j.name));
-      var lt = j.latest && trialOf(sh, j.latest.number);
-      l.appendChild(el('span', 'tr-dim', !j.latest ? 'Not tried yet' : lt && stuck(lt) ? 'Stuck since ' + dayShort(lt.started_at || lt.created_at)
-        : (RESULT[j.latest.state] || ['?'])[0] + ' last time'));
-      pickJob.appendChild(l);
-    });
-    if (!jobs.length) { pickJob.appendChild(el('p', 'tr-empty', 'There is no job yet. A job is made the first time a change is tried.')); }
-    f.appendChild(pickJob);
+    var wrap = el('label', 'tr-field');
+    wrap.appendChild(el('span', 'tr-label', 'What needs testing'));
+    var what = el('textarea', 'tr-input tr-area');
+    what.id = 'tr-start-what';
+    what.rows = 4;
+    what.placeholder = 'For example: You want to find the problems Vesela hit on the Fix list and choose one to fix. Name a page, such as /evolution/testing/problems, to start there.';
+    wrap.appendChild(what);
+    f.appendChild(wrap);
+    var testers = liveTesters(sh);
     var pickT = el('fieldset', 'tr-pick');
-    pickT.appendChild(el('legend', 'tr-label', 'Who tries it'));
+    pickT.appendChild(el('legend', 'tr-label', 'Who tests it'));
     var def = sh && sh['default'];
-    var firstFree = null, anyone = null;
-    // A paused tester can be picked too: the pause holds back only automatic tries, so a trial asked for here
-    // runs while they stay paused, and nothing resumes them (Petar, 7 November 2026).
     testers.forEach(function (t) {
-      var held = !!t.paused || !!(sh && sh.paused_all);
       var l = el('label', 'tr-pick-t');
-      var r = el('input');
-      r.type = 'radio'; r.name = 'tester'; r.value = t.key;
-      if (!anyone || t.key === def) { anyone = r; }
-      if (t.key === def || !firstFree) { firstFree = r; }
-      l.appendChild(r);
-      l.appendChild(face(t, '', held));
+      var c = el('input');
+      c.type = 'checkbox'; c.name = 'tester'; c.value = t.key;
+      c.checked = t.key === def || (testers.length === 1);
+      l.appendChild(c);
+      l.appendChild(face(t, ''));
       var w = el('span');
       w.appendChild(el('b', '', t.first));
-      w.appendChild(el('span', 'tr-dim', held ? ' paused for automatic tries' : ''));
+      if (t.short) { w.appendChild(el('span', 'tr-dim', ' ' + t.short)); }
       l.appendChild(w);
       pickT.appendChild(l);
     });
-    (firstFree || anyone || {}).checked = true;
+    if (!testers.length) { pickT.appendChild(el('p', 'tr-empty', 'There are no testers yet. Add one on Testers first.')); }
     f.appendChild(pickT);
+    f.appendChild(el('p', 'tr-dim', 'Each tester has seen nothing before and tries it on a phone. You get the whole walk-through and what ' +
+      'they found; nothing is fixed until you choose what. It runs whether automatic testing is on or off.'));
     var err = el('p', 'tr-err-words');
+    err.setAttribute('role', 'alert');
     f.appendChild(err);
     var foot = el('div', 'tr-dlg-foot');
     var cancel = button('tr-btn', 'Cancel');
     var startB = button('tr-btn tr-primary', null);
-    withIcon(startB, 'phone', 'Start the trial');
+    withIcon(startB, 'phone', 'Start');
     startB.type = 'submit';
-    if ((sh && sh.paused_all) || testers.some(function (t) { return t.paused; })) pickT.appendChild(el('p', 'tr-dim', 'A pause holds back only the tries Rouh starts by itself. A trial you start here runs, and the pause stays.'));
-    startB.disabled = !testers.length || !jobs.length;
+    startB.disabled = !testers.length;
     foot.appendChild(cancel);
     foot.appendChild(startB);
     f.appendChild(foot);
@@ -1217,23 +1207,36 @@
     dlg.addEventListener('click', function (e) { if (e.target === dlg) { shut(); } });
     f.addEventListener('submit', function (e) {
       e.preventDefault();
-      var jn = (f.querySelector('input[name=job]:checked') || {}).value;
-      var tk = (f.querySelector('input[name=tester]:checked') || {}).value;
-      if (!jn || !tk) { return; }
+      var goal = what.value.trim();
+      var keys = [].slice.call(f.querySelectorAll('input[name=tester]:checked')).map(function (c) { return c.value; });
+      if (!goal) { err.textContent = 'Say what needs testing first.'; what.focus(); return; }
+      if (!keys.length) { err.textContent = 'Tick at least one tester.'; return; }
+      // A page named in the words is where it begins; otherwise Rouh's first screen, and the run reads the words.
+      var page = (/(?:^|\s)(\/[a-z][\w\-\/]*)/i.exec(goal) || [])[1] || '';
+      var subject = goal.replace(/\s+/g, ' ').slice(0, 80);
       startB.disabled = true;
       err.textContent = '';
-      call('/jobs/' + jn + '/run', { persona: tk }).then(function (j) {
+      var started = [];
+      keys.reduce(function (p, k) {
+        return p.then(function () {
+          return call('/new', { goal: goal, page: page, subject: subject, persona: k }).then(function (j) { started.push(j); });
+        });
+      }, Promise.resolve()).then(function () {
         shut();
-        S.carry = j.said || 'Starting.';
         S.shell = null;
-        go(HOME + '/' + j.trial.number);
-      }, function (e2) { startB.disabled = false; err.textContent = String((e2 && e2.message) || e2); });
+        if (started.length === 1) { S.carry = started[0].said || 'Starting.'; go(HOME + '/' + started[0].trial.number); return; }
+        S.carry = started.length + ' tests are starting: ' + started.map(function (j) { return j.trial.persona_name + ' in try ' + j.trial.number; }).join(', ') +
+          '. Each takes a few minutes, and shows under Latest tries.';
+        if (where().page === 'jobs') { S.said = S.carry; S.carry = ''; load(); } else { go(HOME); }
+      }, function (e2) {
+        startB.disabled = false;
+        err.textContent = (started.length ? started.length + ' started, then: ' : '') + String((e2 && e2.message) || e2);
+      });
     });
     document.addEventListener('keydown', esc, true);
     (S.root || document.body).appendChild(dlg);
     dlg.showModal();
-    var firstInput = f.querySelector('input:checked');
-    if (firstInput) { firstInput.focus(); }
+    what.focus();
   }
 
   /* ---- one try ---- */
@@ -1244,14 +1247,14 @@
   function drawTry(root, w) {
     var d = S.data['try'];
     if (!d || String(d.trial.number) !== w.n) {
-      root.appendChild(crumbs([['Atlas', HOME], ['Try ' + w.n]]));
+      root.appendChild(crumbs([['Dashboard', HOME], ['Try ' + w.n]]));
       if (!S.error) { root.appendChild(el('p', 'tr-loading', 'Opening the try…')); }
       return;
     }
     var t = d.trial, name = t.persona_name;
     moved((t.job_name || upper(t.subject)) + ', try ' + t.number);
-    root.appendChild(crumbs(t.job ? [['Atlas', HOME], [t.job_name, HOME + '/job/' + t.job], ['Try ' + t.number]]
-      : [['Atlas', HOME], ['Try ' + t.number]]));
+    root.appendChild(crumbs(t.job ? [['Dashboard', HOME], [t.job_name, HOME + '/job/' + t.job], ['Try ' + t.number]]
+      : [['Dashboard', HOME], ['Try ' + t.number]]));
     var going = t.state === 'queued' || t.state === 'running';
     var walk = t.walk || [];
     var found = t.found || [];
@@ -1475,9 +1478,13 @@
     box.appendChild(head);
     if (s) {
       var grid = el('div', 'tr-sgrid');
+      // The left column is the screenshot alone, whole and uncropped at the column's width (Petar, 22 November
+      // 2026); a press still opens it larger. The three answers lead the right column, above Saw, Said and Did.
       var left = el('div', 'tr-sleft');
       if (s.shot) { left.appendChild(shot(API + '/' + t.number + '/shot/' + s.n, 'What ' + name + ' saw at step ' + s.n, 'tr-sshot')); }
       else { left.appendChild(el('p', 'tr-noshot', 'No picture was kept of this step.')); }
+      grid.appendChild(left);
+      var right = el('div', 'tr-sright');
       if (s.answers && (s.answers.what || s.answers.how || s.answers.then)) {
         var three = el('dl', 'tr-three');
         [['What is this?', s.answers.what], ['What do I do here?', s.answers.how], ['What happens when I do it?', s.answers.then]]
@@ -1488,10 +1495,8 @@
             three.appendChild(dt);
             three.appendChild(el('dd', '', q[1] || '–'));
           });
-        left.appendChild(three);
+        right.appendChild(three);
       }
-      grid.appendChild(left);
-      var right = el('div', 'tr-sright');
       var kv = el('dl', 'tr-kv');
       [['Saw', s.see], ['Said', s.think ? '“' + s.think + '”' : ''], ['Did', s.does]].forEach(function (x) {
         if (!x[1]) { return; }
@@ -1574,13 +1579,13 @@
       b.id = rowId(stepN, f);
       b.setAttribute('aria-pressed', f === sel ? 'true' : 'false');
       b.setAttribute('aria-controls', 'tr-pd-' + key.replace(':', '-'));
+      // The type is its icon, named on hover; the second line is only its number and where it stands.
       var ty = el('span', 'tr-ptype');
-      ty.appendChild(shape(f.how_bad, 14));
-      ty.title = 'Type: ' + (BAD[f.how_bad] || f.how_bad);
+      ty.appendChild(shape(f.how_bad, 16));
       b.appendChild(ty);
       var words = el('span', 'tr-pnr-w');
       words.appendChild(el('span', 'tr-pnr-t', f.what));
-      words.appendChild(el('span', 'tr-pnr-s', 'Problem ' + f.number + ' · ' + BAD_SHORT[f.how_bad] + ' here · ' + clarify(f)));
+      words.appendChild(el('span', 'tr-pnr-s', '#' + f.number + ' · ' + clarify(f)));
       b.appendChild(words);
       b.addEventListener('click', function () {
         S.pick[key] = f.number; S.cardDeciding = 0; draw();
@@ -1600,13 +1605,20 @@
     return wrap;
   }
 
-  /* What the problem page has that the step above does not show: their words, what should have happened and
-     what did, the suggested fix, the four choices, how far it is from fixed, and the talk with Rouh. */
+  /* What the problem page has that the step above does not show (Petar, 22 November 2026, second round): how far
+     it is from fixed at the top, with no label; their words, what should have happened and what did; the suggested
+     fix with the choices straight after it; and Discuss/Ask, which opens the problem's own chat with Rouh right
+     underneath and folds it away again, leaving the panel as it was. */
   function problemDetails(t, stepN, f, going) {
     var name = t.persona_name;
     var p = (S.pcache && S.pcache[f.number]) || null;
     var box = el('div', 'tr-pd');
     box.setAttribute('aria-live', 'polite');
+    var far = el('div', 'tr-pd-far');
+    var ch = chain(p ? Object.assign({}, p, { verdict: f.verdict, verdict_at: f.verdict_at, standing: f.standing }) : f);
+    ch.title = RULE;
+    far.appendChild(ch);
+    box.appendChild(far);
     var top = el('div', 'tr-pd-top');
     top.appendChild(el('h4', 'tr-h3 tr-pd-h', f.what));
     var chips = el('div', 'tr-chips');
@@ -1614,7 +1626,7 @@
     chips.appendChild(standBadge(p ? Object.assign({}, p, f, { sightings: p.sightings }) : f));
     top.appendChild(chips);
     var sub = el('p', 'tr-dim');
-    sub.appendChild(document.createTextNode('Problem ' + f.number + (f.count > 1 ? ' · seen ' + f.count + ' times' : ' · seen once') +
+    sub.appendChild(document.createTextNode('#' + f.number + (f.count > 1 ? ' · seen ' + f.count + ' times' : ' · seen once') +
       (f.screen_name ? ' · ' + f.screen_name : '') + ' · '));
     sub.appendChild(link('Open its own page', HOME + '/problem/' + f.number, 'tr-a'));
     top.appendChild(sub);
@@ -1634,66 +1646,59 @@
     if (f.actual) { var a2 = el('div'); a2.appendChild(el('h5', 'tr-label', 'What happened')); a2.appendChild(el('p', '', f.actual)); eh.appendChild(a2); }
     if (eh.childNodes.length) { box.appendChild(eh); }
     if (f.decision && f.verdict === 'decided') { box.appendChild(said('You decided: fix it like this', f.decision, 'tr-decided')); }
-    if (f.fix && !(f.verdict === 'decided' && f.decision === f.fix)) { box.appendChild(said(f.decision && f.verdict === 'decided' ? 'Rouh’s first suggestion' : 'Suggested fix', f.fix)); }
     if (f.decision === f.fix && f.verdict === 'decided') { box.appendChild(el('p', 'tr-dim', 'That is the suggested fix, as Rouh wrote it.')); }
+    if (f.fix && !(f.verdict === 'decided' && f.decision === f.fix)) { box.appendChild(said(f.decision && f.verdict === 'decided' ? 'Rouh’s first suggestion' : 'Suggested fix', f.fix)); }
     if (!going && f.standing !== 'fixed') { box.appendChild(choices(t, stepN, f)); }
-    var far = el('div', 'tr-pd-far');
-    far.appendChild(el('h5', 'tr-label', 'How far it is from fixed'));
-    far.appendChild(chain(p ? Object.assign({}, p, { verdict: f.verdict, verdict_at: f.verdict_at, standing: f.standing }) : f));
-    far.appendChild(el('p', 'tr-rule', RULE));
-    box.appendChild(far);
-    var talk = el('div', 'tr-pd-talk');
-    S.talkOpen = S.talkOpen || {};
-    if (!S.talkOpen[f.number]) {
-      // Closed until pressed: 24 open talks made the page very long, and each asked Rouh for its thread. A
-      // question can still be asked in one press, and the talk opens with Rouh's answer.
-      talk.appendChild(el('h5', 'tr-label', 'Talk it over with Rouh'));
-      var qs = el('div', 'tr-actions');
-      if (!f.notes) {
-        [f.how_bad === 'blocked' ? 'Why did this stop the tester?' : 'Why did this happen?', 'How would you fix it?', 'Is it worth fixing now?']
-          .forEach(function (q) {
-            var b = button('tr-btn tr-btn-s', q);
-            b.disabled = !!S.busy;
-            b.addEventListener('click', function () { askRouh(t, f, q); });
-            qs.appendChild(b);
-          });
-      }
-      var open = button('tr-btn tr-btn-s tr-quiet', f.notes ? 'Open the talk (' + plural(f.notes, 'message') + ')' : 'Write your own question');
-      open.addEventListener('click', function () { S.talkOpen[f.number] = 1; draw(); });
-      qs.appendChild(open);
-      talk.appendChild(qs);
-      if (S.busy === 'say' && S.asking === f.number) { talk.appendChild(el('p', 'tr-thinking', 'Rouh is answering…')); }
-    } else if (p) { talk.appendChild(thread(p, function (got) { keepProblem(t, got); })); }
-    else {
-      S.pload = S.pload || {};
-      if (!S.pload[f.number]) {
-        S.pload[f.number] = 1;
-        call('/problems/' + f.number).then(function (j) { S.pcache = S.pcache || {}; S.pcache[f.number] = j.problem; draw(); },
-          function (e) { S.pload[f.number] = 0; S.talkOpen[f.number] = 0; fail(e); });
-      }
-      talk.appendChild(el('p', 'tr-loading', 'Opening the talk with Rouh…'));
-    }
-    box.appendChild(talk);
+    box.appendChild(discuss(t, f));
     return box;
   }
 
-  /* One question to Rouh about a problem, from the closed talk: it opens with the answer. */
-  function askRouh(t, f, q) {
-    S.busy = 'say'; S.asking = f.number;
-    draw();
-    call('/problems/' + f.number + '/say', { text: q }).then(function (got) {
-      // The talk opens with the question and Rouh's answer in it.
-      S.busy = ''; S.asking = 0; S.talkOpen[f.number] = 1;
-      keepProblem(t, got.problem);
-      draw();
-    }, function (e) { S.asking = 0; fail(e); });
+  /* Discuss/Ask: a toggle that opens the problem's own talk with Rouh inline, the same thread its page has, so
+     nothing said before is lost; Close folds it away. */
+  function discuss(t, f) {
+    S.talkOpen = S.talkOpen || {};
+    var open = !!S.talkOpen[f.number];
+    var talk = el('div', 'tr-pd-talk' + (open ? ' is-open' : ''));
+    var tid = 'tr-talk-' + f.number;
+    var tog = button('tr-linkbtn tr-discuss', open ? 'Close Discuss/Ask' : 'Discuss/Ask');
+    tog.id = 'tr-discuss-' + f.number;
+    tog.setAttribute('aria-expanded', open ? 'true' : 'false');
+    tog.setAttribute('aria-controls', tid);
+    if (!open && f.notes) { tog.appendChild(el('span', 'tr-dim', ' · ' + plural(f.notes, 'message'))); }
+    function shut() { S.talkOpen[f.number] = 0; draw(); var back = document.getElementById(tog.id); if (back) { back.focus({ preventScroll: true }); } }
+    tog.addEventListener('click', function () {
+      if (open) { shut(); return; }
+      S.talkOpen[f.number] = 1; draw();
+      var area = document.getElementById('tr-say-' + f.number);
+      if (area) { area.focus({ preventScroll: true }); }
+    });
+    talk.appendChild(tog);
+    if (!open) { return talk; }
+    var body = el('div', 'tr-pd-chat');
+    body.id = tid;
+    var p = (S.pcache && S.pcache[f.number]) || null;
+    if (p) {
+      body.appendChild(thread(p, function (got) { keepProblem(t, got); }, { title: 'Discuss/Ask', close: shut }));
+    } else {
+      S.pload = S.pload || {};
+      if (!S.pload[f.number]) {
+        S.pload[f.number] = 1;
+        call('/problems/' + f.number).then(function (j) {
+          S.pcache = S.pcache || {}; S.pcache[f.number] = j.problem; S.pload[f.number] = 0; draw();
+          var area = document.getElementById('tr-say-' + f.number);
+          if (area) { area.focus({ preventScroll: true }); }
+        }, function (e) { S.pload[f.number] = 0; S.talkOpen[f.number] = 0; fail(e); });
+      }
+      body.appendChild(el('p', 'tr-loading', 'Opening the talk with Rouh…'));
+    }
+    talk.appendChild(body);
+    return talk;
   }
 
-  /* The four choices, the same as on the problem page, and Take it back. */
+  /* The choices, the same as on the problem page, and Take it back, straight after the suggested fix. */
   function choices(t, stepN, f) {
     var wrap = el('div', 'tr-pd-choose');
     var rw = runningWave(f);
-    wrap.appendChild(el('h5', 'tr-label', f.verdict ? 'You chose: ' + (f.verdict === 'decided' ? (f.decision === f.fix ? 'Use this fix' : 'Fix it your way') : (VERDICT_LINE[f.verdict] || f.verdict)) : 'Your choice'));
     var row = el('div', 'tr-actions');
     function act(text, cls, fn, what, on) {
       var b = button('tr-btn tr-btn-s' + (cls ? ' ' + cls : ''), text);
@@ -1702,34 +1707,38 @@
       if (on) { b.setAttribute('aria-pressed', 'true'); }
       b.addEventListener('click', fn);
       row.appendChild(b);
+      return b;
     }
     if (f.fix) {
       act('Use this fix', '', function () { decideOn(t, f, 'decided', f.fix); },
         'Fix it the way suggested: ' + f.fix, f.verdict === 'decided' && f.decision === f.fix && chosenNext(f));
     }
-    act(f.verdict === 'decided' && f.decision !== f.fix ? 'Change how' : 'Say how to fix it', '',
-      function () { S.cardDeciding = stepN + ':' + f.number; draw(); }, 'Write your own way to fix it');
+    var own = f.verdict === 'decided' && f.decision && f.decision !== f.fix;
+    act('Describe Solution', '', function () { S.cardDeciding = stepN + ':' + f.number; draw(); },
+      own ? 'Change the way you wrote to fix it' : 'Write your own way to fix it', own);
     act('Not a problem', '', function () { decideOn(t, f, 'not_a_problem'); }, 'The tester was wrong: it is fine as it is.', f.verdict === 'not_a_problem');
     act('Won’t fix', '', function () { decideOn(t, f, 'wont_fix'); }, 'It is real, but not worth changing.', f.verdict === 'wont_fix');
     if (f.verdict) { act('Take it back', 'tr-quiet', function () { decideOn(t, f, ''); }, 'Undo your choice: it is open again.'); }
     wrap.appendChild(row);
     if (S.cardDeciding === stepN + ':' + f.number) {
       var form = el('form', 'tr-form');
-      var how = field(form, 'How should it be fixed?', 'textarea', f.decision || f.fix || '', 'tr-how-' + stepN + '-' + f.number);
+      // Empty to start with: the suggested fix is above it, and only the person's own words go here.
+      var how = field(form, 'Describe the solution', 'textarea', own ? f.decision : '', 'tr-how-' + stepN + '-' + f.number);
+      how.rows = 3;
+      how.placeholder = 'How should it be fixed?';
       var r2 = el('div', 'tr-actions');
-      var save = button('tr-btn tr-btn-s tr-primary', 'Save how');
+      var save = button('tr-btn tr-btn-s tr-primary', 'Save');
       save.type = 'submit';
       var cancel = button('tr-btn tr-btn-s', 'Cancel');
       cancel.addEventListener('click', function () { S.cardDeciding = 0; draw(); });
       r2.appendChild(save);
       r2.appendChild(cancel);
       form.appendChild(r2);
-      form.addEventListener('submit', function (e) { e.preventDefault(); if (how.value.trim()) { decideOn(t, f, 'decided', how.value); } });
+      form.addEventListener('submit', function (e) { e.preventDefault(); if (how.value.trim()) { decideOn(t, f, 'decided', how.value); } else { how.focus(); } });
       wrap.appendChild(form);
       setTimeout(function () { how.focus(); }, 0);
     }
-    wrap.appendChild(el('p', 'tr-dim', rw ? 'It is in wave ' + rw.number + ' now, so it cannot be changed until that wave ends.'
-      : 'Ticking it is the same as Use this fix, or keeps your own way if you wrote one. Nothing is fixed until you press Fix the ones I chose.'));
+    if (rw) { wrap.appendChild(el('p', 'tr-dim', 'It is in wave ' + rw.number + ' now, so it cannot be changed until that wave ends.')); }
     return wrap;
   }
 
@@ -2276,9 +2285,20 @@
   }
 
   /* The talk with Rouh about one problem; `kept` is handed the problem as Rouh answers with it. */
-  function thread(p, kept) {
+  function thread(p, kept, opts) {
+    opts = opts || {};
     var box = el('section', 'tr-panel tr-talk');
-    box.appendChild(el('h2', 'tr-h2', 'Talk it over with Rouh'));
+    var th = el('div', 'tr-talk-head');
+    th.appendChild(el('h2', 'tr-h2', opts.title || 'Talk it over with Rouh'));
+    if (opts.close) {
+      var cl = button('tr-icon-btn tr-talk-close', null);
+      cl.appendChild(icon('x'));
+      cl.setAttribute('aria-label', 'Close Discuss/Ask');
+      cl.title = 'Close';
+      cl.addEventListener('click', opts.close);
+      th.appendChild(cl);
+    }
+    box.appendChild(th);
     var list = el('ol', 'tr-msgs');
     (p.thread || []).forEach(function (n) {
       var li = el('li', 'tr-msg tr-msg-' + (n.kind === 'verdict' ? 'verdict' : n.who));
@@ -2363,10 +2383,10 @@
     S.error = '';
     S.said = '';
     if (!quiet) {
-      toast(!key ? (on ? 'All testing is paused. No tester starts a try by itself until you resume; a trial you ask for still runs.' : 'All testing is on again.')
-        : on ? firstName + ' is paused. ' + firstName + ' starts no try by itself until you resume; a trial you ask for still runs.'
-          : allPaused() ? firstName + ' is resumed, but all testing is still paused, so ' + firstName + ' waits for that too.'
-            : firstName + ' is testing again.');
+      toast(!key ? (on ? 'Automatic testing is off. A test you start still runs.' : 'Automatic testing is on.')
+        : on ? firstName + ' does not run in automatic testing now. A test you start with ' + firstName + ' still runs.'
+          : allPaused() ? firstName + ' runs once automatic testing is on.'
+            : firstName + ' runs in automatic testing.');
     }
     draw();
     call(key ? '/testers/' + key + '/pause' : '/pause', { on: on }).then(function () {}, function (e) {
@@ -2380,28 +2400,26 @@
               (S.shell && S.shell.paused_all));
   }
 
-  function pauseButton(key, paused, firstName, cls) {
-    var b = button('tr-btn tr-pause-b' + (paused ? ' is-paused' : '') + (cls ? ' ' + cls : ''), null);
-    withIcon(b, paused ? 'play' : 'pause', (paused ? 'Resume ' : 'Pause ') + (firstName || 'all testing'));
-    b.setAttribute('aria-pressed', paused ? 'true' : 'false');
-    b.addEventListener('click', function (e) { e.preventDefault(); e.stopPropagation(); setPause(key, !paused, firstName); });
-    return b;
+  /* A tester's tick: on, they run in automatic testing while it is on; off, they are paused on their own. */
+  function runsTick(t, cls) {
+    var l = el('label', 'tr-runs-one' + (cls ? ' ' + cls : ''));
+    var c = el('input');
+    c.type = 'checkbox';
+    c.id = 'tr-runs-card-' + t.key + (cls ? '-' + cls : '');
+    c.checked = !t.paused;
+    c.addEventListener('change', function () { setPause(t.key, !c.checked, t.first); });
+    l.appendChild(c);
+    l.appendChild(el('span', '', t.first + ' runs in automatic testing'));
+    return l;
   }
 
-  /* What pausing means, at the top of the testers. */
-  function pauseWords(on, live) {
-    var held = live.filter(function (t) { return t.paused; });
-    var every = live.length > 0 && held.length === live.length;
-    var names = held.map(function (t) { return t.first; }).join(' and ');
-    return on
-      ? 'No tester starts a try by itself. A trial you ask for still runs, and a try already going may finish. Rouh still builds ' +
-        'and ships changes, nightly runs included, just without a tester trying them. Resume any time.'
-      : every ? names + (held.length === 1 ? ' is' : ' are') + ' paused, so no automatic try starts; a trial you ask for still runs. Resume one on their card, or all of them here.'
-      : held.length ? names + (held.length === 1 ? ' is' : ' are') + ' paused. Resume on their card, or pause all ' + live.length + ' here.'
-      : 'Testers try changes as usual. Pause one on their card, or all ' + live.length + ' here. You can resume any time.';
+  /* What automatic testing means, at the top of the testers. */
+  function autoWords(off) {
+    return (off ? 'Automatic testing is off, so no tester tries a change by itself. ' : 'While automatic testing is on, a ticked tester tries each change Rouh builds that you will see. ') +
+      'A test you start yourself runs either way. Turn it on or off, and tick who runs, at the top of every page here.';
   }
 
-  /* ---- the testers: the Cast ---- */
+  /* ---- the testers (the Cast until 22 November 2026) ---- */
 
   function drawTesters(root) {
     var d = S.data.testers;
@@ -2414,21 +2432,20 @@
     var live = d.testers.filter(function (t) { return !t.archived; });
     var gone = d.testers.filter(function (t) { return t.archived; });
     var held = live.filter(function (t) { return t.paused; });
-    root.appendChild(el('div', 'tr-eyebrow', 'Cast'));
-    var head = d.paused_all ? 'All testing is paused.' : held.length && held.length === live.length ? (live.length === 2 ? 'Both testers are paused.' : 'Every tester is paused.')
-      : held.length ? held.map(function (t) { return t.first; }).join(' and ') + (held.length === 1 ? ' is paused.' : ' are paused.')
-      : live.length ? (live.length === 1 ? 'One tester, testing.' : 'All ' + live.length + ' testers are testing.') : 'There are no testers.';
+    var head = !live.length ? 'There are no testers.' : d.paused_all ? 'Automatic testing is off.'
+      : held.length === live.length ? 'No tester is ticked to run.'
+      : held.length ? live.filter(function (t) { return !t.paused; }).map(function (t) { return t.first; }).join(' and ') + (live.length - held.length === 1 ? ' runs' : ' run') + ' in automatic testing.'
+      : (live.length === 1 ? 'One tester, running in automatic testing.' : 'All ' + live.length + ' testers run in automatic testing.');
     var finds = foundLine(d.testers);
     root.appendChild(el('h1', 'tr-headline', head + (finds ? ' ' + finds : '')));
     root.appendChild(el('p', 'tr-lede', 'The made-up people who try Rouh’s changes on their phones. Each has a whole ' +
       'life written down, and that is what they are told before every try.'));
     var row = el('div', 'tr-flex tr-cast-acts');
-    if (live.length) { row.appendChild(pauseAllButton(live, !!d.paused_all, 'tr-btn')); }
     var add = link('', HOME + '/testers/new', 'tr-btn tr-primary');
     withIcon(add, 'plus', 'Add a tester');
     row.appendChild(add);
     root.appendChild(row);
-    if (live.length) { root.appendChild(el('p', 'tr-dim tr-pause-words', pauseWords(!!d.paused_all, live))); }
+    if (live.length) { root.appendChild(el('p', 'tr-dim tr-pause-words', autoWords(!!d.paused_all))); }
     var ul = el('ul', 'tr-cards');
     live.forEach(function (t) { ul.appendChild(personCard(t, !!d.paused_all)); });
     root.appendChild(ul);
@@ -2463,7 +2480,7 @@
     li.appendChild(por);
     var chips = el('div', 'tr-chips');
     if (t['default']) { chips.appendChild(chip('Tries every change', 'green')); }
-    if (held) { chips.appendChild(chip('Paused', 'amber')); }
+    if (t.paused && !t.archived) { chips.appendChild(chip('Not running', 'amber')); }
     if (chips.childNodes.length) { li.appendChild(chips); }
     var st = el('div', 'tr-pstat');
     var jam = t.archived ? 0 : stuckOf(t.key).length;
@@ -2474,12 +2491,11 @@
     if (!t.archived) {
       var status = el('div', 'tr-status-line');
       status.appendChild(withIcon(el('span', 'tr-status'), held ? 'pause' : 'play',
-        all ? t.first + ' is paused with everyone' : t.paused ? t.first + ' is paused' + (t.paused_at ? ' since ' + day(t.paused_at) : '') : t.first + ' is testing'));
-      status.appendChild(el('span', 'tr-dim', t['default'] ? 'Tries every change' : 'Tries only when asked for by name'));
+        all ? 'Automatic testing is off' : t.paused ? t.first + ' does not run' + (t.paused_at ? ', since ' + day(t.paused_at) : '') : t.first + ' runs in automatic testing'));
+      status.appendChild(el('span', 'tr-dim', t['default'] ? 'Tries every change' : 'Tries a change when the one who tries every change is unticked, or when asked for by name'));
       li.appendChild(status);
       var acts = el('div', 'tr-actions');
-      // While all testing is paused, a card's own button only made people unsure (trial 38): the one at the top lets them go.
-      if (!all) { acts.appendChild(pauseButton(t.key, !!t.paused, t.first)); }
+      acts.appendChild(runsTick(t));
       acts.appendChild(link('Open ' + t.first, HOME + '/tester/' + t.key, 'tr-btn tr-quiet'));
       li.appendChild(acts);
     }
@@ -2489,13 +2505,13 @@
   function drawTester(root, w) {
     var d = S.data.tester;
     if (!d || d.tester.key !== w.key) {
-      root.appendChild(crumbs([['Cast', HOME + '/testers'], ['Tester']]));
+      root.appendChild(crumbs([['Testers', HOME + '/testers'], ['Tester']]));
       if (!S.error) { root.appendChild(el('p', 'tr-loading', 'Opening the tester…')); }
       return;
     }
     var t = d.tester, firstName = t.first;
     moved(t.name);
-    root.appendChild(crumbs([['Cast', HOME + '/testers'], [t.name]]));
+    root.appendChild(crumbs([['Testers', HOME + '/testers'], [t.name]]));
     var topG = el('div', 'tr-tester-top');
     var leftC = el('div', 'tr-tester-main');
     var por = el('div', 'tr-portrait');
@@ -2508,7 +2524,7 @@
     var chips = el('div', 'tr-chips');
     if (t['default']) { chips.appendChild(chip('Tries every change', 'green')); }
     if (t.archived) { chips.appendChild(chip('Removed', 'slate')); }
-    if (!t.archived && (t.paused || t.paused_all)) { chips.appendChild(chip('Paused', 'amber')); }
+    if (!t.archived && (t.paused || t.paused_all)) { chips.appendChild(chip(t.paused_all && !t.paused ? 'Automatic testing off' : 'Not running', 'amber')); }
     chips.appendChild(chip(t.device === 'desk' ? 'Mostly on a computer' : 'Mostly on a phone', 'slate'));
     chips.appendChild(chip(plural(t.tries_count, 'try', 'tries') + ' · ' + plural(t.problems, 'problem') + ' found', 'slate'));
     hw.appendChild(chips);
@@ -2517,14 +2533,12 @@
     if (!t.archived) {
       var pbox = el('div', 'tr-pausebox' + (t.paused || t.paused_all ? ' is-paused' : ''));
       var pw = el('div', 'tr-pause-text');
-      pw.appendChild(el('b', '', t.paused ? firstName + ' is paused' : t.paused_all
-        ? firstName + ' is paused with everyone' : firstName + ' is testing'));
+      pw.appendChild(el('b', '', t.paused ? firstName + ' does not run in automatic testing' : t.paused_all
+        ? 'Automatic testing is off' : firstName + ' runs in automatic testing'));
       pw.appendChild(el('span', 'tr-dim', t.paused || t.paused_all
-        ? firstName + ' starts no try by itself; a trial you ask for still runs.' + (t['default'] ? ' Changes are still built and ' +
-          'shipped, without a tester trying them, and ' + firstName + ' tries every change again once resumed.' : '') + (t.paused && t.paused_all ? ' Resuming ' + firstName +
-          ' alone is not enough while all testing is paused.' : !t.paused && t.paused_all
-          ? ' Resume all testing on the testers page to let ' + firstName + ' go again.' : '')
-        : (t['default'] ? firstName + ' tries every change Rouh makes that you will see.' : firstName + ' tries only when you ask for ' +
+        ? firstName + ' tries no change by itself; a test you start with ' + firstName + ' still runs.' + (!t.paused && t.paused_all
+          ? ' ' + firstName + ' runs again once automatic testing is on.' : '')
+        : (t['default'] ? firstName + ' tries every change Rouh makes that you will see.' : firstName + ' tries a change when the tester who tries every change is not ticked, or when you ask for ' +
           firstName + ' by name.')));
       var jam = stuckOf(t.key);
       pw.appendChild(el('span', 'tr-dim', jam.length ? (jam.length === 1 ? 'Try ' + jam[0].number + ' by ' + firstName + ' has been stuck since ' +
@@ -2538,7 +2552,7 @@
           (t.skipped_at ? ', the last on ' + day(t.skipped_at) : '') + '.'));
       }
       pbox.appendChild(pw);
-      pbox.appendChild(pauseButton(t.key, !!t.paused, firstName));
+      pbox.appendChild(runsTick(t, 'is-big'));
       leftC.appendChild(pbox);
       var acts = el('div', 'tr-actions');
       acts.appendChild(link('Change ' + firstName + '’s profile', HOME + '/tester/' + t.key + '/edit', 'tr-btn tr-btn-s'));
@@ -2638,8 +2652,8 @@
   function drawForm(root, w) {
     var editing = !!w.key;
     var F = S.form;
-    root.appendChild(crumbs(editing ? [['Cast', HOME + '/testers'], [(F && F.name) || 'The tester', HOME + '/tester/' + w.key], ['Change']]
-      : [['Cast', HOME + '/testers'], ['Add a tester']]));
+    root.appendChild(crumbs(editing ? [['Testers', HOME + '/testers'], [(F && F.name) || 'The tester', HOME + '/tester/' + w.key], ['Change']]
+      : [['Testers', HOME + '/testers'], ['Add a tester']]));
     if (!F || (editing && F.key !== w.key)) { if (!S.error) { root.appendChild(el('p', 'tr-loading', 'Opening…')); } return; }
     moved(editing ? F.name : 'New tester');
     root.appendChild(el('h1', 'tr-headline', editing ? 'Change ' + (F.name.split(' ')[0] || 'the tester') + '’s profile' : 'Add a tester'));
@@ -2725,7 +2739,7 @@
 
   function drawHow(root) {
     moved('');
-    root.appendChild(el('h1', 'tr-headline', 'How trials work'));
+    root.appendChild(el('h1', 'tr-headline', 'How testing works'));
     var grid = el('div', 'tr-how');
     var s1 = section('tr-panel', 'The words');
     [['A tester', 'a made-up person with a whole life written down, such as Vesela, 41, head of HR in Plovdiv. ' +
@@ -2745,7 +2759,7 @@
       'The builder fixes what tripped them, within what you already approved, and it is tried again: at most two rounds of ' +
       'fixes, then it ships. Nobody asks you anything.'));
     sm.appendChild(said('Review you asked for', 'when you ask for someone to test something, for example “Have Vesela test ' +
-      'this”, or press Run a trial. You get the whole walk-through, what they found and what Rouh suggests. Nothing is fixed until you go through ' +
+      'this”, or press Test something. You get the whole walk-through, what they found and what Rouh suggests. Nothing is fixed until you go through ' +
       'the problems and choose what is done and how; Fix the ones I chose then starts one run that does only those.'));
     grid.appendChild(sm);
     var s2 = section('tr-panel', 'How bad a problem is');
@@ -2756,7 +2770,7 @@
       p.appendChild(document.createTextNode(': ' + x[1]));
       s2.appendChild(p);
     });
-    s2.appendChild(el('p', 'tr-dim', 'Each kind has its own shape as well as its colour: an octagon, a diamond, a triangle and a ring.'));
+    s2.appendChild(el('p', 'tr-dim', 'Each kind has its own icon as well as its colour: a stop sign, a question mark, an angry face and a small i. Point at one to read its name.'));
     grid.appendChild(s2);
     var s3 = section('tr-panel', 'What you can do with a problem');
     [['Talk it over', 'write to Rouh on the problem’s page. Rouh answers there, with the problem, its picture and the whole try in front of it.'],

@@ -2179,9 +2179,9 @@ class ToolRegistry:
             "change, so resume puts everything back as it was. A build that meets a pause skips its trial, which "
             "is not a failure. personas says who is paused. fix_chosen (number: a review's try): start one "
             "run that fixes the problems the owner chose from that review (decided, with how), only on their own "
-            "words; nothing else from it is touched. Link a job as /evolution/trials/job/<n>, a try "
-            "as /evolution/trials/<n>, a problem as /evolution/trials/problem/<n>, a tester as "
-            "/evolution/trials/tester/<name>, and the lists as /evolution/trials/problems and /evolution/trials/testers.",
+            "words; nothing else from it is touched. Link a job as /evolution/testing/job/<n>, a try "
+            "as /evolution/testing/<n>, a problem as /evolution/testing/problem/<n>, a tester as "
+            "/evolution/testing/tester/<name>, and the lists as /evolution/testing/problems and /evolution/testing/testers.",
             {"type": "object", "properties": {
                 "action": {"type": "string", "enum": ["run", "jobs", "job", "list", "read", "problems", "problem",
                                                       "record", "sighting", "reopen", "decide", "personas", "persona",
@@ -2200,7 +2200,7 @@ class ToolRegistry:
                 "screen": {"type": "string", "description": "For problems: only those on this page, by its address. "
                                                             "For record: the page it happened on, when known."},
                 "page": {"type": "string", "description": "For run: the address in Rouh or a URL to begin at, such "
-                                                          "as /evolution/trials."},
+                                                          "as /evolution/testing."},
                 "gene": {"type": "string", "description": "For run: a gene's key, when the trial is of its page."},
                 "goal": {"type": "string", "description": "For run: what the tester wants to do there, in one "
                                                           "sentence, as they would put it: \"You want to see what "
@@ -13169,7 +13169,7 @@ class ToolRegistry:
                                                 page=str(args.get("page") or ""),
                                                 subject=str(args.get("job") or args.get("subject") or ""),
                                                 gene=str(args.get("gene") or ""), job_no=job_no)
-                return (got["said"] + f" It is review {got['number']} of job {got.get('job')}: /evolution/trials/{got['number']}. "
+                return (got["said"] + f" It is review {got['number']} of job {got.get('job')}: /evolution/testing/{got['number']}. "
                         "Its result comes back when its run finishes; then tell the owner what was found, and fix "
                         "nothing until they choose what.")
             if action == "record":
@@ -13203,14 +13203,14 @@ class ToolRegistry:
                 got = await asyncio.to_thread(_trials.set_paused, who, persona, on)
                 if got.get("everyone"):
                     return ("All testing is paused: no tester starts an automatic try until you resume it; a review "
-                            "you ask for still runs, and a try already going may finish. Page: /evolution/trials/testers" if on else
-                            "All testing is resumed. Testers paused on their own stay paused. Page: /evolution/trials/testers")
+                            "you ask for still runs, and a try already going may finish. Page: /evolution/testing/testers" if on else
+                            "All testing is resumed. Testers paused on their own stay paused. Page: /evolution/testing/testers")
                 tail = " (all testing is still paused too)" if got.get("paused_all") and not on else ""
                 return (f"{got['first']} is {'paused: no automatic try starts, and a review you ask for still runs' if on else 'resumed'}{tail}. "
-                        f"Page: /evolution/trials/tester/{got['key']}")
+                        f"Page: /evolution/testing/tester/{got['key']}")
             if action == "persona":
                 t = await asyncio.to_thread(_trials.tester_read, who, persona)
-                return f"{t['name']}, {t['age'] or '?'}, {t['job']}, {t['city']}: /evolution/trials/tester/{t['key']}\n\n{t['profile']}"
+                return f"{t['name']}, {t['age'] or '?'}, {t['job']}, {t['city']}: /evolution/testing/tester/{t['key']}\n\n{t['profile']}"
             if action in ("tester_add", "tester_edit"):
                 fields = {"name": args.get("name"), "age": args.get("age"), "job": args.get("job_title"),
                           "city": args.get("city"), "short": args.get("short"), "them": args.get("them"),
@@ -13224,7 +13224,7 @@ class ToolRegistry:
                 else:
                     t = await asyncio.to_thread(_trials.edit_tester, who, persona, fields)
                 return (f"{'Added' if action == 'tester_add' else 'Changed'}: {t['name']}, {t['short']}. Their page: "
-                        f"/evolution/trials/tester/{t['key']}")
+                        f"/evolution/testing/tester/{t['key']}")
             if action == "fix_chosen":
                 got = await _trials.fix_chosen(who, args.get("number"))
                 return got["said"]

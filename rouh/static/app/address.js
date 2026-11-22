@@ -141,14 +141,14 @@ var ADDR = {
   early: false
 };
 
-/* The tab's title on a page of Trials: the page's own name when it said one, then where it is. */
+/* The tab's title on a page of Testing (called Trials until 22 November 2026): the page's own name when it said one, then where it is. */
 function trialsTitle(sub, title) {
   var where = sub === 'problems' ? 'Problems' : sub === 'testers' ? 'Testers' : sub === 'testers/new' ? 'New tester'
-    : sub === 'how' ? 'How trials work' : /^job\//.test(sub) ? 'Job ' + sub.slice(4)
+    : sub === 'how' ? 'How testing works' : /^job\//.test(sub) ? 'Job ' + sub.slice(4)
     : /^problem\//.test(sub) ? 'Problem ' + sub.slice(8) : /^tester\//.test(sub) ? 'Tester'
     : /^\d+$/.test(sub) ? 'Try ' + sub : '';
-  if (!where) return 'Trials';
-  return (title ? title + ' - ' : '') + where + ' - Trials';
+  if (!where) return 'Testing';
+  return (title ? title + ' - ' : '') + where + ' - Testing';
 }
 
 /* One object's address. The two that are folders in the workspace are named
@@ -410,7 +410,9 @@ function addrReadPlace(path, query) {
     // Trials: every try, one try by its number, and the list of problems.
     // Trials: the jobs, one job, one try by its number, the problems and one problem, the testers, one
     // tester and the form that adds or changes one, and how trials work.
-    if (parts[1] === 'trials' && /^(?:|\d{1,6}|problems|job\/\d{1,6}|problem\/\d{1,6}|testers|testers\/new|tester\/[a-z0-9]{1,40}(?:\/edit)?|how)$/
+    // Testing was called Trials, at /evolution/trials, until 22 November 2026; the server sends those on,
+    // and one read here opens the same page, whose address is then written as /evolution/testing.
+    if ((parts[1] === 'testing' || parts[1] === 'trials') && /^(?:|\d{1,6}|problems|job\/\d{1,6}|problem\/\d{1,6}|testers|testers\/new|tester\/[a-z0-9]{1,40}(?:\/edit)?|how)$/
         .test(parts.slice(2).join('/'))) {
       return { kind: '', id: '', chat: chat, evolution: { page: 'trials', sub: parts.slice(2).join('/') } };
     }
@@ -596,7 +598,7 @@ function addrOnCanvas() {
   if (memoryViewing()) return memoryAddress();
   if (approvalsViewing()) return APPROVALS.key ? ADDR_CASE + '/' + encodeURIComponent(APPROVALS.key) : ADDR_APPROVALS;
   if (sourcesViewing()) return ADDR_SOURCES + '/' + SOURCES.folder.split('/').map(encodeURIComponent).join('/');
-  if (evolutionViewing()) return ADDR_EVOLUTION + '/' + (EVO.page === 'parameters' ? 'tuning' : EVO.page) + (EVO.page !== 'parameters' && EVO.page !== 'nightly' && EVO.sub ? '/' + EVO.sub : '');
+  if (evolutionViewing()) return ADDR_EVOLUTION + '/' + (EVO.page === 'parameters' ? 'tuning' : EVO.page === 'trials' ? 'testing' : EVO.page) + (EVO.page !== 'parameters' && EVO.page !== 'nightly' && EVO.sub ? '/' + EVO.sub : '');
   if (liveViewing()) return LIVE.space ? ADDR_LINK + '/space/' + encodeURIComponent(LIVE.space) : ADDR_LIVE;
   if (thoughtsViewing()) return ADDR_THOUGHTS + (THOUGHTS.id ? '/' + THOUGHTS.id : '');
   if (boxViewing()) return ADDR_BOX + (BOX.id ? '/' + BOX.id : '');

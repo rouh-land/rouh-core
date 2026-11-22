@@ -1,8 +1,10 @@
 {
   "id": "trials",
-  "name": "Trials",
-  "title": "Trials: made-up testers try each change on their phone before it ships, a job at a time, and every problem they hit is kept, discussed and decided",
+  "name": "Testing",
+  "title": "Testing (called Trials until 22 November 2026): made-up testers try each change on their phone before it ships, a job at a time, and every problem they hit is kept, discussed and decided",
   "aliases": [
+    "trials",
+    "testing",
     "trial",
     "usability testing",
     "usability test",
@@ -20,7 +22,7 @@
     "try"
   ],
   "group": "evolution",
-  "route": "/evolution/trials",
+  "route": "/evolution/testing",
   "icon": "<circle cx=\"9\" cy=\"7.5\" r=\"3\"/><path d=\"M3.5 19c.6-3.4 2.8-5.5 5.5-5.5 1.3 0 2.5.5 3.4 1.3\"/><circle cx=\"16.5\" cy=\"15.5\" r=\"3\"/><path d=\"M18.7 17.7L21 20\"/>",
   "attaches_to": [],
   "maturity": "lab",

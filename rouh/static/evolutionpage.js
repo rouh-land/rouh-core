@@ -259,7 +259,7 @@
     var meta = $('evolutionMeta');
     if (title) {
       title.textContent = R.page === 'parameters' ? 'Tuning'
-        : R.page === 'incubator' ? 'Incubator' : R.page === 'nightly' ? 'Nightly run' : R.page === 'trials' ? 'Trials'
+        : R.page === 'incubator' ? 'Incubator' : R.page === 'nightly' ? 'Nightly run' : R.page === 'trials' ? 'Testing'
         : R.page === 'pool' ? poolName()
         : /^log/.test(R.sub) ? 'Gene log' : 'Mutations';
       // One gene's page has its back link and its own name, not a title of Mutations as well

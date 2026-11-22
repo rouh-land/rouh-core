@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Run a trial: a made-up person tries a page of Rouh the way a real one would, and says what trips them.
 
-    rouh-trial run --url http://127.0.0.1:57425/evolution/trials --user alex --password ... \\
+    rouh-trial run --url http://127.0.0.1:57425/evolution/testing --user alex --password ... \\
                    --goal "You want to see what Rouh did for you yesterday." --job "Seeing yesterday's work" \\
                    [--gene trials] [--persona boris] [--round 2] [--trial 12] [--desk]
                    [--signed-out --given "Your email is ... and your password is ..."] [--review]
@@ -14,14 +14,14 @@
     rouh-trial jobs [--persona vesela]          what is being tested, the one tried most lately first
     rouh-trial job 3                            one job, with its tries and who did each
     rouh-trial job-edit 3 [--name ...] [--goal ...] [--covers "what it covers"]
-    rouh-trial queue --page /evolution/trials | --gene trials --goal "You want to ..." [--persona boris]
+    rouh-trial queue --page /evolution/testing | --gene trials --goal "You want to ..." [--persona boris]
                      [--subject "..."] [--wait]   Rouh starts a run that stands a test world up and runs it
     rouh-trial list [--persona vesela]          the trials, newest first
     rouh-trial read 12                          one trial: every step, the three answers on each new screen,
                                                 and its ending
     rouh-trial wait 12                          wait until trial 12 has ended, then read it
     rouh-trial problems [--status open|decided|fixed|set_aside|all] [--persona boris] [--job 3]
-                        [--screen /evolution/trials] [--source owner|persona]
+                        [--screen /evolution/testing] [--source owner|persona]
                                                 decided: what the person said to fix, and how
     rouh-trial problem 7                        one problem, with every time it was seen, its discussion
                                                 and the person's decision
@@ -448,7 +448,7 @@ def report(t: dict) -> int:
             print(f"  - Problem {f['number']} ({f['how_bad']}, step {f['step']}): {f['what']}")
             if f.get("fix"):
                 print(f"    Suggested: {f['fix']}")
-        print(f"Its page: /evolution/trials/{t['number']}. This is a review the person asked for: fix nothing. They go "
+        print(f"Its page: /evolution/testing/{t['number']}. This is a review the person asked for: fix nothing. They go "
               "through each problem there and choose what is done, and how.")
         return 0
     print(("PASS" if passed else "FAIL") + f": trial {t['number']}, round {t['round']}. "
@@ -473,8 +473,8 @@ def report(t: dict) -> int:
                 print(f"    Suggested fix: {f['fix']}")
     if t.get("closed"):
         print("Closed, as it got past them: " + "; ".join(f"Problem {c['number']}" for c in t["closed"]))
-    print(f"Its page: {rouh_url()}/evolution/trials/{t['number']}  (in Rouh: /evolution/trials/{t['number']}"
-          + (f"; its job: /evolution/trials/job/{t['job']}" if t.get("job") else "") + ")")
+    print(f"Its page: {rouh_url()}/evolution/testing/{t['number']}  (in Rouh: /evolution/testing/{t['number']}"
+          + (f"; its job: /evolution/testing/job/{t['job']}" if t.get("job") else "") + ")")
     if not passed:
         left = 3 - int(t["round"])
         print(f"Fix what tripped them and run it again with --round {t['round'] + 1}." if left > 0 else
@@ -589,7 +589,7 @@ def main(argv=None) -> None:
         else:
             got = call({"action": "tester_edit", "persona": a.tester, **fields})
         t = got["tester"]
-        print(f"{t['name']} ({t['key']}): {t['short']}. Page: /evolution/trials/tester/{t['key']}")
+        print(f"{t['name']} ({t['key']}): {t['short']}. Page: /evolution/testing/tester/{t['key']}")
         return
     if a.cmd == "tester-remove":
         t = call({"action": "tester_remove", "persona": a.tester})["tester"]
@@ -612,7 +612,7 @@ def main(argv=None) -> None:
             sys.exit(skipped(got))
         t = got["trial"]
         print(f"Trial {t['number']}: {got.get('said') or 'starting'} (run {t.get('run_id') or '?'})")
-        print(f"Its page in Rouh: /evolution/trials/{t['number']}. Read it with: rouh-trial wait {t['number']}")
+        print(f"Its page in Rouh: /evolution/testing/{t['number']}. Read it with: rouh-trial wait {t['number']}")
         if a.wait:
             sys.exit(story(wait_for(t["number"], t)))
     elif a.cmd == "problems":

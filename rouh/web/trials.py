@@ -1,4 +1,4 @@
-"""Trials' pages in Evolution, at /evolution/trials, and `rouh-trial`'s door (`rouh/trials/`).
+"""Trials' pages in Evolution, at /evolution/testing, and `rouh-trial`'s door (`rouh/trials/`).
 
     GET  /api/trials                          the jobs (who tried each is not said here), the counts, the testers,
                                               and the newest tries (`trials`, for a run reading the old shape)
@@ -10,7 +10,8 @@
     POST /api/trials/<n>/again                the same try again, by a new tester, in a run of its own (a review)
     POST /api/trials/<n>/fix                  Fix the ones I chose: one run fixes what the owner ticked, a wave of fixes
     POST /api/trials/<n>/names                each step with no name yet named once, by a model call, and kept
-    POST /api/trials/new                      {"page", "goal", "persona"?, "subject"?}: a try by hand
+    POST /api/trials/new                      {"goal", "page"?, "persona"?, "subject"?}: a try by hand (a review);
+                                              with no page it begins at Rouh's first screen
     GET  /api/trials/problems                 the list: ?status=open|decided|fixed|set_aside|all&source=persona|owner
                                               &persona=vesela&job=3&screen=/x, open first, the worst first
     GET  /api/trials/problems/<n>             one problem, with every sighting and its discussion
@@ -144,8 +145,10 @@ async def new(request: HttpRequest):
         return refuse("Sign in first.", 401)
     b = body_of(request)
     try:
+        # The page's start form says only what needs testing (Petar, 22 November 2026): with no address it
+        # begins at Rouh's first screen, and the run begins on a page the words name (`by_hand_brief`).
         got = await trials.run_by_hand(me, persona_id=str(b.get("persona") or ""), goal=str(b.get("goal") or ""),
-                                       page=str(b.get("page") or ""), subject=str(b.get("subject") or ""))
+                                       page=str(b.get("page") or "").strip() or "/", subject=str(b.get("subject") or ""))
     except trials.Refused as exc:
         return refuse(str(exc), 400)
     return answer({"ok": True, "trial": got, "said": got.get("said", "")}, headers=NO_STORE)

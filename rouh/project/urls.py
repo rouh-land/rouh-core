@@ -92,6 +92,15 @@ def evolution_tuning_old_address(request):
     return HttpResponseRedirect(addressing.EVOLUTION + "/tuning" + ("?" + query if query else ""))
 
 
+def evolution_trials_old_address(request, rest=""):
+    """/evolution/trials/..., Testing's address while it was called Trials (until 22 November 2026): a link
+    kept in a chat or an email lands on the same page at /evolution/testing/..., with anything after the `?` kept."""
+    query = request.META.get("QUERY_STRING", "")
+    rest = (rest or "").strip("/")
+    return HttpResponseRedirect(addressing.EVOLUTION + "/testing" + ("/" + rest if rest else "")
+                                + ("?" + query if query else ""))
+
+
 def evolution_library_old_address(request, rest=""):
     """/evolution/library, Mutations' address while it was the Gene library, and the Gene Pool's
     while it was one of its views, until 14 October 2026 (fr_a982710d30c7): an old link or bookmark
@@ -948,10 +957,12 @@ urlpatterns = [
     # of it. And Mutations' address while it was the
     # Gene library, with the Pool one of its views, sent on to where each is now.
     path(addressing.EVOLUTION.lstrip("/"), views.index),
-    re_path(r"^" + addressing.EVOLUTION.lstrip("/") + r"/(?:tuning|mutations|pool|incubator|nightly|trials|trials/problems)$", views.index),
+    re_path(r"^" + addressing.EVOLUTION.lstrip("/") + r"/(?:tuning|mutations|pool|incubator|nightly|testing|testing/problems)$", views.index),
+    # Testing's address while it was called Trials, until 22 November 2026: every page of it sent on.
+    re_path(r"^" + addressing.EVOLUTION.lstrip("/") + r"/trials(?P<rest>/.*)?$", evolution_trials_old_address),
     # Tuning's address while it was called Parameters, until 21 November 2026.
     re_path(r"^" + addressing.EVOLUTION.lstrip("/") + r"/parameters/?$", evolution_tuning_old_address),
-    re_path(r"^" + addressing.EVOLUTION.lstrip("/") + r"/trials/(?:\d{1,6}|job/\d{1,6}|problem/\d{1,6}|testers|testers/new"
+    re_path(r"^" + addressing.EVOLUTION.lstrip("/") + r"/testing/(?:\d{1,6}|job/\d{1,6}|problem/\d{1,6}|testers|testers/new"
             r"|tester/[a-z0-9]{1,40}(?:/edit)?|how)$", views.index),
     re_path(r"^" + addressing.EVOLUTION.lstrip("/") + r"/incubator/(?:INC-)?\d{1,6}$", views.index),
     re_path(r"^" + addressing.EVOLUTION.lstrip("/")
