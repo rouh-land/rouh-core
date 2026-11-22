@@ -572,6 +572,14 @@ a.tr-need:hover { border-color: var(--ink-2); }
 .tr-pnr.is-on { border-color: var(--accent); background: var(--accent-soft); }
 .tr-ptick { width: 22px; height: 22px; margin: 0; align-self: center; justify-self: center; accent-color: var(--accent); cursor: pointer; }
 .tr-ptick:disabled { cursor: default; opacity: .5; }
+/* Won't fix (red) and Not a problem (orange): settled, an X in place of the tick; pressing it takes the choice back. */
+.tr-psettled { align-self: center; justify-self: center; display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 32px;
+  padding: 0; border-radius: 8px; border: 1.5px solid currentColor; background: transparent; cursor: pointer; }
+.tr-psettled.is-wont { color: var(--s-blocked); }
+.tr-psettled.is-not { color: var(--s-annoyed); }
+.tr-psettled:hover { background: var(--surface-2); }
+.tr-psettled:disabled { cursor: default; opacity: .6; }
+.tr-said.tr-wontfix { padding: 8px 12px; border-radius: 10px; border: 1.5px solid var(--s-blocked); }
 .tr-pnr-b { display: grid; grid-template-columns: 20px minmax(0, 1fr); gap: 8px; align-items: start; text-align: left; min-height: 48px;
   padding: 8px 10px 8px 0; background: none; border: 0; color: var(--ink); cursor: pointer; font: inherit; border-radius: 0 10px 10px 0; }
 .tr-pnr-b:hover .tr-pnr-t { color: var(--accent); }

@@ -918,7 +918,7 @@ def problem_brief(p, *, notes: dict | None = None, reviewed: set | None = None) 
         reviewed = _reviewed_ids(_Whose(p.org_id, p.user_id), [p.id])
     return {"awaiting_choice": p.id in reviewed and p.status == "open" and not p.verdict,"number": p.number, "what": p.what, "how_bad": p.how_bad, "count": p.count, "status": p.status,
             "standing": standing(p), "verdict": p.verdict, "verdict_name": VERDICTS.get(p.verdict, p.verdict),
-            "decision": p.decision, "expected": p.expected, "actual": p.actual, "fix": p.fix,
+            "decision": p.decision, "reason": p.reason, "expected": p.expected, "actual": p.actual, "fix": p.fix,
             "screen": p.screen, "screen_name": p.screen_name or p.screen or "", "source": p.source,
             "personas": p.personas or [], "notes": (notes or {}).get(p.id, 0), "feedback_id": p.feedback_id,
             "verdict_at": p.verdict_at}
@@ -1115,8 +1115,9 @@ def reopen(who, number, *, note: str = "") -> dict:
 # next round reads, `rouh-trial problems --status decided`), or sends it as feedback to Gene therapy.
 
 
-def set_verdict(who, number, verdict: str, *, decision: str = "", feedback_id: str = "") -> dict:
-    """The owner's verdict on a problem, said in its thread as one line. "" takes a verdict back."""
+def set_verdict(who, number, verdict: str, *, decision: str = "", feedback_id: str = "", reason: str = "") -> dict:
+    """The owner's verdict on a problem, said in its thread as one line. "" takes a verdict back. Won't fix keeps
+    why (`reason`, Petar, 22 November 2026), for reading later why problems were declined."""
     p = _problem(who, number)
     verdict = str(verdict or "").strip().lower().replace(" ", "_").replace("'", "")
     verdict = {"won't_fix": "wont_fix", "wontfix": "wont_fix", "not": "not_a_problem", "undo": "", "open": "",
@@ -1129,11 +1130,13 @@ def set_verdict(who, number, verdict: str, *, decision: str = "", feedback_id: s
     now = _now()
     p.verdict, p.verdict_at = verdict, now if verdict else None
     p.decision = decision if verdict == "decided" else (p.decision if verdict == "sent" else "")
+    reason = str(reason or "").strip()[:3000]
+    p.reason = reason if verdict == "wont_fix" else ""
     if feedback_id:
         p.feedback_id = _cut(feedback_id, 80)
-    p.save(update_fields=["verdict", "verdict_at", "decision", "feedback_id"])
+    p.save(update_fields=["verdict", "verdict_at", "decision", "reason", "feedback_id"])
     line = {"": "Taken back: it is open again.", "not_a_problem": "Marked as not a problem.",
-            "wont_fix": "Marked as won't fix.", "decided": f"Decided: {decision}",
+            "wont_fix": "Marked as won't fix" + (f": {reason}" if reason else "."), "decided": f"Decided: {decision}",
             "sent": "Sent as feedback, to Rouh's list of changes to itself (Gene therapy)."}[verdict]
     _m().TrialNote.objects.create(**_whose(who), problem_id=p.id, who="owner", kind="verdict", text=line, at=now)
     return problem(who, number)
@@ -1151,7 +1154,7 @@ def _talk_context(who, p) -> tuple[str, str | None]:
              f"On the screen: {d['screen_name'] or 'somewhere in Rouh'}", f"Where it stands: {VERDICTS.get(d['verdict'])}"
              + (" (fixed by a later try)" if d["status"] == "closed" else "")]
     for k, label in (("expected", "What should have happened"), ("actual", "What happened"), ("fix", "Suggested fix"),
-                     ("decision", "Decided fix")):
+                     ("decision", "Decided fix"), ("reason", "Why it won't be fixed")):
         if d.get(k):
             lines.append(f"{label}: {d[k]}")
     lines.append("")
@@ -1290,6 +1293,7 @@ def problem_line(p: dict) -> str:
             f"({HOW_BAD_NAMES.get(p['how_bad'], p['how_bad']).lower()}, seen {p['count']} time"
             f"{'' if p['count'] == 1 else 's'}, by {who})" + (f" - \"{quote}\"" if quote else "")
             + (f" Fix it like this: {p['decision']}" if p.get("decision") else "")
+            + (f" Won't fix, because: {p['reason']}" if p.get("reason") else "")
             + (f" Suggested fix: {p['fix']}" if p.get("fix") and not p.get("decision") else ""))
 
 

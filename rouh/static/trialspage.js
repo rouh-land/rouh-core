@@ -226,7 +226,7 @@
     var s = el('span', 'tr-state');
     if (p.awaiting_choice) { return withIcon(s, 'ask', 'Waiting for your choice'); }
     if (p.standing === 'fixed') { s.classList.add('is-fixed'); return withIcon(s, 'check', p.closed_by ? 'Fixed: try ' + p.closed_by + ' got past it' : 'Fixed'); }
-    if (p.standing === 'set_aside') { return withIcon(s, 'x', 'Set aside: ' + (VERDICT_LINE[p.verdict] || 'set aside')); }
+    if (p.standing === 'set_aside') { return withIcon(s, 'x', 'Set aside: ' + (VERDICT_LINE[p.verdict] || 'set aside') + (p.verdict === 'wont_fix' && p.reason ? ': ' + p.reason : '')); }
     var again = seenAgain(p);
     if (again) { s.classList.add('is-again'); return withIcon(s, 'up', (p.verdict === 'sent' ? 'Sent' : 'Decided') + ', but seen again' + (again.trial ? ' in try ' + again.trial : '')); }
     if (p.standing === 'decided' && p.verdict === 'sent') { return withIcon(s, 'wait', 'Sent as feedback, waiting for a re-test'); }
@@ -1565,16 +1565,31 @@
     nav.setAttribute('aria-label', 'Problems at ' + (stepN ? 'step ' + stepN : 'no one step'));
     found.forEach(function (f) {
       var li = el('li', 'tr-pnr' + (f === sel ? ' is-on' : '') + (f.standing === 'fixed' || f.standing === 'set_aside' ? ' is-closed' : ''));
-      var tick = el('input', 'tr-ptick');
-      tick.type = 'checkbox';
-      tick.id = 'tr-tick-' + stepN + '-' + f.number;
-      var rw = runningWave(f);
-      tick.checked = !!rw || chosenNext(f);
-      tick.disabled = going || !!rw || f.standing === 'fixed' || !!S.busy;
-      tick.setAttribute('aria-label', 'Fix problem ' + f.number + ': ' + f.what);
-      tick.title = rw ? 'In wave ' + rw.number + ', being fixed now' : f.standing === 'fixed' ? 'Already fixed' : 'Tick to have it fixed: the same as Use this fix';
-      tick.addEventListener('change', function () { setTick(t, stepN, f, tick.checked); });
-      li.appendChild(tick);
+      if (f.verdict === 'wont_fix' || f.verdict === 'not_a_problem') {
+        // Won't fix and Not a problem are settled, not open: an X in place of the tick, red and orange, with the
+        // choice on hover. It cannot be ticked for fixing; pressing it takes the choice back (Petar, 22 November 2026).
+        var wf = f.verdict === 'wont_fix';
+        var xb = button('tr-psettled ' + (wf ? 'is-wont' : 'is-not'), null);
+        xb.id = 'tr-tick-' + stepN + '-' + f.number;
+        xb.innerHTML = '<svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true"><path d="M4 4l10 10M14 4 4 14" stroke="currentColor" stroke-width="3" stroke-linecap="round"/></svg>';
+        var words0 = wf ? 'Won’t fix' + (f.reason ? ': ' + f.reason : '') : 'Not a problem';
+        xb.title = words0;
+        xb.setAttribute('aria-label', words0.replace(/[.!?]$/, '') + '. Problem ' + f.number + '. Press to take it back and make it open again.');
+        xb.disabled = going || !!S.busy;
+        xb.addEventListener('click', function () { decideOn(t, f, ''); });
+        li.appendChild(xb);
+      } else {
+        var tick = el('input', 'tr-ptick');
+        tick.type = 'checkbox';
+        tick.id = 'tr-tick-' + stepN + '-' + f.number;
+        var rw = runningWave(f);
+        tick.checked = !!rw || chosenNext(f);
+        tick.disabled = going || !!rw || f.standing === 'fixed' || !!S.busy;
+        tick.setAttribute('aria-label', 'Fix problem ' + f.number + ': ' + f.what);
+        tick.title = rw ? 'In wave ' + rw.number + ', being fixed now' : f.standing === 'fixed' ? 'Already fixed' : 'Tick to have it fixed: the same as Use this fix';
+        tick.addEventListener('change', function () { setTick(t, stepN, f, tick.checked); });
+        li.appendChild(tick);
+      }
       var b = button('tr-pnr-b', null);
       b.id = rowId(stepN, f);
       b.setAttribute('aria-pressed', f === sel ? 'true' : 'false');
@@ -1623,7 +1638,8 @@
     top.appendChild(el('h4', 'tr-h3 tr-pd-h', f.what));
     var chips = el('div', 'tr-chips');
     chips.appendChild(sev(f.how_bad, true));
-    chips.appendChild(standBadge(p ? Object.assign({}, p, f, { sightings: p.sightings }) : f));
+    // The reason is said once, in its own box below, not again in this line.
+    chips.appendChild(standBadge(Object.assign({}, p || {}, f, { sightings: p ? p.sightings : f.sightings, reason: '' })));
     top.appendChild(chips);
     var sub = el('p', 'tr-dim');
     sub.appendChild(document.createTextNode('#' + f.number + (f.count > 1 ? ' · seen ' + f.count + ' times' : ' · seen once') +
@@ -1646,6 +1662,7 @@
     if (f.actual) { var a2 = el('div'); a2.appendChild(el('h5', 'tr-label', 'What happened')); a2.appendChild(el('p', '', f.actual)); eh.appendChild(a2); }
     if (eh.childNodes.length) { box.appendChild(eh); }
     if (f.decision && f.verdict === 'decided') { box.appendChild(said('You decided: fix it like this', f.decision, 'tr-decided')); }
+    if (f.verdict === 'wont_fix') { box.appendChild(said('Won’t fix', f.reason || 'No reason written. Press Won’t fix to add one.', 'tr-wontfix')); }
     if (f.decision === f.fix && f.verdict === 'decided') { box.appendChild(el('p', 'tr-dim', 'That is the suggested fix, as Rouh wrote it.')); }
     if (f.fix && !(f.verdict === 'decided' && f.decision === f.fix)) { box.appendChild(said(f.decision && f.verdict === 'decided' ? 'Rouh’s first suggestion' : 'Suggested fix', f.fix)); }
     if (!going && f.standing !== 'fixed') { box.appendChild(choices(t, stepN, f)); }
@@ -1717,9 +1734,13 @@
     act('Describe Solution', '', function () { S.cardDeciding = stepN + ':' + f.number; draw(); },
       own ? 'Change the way you wrote to fix it' : 'Write your own way to fix it', own);
     act('Not a problem', '', function () { decideOn(t, f, 'not_a_problem'); }, 'The tester was wrong: it is fine as it is.', f.verdict === 'not_a_problem');
-    act('Won’t fix', '', function () { decideOn(t, f, 'wont_fix'); }, 'It is real, but not worth changing.', f.verdict === 'wont_fix');
+    // Won't fix asks why, the same way Describe Solution asks how: the reason is kept for reading later why
+    // problems were declined (Petar, 22 November 2026). It can be left empty, and changed by pressing it again.
+    act('Won’t fix', '', function () { S.cardDeciding = 'wf:' + stepN + ':' + f.number; draw(); },
+      f.verdict === 'wont_fix' ? 'Change why it won’t be fixed' : 'It is real, but not worth changing: say why', f.verdict === 'wont_fix');
     if (f.verdict) { act('Take it back', 'tr-quiet', function () { decideOn(t, f, ''); }, 'Undo your choice: it is open again.'); }
     wrap.appendChild(row);
+    if (S.cardDeciding === 'wf:' + stepN + ':' + f.number) { wrap.appendChild(wontFixForm(f, 'tr-why-' + stepN + '-' + f.number, function (why) { decideOn(t, f, 'wont_fix', '', why); })); }
     if (S.cardDeciding === stepN + ':' + f.number) {
       var form = el('form', 'tr-form');
       // Empty to start with: the suggested fix is above it, and only the person's own words go here.
@@ -1742,6 +1763,26 @@
     return wrap;
   }
 
+  /* Why it won't be fixed: a box like Describe Solution's, with the reason written before in it to change. */
+  function wontFixForm(f, id, save) {
+    var form = el('form', 'tr-form');
+    var why = field(form, 'Why won’t it be fixed?', 'textarea', f.verdict === 'wont_fix' ? f.reason || '' : '', id);
+    why.rows = 3;
+    why.placeholder = 'For example: it only happens to a first-time visitor, and the guide already explains it.';
+    var r2 = el('div', 'tr-actions');
+    var ok = button('tr-btn tr-btn-s tr-primary', 'Save won’t fix');
+    ok.type = 'submit';
+    var cancel = button('tr-btn tr-btn-s', 'Cancel');
+    cancel.addEventListener('click', function () { S.cardDeciding = 0; S.wontFixing = false; draw(); });
+    r2.appendChild(ok);
+    r2.appendChild(cancel);
+    form.appendChild(r2);
+    form.appendChild(el('p', 'tr-dim', 'The reason is kept with the choice, so later you can see why problems were set aside. It can be left empty.'));
+    form.addEventListener('submit', function (e) { e.preventDefault(); save(why.value.trim()); });
+    setTimeout(function () { why.focus(); }, 0);
+    return form;
+  }
+
   /* The tick: on is Use this fix (or your own way, kept); off takes the choice back, with Undo. */
   function setTick(t, stepN, f, on) {
     S.ownFix = S.ownFix || {};
@@ -1758,17 +1799,17 @@
     decideOn(t, f, '');
   }
 
-  function decideOn(t, f, v, decision) {
-    var before = { verdict: f.verdict || '', decision: f.decision || '' };
+  function decideOn(t, f, v, decision, reason) {
+    var before = { verdict: f.verdict || '', decision: f.decision || '', reason: f.reason || '' };
     S.busy = 'verdict'; draw();
-    call('/problems/' + f.number + '/verdict', { verdict: v, decision: decision || '' }).then(function (got) {
+    call('/problems/' + f.number + '/verdict', { verdict: v, decision: decision || '', reason: reason || '' }).then(function (got) {
       S.busy = ''; S.cardDeciding = 0;
       keepProblem(t, got.problem);
       if (S.shell) { loadShell().catch(function () {}); }
       draw();
       var msg = v === '' ? 'Taken back: problem ' + f.number + ' is open again.' : v === 'decided' ? 'Problem ' + f.number + ' chosen to fix. It is fixed when you press Fix the ones I chose.'
-        : 'Saved for problem ' + f.number + ': ' + (VERDICT_LINE[v] || v) + '.';
-      toast(msg, function () { decideOn(t, Object.assign({}, f, got.problem), before.verdict, before.decision); });
+        : 'Saved for problem ' + f.number + ': ' + (VERDICT_LINE[v] || v) + (v === 'wont_fix' && reason ? ', because ' + reason : '') + '.';
+      toast(msg, function () { decideOn(t, Object.assign({}, f, got.problem), before.verdict, before.decision, before.reason); });
     }, fail);
   }
 
@@ -1779,7 +1820,7 @@
     S.pcache[p.number] = p;
     (t.found || []).forEach(function (f) {
       if (f.number !== p.number) { return; }
-      ['verdict', 'verdict_name', 'decision', 'standing', 'status', 'awaiting_choice', 'verdict_at', 'notes', 'fix', 'expected', 'actual']
+      ['verdict', 'verdict_name', 'decision', 'reason', 'standing', 'status', 'awaiting_choice', 'verdict_at', 'notes', 'fix', 'expected', 'actual']
         .forEach(function (k) { if (k in p) { f[k] = p[k]; } });
     });
   }
@@ -2136,6 +2177,12 @@
       if (p.fix) { fx.appendChild(el('h2', 'tr-h3', p.decision ? 'Rouh’s first suggestion' : 'Suggested fix')); fx.appendChild(el('p', '', p.fix)); }
       story.appendChild(fx);
     }
+    if (p.verdict === 'wont_fix') {
+      var wfx = el('section', 'tr-panel');
+      wfx.appendChild(el('h2', 'tr-h3', 'Won’t fix'));
+      wfx.appendChild(el('p', p.reason ? '' : 'tr-dim', p.reason || 'No reason written. Press Change why it won’t be fixed to add one.'));
+      story.appendChild(wfx);
+    }
     if (!p.expected && !p.actual && !p.fix && !p.decision) {
       story.appendChild(el('p', 'tr-dim', 'This problem was found before testers said what they expected, so only their words are kept.'));
     }
@@ -2151,7 +2198,7 @@
      ['Send as feedback', 'Sends it now, with its picture, to Rouh’s list of changes to make to itself.'],
      ['Edit before sending', 'The same, but you can change the words first, then send.'],
      ['Not a problem', 'The tester was wrong: it is fine as it is.'],
-     ['Won’t fix', 'It is real, but not worth changing.'],
+     ['Won’t fix', 'It is real, but not worth changing. You say why, and the reason is kept with the choice.'],
      ['Take it back', 'Undo your choice: it is open again. Every choice also has Undo on the message that appears.']]
       .forEach(function (x) { dl.appendChild(el('dt', '', x[0])); dl.appendChild(el('dd', '', x[1])); });
     what.appendChild(dl);
@@ -2188,6 +2235,11 @@
   function decide(p, kind) {
     var box = el('section', 'tr-decbar is-' + kind);
     box.setAttribute('aria-label', 'What should happen with it?');
+    if (S.wontFixing) {
+      // In both places, as Fix it like this is: a phone shows the one under the title, a desk the bar at the bottom.
+      box.appendChild(wontFixForm(p, 'tr-why-' + kind, function (why) { S.wontFixing = false; verdict(p, 'wont_fix', '', false, why); }));
+      return box;
+    }
     if (S.deciding) {
       var f = el('form', 'tr-form tr-decform');
       var how = field(f, 'Fix it like this', 'textarea', p.decision || p.fix || '', 'tr-decision-' + kind);
@@ -2227,15 +2279,14 @@
     if (p.verdict !== 'not_a_problem') {
       act('Not a problem', '', function () { verdict(p, 'not_a_problem'); }, 'The tester was wrong: it is fine as it is.');
     }
-    if (p.verdict !== 'wont_fix') {
-      act('Won’t fix', '', function () { verdict(p, 'wont_fix'); }, 'It is real, but not worth changing.');
-    }
+    act(p.verdict === 'wont_fix' ? 'Change why it won’t be fixed' : 'Won’t fix', '', function () { S.wontFixing = true; draw(); },
+      'It is real, but not worth changing: say why.');
     if (p.verdict) { act('Take it back', '', function () { verdict(p, ''); }, 'Undo your choice: it is open again.'); }
     box.appendChild(wrap);
     // Each choice in a line: in a row, five buttons sounded the same to Vesela (trial 21).
     var now = el('p', 'tr-decbar-now');
     if (p.verdict) {
-      now.appendChild(el('strong', '', 'You chose: ' + (VERDICT_LINE[p.verdict] || p.verdict_name)));
+      now.appendChild(el('strong', '', 'You chose: ' + (VERDICT_LINE[p.verdict] || p.verdict_name) + (p.verdict === 'wont_fix' && p.reason ? ': ' + p.reason.replace(/[.!?]$/, '') : '')));
       now.appendChild(document.createTextNode((p.verdict_at ? ', ' + day(p.verdict_at) : '') + '. Every choice can be taken back.'));
     } else {
       now.appendChild(document.createTextNode('Every choice can be undone. What each one does is under the problem.'));
@@ -2246,10 +2297,10 @@
 
   function isReview(p) { return (p.sightings || []).some(function (x) { return x.mode === 'review'; }); }
 
-  function verdict(p, v, decision, quiet) {
-    var before = { verdict: p.verdict || '', decision: p.decision || '' };
+  function verdict(p, v, decision, quiet, reason) {
+    var before = { verdict: p.verdict || '', decision: p.decision || '', reason: p.reason || '' };
     S.busy = 'verdict';
-    call('/problems/' + p.number + '/verdict', { verdict: v, decision: decision || '' }).then(function (got) {
+    call('/problems/' + p.number + '/verdict', { verdict: v, decision: decision || '', reason: reason || '' }).then(function (got) {
       S.busy = ''; S.deciding = false;
       if (S.data.problem && S.data.problem.problem.number === p.number) { S.data.problem.problem = got.problem; }
       S.said = '';
@@ -2258,7 +2309,7 @@
       if (quiet) { toast('Put back as it was.'); return; }
       var msg = v === '' ? 'Taken back: it is open again.' : 'Saved: ' + (VERDICT_LINE[v] || v) + '.' +
         (v === 'decided' && isReview(got.problem) ? ' It is fixed when you press Fix the ones I chose on the review’s page.' : '');
-      toast(msg, before.verdict === 'sent' ? null : function () { verdict(got.problem, before.verdict, before.decision, true); });
+      toast(msg, before.verdict === 'sent' ? null : function () { verdict(got.problem, before.verdict, before.decision, true, before.reason); });
     }, fail);
   }
 
@@ -2797,6 +2848,7 @@
       if (was !== S.sub) {
         S.said = S.carry || ''; S.carry = ''; S.error = ''; S.confirm = ''; S.draftError = ''; S.editJob = false; S.tryBad = '';
         if (!/^problem\//.test(S.sub)) { S.deciding = false; }
+        S.wontFixing = false;
         if (!/^(testers\/new|tester\/[a-z0-9]+\/edit)$/.test(S.sub)) { S.form = null; }
         if (S.sub === 'testers/new' && S.form && S.form.key) { S.form = null; }
         if (S.sub !== 'problems') { S.probView.all = false; }

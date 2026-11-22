@@ -2213,6 +2213,7 @@ class ToolRegistry:
                 "note": {"type": "string", "description": "For reopen: why."},
                 "verdict": {"type": "string", "enum": ["not_a_problem", "wont_fix", "decided", "none"]},
                 "decision": {"type": "string", "description": "For decide with decided: how to fix it."},
+                "reason": {"type": "string", "description": "For decide with wont_fix: why it won't be fixed, in the owner's words."},
                 "name": {"type": "string"}, "age": {"type": "integer"}, "job_title": {"type": "string",
                                                                                    "description": "For tester_add and tester_edit: their job."},
                 "city": {"type": "string"}, "short": {"type": "string"},
@@ -13161,8 +13162,9 @@ class ToolRegistry:
                 return "\n".join(lines)
             if action == "decide":
                 verdict = "" if args.get("verdict") in (None, "", "none") else str(args["verdict"])
-                p = await asyncio.to_thread(lambda: _trials.set_verdict(who, args.get("number"), verdict,
-                                                                        decision=str(args.get("decision") or "")))
+                p = await asyncio.to_thread(lambda: _trials.set_verdict(
+                    who, args.get("number"), verdict, decision=str(args.get("decision") or ""),
+                    reason=str(args.get("reason") or "")))
                 return "Saved: " + _trials.problem_line(p)
             if action == "run":
                 got = await _trials.run_by_hand(who, persona_id=persona, goal=str(args.get("goal") or ""),

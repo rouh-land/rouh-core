@@ -16,7 +16,7 @@
                                               &persona=vesela&job=3&screen=/x, open first, the worst first
     GET  /api/trials/problems/<n>             one problem, with every sighting and its discussion
     POST /api/trials/problems/<n>/say         {"text"}: the owner writes in its thread, and Rouh answers there
-    POST /api/trials/problems/<n>/verdict     {"verdict", "decision"?, "feedback"?}: not a problem, won't fix,
+    POST /api/trials/problems/<n>/verdict     {"verdict", "decision"?, "reason"? (why won't fix), "feedback"?}: not a problem, won't fix,
                                               decided (fix it like this), sent as feedback, or "" to take it back
     GET  /api/trials/problems/<n>/report      the problem as a report for Gene therapy
     GET  /api/trials/testers                  every tester (?archived=1 with the removed ones)
@@ -268,7 +268,7 @@ async def problem_verdict(request: HttpRequest, number: int):
 
     return await _do(request, _sync(lambda me, b: {"problem": trials.set_verdict(
         me, number, str(b.get("verdict") or ""), decision=str(b.get("decision") or ""),
-        feedback_id=str(b.get("feedback") or ""))}))
+        feedback_id=str(b.get("feedback") or ""), reason=str(b.get("reason") or ""))}))
 
 
 @only("GET")

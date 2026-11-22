@@ -130,6 +130,8 @@ class TrialProblem(models.Model):
     #: (to Gene therapy as feedback, `feedback_id`). Kept apart from `status`, which only a trial changes.
     verdict = models.TextField(blank=True, default="")
     decision = models.TextField(blank=True, default="")
+    # Why it won't be fixed, as the owner wrote it with Won't fix (22 November 2026); "" for any other choice.
+    reason = models.TextField(blank=True, default="")
     verdict_at = models.FloatField(null=True, blank=True)
     feedback_id = models.TextField(blank=True, default="")
     closed_at = models.FloatField(null=True, blank=True)
