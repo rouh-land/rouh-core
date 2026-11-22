@@ -93,6 +93,45 @@
   "next": "path",
   "learn": "path"
  },
+ "terms_note": "Words of Rouh's own, explained where they stand (review 49, problem 433). Petar, 22 November 2026: as a rule, a card's title and outcome never use a word a later tip teaches; say it in plain words. On a tip's page, the first time one of these words stands in a tip other than the one that teaches it, it can be pressed for what it means, and for the tip that teaches it.",
+ "terms": {
+  "silo": {
+   "means": "A silo is one part of your life, such as Work or Personal, kept apart from the others.",
+   "lesson": "silos"
+  },
+  "orb": {
+   "means": "The orb is the round button in the bottom-left corner: the live picture of what Rouh is doing, and on a phone the button that opens the menu.",
+   "lesson": "orb"
+  },
+  "canvas": {
+   "means": "The canvas is the space beside the chat where pages, tables and pictures appear.",
+   "lesson": "canvas"
+  },
+  "Clockwork": {
+   "means": "Clockwork is where Rouh keeps your reminders and the work it does on repeat.",
+   "lesson": "reminder"
+  },
+  "heartbeat": {
+   "means": "The heartbeat is the work Rouh does by itself, on a schedule, without being asked.",
+   "lesson": "heartbeat"
+  },
+  "Synapse": {
+   "means": "Synapse is Rouh's memory: what it knows about people, places and your work, and where it learned it.",
+   "lesson": "synapse"
+  },
+  "Anatomy": {
+   "means": "Anatomy is the group of the menu with Rouh's own settings: what it is made of and how it behaves.",
+   "lesson": ""
+  },
+  "Evolution": {
+   "means": "Evolution is where Rouh tries out new abilities, and you keep or reject them.",
+   "lesson": "evolution"
+  },
+  "Vocabulary": {
+   "means": "Vocabulary is where Rouh keeps your own words and nicknames, and what you mean by them.",
+   "lesson": "vocab"
+  }
+ },
  "stages": [
   {
    "id": "meet",
@@ -248,7 +287,7 @@
       "h": 380
      },
      "summary": [
-      "The orb is the small circle in the bottom-left corner of the screen. It sits over the menu when the menu is open, and over the page beside it when the menu is closed. It is a live picture of everything Rouh is doing, and it is also the button that opens the menu."
+      "The orb is the small circle in the bottom-left corner of the screen. It sits over the menu when the menu is open, and over the page beside it when the menu is closed. It is a live picture of everything Rouh is doing, and it is also the button that opens the menu. On a phone, while Rouh is at rest, it shows three lines, the sign of a menu; the moment Rouh answers or starts work, the live picture comes back."
      ],
      "how": [
       {
@@ -1493,7 +1532,7 @@
      ],
      "how": [
       "Say the rule, starting with From now on, always or never.",
-      "Rouh keeps it on the Rules page. To open it, press the orb, the round button in the bottom-left corner, to open the menu; then press Memory, then Rules. There, My rules shows only the rules you gave.",
+      "Rouh keeps it with your rules: press See your rules on this tip to see only the ones you gave. From anywhere else, open the menu (on a phone, the round button in the bottom-left corner, which shows three lines while Rouh is at rest), then Memory, then Rules.",
       "On the Rules page each rule has two switches under Use this rule for: Chat, for your conversations with Rouh, and Agent, for the work Rouh does in the background. Turn both off to pause a rule.",
       "When you correct Rouh twice about the same thing, make it a rule."
      ],
@@ -1503,11 +1542,13 @@
      ],
      "open": {
       "label": "Rules",
-      "href": "/rules"
+      "words": "See your rules",
+      "href": "/rules?mine=1"
      },
      "detect": "rule",
      "talk": true,
-     "glyph": "rule"
+     "glyph": "rule",
+     "remembers": true
     },
     {
      "id": "vocab",
@@ -1573,7 +1614,7 @@
     {
      "id": "silos",
      "title": "Keep parts of your life apart",
-     "outcome": "After this work and family stay apart, each labelled with its own silo.",
+     "outcome": "After this work and family stay apart, kept in separate groups.",
      "minutes": 2,
      "cover": {
       "src": "handholding/silos.webp",
@@ -1591,7 +1632,7 @@
      ],
      "says": [
       "Explain how my silos keep things apart.",
-      "Which silo is the offsite task in?"
+      "Which silo is my mother's doctor visit in?"
      ],
      "open": {
       "label": "Silos",

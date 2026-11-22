@@ -220,7 +220,7 @@ var ADDR_HOME = '/home';
 var ADDR_INSTR = '/agent-instructions';
 //: Rules, every rule Rouh follows, one group of them open at /rules/<group>, and What context/rules were included at
 //: /rules/told; `?label=` shows only the rules with the labels it names, one or several, `?label=from-chat,agent`
-//: (`?from=`, its name until 30 October 2026, still does) (`addressing.RULES`).
+//: (`?from=`, its name until 30 October 2026, still does), and `?mine=1` only the person's own (`addressing.RULES`).
 var ADDR_RULES = '/rules';
 //: Approvals, what Rouh stopped on for the person's decision (`addressing.MAIL_APPROVALS`).
 var ADDR_APPROVALS = '/mail/approvals';
@@ -386,7 +386,9 @@ function addrReadPlace(path, query) {
   }
   if ('/' + parts[0] === ADDR_RULES && (parts.length === 1 || (parts.length === 2 && /^[a-z]{2,20}$/.test(parts[1])))) {
     var from = /[?&](?:label|from)=([a-z,-]+)/.exec(String(query || ''));
-    return { kind: '', id: '', chat: chat, rules: parts[1] || '', from: from ? from[1] : '' };
+    // `?mine=1`: only the person's own rules, with every built-in one out of sight (review 49, problem 427).
+    var mine = /[?&]mine=1(?:&|$)/.test(String(query || ''));
+    return { kind: '', id: '', chat: chat, rules: parts[1] || '', from: from ? from[1] : '', mine: mine };
   }
   if (parts.length === 2 && '/' + parts.join('/') === ADDR_APPROVALS) {
     return { kind: '', id: '', chat: chat, approvals: true };
@@ -1066,7 +1068,7 @@ function addrAsk() {
   if (want.rules !== undefined) {
     ADDR.wanted = null;
     ADDR.asked = false;
-    memoryOpen(want.rules, want.from);
+    memoryOpen(want.rules, want.from, !!want.mine);
     if (want.chat) chatIsWanted();
     return;
   }

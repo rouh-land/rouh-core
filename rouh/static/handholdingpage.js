@@ -215,7 +215,10 @@
 
   function save(id, done, skip) {
     var before = H.data.progress[id];
+    var saw = H.data.detected && H.data.detected[id];
     if (done) { H.data.progress[id] = (skip ? -1 : 1) * Date.now() / 1000; } else { delete H.data.progress[id]; }
+    // Not done in the person's word is not done, whatever Rouh saw (the server keeps it so).
+    if (!done && saw) { delete H.data.detected[id]; }
     delete H.failed[id];
     H.said = skip ? 'Left out: not for you.' : done ? 'Marked done.' : 'Marked not done.';
     draw();
@@ -230,7 +233,8 @@
         draw();
       });
     }).catch(function (e) {
-      if (before) { H.data.progress[id] = before; } else { delete H.data.progress[id]; }
+      if (before !== undefined) { H.data.progress[id] = before; } else { delete H.data.progress[id]; }
+      if (saw) { H.data.detected[id] = saw; }
       H.failed[id] = (e && e.said) || 'That could not be saved. Check the connection and try again.';
       H.said = H.failed[id];
       draw();
@@ -796,7 +800,85 @@
     return ul;
   }
 
+  /* ---- words explained where they stand (review 49, problem 433) ----
+     Petar, 22 November 2026: "as a rule, we should attempt to not mention terms that are a later lesson. or
+     we should have a hover/click with definition/explanation. or both of those." Both: a card's words keep
+     to plain words (the data file's `terms_note`), and on a tip's page the first time a word of Rouh's own
+     (`terms` in the data file) stands in a tip other than the one that teaches it, it is a button that opens
+     what it means in plain words, with the tip that teaches it. Its meaning is its hover too. */
+
+  function terms() { return content().terms || {}; }
+  /** One paragraph's words, with each Rouh word not yet explained on this page made a button; what a word
+      means opens under the paragraph, so the sentence is never cut in two. */
+  function rich(tag, cls, text, me, used) {
+    var out = document.createDocumentFragment();
+    var p = el(tag, cls);
+    out.appendChild(p);
+    var after = [];
+    var t = terms(), names = Object.keys(t).filter(function (w) { return t[w] && t[w].lesson !== me && !used[w.toLowerCase()]; });
+    var rest = String(text || '');
+    while (names.length) {
+      var best = null;
+      names.forEach(function (w) {
+        var m = new RegExp('\\b(' + w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + ')s?\\b', 'i').exec(rest);
+        if (m && (!best || m.index < best.m.index)) { best = { w: w, m: m }; }
+      });
+      if (!best) { break; }
+      used[best.w.toLowerCase()] = true;
+      names = names.filter(function (w) { return w !== best.w; });
+      p.appendChild(document.createTextNode(rest.slice(0, best.m.index)));
+      var tb = termButton(best.m[0], best.w, t[best.w]);
+      p.appendChild(tb.button);
+      after.push(tb.means);
+      rest = rest.slice(best.m.index + best.m[0].length);
+    }
+    p.appendChild(document.createTextNode(rest));
+    after.forEach(function (m) { out.appendChild(m); });
+    return out;
+  }
+  var termSeq = 0;
+  function termButton(said, key, def) {
+    var id = 'hh-term-' + (++termSeq);
+    var b = k(button(said, 'hh-term', function () {
+      var open = b.getAttribute('aria-expanded') !== 'true';
+      b.setAttribute('aria-expanded', open ? 'true' : 'false');
+      means.hidden = !open;
+    }), 'term-' + key.toLowerCase());
+    b.title = def.means;
+    b.setAttribute('aria-expanded', 'false');
+    b.setAttribute('aria-controls', id);
+    var means = el('p', 'hh-term-means');
+    means.id = id;
+    means.hidden = true;
+    means.appendChild(el('span', '', def.means + ' '));
+    var to = def.lesson ? find(def.lesson) : null;
+    if (to) { means.appendChild(k(link(lessonHref(to.lesson.id, 'lesson-' + H.lesson), 'Tip: ' + to.lesson.title, 'hh-link', true), 'termtip-' + key.toLowerCase())); }
+    return { button: b, means: means };
+  }
+
   /* ---- one lesson's page ---- */
+
+  /** What Rouh already remembers of the person, in one line, with the page that lists it (review 49,
+      problem 428): the rules they gave it and the words it knows of theirs, counted by the server. */
+  function remembers() {
+    var r = (H.data && H.data.remembers) || null;
+    var p = el('p', 'hh-remembers');
+    if (!r) {
+      p.appendChild(el('span', '', 'Everything Rouh keeps of you is on your rules page. '));
+    } else {
+      var n = r.rules || 0, w = r.words || 0;
+      var said = n ? 'Rouh already keeps ' + n + ' ' + plural(n, 'rule', 'rules') + ' you gave it'
+        : 'Rouh keeps no rule of yours yet: the ones you give appear on your rules page';
+      said += w ? (n ? ', and knows ' : '. It knows ') + w + ' ' + plural(w, 'word', 'words') + ' of yours. ' : '. ';
+      p.appendChild(el('span', '', said));
+    }
+    p.appendChild(k(link('/rules?mine=1', 'See your rules', 'hh-link', true), 'remembers'));
+    if (r && r.words) {
+      p.appendChild(el('span', '', ' · '));
+      p.appendChild(k(link('/synapse/vocabulary', 'See your words', 'hh-link', true), 'remembers-words'));
+    }
+    return p;
+  }
 
   function lessonPage(id) {
     var x = find(id);
@@ -834,7 +916,9 @@
     head.appendChild(h);
     head.appendChild(el('p', 'hh-outcome', l.outcome));
     wrap.appendChild(head);
-    (l.summary || []).forEach(function (s) { wrap.appendChild(el('p', 'hh-para', s)); });
+    var used = {};
+    (l.summary || []).forEach(function (s) { wrap.appendChild(rich('p', 'hh-para', s, l.id, used)); });
+    if (l.remembers) { wrap.appendChild(remembers()); }
     if (l.connection) { wrap.appendChild(connectionFacts(l)); }
     if (l.parts && l.parts.length) { wrap.appendChild(partsList(l)); }
     if (l.how && l.how.length) {
@@ -844,7 +928,7 @@
       l.how.forEach(function (s, i) {
         var li = el('li');
         var words = typeof s === 'string' ? s : s.text;
-        li.appendChild(el('p', 'hh-how-t', words));
+        li.appendChild(rich('p', 'hh-how-t', words, l.id, used));
         if (s && s.image) { li.appendChild(picture(s.image, '', true)); }
         k(li, 'how-' + i);
         ol.appendChild(li);
@@ -862,11 +946,13 @@
         if (tl) { tn.appendChild(k(link(lessonHref(tl.lesson.id, 'lesson-' + l.id), 'How: ' + tl.lesson.title, 'hh-link', true), 'talknote')); }
         wrap.appendChild(tn);
       }
+      // Samples, said to be samples (review 49, problem 436): never somebody else's work seen as one's own.
+      wrap.appendChild(el('p', 'hh-talknote', 'Examples only: say them with your own names, tasks and times.'));
       wrap.appendChild(says(l.says));
     }
     if (l.open && l.open.href) {
       var op = el('p', 'hh-open');
-      var oa = k(link(l.open.href, 'Open ' + l.open.label, 'hh-quiet'), 'open');
+      var oa = k(link(l.open.href, l.open.words || 'Open ' + l.open.label, 'hh-quiet'), 'open');
       oa.appendChild(glyph(OUT, 16));
       op.appendChild(oa);
       wrap.appendChild(op);
@@ -953,75 +1039,88 @@
     return ul;
   }
 
-  /** Mark done, on the page itself; or Detected; or done when Rouh sees it connected. */
+  /** Mark done, on the page itself, always there (review 49, problem 429: "Keep the done/not done toggle
+      always visible, even if task is completed"). A tip Rouh saw done is shown pressed, with what it saw,
+      and pressing it marks it not done, which the server keeps as the person's word over what it saw; a
+      connection is done while Rouh sees it connected, so its toggle is shown and cannot be pressed. */
   function doneBox(l) {
     var box = el('section', 'hh-done' + (isDone(l) ? ' is-done' : ''));
     box.setAttribute('aria-label', 'Your progress on this tip');
-    if (detected(l.id)) {
-      var d = el('p', 'hh-done-words');
-      d.appendChild(glyph(TICK, 20));
-      d.appendChild(el('span', '', 'Detected: ' + H.data.detected[l.id]));
-      box.appendChild(d);
-    } else if (skipped(l.id)) {
+    var seenDone = detected(l.id);
+    var conn = /^connection:/.test(l.detect || '');
+    var on = seenDone || ticked(l.id);
+    var fixed = (seenDone && conn) || (!seenDone && liveOnly(l));
+    if (skipped(l.id)) {
       box.appendChild(el('p', 'hh-done-words', 'Not for me: you left this one out.'));
       box.appendChild(k(button('I want this after all', 'hh-quiet', function () { save(l.id, false); }), 'unskip'));
-    } else if (liveOnly(l)) {
-      box.appendChild(el('p', 'hh-done-words', 'This tip is done when Rouh sees the connection working. It ticks itself.'));
-    } else {
-      var seen = already(l.id);
-      if (seen) { box.appendChild(el('p', 'hh-done-words', 'Already there: ' + seen + ' It counts as done once you have tried it yourself.')); }
-      var on = ticked(l.id);
-      var b = k(button('', on ? 'hh-markdone on' : 'hh-markdone', function () { save(l.id, !on); }), 'markdone');
-      b.setAttribute('aria-pressed', on ? 'true' : 'false');
-      var face = el('span', 'hh-markdone-box');
-      face.appendChild(glyph(TICK, 16));
-      b.appendChild(face);
-      b.appendChild(el('span', '', on ? 'Done' : 'Mark done'));
-      box.appendChild(b);
-      if (on) { box.appendChild(el('span', 'hh-done-hint', 'Press again to mark it not done.')); }
+      if (H.failed[l.id]) { box.appendChild(el('p', 'hh-failed', H.failed[l.id])); }
+      return box;
     }
-    if (l.optional && !detected(l.id) && !skipped(l.id)) {
+    var b = k(button('', on ? 'hh-markdone on' : 'hh-markdone', function () { if (!fixed) { save(l.id, !on); } }), 'markdone');
+    b.setAttribute('aria-pressed', on ? 'true' : 'false');
+    if (fixed) { b.setAttribute('aria-disabled', 'true'); b.classList.add('fixed'); }
+    var face = el('span', 'hh-markdone-box');
+    face.appendChild(glyph(TICK, 16));
+    b.appendChild(face);
+    b.appendChild(el('span', '', on ? 'Done' : 'Mark done'));
+    box.appendChild(b);
+    var why = '';
+    if (seenDone && conn) { why = 'Rouh sees it connected, so it stays done while it is.'; }
+    else if (seenDone) { why = 'Rouh saw it: ' + H.data.detected[l.id] + ' Press to mark it not done.'; }
+    else if (fixed) { why = 'This tip is done when Rouh sees the connection working. It ticks itself.'; }
+    else if (on) { why = 'Press again to mark it not done.'; }
+    else if (already(l.id)) { why = 'Already there: ' + already(l.id) + ' It counts as done once you have tried it yourself.'; }
+    if (why) { box.appendChild(el('span', 'hh-done-hint', why)); }
+    if (l.optional && !on) {
       box.appendChild(k(button('Not for me', 'hh-quiet hh-small', function () { save(l.id, true, true); }), 'skip'));
     }
     if (H.failed[l.id]) { box.appendChild(el('p', 'hh-failed', H.failed[l.id])); }
     return box;
   }
 
-  /** The end of every lesson: the next one on the path, named and linked, and the one before. */
+  /** The foot of every tip: the tip before it and the tip after it, side by side, each named by where it
+      is (review 49, problems 429 and 430). Petar, 22 November 2026: a Previous button to the left of Next,
+      with no second line on either, and no list of the stage's other tips. Back, at the top, is where the
+      person came from; these two are the tips in order, so each says so: in this stage, or the stage it
+      crosses into. */
   function nextBox(x) {
     var list = all();
     var nx = list[x.i + 1], pv = list[x.i - 1];
-    var sec = el('section', 'hh-nextstep');
-    sec.setAttribute('aria-labelledby', 'hh-next-h');
-    var h = el('h4', 'hh-rubric', 'Next step');
-    h.id = 'hh-next-h';
-    sec.appendChild(h);
-    if (nx) {
-      var a = k(link(lessonHref(nx.lesson.id, 'lesson-' + x.lesson.id), '', 'hh-nextcard', true), 'next');
-      a.appendChild(art(nx.lesson));
-      var w = el('span', 'hh-card-words');
-      w.appendChild(el('span', 'hh-card-n', nx.stage.id !== x.stage.id ? 'New stage: ' + stageName(nx.stage) : spot(nx)));
-      w.appendChild(el('span', 'hh-card-t', nx.lesson.title));
-      w.appendChild(el('span', 'hh-card-o', nx.lesson.outcome));
-      if (nx.lesson.optional) { w.appendChild(el('span', 'hh-state', 'Optional')); }
+    var nav = el('nav', 'hh-nextstep');
+    nav.setAttribute('aria-label', 'The tips in order');
+    var row = el('div', 'hh-steps');
+    nav.appendChild(row);
+    function step(y, which) {
+      var same = y.stage.id === x.stage.id;
+      var said = which === 'prev'
+        ? (same ? 'Previous tip in this stage' : 'Last tip of ' + stageName(y.stage))
+        : (same ? 'Next tip in this stage' : 'First tip of ' + stageName(y.stage));
+      var a = k(link(lessonHref(y.lesson.id, 'lesson-' + x.lesson.id), '', 'hh-stepbtn hh-stepbtn-' + which, true), which);
+      a.setAttribute('aria-label', said + ': ' + y.lesson.title);
+      if (which === 'prev') { a.appendChild(glyph('<path d="M15 6l-6 6 6 6"/>', 20)); }
+      var w = el('span', 'hh-stepbtn-words');
+      w.appendChild(el('span', 'hh-stepbtn-k', said));
+      w.appendChild(el('span', 'hh-stepbtn-t', y.lesson.title));
       a.appendChild(w);
-      a.appendChild(glyph('<path d="M9 6l6 6-6 6"/>', 22));
-      sec.appendChild(a);
+      if (which === 'next') { a.appendChild(glyph('<path d="M9 6l6 6-6 6"/>', 20)); }
+      return a;
+    }
+    if (pv) { row.appendChild(step(pv, 'prev')); } else { row.appendChild(el('span', 'hh-stepbtn-none')); }
+    if (nx) {
+      row.appendChild(step(nx, 'next'));
     } else {
-      var end = el('div', 'hh-empty');
-      end.appendChild(el('p', 'hh-empty-big', 'This is the last tip on the path'));
-      end.appendChild(el('p', 'hh-empty-small', 'Pro tips has the small habits that make Rouh faster.'));
       var tips = pageWith('tips');
-      if (tips) { end.appendChild(k(link('/guide/' + tips.id, 'Open Pro tips', 'hh-quiet', true), 'next')); }
-      sec.appendChild(end);
+      if (tips) {
+        var end = k(link('/guide/' + tips.id, '', 'hh-stepbtn hh-stepbtn-next', true), 'next');
+        var ew = el('span', 'hh-stepbtn-words');
+        ew.appendChild(el('span', 'hh-stepbtn-k', 'The last tip on the path'));
+        ew.appendChild(el('span', 'hh-stepbtn-t', 'Open Pro tips'));
+        end.appendChild(ew);
+        end.appendChild(glyph('<path d="M9 6l6 6-6 6"/>', 20));
+        row.appendChild(end);
+      }
     }
-    if (pv) {
-      var pr = el('p', 'hh-prev');
-      pr.appendChild(el('span', '', 'Previous: '));
-      pr.appendChild(k(link(lessonHref(pv.lesson.id, 'lesson-' + x.lesson.id), pv.lesson.title, 'hh-link', true), 'prev'));
-      sec.appendChild(pr);
-    }
-    return sec;
+    return nav;
   }
 
   /** A page's own heading and line, from the data file. `sub` draws it one size down. */

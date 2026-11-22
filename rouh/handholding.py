@@ -164,6 +164,11 @@ def progress(who) -> dict:
     return {k: v for k, v in _migrated(held).items() if k in known}
 
 
+def _detectable() -> set[str]:
+    """The lessons Rouh can tick by itself, other than a connection's, which is done while it is connected."""
+    return {les["id"] for les in lessons() if les.get("detect") and not str(les["detect"]).startswith("connection:")}
+
+
 def optional_ids() -> set[str]:
     return {les["id"] for les in lessons() if les.get("optional")}
 
@@ -194,6 +199,9 @@ def mark(who, step: str, done: bool, skip: bool = False) -> dict:
             held[step] = -time.time()
         elif done:
             held[step] = held.get(step) if (held.get(step) or 0) > 0 else time.time()
+        elif step in _detectable():
+            # Not done, in the person's own word, over what Rouh sees (review 49, problem 429): kept as 0.
+            held[step] = 0
         else:
             held.pop(step, None)
         UserSetting.objects.bulk_create(
@@ -407,8 +415,27 @@ def page(who) -> dict:
     # the person ticks it (review 49, problem 369).
     there = {k: v for k, v in seen.items() if _detector(k) in ALREADY_THERE}
     seen = {k: v for k, v in seen.items() if k not in there}
-    return {"content": content(), "progress": progress(who), "detected": seen, "already": there,
-            "status": conns}
+    ticks = progress(who)
+    # A tip the person marked not done is not done, whatever Rouh sees (a 0 in their ticks).
+    seen = {k: v for k, v in seen.items() if ticks.get(k) != 0 or str(_detector(k)).startswith("connection:")}
+    return {"content": content(), "progress": ticks, "detected": seen, "already": there,
+            "status": conns, "remembers": remembers(who)}
+
+
+def remembers(who) -> dict | None:
+    """What Rouh already keeps of the person, counted: the rules they gave it and their words (review 49,
+    problem 428). None when it cannot be read, and the page then only points to the page that lists it."""
+    try:
+        from . import rules, vocabulary
+
+        ds = rules.master(who.user_id, who.org_id)
+        if not ds:
+            return {"rules": 0, "words": 0}
+        mine = [r for r in rules.rules(ds) if rules.origin_kind(r.get("origin")) in ("manual", "chat")]
+        return {"rules": len(mine), "words": len(vocabulary.entries(ds) or [])}
+    except Exception:  # noqa: BLE001 - the line then only names the page
+        log.exception("handholding: what Rouh remembers could not be counted")
+        return None
 
 
 #: The detectors that see something that exists, not something this person did: never a tick by themselves.

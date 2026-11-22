@@ -14057,13 +14057,19 @@ function memoryViewing() { return !!(MEMORY && MEMORY.open); }
 
 /* The address of what the page shows: /rules, a topic's /rules/<key>, and ?label= for the tags picked. */
 function memoryAddress() {
-  return '/rules' + (MEMORY.group ? '/' + MEMORY.group : '') + (MEMORY.tags.length ? '?label=' + MEMORY.tags.join(',') : '');
+  var q = [];
+  if (MEMORY.tags.length) q.push('label=' + MEMORY.tags.join(','));
+  if (MEMORY.mine) q.push('mine=1');
+  return '/rules' + (MEMORY.group ? '/' + MEMORY.group : '') + (q.length ? '?' + q.join('&') : '');
 }
 
-/** @param {string} [group] @param {string | string[]} [from] */
-function memoryOpen(group, from) {
+/** @param {string} [group] @param {string | string[]} [from] @param {boolean} [mine] only the person's own rules,
+    as the address says it (`?mine=1`); left out, My rules stays as it was on the page. */
+function memoryOpen(group, from, mine) {
   group = String(group || '');
   var was = MEMORY.open;
+  if (mine !== undefined) MEMORY.mine = !!mine;
+  else if (!was) MEMORY.mine = false;
   if (group !== MEMORY.group) { MEMORY.opened = {}; MEMORY.editing = ''; MEMORY.confirming = ''; if (was) memorySay(''); }
   MEMORY.group = group;
   MEMORY.tags = memoryTagsOf(from);
@@ -14379,7 +14385,7 @@ function memoryMineBar(rows) {
     b.setAttribute('data-focus', 'mine:' + (o[0] ? 'mine' : 'all'));
     b.appendChild(el('span', null, o[1]));
     b.appendChild(el('span', 'rules-nav-count', String(o[2])));
-    b.addEventListener('click', function () { MEMORY.mine = o[0]; memoryDraw(); });
+    b.addEventListener('click', function () { MEMORY.mine = o[0]; memoryDraw(); ADDR.replace = true; addrTouch(); });
     bar.appendChild(b);
   });
   if (MEMORY.mine && !mine) {

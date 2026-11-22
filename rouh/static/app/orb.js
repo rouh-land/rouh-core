@@ -39,6 +39,7 @@ function setState(v) {
   // is the other half of knowing that: an answer goes on being said for
   // several seconds after the last word of it was written.
   showStop();
+  orbRest();
 }
 
 /* ---------- the work tree, drawn as a structure -----------------------
@@ -2020,6 +2021,7 @@ function drawOrb(ts) {
   sizeOrb(ts);
   renderOrb(ts / 1000, dt);
   if (ts - pruneAt > 1000) { pruneAt = ts; prune(); }
+  orbRest();
   orbStats.frames++;
   orbStats.segs = segN;
   orbStats.marks = markN;
@@ -3118,19 +3120,35 @@ function orbPressed() {
   try { localStorage.setItem(ORB_INTRO_KEY, String(n + 1)); } catch (err) { /* this visit only */ }
   orbOpenSays();
 }
-// The word on the circle while it is new and it is the menu button.
+/* The menu button at rest (review 49, problem 297). Petar, 22 November 2026: "remove the MENU. put a
+   hamburger icon inside instead of the rouh figure when rouh is not doing anything at rest. the moment
+   rouh starts answering chat and having background task, rouh is shown and hamburger icon is hidden."
+   So wherever the circle is the menu button, three lines stand in it while nothing runs and no turn is
+   under way; the orb is drawn again the moment one starts. The word Menu that stood on the circle while
+   it was new is gone. `orbRest` is asked on every frame, and changes the page only when it changes. */
+var ORB_REST = '';
 function orbIntroWord() {
   var btn = $('orbOpen');
   if (!btn) return;
-  var word = btn.querySelector('.orb-intro-word');
-  var on = orbIntro() && orbMenuButton();
-  if (on && !word) {
-    word = el('span', 'orb-intro-word', 'Menu');
-    word.setAttribute('aria-hidden', 'true');
-    btn.appendChild(word);
-  } else if (!on && word) {
-    word.remove();
+  var old = btn.querySelector('.orb-intro-word');
+  if (old) old.remove();
+  if (!btn.querySelector('.orb-burger')) {
+    var b = el('span', 'orb-burger');
+    b.setAttribute('aria-hidden', 'true');
+    b.innerHTML = '<svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor"' +
+      ' stroke-width="2" stroke-linecap="round"><path d="M5 7h14M5 12h14M5 17h14"/></svg>';
+    btn.appendChild(b);
   }
+  orbRest();
+}
+function orbRest() {
+  var layer = $('orbLayer');
+  if (!layer) return;
+  var rest = orbMenuButton() && ORBX.state === 'corner' && S.state === 'idle' && machineSummary().idle;
+  var now = rest ? '1' : '';
+  if (now === ORB_REST) return;
+  ORB_REST = now;
+  if (rest) layer.setAttribute('data-rest', ''); else layer.removeAttribute('data-rest');
 }
 function orbIntroTip() {
   var tip = $('orbTip'), box = $('orbBox');
