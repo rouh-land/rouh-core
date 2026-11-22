@@ -35,7 +35,7 @@
     "permissions": [
       "after a run of gene therapy proves a change that a person sees, has a made-up person (a tester, the person's default unless another is asked for by name) try it in that run's own test world, through a headless browser at a phone's size, seeing only the screen, its words and what can be pressed",
       "asks the model on \"Trials tester\" what the persona sees, thinks and does at each step, and the model on \"Trials: the same problem again\" whether a problem found is one already on the list",
-      "keeps each trial's steps, screenshots and ending, and one list of problems, each counted again when seen again and closed only when a later trial gets past it",
+      "keeps each trial's steps, screenshots and ending, and one list of problems, each counted again when seen again and closed when the wave of fixes chosen for it finishes or a later trial gets past it",
       "puts the owner's own confusions on the same list: a term they ask the meaning of in a chat, or saying something in Rouh is confusing",
       "starts a run that only runs a trial when the person asks for one (\"trial this page with Boris\", or Run this trial again), which stands up a test world and changes no code",
       "after a third try that still fails, posts one notice saying the change shipped anyway",

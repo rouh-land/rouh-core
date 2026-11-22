@@ -53,12 +53,13 @@
   var BAD_ORDER = ['blocked', 'confused', 'annoyed', 'minor'];
   var BAD_TONE = { blocked: 'rose', confused: 'amber', annoyed: 'violet', minor: 'slate' };
   var STAND = {
-    open: ['Not fixed yet', 'amber'], decided: ['Decided how to fix it', 'blue'], fixed: ['Fixed', 'green'],
+    open: ['Not fixed yet', 'amber'], decided: ['Chosen to fix', 'blue'], fixed: ['Fixed', 'green'],
     set_aside: ['Set aside', 'slate']
   };
   var VERDICT_LINE = { not_a_problem: 'Not a problem', wont_fix: 'Won’t fix', decided: 'Decided how to fix it',
                        sent: 'Sent as feedback' };
-  var RULE = 'Fixed only when a later try passes the same screen without tripping on it. Sent is never shown as fixed.';
+  // Petar, 22 November 2026: fixed as soon as its wave of fixes has finished, with no second test to prove it.
+  var RULE = 'Fixed as soon as the wave of fixes it was chosen for has finished. A later try that meets it again opens it again. Sent is never shown as fixed.';
 
   /* ---- small things ---- */
 
@@ -172,6 +173,7 @@
     flat: '<svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><path d="M2 7h10M8 3l4 4-4 4"/></svg>',
     one: '<svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="7" cy="7" r="3"/></svg>',
     check: '<svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><path d="M2.5 7.5 5.5 10.5 11.5 3.5"/></svg>',
+    thumb: '<svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" aria-hidden="true"><path d="M5 7v7H2.5V7z"/><path d="M5 7.2 8 2.5c1 0 1.8.8 1.6 1.9L9.2 6.5h3.6c.9 0 1.5.8 1.3 1.7l-1.1 4.6c-.2.7-.8 1.2-1.5 1.2H5"/></svg>',
     wait: '<svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M3.5 1.5h7M3.5 12.5h7M4.5 1.5c0 3 5 3.5 5 5.5s-5 2.5-5 5.5M9.5 1.5c0 3-5 3.5-5 5.5s5 2.5 5 5.5"/></svg>',
     ask: '<svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><circle cx="7" cy="7" r="5.5"/><path d="M5.3 5.4a1.8 1.8 0 1 1 2.4 1.7c-.5.2-.7.6-.7 1.1M7 10.2v.1"/></svg>',
     x: '<svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M3.5 3.5l9 9M12.5 3.5l-9 9"/></svg>',
@@ -235,15 +237,21 @@
   function standBadge(p) {
     var s = el('span', 'tr-state');
     if (p.awaiting_choice) { return withIcon(s, 'ask', 'Waiting for your choice'); }
-    if (p.standing === 'fixed') { s.classList.add('is-fixed'); return withIcon(s, 'check', p.closed_by ? 'Fixed: try ' + p.closed_by + ' got past it' : 'Fixed'); }
+    if (p.standing === 'fixed') { s.classList.add('is-fixed'); return withIcon(s, 'check', fixedWords(p)); }
     if (p.standing === 'set_aside') { return withIcon(s, 'x', 'Set aside: ' + (VERDICT_LINE[p.verdict] || 'set aside') + (p.verdict === 'wont_fix' && p.reason ? ': ' + p.reason : '')); }
     var again = seenAgain(p);
     if (again) { s.classList.add('is-again'); return withIcon(s, 'up', (p.verdict === 'sent' ? 'Sent' : 'Decided') + ', but seen again' + (again.trial ? ' in try ' + again.trial : '')); }
-    if (p.standing === 'decided' && p.verdict === 'sent') { return withIcon(s, 'wait', 'Sent as feedback, waiting for a re-test'); }
-    if (p.standing === 'decided') { return withIcon(s, 'wait', 'Decided how to fix it, waiting for a re-test'); }
+    if (p.standing === 'decided' && p.verdict === 'sent') { return withIcon(s, 'wait', 'Sent as feedback'); }
+    if (p.standing === 'decided') { return withIcon(s, 'thumb', 'Chosen to fix in the next wave'); }
     return withIcon(s, 'ask', 'Needs your decision');
   }
-  /* The proof chain: a problem is fixed only when a later try gets past it, never when a fix is sent. */
+  /* What fixed a problem, in a line: the wave and when (Petar, 22 November 2026), or the try that got past it. */
+  function fixedWords(p) {
+    var w = p.fixed_by_wave;
+    if (w) { return 'Wave ' + w.number + (w.trial && p.home && p.home.trial !== w.trial ? ' of try ' + w.trial : '') + ' fixed this' + (w.at ? ', ' + day(w.at) : ''); }
+    return p.closed_by ? 'Fixed: try ' + p.closed_by + ' got past it' : 'Fixed';
+  }
+  /* The proof chain: a problem is fixed once the wave chosen for it has finished, never when a fix is only sent. */
   function chain(p) {
     var c = el('div', 'tr-chain');
     c.setAttribute('aria-label', 'How far it is from fixed');
@@ -251,7 +259,7 @@
     function ln() { var l = el('span', 'tr-chain-ln'); l.setAttribute('aria-hidden', 'true'); c.appendChild(l); }
     if (p.standing === 'fixed') {
       n('done', 'check', p.verdict ? (VERDICT_LINE[p.verdict] || 'Decided') : 'Found'); ln();
-      n('ok', 'check', p.closed_by ? 'Try ' + p.closed_by + ' got past it' : 'A later try got past it'); ln(); n('ok', 'check', 'Fixed');
+      n('ok', 'check', p.fixed_by_wave ? 'Wave ' + p.fixed_by_wave.number + ' finished ' + dayShort(p.fixed_by_wave.at) : p.closed_by ? 'Try ' + p.closed_by + ' got past it' : 'A later try got past it'); ln(); n('ok', 'check', 'Fixed');
     } else if (p.standing === 'set_aside') {
       n('done', 'x', VERDICT_LINE[p.verdict] || 'Set aside'); ln(); n('', '', 'No longer counted');
     } else if (seenAgain(p)) {
@@ -259,9 +267,9 @@
       n('done', 'check', (p.verdict === 'sent' ? 'Sent ' : 'Decided ') + dayShort(p.verdict_at)); ln();
       n('bad', 'up', ag.trial ? 'Try ' + ag.trial + ' hit it again' : 'Seen again ' + dayShort(ag.at)); ln(); n('bad', '', 'Not fixed');
     } else if (p.standing === 'decided') {
-      n('done', 'check', (p.verdict === 'sent' ? 'Sent ' : 'Decided ') + dayShort(p.verdict_at)); ln(); n('', 'wait', 'Re-test pending'); ln(); n('', '', 'Fixed');
+      n('done', 'check', (p.verdict === 'sent' ? 'Sent ' : 'Chosen ') + dayShort(p.verdict_at)); ln(); n('', 'wait', p.verdict === 'sent' ? 'Gene therapy' : 'Its wave of fixes'); ln(); n('', '', 'Fixed');
     } else {
-      n('', '', 'Not decided'); ln(); n('', '', 'Re-test'); ln(); n('', '', 'Fixed');
+      n('', '', 'Not decided'); ln(); n('', '', 'A wave of fixes'); ln(); n('', '', 'Fixed');
     }
     return c;
   }
@@ -516,7 +524,8 @@
     ({ jobs: drawJobs, job: drawJob, 'try': drawTry, problems: drawProblems, problem: drawProblem,
        testers: drawTesters, tester: drawTester, form: drawForm, how: drawHow })[w.page](main, w);
     // At the end of a long page, the way back to every list, so nobody has to press Back three times (trial 17).
-    if (w.page === 'job' || w.page === 'try' || w.page === 'problem' || w.page === 'tester') {
+    // Not on a try's page, which ends with its Fix bar (Petar, 22 November 2026, third round).
+    if (w.page === 'job' || w.page === 'problem' || w.page === 'tester') {
       var foot = el('nav', 'tr-foot');
       foot.setAttribute('aria-label', 'Back to a list');
       foot.appendChild(el('span', 'tr-dim', 'Back to:'));
@@ -714,7 +723,7 @@
     t1.appendChild(leg);
     var rest = el('div', 'tr-legend');
     var ag = againN();
-    if (by.decided - ag > 0) { rest.appendChild(withIcon(el('span'), 'wait', (by.decided - ag) + ' decided, waiting for a re-test')); }
+    if (by.decided - ag > 0) { rest.appendChild(withIcon(el('span'), 'thumb', (by.decided - ag) + ' chosen to fix')); }
     if (ag) { rest.appendChild(withIcon(el('span', 'is-again'), 'up', ag + ' sent, but seen again')); }
     if (by.set_aside) { rest.appendChild(withIcon(el('span'), 'x', by.set_aside + ' set aside')); }
     if (by.fixed) { rest.appendChild(withIcon(el('span', 'is-fixed'), 'check', by.fixed + ' fixed')); }
@@ -1286,11 +1295,7 @@
     }
     if ((foundAt[0] || []).length) { story.appendChild(stepBlock(t, null, foundAt[0], false, walk.length, going)); }
     root.appendChild(story);
-
-    root.appendChild(runAgain(d.personas || [], t.persona, function (persona) {
-      return call('/' + t.number + '/again', { persona: persona });
-    }, 'Ask for a review', 'A tester who has seen nothing before tries the same job from the start, and you get a report ' +
-      'like this one. It takes a few minutes. Nothing is fixed from it until you choose what.'));
+    // Asking for another review is the start form's, on the dashboard (Petar, 22 November 2026, third round).
     if (!going && found.length) { root.appendChild(fixBar(t)); }
     setTimeout(markHere, 0);
   }
@@ -1319,7 +1324,9 @@
     document.querySelectorAll('.tr-sblock[id^="step-"]').forEach(function (b) { if (b.id !== 'step-whole') { S.hereWatch.observe(b); } });
   }
 
-  /* The top: who tried what, the numbers, and how it ended, in one panel. */
+  /* The top: who tried what, the numbers, and how it ended, in one panel of two columns (Petar, 22 November 2026,
+     third round): on the left the goal and the numbers under it; on the right the tester, where they nearly gave
+     up, and their conclusive words. On a phone the two stack. */
   function tryOverview(t, going, stuckAt) {
     var name = t.persona_name;
     var head = el('section', 'tr-panel tr-over');
@@ -1327,15 +1334,9 @@
     var h = el('h1', 'tr-h1', 'Try ' + t.number + ': ' + name + ' on ' + (t.job_name || upper(t.subject) || 'a page of Rouh'));
     h.appendChild(el('small', '', tryName(t.round, t.mode) + ' · ' + day(t.created_at)));
     head.appendChild(h);
-    var who = el('div', 'tr-who');
-    var tt = testerOf(t.persona);
-    who.appendChild(face(tt || { key: t.persona, name: name }, 'm', tt ? !!tt.paused : null));
-    var nm = el('div');
-    nm.appendChild(link(name, HOME + '/tester/' + t.persona, 'tr-a tr-strong'));
-    nm.appendChild(document.createTextNode(', a made-up tester' + (tt && tt.age ? ', ' + tt.age : '') + (tt && tt.city ? ', ' + tt.city : '')));
-    who.appendChild(nm);
-    head.appendChild(who);
-    head.appendChild(el('p', 'tr-goalq', '“' + t.goal + '”'));
+    var cols = el('div', 'tr-over-cols');
+    var left = el('div', 'tr-over-l');
+    left.appendChild(el('p', 'tr-goalq', '“' + t.goal + '”'));
     if (!going) {
       var facts = el('div', 'tr-facts');
       [[String(t.steps), plural(t.steps, 'step').replace(/^\d+ /, '')], [String(foundN(t)), 'problems found' + (t.open ? ', ' + t.open + ' not fixed' : '')],
@@ -1351,45 +1352,42 @@
       res.appendChild(el('b', '', t.mode === 'review' ? String(nw) : (RESULT[t.state] || ['–'])[0]));
       res.appendChild(el('span', '', t.mode === 'review' ? (nw === 1 ? 'wave of fixes' : 'waves of fixes') : 'the result'));
       facts.appendChild(res);
-      head.appendChild(facts);
+      left.appendChild(facts);
     }
-    if (t.ending || t.nearly_gave_up) {
-      var end = el('div', 'tr-over-end');
-      if (t.ending) {
-        var q = el('figure', 'tr-over-q');
-        q.appendChild(el('blockquote', 'tr-last', '“' + t.ending + '”'));
-        q.appendChild(el('figcaption', 'tr-dim', name + ', at the end'));
-        end.appendChild(q);
+    cols.appendChild(left);
+    var right = el('div', 'tr-over-r');
+    var who = el('div', 'tr-who');
+    var tt = testerOf(t.persona);
+    who.appendChild(face(tt || { key: t.persona, name: name }, 'm', tt ? !!tt.paused : null));
+    var nm = el('div');
+    nm.appendChild(link(name, HOME + '/tester/' + t.persona, 'tr-a tr-strong'));
+    nm.appendChild(document.createTextNode(', a made-up tester' + (tt && tt.age ? ', ' + tt.age : '') + (tt && tt.city ? ', ' + tt.city : '')));
+    who.appendChild(nm);
+    right.appendChild(who);
+    if (t.nearly_gave_up) {
+      var g = el('div', 'tr-over-gave');
+      g.appendChild(el('h2', 'tr-h3', 'Where ' + name + ' nearly gave up'));
+      g.appendChild(el('p', '', t.nearly_gave_up));
+      if (stuckAt) {
+        var j = button('tr-btn tr-btn-s tr-quiet', 'Go to step ' + stuckAt + ', where ' + name + ' was stopped');
+        j.addEventListener('click', function () { toStep(stuckAt); });
+        g.appendChild(j);
       }
-      if (t.nearly_gave_up) {
-        var g = el('div', 'tr-over-gave');
-        g.appendChild(el('h2', 'tr-h3', 'Where ' + name + ' nearly gave up'));
-        g.appendChild(el('p', '', t.nearly_gave_up));
-        if (stuckAt) {
-          var j = button('tr-btn tr-btn-s tr-quiet', 'Go to step ' + stuckAt + ', where ' + name + ' was stopped');
-          j.addEventListener('click', function () { toStep(stuckAt); });
-          g.appendChild(j);
-        }
-        end.appendChild(g);
-      }
-      head.appendChild(end);
+      right.appendChild(g);
     }
+    if (t.ending) {
+      var q = el('figure', 'tr-over-q');
+      q.appendChild(el('figcaption', 'tr-label', 'Conclusive words'));
+      q.appendChild(el('blockquote', 'tr-last', '“' + t.ending + '”'));
+      right.appendChild(q);
+    }
+    cols.appendChild(right);
+    head.appendChild(cols);
     var why = t.mode === 'review' ? '' : verdictWhy(t);
     if (why) { head.appendChild(el('p', 'tr-why', why)); }
     if ((t.closed || []).length) {
       head.appendChild(said('Fixed, because ' + name + ' got past them this time',
         t.closed.map(function (c) { var f = (t.found || []).filter(function (x) { return x.number === c.number; })[0]; return (f ? inTry(f) : 'Problem ' + c.number) + ': ' + c.what; }).join('; ')));
-    }
-    if (!going && (t.found || []).length) {
-      var c = choiceCounts(t);
-      var line = el('p', 'tr-over-line');
-      if (t.mode !== 'review') { line.appendChild(modeChip(t.mode)); }
-      line.appendChild(el('span', '', t.mode === 'review'
-        ? 'Nothing is fixed until you tick what to fix and press Fix the ones I chose. '
-        : 'Run by itself while a feature was built; its builder fixed what it could. You can still choose fixes here. '));
-      line.appendChild(el('strong', '', plural(c.distinct, 'problem') + ' · ' + c.waiting + ' waiting for your choice · ' + c.picked + ' chosen to fix' +
-        (c.inWave ? ' · ' + c.inWave + ' in a wave now' : '')));
-      head.appendChild(line);
     }
     if (going) {
       // A try going on is read again every few seconds, so its steps appear as they happen.
@@ -1431,35 +1429,57 @@
 
   function stepTitle(s) { return s.name || s.title || 'Step ' + s.n; }
 
-  /* The strip: one bar per step, its height the problems met there; a press goes to that step. */
+  /* The step map (Petar, 22 November 2026, third round): a row of miniature phone screens, each the step's own
+     screenshot with its number, and under it the icon of every problem met there, all of them, wrapping as they
+     need. The step where the tester was stopped has a red outline. The row scrolls sideways when it is wider than
+     the page; a press goes to that step's block. */
   function stepStrip(t, walk, foundAt, stuckAt) {
     var wrap = el('div', 'tr-stripw');
-    var most = Math.max.apply(null, [1].concat(walk.map(function (s) { return (foundAt[s.n] || []).length; })));
+    wrap.id = 'tr-stepmap';
     var strip = el('nav', 'tr-strip');
     strip.setAttribute('aria-label', 'Go to a step');
     walk.forEach(function (s) {
-      var n = (foundAt[s.n] || []).length;
+      var here = foundAt[s.n] || [];
+      var n = here.length;
       var b = button('tr-strip-b' + (n ? ' has' : '') + (s.n === stuckAt ? ' is-stuck' : ''), null);
       b.setAttribute('aria-label', 'Go to step ' + s.n + ', ' + stepTitle(s) + ': ' + plural(n, 'problem') + (s.n === stuckAt ? ', stopped here' : ''));
       b.title = 'Step ' + s.n + ': ' + stepTitle(s);
       b.setAttribute('data-n', String(s.n));
-      var marks = el('span', 'tr-marks');
-      (foundAt[s.n] || []).slice(0, 4).forEach(function (f) { marks.appendChild(shape(f.how_bad, 9)); });
-      if (n > 4) { marks.appendChild(el('span', 'tr-strip-more', '+' + (n - 4))); }
-      b.appendChild(marks);
-      var bar = el('span', 'tr-strip-bar');
-      bar.style.height = (n ? Math.round(4 + n / most * 18) : 2) + 'px';
-      b.appendChild(bar);
-      b.appendChild(el('span', '', String(s.n)));
+      var ph = el('span', 'tr-mini-phone');
+      if (s.shot) {
+        var img = el('img');
+        img.src = API + '/' + t.number + '/shot/' + s.n;
+        img.alt = '';
+        img.loading = 'lazy';
+        img.decoding = 'async';
+        img.addEventListener('error', function () { ph.classList.add('is-none'); img.remove(); });
+        ph.appendChild(img);
+      } else { ph.classList.add('is-none'); }
+      b.appendChild(ph);
+      b.appendChild(el('span', 'tr-strip-n', String(s.n)));
+      if (n) {
+        var marks = el('span', 'tr-marks tr-strip-marks');
+        here.forEach(function (f) { marks.appendChild(shape(f.how_bad, 11)); });
+        b.appendChild(marks);
+      }
       b.addEventListener('click', function () { toStep(s.n); });
       strip.appendChild(b);
     });
     wrap.appendChild(strip);
-    var key = el('div', 'tr-strip-key');
-    if (stuckAt) { var k1 = el('span', 'tr-stuckword'); k1.appendChild(shape('blocked', 10)); k1.appendChild(el('span', '', 'outlined: where ' + t.persona_name + ' was stopped')); key.appendChild(k1); }
-    key.appendChild(el('span', '', 'bar height: problems at that step · press a step to go to it'));
-    wrap.appendChild(key);
     return wrap;
+  }
+
+  /* Back up to the step map, with the step just read pressed-ready there. */
+  function toMap(n) {
+    var map = document.getElementById('tr-stepmap');
+    if (!map) { return; }
+    map.scrollIntoView({ block: 'start', behavior: 'smooth' });
+    var b = map.querySelector('.tr-strip-b[data-n="' + n + '"]');
+    if (b) {
+      b.focus({ preventScroll: true });
+      var strip = b.parentNode;
+      if (b.offsetLeft < strip.scrollLeft || b.offsetLeft + b.offsetWidth > strip.scrollLeft + strip.clientWidth) { strip.scrollLeft = b.offsetLeft - strip.clientWidth / 2; }
+    }
   }
 
   function toStep(n) {
@@ -1474,9 +1494,18 @@
     var box = el('section', 'tr-sblock' + (isStuck ? ' is-stuck' : ''));
     box.id = s ? 'step-' + s.n : 'step-whole';
     var head = el('div', 'tr-sblock-head');
+    var hrow = el('div', 'tr-sblock-hrow');
     var h = el('h3', 'tr-h2', s ? 'Step ' + s.n + ': ' + stepTitle(s) : 'Whole trial');
     h.tabIndex = -1;
-    head.appendChild(h);
+    hrow.appendChild(h);
+    var up = button('tr-btn tr-btn-s tr-quiet tr-tomap', null);
+    up.appendChild(icon('up'));
+    up.appendChild(el('span', 'tr-tomap-w', 'Back to steps'));
+    up.setAttribute('aria-label', 'Back to steps');
+    up.title = 'Back to steps';
+    up.addEventListener('click', function () { toMap(s ? s.n : 0); });
+    hrow.appendChild(up);
+    head.appendChild(hrow);
     var meta = el('p', 'tr-sblock-meta');
     if (s) { meta.appendChild(el('span', '', (s.name && s.title ? s.title + ' · ' : '') + 'step ' + s.n + ' of ' + total)); }
     else { meta.appendChild(el('span', '', 'Problems ' + name + ' named that belong to no one step')); }
@@ -1548,20 +1577,58 @@
     });
     return c;
   }
-  /* The one short line under a problem's name in the navigator. */
-  function clarify(f) {
-    var w = waveOf(f);
-    if (f.standing === 'fixed') { return 'Fixed'; }
-    if (w && w.state === 'running') { return 'In wave ' + w.number + ', being fixed now'; }
-    if (w && w.state === 'done' && !chosenNext(f)) { return 'Fixed by wave ' + w.number + ', waiting for a re-test'; }
-    if (w && w.state === 'failed' && f.verdict === 'decided') { return 'Wave ' + w.number + ' failed · chosen again'; }
-    if (f.verdict === 'decided') { return f.decision && f.decision !== f.fix ? 'Chosen: fixed your way' : 'Chosen: use this fix'; }
-    if (f.verdict === 'not_a_problem') { return 'Not a problem'; }
-    if (f.verdict === 'wont_fix') { return 'Won’t fix'; }
-    if (f.verdict === 'sent') { return 'Sent as feedback'; }
-    return f.awaiting_choice ? 'Waiting for your choice' : 'Not decided';
-  }
+  /* The one short line under a problem's name in the navigator: its number and how often it was seen. Where it
+     stands is its mark's, so the line never says it again (Petar, 22 November 2026, third round). */
+  function seenLine(f) { return inTry(f) + ' · ' + (f.count > 1 ? 'seen ' + f.count + ' times' : 'seen once'); }
   function rowId(stepN, f) { return 'tr-pr-' + stepN + '-' + f.number; }
+
+  /* A problem's mark in the navigator, which alone says where it stands (Petar, 22 November 2026, third round):
+     an empty box, not decided yet; a thumbs-up, chosen to fix in the next wave (or being fixed in one now); a green
+     tick, fixed, its wave and when on hover; a red X, Won't fix; an orange X, Not a problem. The box ticks it, the
+     thumbs-up takes it back, the green tick chooses it again for a new wave, and an X takes the choice back. */
+  function problemMark(t, stepN, f, going) {
+    var id = 'tr-tick-' + stepN + '-' + f.number;
+    var rw = runningWave(f);
+    var kind = f.verdict === 'wont_fix' ? 'wont' : f.verdict === 'not_a_problem' ? 'not' : f.standing === 'fixed' ? 'fixed'
+      : (rw || chosenNext(f)) ? 'chosen' : '';
+    if (!kind) {
+      var tick = el('input', 'tr-ptick');
+      tick.type = 'checkbox';
+      tick.id = id;
+      tick.checked = false;
+      tick.disabled = going || !!S.busy;
+      var why = f.verdict === 'sent' ? 'Sent as feedback' : seenAgain(f) ? 'Seen again after it was fixed' : 'Not decided yet';
+      tick.title = why + '. Tick to fix it in the next wave.';
+      tick.setAttribute('aria-label', why + ': ' + inTry(f) + ', ' + f.what + '. Tick to fix it in the next wave.');
+      tick.addEventListener('change', function () { setTick(t, stepN, f, tick.checked); });
+      return tick;
+    }
+    var b = button('tr-pmark is-' + kind, null);
+    b.id = id;
+    var words, act;
+    if (kind === 'wont' || kind === 'not') {
+      b.innerHTML = '<svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true"><path d="M4 4l10 10M14 4 4 14" stroke="currentColor" stroke-width="3" stroke-linecap="round"/></svg>';
+      words = kind === 'wont' ? 'Won’t fix' + (f.reason ? ': ' + f.reason : '') : 'Not a problem';
+      act = 'Press to take it back and make it open again.';
+      b.addEventListener('click', function () { decideOn(t, f, ''); });
+    } else if (kind === 'fixed') {
+      b.innerHTML = '<svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true"><path d="M3.5 9.5 7.5 13.5 14.5 4.5" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+      var w = waveOf(f);
+      words = f.fixed_by_wave ? fixedWords(f) : w && w.state === 'done' ? 'Wave ' + w.number + ' fixed this, ' + day(w.ended_at || w.started_at) : fixedWords(f);
+      act = 'Press to choose it again for a new wave.';
+      b.addEventListener('click', function () { setTick(t, stepN, f, true); });
+    } else {
+      b.innerHTML = ICON.thumb.replace('width="14" height="14"', 'width="19" height="19"');
+      words = rw ? 'In wave ' + rw.number + ', being fixed now' : 'Chosen to fix in the next wave';
+      act = rw ? '' : 'Press to take it back.';
+      b.addEventListener('click', function () { setTick(t, stepN, f, false); });
+    }
+    b.title = words;
+    b.setAttribute('aria-label', words.replace(/[.!?]$/, '') + '. ' + inTry(f) + (act ? '. ' + act : ''));
+    if (kind === 'chosen' || kind === 'fixed') { b.setAttribute('aria-pressed', kind === 'chosen' ? 'true' : 'false'); }
+    b.disabled = going || !!S.busy || !!rw;
+    return b;
+  }
 
   function stepProblems(t, stepN, found, going) {
     S.pick = S.pick || {};
@@ -1576,42 +1643,18 @@
     nav.setAttribute('aria-label', 'Problems at ' + (stepN ? 'step ' + stepN : 'no one step'));
     found.forEach(function (f) {
       var li = el('li', 'tr-pnr' + (f === sel ? ' is-on' : '') + (f.standing === 'fixed' || f.standing === 'set_aside' ? ' is-closed' : ''));
-      if (f.verdict === 'wont_fix' || f.verdict === 'not_a_problem') {
-        // Won't fix and Not a problem are settled, not open: an X in place of the tick, red and orange, with the
-        // choice on hover. It cannot be ticked for fixing; pressing it takes the choice back (Petar, 22 November 2026).
-        var wf = f.verdict === 'wont_fix';
-        var xb = button('tr-psettled ' + (wf ? 'is-wont' : 'is-not'), null);
-        xb.id = 'tr-tick-' + stepN + '-' + f.number;
-        xb.innerHTML = '<svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true"><path d="M4 4l10 10M14 4 4 14" stroke="currentColor" stroke-width="3" stroke-linecap="round"/></svg>';
-        var words0 = wf ? 'Won’t fix' + (f.reason ? ': ' + f.reason : '') : 'Not a problem';
-        xb.title = words0;
-        xb.setAttribute('aria-label', words0.replace(/[.!?]$/, '') + '. ' + inTry(f) + '. Press to take it back and make it open again.');
-        xb.disabled = going || !!S.busy;
-        xb.addEventListener('click', function () { decideOn(t, f, ''); });
-        li.appendChild(xb);
-      } else {
-        var tick = el('input', 'tr-ptick');
-        tick.type = 'checkbox';
-        tick.id = 'tr-tick-' + stepN + '-' + f.number;
-        var rw = runningWave(f);
-        tick.checked = !!rw || chosenNext(f);
-        tick.disabled = going || !!rw || f.standing === 'fixed' || !!S.busy;
-        tick.setAttribute('aria-label', 'Fix ' + inTry(f) + ': ' + f.what);
-        tick.title = rw ? 'In wave ' + rw.number + ', being fixed now' : f.standing === 'fixed' ? 'Already fixed' : 'Tick to have it fixed: the same as Use this fix';
-        tick.addEventListener('change', function () { setTick(t, stepN, f, tick.checked); });
-        li.appendChild(tick);
-      }
+      li.appendChild(problemMark(t, stepN, f, going));
       var b = button('tr-pnr-b', null);
       b.id = rowId(stepN, f);
       b.setAttribute('aria-pressed', f === sel ? 'true' : 'false');
       b.setAttribute('aria-controls', 'tr-pd-' + key.replace(':', '-'));
-      // The type is its icon, named on hover; the second line is only its number and where it stands.
+      // The type is its icon, named on hover; the second line is only its number and how often it was seen.
       var ty = el('span', 'tr-ptype');
       ty.appendChild(shape(f.how_bad, 16));
       b.appendChild(ty);
       var words = el('span', 'tr-pnr-w');
       words.appendChild(el('span', 'tr-pnr-t', f.what));
-      words.appendChild(el('span', 'tr-pnr-s', inTry(f) + ' · ' + clarify(f)));
+      words.appendChild(el('span', 'tr-pnr-s', seenLine(f)));
       b.appendChild(words);
       b.addEventListener('click', function () {
         S.pick[key] = f.number; S.cardDeciding = 0; draw();
@@ -1631,42 +1674,25 @@
     return wrap;
   }
 
-  /* What the problem page has that the step above does not show (Petar, 22 November 2026, second round): how far
-     it is from fixed at the top, with no label; their words, what should have happened and what did; the suggested
-     fix with the choices straight after it; and Discuss/Ask, which opens the problem's own chat with Rouh right
-     underneath and folds it away again, leaving the panel as it was. */
+  /* What the problem page has that the step above does not show (Petar, 22 November 2026, second and third
+     rounds): its name; their words, what should have happened and what did; the suggested fix with the choices
+     straight after it; and Discuss/Ask, which opens the problem's own chat with Rouh right underneath and folds it
+     away again, leaving the panel as it was. */
   function problemDetails(t, stepN, f, going) {
     var name = t.persona_name;
-    var p = (S.pcache && S.pcache[f.number]) || null;
     var box = el('div', 'tr-pd');
     box.setAttribute('aria-live', 'polite');
-    var far = el('div', 'tr-pd-far');
-    var ch = chain(p ? Object.assign({}, p, { verdict: f.verdict, verdict_at: f.verdict_at, standing: f.standing }) : f);
-    ch.title = RULE;
-    far.appendChild(ch);
-    box.appendChild(far);
+    // Only its name at the top: the type, where it stands and how often it was seen are its row's, beside it
+    // (Petar, 22 November 2026, third round).
     var top = el('div', 'tr-pd-top');
     top.appendChild(el('h4', 'tr-h3 tr-pd-h', f.what));
-    var chips = el('div', 'tr-chips');
-    chips.appendChild(sev(f.how_bad, true));
-    // The reason is said once, in its own box below, not again in this line.
-    chips.appendChild(standBadge(Object.assign({}, p || {}, f, { sightings: p ? p.sightings : f.sightings, reason: '' })));
-    top.appendChild(chips);
-    var sub = el('p', 'tr-dim');
-    sub.appendChild(document.createTextNode(inTry(f) + (f.count > 1 ? ' · seen ' + f.count + ' times' : ' · seen once') +
-      (f.screen_name ? ' · ' + f.screen_name : '') + ' · '));
-    var own = link('Open its own page', HOME + '/problem/' + f.number, 'tr-a');
-    // Its page then names it by this try's number.
-    own.addEventListener('click', function () { S.ctxTrial = t.number; }, true);
-    sub.appendChild(own);
-    top.appendChild(sub);
     box.appendChild(top);
     var w = waveOf(f);
-    if (w) {
+    // A wave that finished is said by the green tick's hover alone; one running or failed is said here.
+    if (w && w.state !== 'done') {
       var wl = el('p', 'tr-pd-wave is-' + w.state);
-      wl.appendChild(icon(w.state === 'done' ? 'check' : w.state === 'failed' ? 'x' : 'wait'));
+      wl.appendChild(icon(w.state === 'failed' ? 'x' : 'wait'));
       wl.appendChild(el('span', '', w.state === 'running' ? 'In wave ' + w.number + ', started ' + day(w.started_at) + ': being fixed now. It can be chosen again once the wave ends.'
-        : w.state === 'done' ? 'Wave ' + w.number + ' fixed this, ' + day(w.started_at) + '. It counts as fixed once a later try gets past it.' + (chosenNext(f) ? ' Chosen again for the next wave.' : ' Tick it to have it fixed again in a new wave.')
         : 'Wave ' + w.number + ' failed, ' + day(w.started_at) + '. Tick it to try again in a new wave.'));
       box.appendChild(wl);
     }
@@ -1834,7 +1860,7 @@
     S.pcache[p.number] = p;
     (t.found || []).forEach(function (f) {
       if (f.number !== p.number) { return; }
-      ['verdict', 'verdict_name', 'decision', 'reason', 'standing', 'status', 'awaiting_choice', 'verdict_at', 'notes', 'fix', 'expected', 'actual']
+      ['verdict', 'verdict_name', 'decision', 'reason', 'standing', 'status', 'awaiting_choice', 'verdict_at', 'notes', 'fix', 'expected', 'actual', 'fixed_by_wave', 'count']
         .forEach(function (k) { if (k in p) { f[k] = p[k]; } });
     });
   }
@@ -1931,7 +1957,7 @@
   /* ---- the Fix list: the problems, every job ---- */
 
   var STATUS_TABS = [['open', 'Needs your decision', 'open'], ['awaiting', 'Waiting for your choice', ''],
-                     ['decided', 'Decided, waiting for a re-test', 'decided'], ['again', 'Seen again', ''], ['fixed', 'Fixed', 'fixed'],
+                     ['decided', 'Chosen to fix', 'decided'], ['again', 'Seen again', ''], ['fixed', 'Fixed', 'fixed'],
                      ['set_aside', 'Set aside', 'set_aside'], ['all', 'All', '*']];
 
   function drawProblems(root) {
@@ -2845,7 +2871,7 @@
      ['Send as feedback', 'it goes, with its picture, to Rouh’s list of changes to make to itself. Edit before sending lets you change the words first.'],
      ['Not a problem, Won’t fix', 'set it aside. A tester who runs into it again no longer fails the try.'],
      ['Undo', 'every choice can be taken back: press Undo on the message that appears, or Take it back later.'],
-     ['Fixed', 'only a later try that passes the same screen without tripping on it marks a problem fixed. Nobody marks it by hand.']]
+     ['Fixed', 'a problem is fixed as soon as the wave of fixes you chose it for has finished, or when a later try passes its screen without tripping on it. Nobody marks it by hand, and a later try that meets it again opens it again.']]
       .forEach(function (x) { s3.appendChild(said(x[0], x[1])); });
     grid.appendChild(s3);
     var s4 = section('tr-panel', 'Where the ideas came from');

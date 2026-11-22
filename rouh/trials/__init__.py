@@ -27,9 +27,10 @@ and gene it came from, and when. The same problem seen again (the same screen an
 judged by the Smart model against the open problems, `trial_matcher`) raises its count and keeps the
 new sighting instead of being added twice. The owner's own confusions go on the same list, from
 `owner`: a term they ask the meaning of, or saying something in Rouh is confusing (`owner_said`).
-A problem is closed only by a later trial that passes and visits its screen without tripping on it,
-never by hand, and closed problems stay on the list with when and by which trial; one closed too soon
-can be opened again (`reopen`).
+A problem is closed, never by hand, when the wave of fixes the owner chose it for has finished (Petar,
+22 November 2026: one try and one wave of fixes, with no second test), or when a later trial that passes
+visits its screen without tripping on it; closed problems stay on the list with when and by which wave or
+trial, and a later try that meets one again opens it again, as `reopen` does by hand.
 
 **Jobs and discussions** (Petar, 4 November 2026, after "Terrible first version of trials"): every try
 belongs to a job, what is being tested, and the list shows jobs; who tried each shows only once one is
@@ -643,7 +644,8 @@ STANDINGS = ("open", "decided", "fixed", "set_aside", "all")
 
 
 def standing(p) -> str:
-    """Where one problem stands, in one word the page filters by: fixed (a passing trial got past it),
+    """Where one problem stands, in one word the page filters by: fixed (its wave of fixes finished, or a passing
+    trial got past it),
     set_aside (not a problem, or won't fix), decided (decided or sent as feedback) or open."""
     if p.status == "closed":
         return "fixed"
@@ -710,11 +712,13 @@ def trial_dict(t, *, steps: bool = False, names: dict | None = None) -> dict:
                 latest[n] = w
         for f in out["found"]:
             w = latest.get(f["number"])
-            f["wave"] = {"number": w["number"], "state": w["state"], "started_at": w["started_at"]} if w else None
+            f["wave"] = ({"number": w["number"], "state": w["state"], "started_at": w["started_at"],
+                          "ended_at": w["ended_at"]} if w else None)
     return out
 
 
 def listing(who, *, persona_id: str = "", since: float | None = None, limit: int = 200, job: int | None = None) -> list[dict]:
+    settle_waves(who)
     q = _m().Trial.objects.filter(**_whose(who))
     if persona_id:
         q = q.filter(persona=_tester(who, persona_id).key)
@@ -738,6 +742,7 @@ def _trial(who, number):
 
 
 def one(who, number) -> dict:
+    settle_waves(who)
     return trial_dict(_trial(who, number), steps=True)
 
 
@@ -969,7 +974,7 @@ def problem_brief(p, *, notes: dict | None = None, reviewed: set | None = None) 
             "decision": p.decision, "reason": p.reason, "expected": p.expected, "actual": p.actual, "fix": p.fix,
             "screen": p.screen, "screen_name": p.screen_name or p.screen or "", "source": p.source,
             "personas": p.personas or [], "notes": (notes or {}).get(p.id, 0), "feedback_id": p.feedback_id,
-            "verdict_at": p.verdict_at}
+            "verdict_at": p.verdict_at, "fixed_by_wave": _wave_of(p)}
 
 
 def problem_dict(p, *, sightings: bool = True, notes: bool = False, names: dict | None = None,
@@ -1015,6 +1020,17 @@ def problem_dict(p, *, sightings: bool = True, notes: bool = False, names: dict 
     return out
 
 
+def _wave_of(p) -> dict | None:
+    """The wave that fixed a problem, as the page says it on the green tick's hover: its try, its number, and when."""
+    if not p.closed_wave or p.status != "closed":
+        return None
+    w = _m().TrialWave.objects.filter(id=p.closed_wave, org_id=p.org_id, user_id=p.user_id).first()
+    if w is None:
+        return None
+    t = _m().Trial.objects.filter(id=w.trial_id, org_id=p.org_id, user_id=p.user_id).values_list("number", flat=True).first()
+    return {"trial": t, "number": w.number, "at": w.ended_at or p.closed_at or w.started_at}
+
+
 def _rank(p) -> tuple:
     order = {"open": 0, "decided": 1, "set_aside": 2, "fixed": 3}
     return (order.get(standing(p), 9), HOW_BAD.index(p.how_bad) if p.how_bad in HOW_BAD else 9, -p.count, -p.last_at)
@@ -1025,6 +1041,7 @@ def problems(who, *, status: str = "", source: str = "", persona_id: str = "", s
     """The list: open first, then decided, set aside and fixed; within each the worst and the most seen first.
     `status` is where they stand (open, decided, fixed, set_aside, all; closed is fixed)."""
     status = "fixed" if status == "closed" else status
+    settle_waves(who)
     q = _m().TrialProblem.objects.filter(**_whose(who))
     if source in ("persona", "owner"):
         q = q.filter(source=source)
@@ -1153,9 +1170,9 @@ def reopen(who, number, *, note: str = "") -> dict:
     only a passing trial that visits its screen closes one."""
     p = _problem(who, number)
     if p.status != "open":
-        p.status, p.closed_at, p.closed_by = "open", None, None
+        p.status, p.closed_at, p.closed_by, p.closed_wave = "open", None, None, None
         p.closed_note = _cut(f"Opened again: {note}" if note else "Opened again.", 400)
-        p.save(update_fields=["status", "closed_at", "closed_by", "closed_note"])
+        p.save(update_fields=["status", "closed_at", "closed_by", "closed_wave", "closed_note"])
     return problem_dict(p)
 
 
@@ -1180,6 +1197,11 @@ def set_verdict(who, number, verdict: str, *, decision: str = "", feedback_id: s
     if verdict == "decided" and not decision:
         raise Refused("Say how it should be fixed: \"Fix it like this: ...\".")
     now = _now()
+    if verdict == "decided" and p.status == "closed":
+        # A fixed problem ticked again is chosen for a new wave: it is open until that wave has finished.
+        p.status, p.closed_at, p.closed_by, p.closed_wave = "open", None, None, None
+        p.closed_note = "Chosen again for a new wave."
+        p.save(update_fields=["status", "closed_at", "closed_by", "closed_wave", "closed_note"])
     p.verdict, p.verdict_at = verdict, now if verdict else None
     p.decision = decision if verdict == "decided" else (p.decision if verdict == "sent" else "")
     reason = str(reason or "").strip()[:3000]
@@ -1204,7 +1226,8 @@ def _talk_context(who, p) -> tuple[str, str | None]:
     d = problem_dict(p, notes=True)
     lines = [f"Problem {d['number']}: {d['what']}", f"How bad: {HOW_BAD_NAMES.get(d['how_bad'], d['how_bad'])}",
              f"On the screen: {d['screen_name'] or 'somewhere in Rouh'}", f"Where it stands: {VERDICTS.get(d['verdict'])}"
-             + (" (fixed by a later try)" if d["status"] == "closed" else "")]
+             + (" (fixed: " + (f"wave {d['fixed_by_wave']['number']} fixed it" if d.get("fixed_by_wave")
+                                   else "a later try got past it") + ")" if d["status"] == "closed" else "")]
     for k, label in (("expected", "What should have happened"), ("actual", "What happened"), ("fix", "Suggested fix"),
                      ("decision", "Decided fix"), ("reason", "Why it won't be fixed")):
         if d.get(k):
@@ -1306,6 +1329,7 @@ def page_of_gene(key: str) -> str:
 
 
 def counts(who) -> dict:
+    settle_waves(who)
     rows = list(_m().TrialProblem.objects.filter(**_whose(who)))
     by = {k: 0 for k in ("open", "decided", "fixed", "set_aside")}
     for p in rows:
@@ -1679,8 +1703,12 @@ async def _put_on_list(who, t) -> list[dict]:
             for f in s.found or []:
                 new.append({**f, "step": s.n, "screen": s.screen, "screen_name": screen_name(s.title, s.screen)})
         keys = {f["screen"] for f in new}
-        # Every problem not fixed, set aside ones too: one seen again is counted, never written twice.
-        open_rows = list(M.TrialProblem.objects.filter(**_whose(who), status="open", screen__in=keys))
+        # Every problem not fixed, set aside ones too: one seen again is counted, never written twice. One a wave of
+        # fixes fixed is in too: met again, it is opened again rather than written down a second time.
+        from django.db.models import Q
+
+        open_rows = list(M.TrialProblem.objects.filter(**_whose(who), screen__in=keys).filter(
+            Q(status="open") | Q(status="closed", closed_wave__isnull=False)))
         return new, open_rows
 
     new, open_rows = await asyncio.to_thread(gather)
@@ -1710,6 +1738,10 @@ async def _put_on_list(who, t) -> list[dict]:
                     except IntegrityError:
                         continue
             else:
+                if row.status == "closed":
+                    row.status, row.closed_at, row.closed_by, row.closed_wave = "open", None, None, None
+                    row.closed_note = _cut(f"Opened again: trial {t.number} met it again.", 400)
+                    row.save(update_fields=["status", "closed_at", "closed_by", "closed_wave", "closed_note"])
                 row.count += 1
                 row.last_at = now
                 row.how_bad = _worse(row.how_bad, f["how_bad"])
@@ -1845,6 +1877,10 @@ def _settle_wave(w) -> None:
     elif state in WAVE_DONE:
         w.state = "done"
         w.said = _cut(getattr(row, "detail", "") or getattr(row, "summary", "") or "Its run finished.", 2000)
+        w.ended_at = _now()
+        w.save(update_fields=["state", "said", "ended_at"])
+        _close_by_wave(w)
+        return
     elif state in WAVE_FAILED:
         w.state = "failed"
         w.said = _cut(getattr(row, "detail", "") or f"Its run ended as {state}.", 2000)
@@ -1852,6 +1888,25 @@ def _settle_wave(w) -> None:
         return
     w.ended_at = _now()
     w.save(update_fields=["state", "said", "ended_at"])
+
+
+def _close_by_wave(w) -> int:
+    """A wave that finished fixes its problems at once (Petar, 22 November 2026): each it was given, still open and
+    not chosen again since the wave began, counts as fixed, with no re-test. A later try that meets one opens it again."""
+    numbers = [n for n in (w.problems or []) if isinstance(n, int)]
+    if not numbers:
+        return 0
+    t = _m().Trial.objects.filter(id=w.trial_id, org_id=w.org_id, user_id=w.user_id).values_list("number", flat=True).first()
+    rows = _m().TrialProblem.objects.filter(org_id=w.org_id, user_id=w.user_id, number__in=numbers, status="open",
+                                            verdict="decided", verdict_at__lte=w.started_at)
+    return rows.update(status="closed", closed_at=w.ended_at or _now(), closed_by=None, closed_wave=w.id,
+                       closed_note=f"Wave {w.number}" + (f" of try {t}" if t else "") + " fixed this.")
+
+
+def settle_waves(who) -> None:
+    """Every wave of this person's still running settled against its run, so every count says what is fixed."""
+    for w in _m().TrialWave.objects.filter(**_whose(who), state="running"):
+        _settle_wave(w)
 
 
 def waves(who, t) -> list[dict]:
@@ -2054,7 +2109,7 @@ rouh-trial tester-remove <name> | default <name>   # only when the person says s
 
 A tester can be paused by the person, or all testing at once (`rouh-trial personas` says who is). The pause is for automatic tries only: a paused tester starts no automatic try, and `rouh-trial run` then prints `SKIPPED: skipped: tester paused` and exits 0. That is never a failure and never blocks a build: record "skipped: tester paused" in your report and test results, carry on, and never work round it (another tester, resuming one, `--review` without the person asking, or anything else). A review the person asked for in their own words (`rouh-trial run --review`, or `rouh-trial queue`) still runs while the tester is paused, and the pause stays as it was. Only the person pauses and resumes, on Evolution, Trials, Testers or in their own words.
 
-A goal is one sentence, as the person would put it, never how the thing was built. A problem is closed only by a later trial that passes, never by hand. A problem the person decided ("Fix it like this") is fixed their way; one they set aside (not a problem, won't fix) is left alone, and so is one waiting on their choice from a review."""
+A goal is one sentence, as the person would put it, never how the thing was built. A problem is closed, never by hand, when the wave of fixes the person chose it for has finished, or when a later trial that passes gets past it. A problem the person decided ("Fix it like this") is fixed their way; one they set aside (not a problem, won't fix) is left alone, and so is one waiting on their choice from a review."""
 
 
 def for_runs(org: str) -> str:

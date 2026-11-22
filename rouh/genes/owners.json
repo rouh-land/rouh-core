@@ -2401,6 +2401,7 @@
     "rouh/migrations/0269_trial_step_names_waves.py",
     "rouh/migrations/0270_trial_problem_reason.py",
     "rouh/migrations/0271_trial_problem_numbers.py",
+    "rouh/migrations/0272_trial_problem_fixed_by_wave.py",
     "bin/rouh-trial"
    ]
   },

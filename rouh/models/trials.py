@@ -123,7 +123,7 @@ class TrialProblem(models.Model):
     expected = models.TextField(blank=True, default="")
     actual = models.TextField(blank=True, default="")
     fix = models.TextField(blank=True, default="")
-    #: open or closed (fixed: a passing trial got past it).
+    #: open or closed (fixed: the wave of fixes that worked on it finished, or a passing trial got past it).
     status = models.TextField(default="open")
     #: What the owner made of it, from its discussion: "" (not looked at), not_a_problem, wont_fix,
     #: decided (with `decision`, "fix it like this", which the builder of the next round reads), or sent
@@ -138,6 +138,9 @@ class TrialProblem(models.Model):
     #: The trial that got past it, or "" when it was closed by hand, with the words why.
     closed_by = models.BigIntegerField(null=True, blank=True)
     closed_note = models.TextField(blank=True, default="")
+    #: The wave of fixes (`TrialWave.id`) that fixed it, when a wave did: a problem counts as fixed as soon as its
+    #: wave has finished, with no re-test (Petar, 22 November 2026).
+    closed_wave = models.BigIntegerField(null=True, blank=True)
     first_at = models.FloatField()
     last_at = models.FloatField()
 

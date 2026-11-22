@@ -264,19 +264,26 @@ a.tr-need:hover { border-color: var(--ink-2); }
 .tr-banner p { flex: 1 1 220px; }
 .tr-live-dot { width: 10px; height: 10px; border-radius: 999px; background: var(--accent); display: inline-block; animation: tr-pulse 1.2s infinite; }
 @keyframes tr-pulse { 50% { opacity: .25; } }
-.tr-strip { display: flex; gap: 3px; align-items: stretch; }
-.tr-strip-b { flex: 1; min-width: 0; min-height: 56px; border: 1.5px solid var(--line); background: var(--surface); border-radius: 6px; cursor: pointer;
-  display: flex; flex-direction: column; justify-content: flex-end; align-items: center; padding: 3px 0; gap: 3px; font-size: 11px; color: var(--ink-2); }
-.tr-strip-bar { width: 60%; border-radius: 2px; background: var(--ink-2); }
-.tr-strip-b.has .tr-strip-bar { background: var(--ink); }
-.tr-strip-b.is-stuck { border: 2px solid var(--s-blocked); }
+/* The step map (Petar, 22 November 2026, third round): a row of miniature phone screens, each its step's
+   screenshot with its number and every problem icon under it, wrapping; it scrolls sideways when it is wider. */
+.tr-strip { display: flex; gap: 8px; align-items: flex-start; overflow-x: auto; padding: 4px 2px 8px; scroll-snap-type: x proximity; }
+.tr-strip-b { flex: 0 0 76px; display: grid; justify-items: center; align-content: start; gap: 4px; padding: 4px 4px 6px;
+  border: 1.5px solid transparent; background: none; border-radius: 12px; cursor: pointer; color: var(--ink); font: inherit; scroll-snap-align: start; }
+.tr-strip-b:hover .tr-mini-phone { border-color: var(--accent); }
+.tr-mini-phone { display: block; width: 64px; aspect-ratio: 390 / 844; overflow: hidden; border-radius: 10px; border: 2px solid var(--line-strong);
+  background: var(--surface); position: relative; }
+.tr-mini-phone img { display: block; width: 100%; height: 100%; object-fit: cover; object-position: top; }
+.tr-mini-phone.is-none { border-style: dashed; border-color: var(--line); }
+.tr-mini-phone.is-none::after { content: "No picture"; position: absolute; inset: 0; display: grid; place-items: center; font-size: 10px;
+  line-height: 1.2; color: var(--ink-2); text-align: center; padding: 4px; }
+.tr-strip-n { font-weight: 700; font-size: 13px; line-height: 1.2; }
+.tr-strip-marks { justify-content: center; gap: 2px; max-width: 68px; }
+.tr-strip-b.is-stuck .tr-mini-phone { border-color: var(--s-blocked); outline: 2px solid var(--s-blocked); outline-offset: 1px; }
+.tr-strip-b.is-stuck .tr-strip-n { color: var(--s-blocked); }
 .tr-strip-b[aria-pressed="true"] { background: var(--accent-soft); border-color: var(--accent); }
-.tr-strip-b.is-stuck[aria-pressed="true"] { border-color: var(--s-blocked); }
 .tr-banner.is-stuck .tr-live-dot { display: none; }
 .tr-marks { display: flex; flex-wrap: wrap; gap: 3px; align-items: center; font-size: 12px; color: var(--ink-2); }
-.tr-strip-key { display: flex; gap: 14px; flex-wrap: wrap; font-size: 13px; color: var(--ink-2); }
 .tr-stuckword { font-weight: 700; color: var(--s-blocked); display: inline-flex; gap: 4px; align-items: center; }
-.tr-strip-key .tr-stuckword { font-weight: 400; color: var(--ink-2); }
 .tr-kv { display: grid; grid-template-columns: 52px minmax(0, 1fr); gap: 6px 12px; margin: 0; }
 .tr-kv dt { color: var(--ink-2); font-size: 14px; }
 .tr-kv dd { margin: 0; overflow-wrap: anywhere; }
@@ -497,8 +504,6 @@ a.tr-need:hover { border-color: var(--ink-2); }
   .tr-facts { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
   .tr-fact { min-width: 0; padding: 6px 8px; }
   .tr-fact b { font-size: 15px; }
-  .tr-strip { flex-wrap: wrap; gap: 4px; }
-  .tr-strip-b { min-height: 48px; flex: 1 0 34px; }
   .tr-eh { grid-template-columns: minmax(0, 1fr); }
   .tr-prow { grid-template-columns: minmax(0, 1fr); gap: 6px; }
   .tr-prow > .tr-state, .tr-prow-act { grid-column: auto; }
@@ -524,15 +529,20 @@ a.tr-need:hover { border-color: var(--ink-2); }
 /* one try, laid out step by step (Petar, 22 November 2026): the overview on top, then each step with the
    problems met at it, a navigator and a details panel, and the bar that sends the ticked ones as a wave */
 .tr-over { gap: 14px; margin-top: 4px; }
-.tr-over-end { display: grid; grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr); gap: 16px 24px; align-items: start;
-  padding-top: 14px; border-top: 1.5px solid var(--line); }
-.tr-over-end > :only-child { grid-column: 1 / -1; }
-.tr-over-q { margin: 0; display: grid; gap: 6px; }
+.tr-over-cols { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); gap: 20px 28px; align-items: start; }
+.tr-over-l, .tr-over-r { display: grid; gap: 14px; align-content: start; }
+.tr-over-r { padding-left: 24px; border-left: 1.5px solid var(--line); }
+.tr-over-l .tr-goalq { font-size: 17px; line-height: 1.4; color: var(--ink); }
+.tr-over-q { margin: 0; display: grid; gap: 4px; }
+.tr-over-q .tr-label { margin: 0; }
+.tr-over-r .tr-who { flex-wrap: nowrap; }
+.tr-over-r .tr-who > div { flex: 1 1 auto; }
+.tr-over-gave .tr-btn { text-align: left; }
+.tr-over-r .tr-last { font: 600 16px/1.45 var(--body); letter-spacing: 0; max-width: none; }
+.tr-over-l .tr-facts { display: grid; grid-template-columns: repeat(auto-fill, minmax(108px, 1fr)); }
+.tr-over-l .tr-fact { min-width: 0; }
 .tr-over-q blockquote { margin: 0; font-size: 17px; line-height: 1.35; max-width: 70ch; }
 .tr-over-gave { display: grid; gap: 6px; justify-items: start; }
-.tr-over-line { display: flex; flex-wrap: wrap; gap: 6px 10px; align-items: center; font-size: 14px; color: var(--ink-2);
-  padding-top: 12px; border-top: 1.5px solid var(--line); }
-.tr-over-line strong { color: var(--ink); font-weight: 600; }
 .tr-waves .tr-wlist { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
 .tr-wave { border: 1.5px solid var(--line); border-radius: 12px; background: var(--surface); }
 .tr-wave summary { display: flex; align-items: center; gap: 10px; min-height: 48px; padding: 8px 14px; cursor: pointer; font-weight: 600; }
@@ -548,9 +558,7 @@ a.tr-need:hover { border-color: var(--ink-2); }
 .tr-wave-body { display: grid; gap: 10px; padding: 0 14px 14px; justify-items: start; }
 .tr-wave-body .tr-mini { width: 100%; }
 .tr-stripw { display: grid; gap: 6px; padding: 6px 0 8px; background: var(--bg); border-bottom: 1.5px solid var(--line); }
-.tr-strip-more { font-size: 10px; color: var(--ink-2); }
 .tr-strip-b.is-here { background: var(--accent-soft); border-color: var(--accent); }
-.tr-strip-b.is-here.is-stuck { border-color: var(--s-blocked); }
 .tr-sblock { display: grid; gap: 16px; padding: 22px 0 6px; border-top: 2px solid var(--line); scroll-margin-top: 12px; }
 .tr-sblock.is-stuck { border-top-color: var(--s-blocked); }
 .tr-sblock-head { display: grid; gap: 4px; }
@@ -574,13 +582,20 @@ a.tr-need:hover { border-color: var(--ink-2); }
 .tr-pnr.is-on { border-color: var(--accent); background: var(--accent-soft); }
 .tr-ptick { width: 22px; height: 22px; margin: 0; align-self: center; justify-self: center; accent-color: var(--accent); cursor: pointer; }
 .tr-ptick:disabled { cursor: default; opacity: .5; }
-/* Won't fix (red) and Not a problem (orange): settled, an X in place of the tick; pressing it takes the choice back. */
-.tr-psettled { align-self: center; justify-self: center; display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 32px;
+/* A problem's mark (Petar, 22 November 2026, third round), each state its own shape as well as its colour: an empty box
+   (not decided), a thumbs-up (chosen for the next wave), a green tick (fixed), a red X (Won't fix), an orange X (Not a
+   problem). The hover names it. */
+.tr-pmark { align-self: center; justify-self: center; display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 32px;
   padding: 0; border-radius: 8px; border: 1.5px solid currentColor; background: transparent; cursor: pointer; }
-.tr-psettled.is-wont { color: var(--s-blocked); }
-.tr-psettled.is-not { color: var(--s-annoyed); }
-.tr-psettled:hover { background: var(--surface-2); }
-.tr-psettled:disabled { cursor: default; opacity: .6; }
+.tr-pmark.is-wont { color: var(--s-blocked); }
+.tr-pmark.is-not { color: var(--s-annoyed); }
+.tr-pmark.is-chosen { color: var(--accent); background: var(--accent-soft); }
+.tr-pmark.is-fixed { color: var(--accent-ink); background: var(--st-fixed); border-color: var(--st-fixed); }
+.tr-pmark:hover:not(:disabled) { background: var(--surface-2); }
+.tr-pmark.is-fixed:hover:not(:disabled) { background: color-mix(in srgb, var(--st-fixed) 80%, #fff); }
+.tr-pmark:disabled { cursor: default; opacity: .7; }
+.tr-sblock-hrow { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px 12px; }
+.tr-tomap { flex: none; min-height: 44px; display: inline-flex; align-items: center; gap: 6px; }
 .tr-said.tr-wontfix { padding: 8px 12px; border-radius: 10px; border: 1.5px solid var(--s-blocked); }
 .tr-pnr-b { display: grid; grid-template-columns: 20px minmax(0, 1fr); gap: 8px; align-items: start; text-align: left; min-height: 48px;
   padding: 8px 10px 8px 0; background: none; border: 0; color: var(--ink); cursor: pointer; font: inherit; border-radius: 0 10px 10px 0; }
@@ -601,7 +616,6 @@ a.tr-need:hover { border-color: var(--ink-2); }
 .tr-pd-wave.is-done { border-color: var(--st-fixed); }
 .tr-pd-wave.is-failed { border-color: var(--s-blocked); }
 .tr-pd-choose { display: grid; gap: 8px; }
-.tr-pd-far { display: grid; gap: 6px; padding-bottom: 10px; border-bottom: 1.5px dashed var(--line); }
 .tr-pd-talk .tr-talk { position: static; background: var(--surface-2); }
 .tr-pd-talk .tr-talk .tr-h2 { font-size: 16px; letter-spacing: -.015em; }
 .tr-talk-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
@@ -615,8 +629,12 @@ a.tr-need:hover { border-color: var(--ink-2); }
 .tr-fixbar .tr-btn:disabled { opacity: 1; background: var(--surface-2); border-color: var(--line); color: var(--ink-2) !important; }
 .tr-pd-talk { display: grid; gap: 4px; padding-top: 4px; border-top: 1.5px dashed var(--line); }
 @container tr (max-width: 860px) {
-  .tr-over-end { grid-template-columns: minmax(0, 1fr); }
   .tr-sgrid { grid-template-columns: minmax(0, 280px) minmax(0, 1fr); }
+}
+/* The top's two columns stack only where there is no room for both: a phone, or a very narrow column. */
+@container tr (max-width: 620px) {
+  .tr-over-cols { grid-template-columns: minmax(0, 1fr); }
+  .tr-over-r { padding-left: 0; border-left: 0; padding-top: 16px; border-top: 1.5px solid var(--line); }
 }
 @container tr (max-width: 700px) {
   .tr-pgrid { grid-template-columns: minmax(0, 1fr); }
@@ -626,10 +644,12 @@ a.tr-need:hover { border-color: var(--ink-2); }
   .tr-sgrid { grid-template-columns: minmax(0, 1fr); }
   /* On a phone the strip is one row that scrolls on its own, with a fade where there is more. */
   .tr-stripw { padding: 4px 0 6px; }
-  .tr-strip { flex-wrap: nowrap; overflow-x: auto; gap: 4px; padding-right: 24px;
+  .tr-strip { gap: 4px; padding-right: 24px;
     -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 28px), transparent); mask-image: linear-gradient(to right, #000 calc(100% - 28px), transparent); }
-  .tr-strip-b { flex: 0 0 44px; min-height: 48px; }
-  .tr-strip-key { display: none; }
+  .tr-strip-b { flex-basis: 64px; }
+  .tr-mini-phone { width: 54px; }
+  .tr-tomap-w { display: none; }
+  .tr-tomap { min-width: 44px; justify-content: center; }
   /* One full-width button that carries its own count: the words beside it would run under Rouh's orb. */
   .tr-fixbar { padding: 8px 4px 10px; }
   .tr-fixbar-words { display: none; }
