@@ -18273,6 +18273,114 @@ window.RouhSourcesHost = {
   }
 };
 
+/* ------------------------------------------------------------------ live
+
+   Live (Rouh Link, task 189): the live spaces this Rouh works in with other
+   people's Rouhs, the Rouhs it is connected to and who else may reach it, at
+   `/live`, drawn by `link/live.js`. A live space opens in the same layer at
+   `/link/space/<id>`: its own page, embedded under the layer's head
+   (`/link/space/<id>?in=rouh`), with Back to Live. `/link` and
+   `/link/accept?link=` open it too, for every link already sent.
+
+   It was Connections, a page of its own with none of Rouh's navigation,
+   until 22 November 2026, when Petar asked: "can we rename Connections to
+   Live ?! ... can we make it a page that fits in the same framework
+   everything else does?" */
+
+var LIVE = { open: false, space: '', title: '' };
+
+function liveViewing() { return LIVE.open; }
+
+/** @param {string} [space] a live space's id, or '' for the hub @param {string} [accept] a link to bring */
+function liveOpen(space, accept) {
+  if (ORBX.open) orbExpand(false);
+  var want = String(space || '');
+  var moved = LIVE.open && LIVE.space !== want;
+  if (LIVE.space !== want) LIVE.title = '';
+  LIVE.space = want;
+  var hub = $('liveHub'), frame = /** @type {HTMLIFrameElement|null} */ ($('liveFrame')), back = $('liveBack');
+  if (hub) hub.hidden = !!want;
+  if (back) back.hidden = !want;
+  if (frame) {
+    frame.hidden = !want;
+    var src = want ? '/link/space/' + encodeURIComponent(want) + '?in=rouh' : '';
+    if (want && frame.getAttribute('src') !== src) frame.setAttribute('src', src);
+    // Away from a space, its page is let go, so its cursor and its room stop with it.
+    if (!want && frame.getAttribute('src')) frame.removeAttribute('src');
+  }
+  liveHead();
+  if (window.RouhLive) {
+    if (want) window.RouhLive.hidden(); else window.RouhLive.shown(accept || '');
+  }
+  if (LIVE.open) {
+    if (moved) addrTouch();
+    return;
+  }
+  LIVE.open = true;
+  showLayer('liveView');
+  sidebarDone();
+  if (!narrow() && !want) $('liveView').focus({ preventScroll: true });
+}
+
+function liveHead() {
+  var t = $('liveTitle');
+  if (t) t.textContent = LIVE.space ? (LIVE.title || 'Live space') : 'Live';
+  var x = $('liveClose');
+  if (x) x.setAttribute('aria-label', LIVE.space ? 'Close the live space' : 'Close Live');
+  if (LIVE.space) { var m = $('liveMeta'); if (m) m.textContent = ''; }
+}
+
+function liveClose() {
+  if (!LIVE.open) return;
+  LIVE.open = false;
+  if (window.RouhLive) window.RouhLive.hidden();
+  var frame = $('liveFrame');
+  if (frame && frame.getAttribute('src')) frame.removeAttribute('src');
+  LIVE.space = '';
+  showLayer(null);
+}
+
+// What `link/live.js` and an embedded space's page are handed: an address in
+// Rouh to go to, a line under the title, and a space's own title once it
+// knows it, for the head and the tab.
+window.RouhLiveHost = {
+  go: function (href) { return goToAddress(href); },
+  meta: function (words) {
+    var m = $('liveMeta');
+    if (m && !LIVE.space) m.textContent = String(words || '');
+  },
+  titled: function (title) {
+    LIVE.title = String(title || '');
+    liveHead();
+    if (LIVE.open) addrTouch();
+  },
+  close: function () { liveClose(); }
+};
+
+// Rouh Link's quiet lines (`link_notice`: asked to connect, asked into a live space, a grant):
+// said once, with the way to Live, where it waits under Needs you. Nothing showed them until
+// 22 November 2026.
+window.addEventListener('rouh:link-notice', function (e) {
+  var m = /** @type {CustomEvent} */ (e).detail || {};
+  var said = typeof m.said === 'string' && m.said.trim() ? m.said.trim() : '';
+  if (!said) return;
+  if (LIVE.open && !LIVE.space && window.RouhLive) window.RouhLive.shown('');
+  notify(said, { tone: 'info', kind: 'reminder',
+                 action: { label: 'Open Live', run: function () { liveOpen(''); } }, for: 15000 });
+});
+
+(function () {
+  var x = $('liveClose');
+  if (x) x.addEventListener('click', function () { liveClose(); });
+  var back = $('liveBack');
+  if (back) linkTo(/** @type {HTMLAnchorElement} */ (back), '/live');
+  if (back) back.addEventListener('click', function (e) {
+    if (e.metaKey || e.ctrlKey || e.shiftKey) return;
+    e.preventDefault();
+    liveOpen('');
+  });
+})();
+
 /* ------------------------------------------------------------------ evolution
 
    Evolution (`rouh/evolution.py`), drawn by `evolutionpage.js`: Parameters at
@@ -18696,7 +18804,7 @@ export { applyObjects, applyWorkspace, ASK, askDelete, askFromPage, askPageNow, 
   WORK, workClose, workOpen, workViewing,
   DECIDE, decisionsClose, decisionsHeard, decisionsOpen, decisionsViewing, ACTS, actionsClose, actionsOpen, actionsViewing,
   HOLD, handholdingAddress, handholdingClose, handholdingOpen, handholdingViewing,
-  receiptsClose, receiptsOpen, receiptsViewing, HOME, homeClose, homeOpen, homeViewing, SOURCES, sourcesClose, sourcesOpen, sourcesViewing,
+  receiptsClose, receiptsOpen, receiptsViewing, HOME, homeClose, homeOpen, homeViewing, SOURCES, sourcesClose, sourcesOpen, sourcesViewing, LIVE, liveClose, liveOpen, liveViewing,
   APPROVALS, approvalsClose, approvalsOpen, approvalsViewing,
   EVO, evolutionClose, evolutionOpen, evolutionViewing, incubatorHeard,
   THOUGHTS, thoughtsClose, thoughtsHeard, thoughtsOpen, thoughtsShown, thoughtsViewing, settingsShown,

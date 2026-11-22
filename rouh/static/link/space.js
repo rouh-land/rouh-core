@@ -644,7 +644,7 @@
 
   function showGone() {
     clear($('main')).appendChild(el('div', { class: 'empty' }, [el('h2', { text: 'This space is not here' }),
-      el('p', { text: 'It may have ended, or you were never asked into it.' }), el('a', { href: '/link', text: 'Back to Connections' })]));
+      el('p', { text: 'It may have ended, or you were never asked into it.' }), el('a', { href: '/live', text: 'Back to Live' })]));
   }
 
   // --- live cursors (step 189-09) -----------------------------------------------------------------
@@ -1005,7 +1005,7 @@
       act('invite', { label: label, role: $('inviteRole').value }).then(function (got) { toast('Asked ' + got.label + ' in, as ' + got.role + '.'); }).catch(fail);
     });
     $('leave').addEventListener('click', function () {
-      act('leave').then(function () { location.href = '/link'; }).catch(fail);
+      act('leave').then(function () { if (window.linkHome) window.linkHome(); else location.href = '/live'; }).catch(fail);
     });
     document.addEventListener('keydown', function (ev) { if (ev.key === 'Escape') closeLog(); });
     loadPeers();
@@ -1056,7 +1056,7 @@
       root.setAttribute('data-theme', dark ? 'light' : 'dark');
       try { localStorage.setItem('link-theme', root.getAttribute('data-theme')); } catch (e) {}
     });
-    try { var th = localStorage.getItem('link-theme'); if (th) document.documentElement.setAttribute('data-theme', th); } catch (e) {}
+    // Inside Rouh's frame a space is always in Rouh's own dark look (`link/inrouh.js`), whatever was picked before.
     wire();
     wireCursors();
     poll();

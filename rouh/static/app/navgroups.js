@@ -92,6 +92,8 @@ function navNowCount(count, urgent) {
    @param {string} path */
 function navMark(path) {
   path = String(path || '').split('?')[0].split('#')[0].replace(/\/+$/, '');
+  // Live's own addresses from before it was called Live (`/link`, a live space at `/link/space/<id>`).
+  if (path === '/link' || path.indexOf('/link/') === 0) path = '/live';
   var rows = document.querySelectorAll('#sbGo [data-nav][href]'), best = null, len = 0, i;
   for (i = 0; i < rows.length; i++) {
     var r = rows[i].getAttribute('href') || '';

@@ -16,7 +16,7 @@ import { jobClose, jobViewing, webClose, webViewing } from 'app/tasks.js';
 import { ASK, askDelete, askFromPage, briefClose, briefViewing, BROWSE_ROOT, browseGo,
   workClose, workViewing, decisionsClose, decisionsViewing, actionsClose, actionsViewing, handholdingClose, handholdingViewing, receiptsClose, receiptsViewing, homeClose, homeViewing,
   approvalsClose, approvalsViewing,
-  sourcesClose, sourcesViewing, evolutionClose, evolutionViewing,
+  sourcesClose, sourcesViewing, liveClose, liveViewing, evolutionClose, evolutionViewing,
   thoughtsClose, thoughtsViewing,
   boxClose, boxViewing,
   browserZone, CANVAS, canvasLoad, canvasStep, clockPost, controlClose, controlViewing, copyText,
@@ -1261,8 +1261,8 @@ function contactRouh(b) {
       body.appendChild(el('p', 'ct-rel', said));
       var acts = el('div', 'ct-rouh-acts');
       acts.style.cssText = 'display:flex;gap:10px;align-items:center;flex-wrap:wrap';
-      var go = el('a', 'ct-edit', 'Open Connections');
-      go.setAttribute('href', '/link');
+      var go = el('a', 'ct-edit', 'Open Live');
+      go.setAttribute('href', '/live');
       acts.appendChild(go);
       if (line.state === 'noted') acts.appendChild(button('Connect', true));
       body.appendChild(acts);
@@ -5359,7 +5359,7 @@ function taskPageAct(frame, m) {
       .then(function (r) { return r.json().then(function (j) { return { ok: r.ok, j: j }; }); })
       .then(function (got) {
         projectSay(frame, m.id, got.ok ? { ok: true } : { ok: false, error: got.j.error || 'Rouh could not make a live page.' });
-        if (got.ok && got.j.url) { location.href = got.j.url; }
+        if (got.ok && got.j.url) { goToAddress(got.j.url); }
       })
       .catch(function () { projectSay(frame, m.id, { ok: false, error: 'Rouh could not be reached.' }); });
     return;
@@ -6672,7 +6672,7 @@ function cardLiveBtn(spec) {
       .then(function (r) { return r.json().then(function (j) { return { ok: r.ok, j: j }; }); })
       .then(function (got) {
         b.disabled = false;
-        if (got.ok && got.j.url) { location.href = got.j.url; return; }
+        if (got.ok && got.j.url) { goToAddress(got.j.url); return; }
         notify(got.j.error || 'Rouh could not make a live page of this card.', { tone: 'error' });
       })
       .catch(function () {
@@ -7920,7 +7920,7 @@ function clockOf(unixSeconds) {
 var LAYERS = ['runView', 'jobView', 'webView', 'tasksView', 'settingsView', 'memoryView',
               'remindersView', 'goalsView',
               'cardView', 'drawnView', 'sharesView',
-              'controlView', 'briefView', 'workView', 'decisionsView', 'actionsView', 'handholdingView', 'receiptsView', 'homeView', 'approvalsView', 'sourcesView', 'evolutionView', 'thoughtsView', 'boxView', 'runsView',
+              'controlView', 'briefView', 'workView', 'decisionsView', 'actionsView', 'handholdingView', 'receiptsView', 'homeView', 'approvalsView', 'sourcesView', 'liveView', 'evolutionView', 'thoughtsView', 'boxView', 'runsView',
               'synapseView', 'offlineView'];
 var LAYER_CLOSE = { runView: function () { oneClose(); },
                     jobView: function () { jobClose(); },
@@ -7943,6 +7943,7 @@ var LAYER_CLOSE = { runView: function () { oneClose(); },
                     homeView: function () { homeClose(); },
                     approvalsView: function () { approvalsClose(); },
                     sourcesView: function () { sourcesClose(); },
+                    liveView: function () { liveClose(); },
                     evolutionView: function () { evolutionClose(); },
                     thoughtsView: function () { thoughtsClose(); },
                     boxView: function () { boxClose(); },
@@ -7994,6 +7995,7 @@ var LAYER_ON = { runView: function () { return oneViewing(); },
                  homeView: function () { return homeViewing(); },
                  approvalsView: function () { return approvalsViewing(); },
                  sourcesView: function () { return sourcesViewing(); },
+                 liveView: function () { return liveViewing(); },
                  evolutionView: function () { return evolutionViewing(); },
                  thoughtsView: function () { return thoughtsViewing(); },
                  boxView: function () { return boxViewing(); },

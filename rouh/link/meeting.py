@@ -118,7 +118,7 @@ def _calendars_of_side(who, services, silo: str) -> list[str]:
 
 
 #: Said in the space when a Personal-side meeting is agreed and there is no calendar to put it in.
-CHOOSE_PERSONAL = "Agreed; choose the calendar for Personal-side meetings on Connections to have it put in"
+CHOOSE_PERSONAL = "Agreed; choose the calendar for Personal-side meetings on Live to have it put in"
 
 
 def _side_words(silo: str) -> str:
@@ -128,7 +128,7 @@ def _side_words(silo: str) -> str:
 async def book_calendar(org: str, who, cal, silo: str) -> tuple[str, str]:
     """(calendar id, "") the agreed meeting of a space on this side goes in, or ("", why not).
 
-    The owner chooses one calendar per side on Connections (`book_calendar_work`,
+    The owner chooses one calendar per side on Live (`book_calendar_work`,
     `book_calendar_personal`). With no choice, a Work-side meeting goes in the usual calendar and a
     space with no side does as it always did; any other side (Personal) is not booked at all until the
     owner chooses its calendar: never the work calendar, and never a guess (on a real account the one
@@ -147,24 +147,24 @@ async def book_calendar(org: str, who, cal, silo: str) -> tuple[str, str]:
     if chosen:
         if chosen not in writable:
             return "", (f"Agreed; the calendar chosen for {side}-side meetings cannot be written to here any more: "
-                        f"choose another on Connections")
+                        f"choose another on Live")
         try:
             its = (await asyncio.to_thread(silos.rule_map, who.user_id, who.org_id))["calendar"].get(chosen, "")
         except Exception:  # noqa: BLE001
             its = ""
         if its and its not in (silo, silos.EVERY):
             return "", (f"Agreed; the calendar chosen for {side}-side meetings is on the {_side_words(its)} side: "
-                        f"choose another on Connections")
+                        f"choose another on Live")
         return chosen, ""
     if silo == "work":
         return await cal.calendar_id(""), ""
     if silo == "personal":
         return "", CHOOSE_PERSONAL
-    return "", f"Agreed; choose the calendar for {side}-side meetings on Connections to have it put in"
+    return "", f"Agreed; choose the calendar for {side}-side meetings on Live to have it put in"
 
 
 async def writable_calendars(org: str) -> dict:
-    """What Connections shows to choose from: the owner's calendars this Rouh may write to, each with
+    """What Live shows to choose from: the owner's calendars this Rouh may write to, each with
     its side by the silo rules, and the calendar each side falls back to with no choice."""
     who, services = await asyncio.to_thread(_google_for, org)
     if who is None or services is None or getattr(services, "calendar", None) is None:
@@ -433,7 +433,7 @@ WAITING = "waiting-calendar"
 
 
 async def book_waiting(org: str) -> int:
-    """After a calendar is chosen on Connections: put in every agreed meeting that waited for one."""
+    """After a calendar is chosen on Live: put in every agreed meeting that waited for one."""
     from rouh.models import LinkSpace
 
     from . import me as _me

@@ -168,6 +168,7 @@ with {% asset %}, which gives it its hashed address.
 <link rel="stylesheet" href="{% asset "homevacuum.css" %}">
 <link rel="stylesheet" href="{% asset "approvalspage.css" %}">
 <link rel="stylesheet" href="{% asset "sourcespage.css" %}">
+<link rel="stylesheet" href="{% asset "link/live.css" %}">
 <link rel="stylesheet" href="{% asset "evolutionpage.css" %}">
 <link rel="stylesheet" href="{% asset "genelogpage.css" %}">
 <link rel="stylesheet" href="{% asset "labels.css" %}">
@@ -4222,6 +4223,174 @@ with {% asset %}, which gives it its hashed address.
       </div>
     </article>
 
+    {% comment %} Live (Rouh Link, task 189; `link/live.js`, `liveOpen` in app/runs.js): the live
+         spaces this Rouh works in with other people's Rouhs, the Rouhs it is connected to, connect
+         links and who else may reach it, at `/live` (and `/link`, for every link already sent). A
+         live space opens in the same layer, its own page embedded under the head, at
+         `/link/space/<id>`. Called Connections, a page of its own outside Rouh's frame, until
+         22 November 2026, when Petar asked: "can we rename Connections to Live ?! ... can we make
+         it a page that fits in the same framework everything else does?" {% endcomment %}
+    <article id="liveView" class="canvas-layer settings-view clock-view lv-view" hidden
+             tabindex="-1" aria-label="Live">
+      <div class="run-head">
+        <div class="run-heading">
+          <h3 id="liveTitle">Live</h3>
+          <div id="liveMeta" class="run-meta" aria-live="polite"></div>
+        </div>
+        <a id="liveBack" class="ctl small" href="/live" hidden>Back to Live</a>
+        <button id="liveClose" class="layer-x" type="button"
+                title="Close (Esc)" aria-label="Close Live">&times;</button>
+      </div>
+      <div class="lv-wrap" id="liveHub">
+        <div class="lv-body">
+          <div class="lv-in">
+            <div class="lv-lede">
+              <h2 id="lv-lead">Asking your Rouh…</h2>
+              <p id="lv-leadMore"></p>
+            </div>
+            <div id="lv-content" class="lv-in" hidden>
+              <section class="lv-sec lv-needs" id="lv-needsBox" hidden>
+                <header><h3>Needs you</h3></header>
+                <div id="lv-needs" class="lv-list"></div>
+              </section>
+              <div class="lv-grid">
+                <div class="lv-col">
+                  <section class="lv-sec" aria-labelledby="lv-spacesH">
+                    <header><h3 id="lv-spacesH">Live spaces</h3></header>
+                    <form id="lv-newSpace" class="lv-form">
+                      <div>
+                        <label for="lv-spaceTitle">Start a live space</label>
+                        <input id="lv-spaceTitle" type="text" maxlength="200" placeholder="What it is about">
+                      </div>
+                      <div class="lv-start-row">
+                        <label class="lv-sr" for="lv-spaceKind">Kind</label>
+                        <select id="lv-spaceKind"><option value="task">Task page</option><option value="doc">Document or draft</option>
+                          <option value="page">Page or explainer</option><option value="trip">Trip</option><option value="research">Research</option>
+                          <option value="calendar">Calendar proposal</option><option value="list">List</option>
+                          <option value="html">Live page</option></select>
+                        <label class="lv-sr" for="lv-spaceSide">Side</label>
+                        <select id="lv-spaceSide"><option value="">Either side</option><option value="work">Work</option><option value="personal">Personal</option></select>
+                        <button id="lv-start" class="ctl lv-go" type="submit">Start</button>
+                      </div>
+                      <div id="lv-pageFrom" class="lv-form" hidden>
+                        <div class="lv-radios" role="radiogroup" aria-label="Start the live page from">
+                          <label><input type="radio" name="lv-pageFrom" value="blank" checked>Blank page</label>
+                          <label><input type="radio" name="lv-pageFrom" value="paste">Paste HTML</label>
+                        </div>
+                        <label class="lv-sr" for="lv-pageHtml">The page's HTML</label>
+                        <textarea id="lv-pageHtml" rows="6" maxlength="2000000" placeholder="Paste the whole page, from &lt;!doctype html&gt; to &lt;/html&gt;" hidden></textarea>
+                      </div>
+                    </form>
+                    <div id="lv-spaces" class="lv-list"></div>
+                    <button id="lv-endedToggle" class="ctl small lv-more" type="button" aria-controls="lv-ended" aria-expanded="false" hidden>Show ended</button>
+                    <div id="lv-ended" class="lv-list" hidden></div>
+                  </section>
+                </div>
+                <div class="lv-col">
+                  <section class="lv-sec" aria-labelledby="lv-connectH">
+                    <header><h3 id="lv-connectH">Connect</h3></header>
+                    <div class="lv-row-f">
+                      <div class="lv-grow"><label for="lv-newTrust">Trust it as</label>
+                        <select id="lv-newTrust"><option value="known">Known</option><option value="colleague">Colleague</option><option value="family">Family</option><option value="delegate">Delegate</option></select></div>
+                      <div class="lv-grow"><label for="lv-newSide">Side</label>
+                        <select id="lv-newSide"><option value="">Either side</option><option value="work">Work</option><option value="personal">Personal</option></select></div>
+                    </div>
+                    <div class="lv-row-f">
+                      <div class="lv-grow"><label for="lv-newFor">Only for this Rouh (optional)</label><input id="lv-newFor" type="text" placeholder="amber-fern-k2x9"></div>
+                      <button id="lv-makeLink" class="ctl" type="button">Make a connect link</button>
+                    </div>
+                    <div id="lv-linkOut" class="lv-form" hidden>
+                      <p class="lv-note">Send this to the person, or let them scan it. It works once, for 14 days.</p>
+                      <div id="lv-linkText" class="lv-linkbox"></div>
+                      <div class="lv-row-f"><button id="lv-copyLink" class="ctl" type="button">Copy the link</button></div>
+                      <div id="lv-linkQr" class="lv-qr" role="img" aria-label="The same link as a QR code"></div>
+                    </div>
+                    <div id="lv-invites" class="lv-form"></div>
+                  </section>
+                  <section class="lv-sec" aria-labelledby="lv-peersH">
+                    <header><h3 id="lv-peersH">Your connections</h3></header>
+                    <div id="lv-peers" class="lv-list"></div>
+                    <button id="lv-cutToggle" class="ctl small lv-more" type="button" aria-controls="lv-cut" aria-expanded="false" hidden>Show cut</button>
+                    <div id="lv-cut" class="lv-list" hidden></div>
+                  </section>
+                </div>
+              </div>
+              <div class="lv-later">
+                <h3>Less often</h3>
+                <div class="lv-later-grid">
+                  <section class="lv-sec" id="lv-bringBox" aria-labelledby="lv-bringH">
+                    <header><h3 id="lv-bringH">Bring a link someone sent you</h3></header>
+                    <form id="lv-bring" class="lv-form">
+                      <div><label for="lv-bringLink">Their connect link</label>
+                        <input id="lv-bringLink" type="url" placeholder="https://their-rouh.rouh.page/link/join/..."></div>
+                      <div class="lv-row-f"><div class="lv-grow"><label for="lv-bringTrust">Trust it as</label>
+                        <select id="lv-bringTrust"><option value="known">Known</option><option value="colleague">Colleague</option><option value="family">Family</option></select></div>
+                        <button id="lv-bringGo" class="ctl" type="submit">Connect</button></div>
+                    </form>
+                  </section>
+                  <section class="lv-sec" aria-labelledby="lv-contactH">
+                    <header><h3 id="lv-contactH">A contact’s Rouh</h3></header>
+                    <form id="lv-fromContact" class="lv-form">
+                      <div><label for="lv-contactAddress">Their Rouh’s address, from their contact</label>
+                        <input id="lv-contactAddress" type="text" placeholder="amber-fern-k2x9.rouh.page"></div>
+                      <div><button class="ctl" type="submit">Ask to connect</button></div>
+                    </form>
+                    <form id="lv-findEmail" class="lv-form" hidden>
+                      <div><label for="lv-findWho">Or find their Rouh by their email, through rouh.land</label>
+                        <input id="lv-findWho" type="email" placeholder="name@example.com"></div>
+                      <div class="lv-row-f"><button class="ctl" type="submit">Find</button><span id="lv-findSaid" class="lv-sub"></span></div>
+                    </form>
+                  </section>
+                  <section class="lv-sec" aria-labelledby="lv-handoffH">
+                    <header><h3 id="lv-handoffH">Hand-offs</h3></header>
+                    <p class="lv-note">Briefs, quotes and proposals of money between Rouhs, in fixed forms, for you to read. No Rouh pays, signs or books by itself.</p>
+                    <div id="lv-handoffs" class="lv-form"></div>
+                    <p id="lv-briefNone" class="lv-note" hidden>Connect a Rouh to hand it a brief.</p>
+                    <form id="lv-briefForm" class="lv-form">
+                      <div><label for="lv-briefTo">Hand a brief to</label><select id="lv-briefTo"></select></div>
+                      <div><label for="lv-briefNeed">What is needed</label><textarea id="lv-briefNeed" rows="3" maxlength="1200"></textarea></div>
+                      <div class="lv-row-f"><label class="lv-sr" for="lv-briefBudget">Budget</label>
+                        <select id="lv-briefBudget"><option value="ask">Budget: ask me</option><option value="small">Small</option><option value="medium">Medium</option><option value="large">Large</option></select>
+                        <button class="ctl" type="submit">Hand over</button></div>
+                    </form>
+                  </section>
+                  <section class="lv-sec" id="lv-meetCalBox" aria-labelledby="lv-meetH" hidden>
+                    <header><h3 id="lv-meetH">Agreed meetings</h3></header>
+                    <form id="lv-meetCals" class="lv-form">
+                      <p class="lv-note" id="lv-meetCalSaid">Reading your calendars…</p>
+                      <div><label for="lv-calWork">Meetings agreed on the Work side go in</label><select id="lv-calWork"></select></div>
+                      <div><label for="lv-calPersonal">Meetings agreed on the Personal side go in</label><select id="lv-calPersonal"></select></div>
+                    </form>
+                  </section>
+                  <section class="lv-sec" aria-labelledby="lv-offH">
+                    <header><h3 id="lv-offH">Who else may reach your Rouh</h3></header>
+                    <p class="lv-note" id="lv-heldWhy"></p>
+                    <label class="lv-switch"><input id="lv-strangers" type="checkbox"><span>Rouhs you do not know may introduce themselves and hand over a brief</span></label>
+                    <label class="lv-switch"><input id="lv-openNet" type="checkbox"><span>Other makers’ agents may reach your Rouh</span></label>
+                    <label class="lv-switch"><input id="lv-findable" type="checkbox"><span>People can find your Rouh by your email, through rouh.land</span></label>
+                    <div class="lv-row-f"><label for="lv-mostMembers" style="margin:0;align-self:center">A live space holds at most</label>
+                      <select id="lv-mostMembers"><option value="5">5 Rouhs</option><option value="10">10 Rouhs</option><option value="25">25 Rouhs</option><option value="50">50 Rouhs</option></select></div>
+                    <p class="lv-note">What the relay, the mailbox and being found keep, and who answers for what: <a href="https://rouh.land/terms/link/" target="_blank" rel="noopener">Rouh Link and Relay Terms</a>.</p>
+                  </section>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div id="lv-scrim" class="lv-scrim" hidden></div>
+        <aside id="lv-logDrawer" class="lv-drawer" hidden aria-label="The log">
+          <div class="lv-row-f"><h3 class="lv-grow" id="lv-logTitle" style="margin:0">The log</h3><button id="lv-logClose" class="ctl" type="button">Close</button></div>
+          <p class="lv-note">Every message and change, signed. Theirs is read from their Rouh and checked against its key.</p>
+          <h4 style="margin:0">Your Rouh’s</h4>
+          <ul id="lv-logMine" class="lv-log"></ul>
+          <h4 style="margin:0">Theirs</h4>
+          <ul id="lv-logTheirs" class="lv-log"></ul>
+        </aside>
+        <div id="lv-toast" class="lv-toast" role="status" hidden></div>
+      </div>
+      <iframe id="liveFrame" class="lv-frame" title="The live space" hidden></iframe>
+    </article>
+
     {% comment %} Evolution (`rouh/evolution.py`, `evolutionpage.js`): Parameters, how many
          genes a night the nightly run builds and of which kinds, at
          `/evolution/parameters`; Mutations, every gene it built with its
@@ -5516,6 +5685,7 @@ with {% asset %}, which gives it its hashed address.
 <script defer src="{% asset "homevacuum.js" %}"></script>
 <script defer src="{% asset "approvalspage.js" %}"></script>
 <script defer src="{% asset "sourcespage.js" %}"></script>
+<script defer src="{% asset "link/live.js" %}"></script>
 <script defer src="{% asset "genelogpage.js" %}"></script>
 <script defer src="{% asset "genepoolpage.js" %}"></script>
 <script defer src="{% asset "labels.js" %}"></script>

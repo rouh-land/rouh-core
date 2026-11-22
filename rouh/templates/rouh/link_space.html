@@ -1,5 +1,5 @@
 {% load rouh_assets %}<!doctype html>
-<html lang="en">
+<html lang="en" class="in-rouh" data-theme="dark">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -10,11 +10,10 @@
 </head>
 <body data-space="{{ space_id }}">
 <header class="bar">
-  <a class="home" href="/link" aria-label="Back to Connections"><span class="dot" aria-hidden="true"></span>Connections</a>
   <div class="spacer"></div>
   <span id="atWork" class="at-work" role="status" hidden></span>
   <div id="who" class="who" aria-label="Who is here"></div>
-  <button id="themeSwitch" class="quiet" type="button" aria-label="Switch light and dark">Theme</button>
+  <button id="themeSwitch" class="quiet" type="button" hidden>Theme</button>
 </header>
 <main class="page" id="main">
   <div class="lead">
@@ -94,6 +93,7 @@
 </aside>
 <div id="toast" class="toast" role="status" hidden></div>
 <script defer src="{% asset "csrf.js" %}"></script>
+<script defer src="{% asset "link/inrouh.js" %}"></script>
 <script defer src="{% asset "link/cursors.js" %}"></script>
 <script defer src="{% asset "link/space.js" %}"></script>
 </body>

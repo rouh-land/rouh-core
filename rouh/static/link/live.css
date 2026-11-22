@@ -1,0 +1,147 @@
+/* Live (Rouh Link's hub, task 189; called Connections until 22 November 2026): a layer on the
+   canvas in Rouh's own frame, drawn by `link/live.js` (`liveOpen` in app/runs.js). The live spaces
+   come first, then connecting, then what is changed less often. A live space opens in the same
+   layer, its own page embedded under the layer's head (`lv-frame`). Rouh's own tokens only. */
+
+.lv-view:focus { outline: none; }
+.lv-wrap { position: relative; flex: 1 1 0; min-height: 0; display: flex; }
+.lv-body { flex: 1 1 auto; min-width: 0; overflow: auto; scrollbar-width: thin; padding: 2px 2px 64px;
+  container-type: inline-size; }
+.lv-in { max-width: 1120px; display: grid; gap: 16px; }
+.lv-head-acts { display: flex; gap: 8px; align-items: center; }
+.lv-view .run-meta { color: var(--dim); }
+.lv-view .run-head > .ctl { width: auto; min-height: 28px; height: 28px; }
+
+/* The headline sentence and the address under it. */
+.lv-lede { display: grid; gap: 4px; }
+.lv-lede h2 { margin: 0; font-size: 19px; line-height: 1.35; font-weight: 650; color: var(--text); text-wrap: balance; }
+.lv-lede .lv-keep { overflow-wrap: anywhere; }
+.lv-lede p { margin: 0; font-size: 13px; color: var(--dim); overflow-wrap: anywhere; }
+
+/* Two columns once the layer is wide enough: the spaces, and connecting. */
+.lv-grid { display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px; align-items: start; }
+.lv-col { display: grid; gap: 16px; min-width: 0; }
+@container (min-width: 640px) {
+  .lv-grid { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+}
+
+.lv-sec { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); padding: 16px;
+  display: grid; gap: 12px; min-width: 0; }
+.lv-sec > header { display: flex; gap: 8px; align-items: center; justify-content: space-between; flex-wrap: wrap; }
+.lv-sec h3 { margin: 0; font-size: 15px; font-weight: 650; color: var(--text); }
+.lv-sec h4 { margin: 4px 0 0; font-size: 13px; font-weight: 650; color: var(--dim); }
+.lv-note { margin: 0; font-size: 13px; color: var(--dim); text-wrap: pretty; }
+.lv-needs { border-color: color-mix(in srgb, var(--warn) 55%, var(--line)); }
+.lv-needs h3::before { content: ""; display: inline-block; width: 8px; height: 8px; margin-right: 8px; border-radius: 2px;
+  background: var(--warn); vertical-align: 1px; }
+
+/* What is changed less often, under a quiet heading, two to a row where there is room. */
+.lv-later { display: grid; gap: 12px; margin-top: 8px; }
+.lv-later > h3 { margin: 0; font-size: 13px; font-weight: 650; color: var(--dim); }
+.lv-later-grid { display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px; align-items: start; }
+@container (min-width: 640px) {
+  .lv-later-grid { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+}
+
+/* Fields and buttons: Rouh's controls, at least 44 px to press. */
+.lv-view label { display: block; font-size: 12.5px; color: var(--dim); margin: 0 0 4px; }
+.lv-view input[type="text"], .lv-view input[type="url"], .lv-view input[type="email"], .lv-view select, .lv-view textarea {
+  width: 100%; min-height: 44px; padding: 9px 12px; border-radius: var(--radius-s); border: 1px solid var(--line);
+  background: var(--bg-2); color: var(--text); font: inherit; font-size: 14px; color-scheme: dark;
+}
+.lv-view textarea { resize: vertical; line-height: 1.5; }
+.lv-view input:focus-visible, .lv-view select:focus-visible, .lv-view textarea:focus-visible,
+.lv-view .ctl:focus-visible, .lv-view a:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.lv-view .ctl { width: auto; min-height: 44px; justify-content: center; white-space: nowrap; font-size: 13.5px; }
+.lv-view .ctl.small { min-height: 36px; }
+.lv-view .lv-go.ctl { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); font-weight: 650; }
+.lv-view .lv-go.ctl:hover { filter: brightness(1.08); }
+.lv-view .lv-cut.ctl { color: var(--bad); }
+.lv-view .lv-quiet.ctl { background: transparent; }
+.lv-view a { color: var(--accent); }
+.lv-row-f { display: flex; gap: 8px; align-items: end; flex-wrap: wrap; }
+.lv-row-f > .lv-grow { flex: 1 1 180px; min-width: 0; }
+.lv-row-f > select { width: auto; flex: 0 1 auto; }
+/* Start a live space: the kind, the side and Start on one line; on a narrow column the kind takes a
+   line of its own and the side sits beside Start. */
+.lv-start-row { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: 8px; align-items: end; }
+.lv-start-row select { width: 100%; }
+@container (max-width: 520px) {
+  .lv-start-row { grid-template-columns: minmax(0, 1fr) auto; }
+  .lv-start-row > select:first-of-type { grid-column: 1 / -1; }
+}
+@container (min-width: 640px) {
+  .lv-start-row { grid-template-columns: minmax(0, 1fr) auto; }
+  .lv-start-row > select:first-of-type { grid-column: 1 / -1; }
+}
+.lv-sub .lv-keep { white-space: nowrap; }
+.lv-form { display: grid; gap: 10px; }
+.lv-radios { display: flex; gap: 16px; flex-wrap: wrap; }
+.lv-radios label { display: flex; gap: 8px; align-items: center; min-height: 44px; margin: 0; font-size: 14px; color: var(--text); cursor: pointer; }
+.lv-radios input { width: 18px; height: 18px; margin: 0; accent-color: var(--accent); }
+.lv-sr { position: absolute !important; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+
+/* One row: a space, a connection, a request. Rouhs are rounded squares, spaces circles. */
+.lv-list { display: grid; }
+.lv-item { display: grid; grid-template-columns: 36px minmax(0, 1fr); gap: 4px 12px; align-items: center; padding: 10px 0;
+  border-top: 1px solid var(--line-soft); }
+.lv-item:first-child { border-top: 0; padding-top: 2px; }
+.lv-av { width: 36px; height: 36px; display: grid; place-items: center; border-radius: 50%; background: var(--panel-2);
+  border: 1px solid var(--line); color: var(--text); font-size: 12.5px; font-weight: 700; }
+.lv-av.rouh { border-radius: 9px; }
+.lv-what { min-width: 0; display: grid; gap: 2px; }
+.lv-name { font-size: 14.5px; font-weight: 600; color: var(--text); overflow-wrap: anywhere; text-decoration: none; }
+a.lv-name:hover { text-decoration: underline; }
+.lv-sub { font-size: 12.5px; color: var(--dim); overflow-wrap: anywhere; }
+.lv-acts { grid-column: 2; display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-top: 6px; }
+.lv-acts select { width: auto; min-width: 130px; }
+.lv-item.lv-old .lv-name { color: var(--dim); font-weight: 500; }
+/* State is a word with a shape: a filled dot is live, a hollow ring is over. */
+.lv-state { display: inline-flex; align-items: center; gap: 6px; }
+.lv-state::before { content: ""; width: 7px; height: 7px; border-radius: 50%; flex: none; }
+.lv-state.on::before { background: var(--good); }
+.lv-state.off::before { border: 1.5px solid var(--dim); }
+.lv-more { justify-self: start; }
+
+.lv-empty { display: grid; gap: 8px; justify-items: start; padding: 14px; border: 1px dashed var(--line); border-radius: var(--radius-s); }
+.lv-empty strong { font-size: 14px; color: var(--text); }
+.lv-empty p { margin: 0; font-size: 13px; color: var(--dim); }
+
+.lv-linkbox { font-family: var(--mono); font-size: 12px; overflow-wrap: anywhere; padding: 10px; background: var(--bg-2);
+  border: 1px solid var(--line); border-radius: var(--radius-s); color: var(--text); }
+.lv-qr { background: #fff; padding: 8px; border-radius: var(--radius-s); width: 168px; }
+.lv-qr svg { width: 100%; height: auto; display: block; }
+.lv-grant { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; padding: 10px 12px; border: 1px solid var(--line);
+  border-radius: var(--radius-s); background: var(--panel-2); }
+.lv-grant p { flex: 1 1 220px; margin: 0; font-size: 13px; color: var(--text); }
+.lv-switch { display: flex; gap: 10px; align-items: center; min-height: 44px; margin: 0 !important; font-size: 14px !important;
+  color: var(--text) !important; cursor: pointer; }
+.lv-switch input { width: 18px; height: 18px; margin: 0; flex: none; accent-color: var(--accent); }
+.lv-switch input:disabled + span { color: var(--dim); }
+
+/* The log of one connection, a drawer over the layer. */
+.lv-scrim { position: absolute; inset: 0; background: rgba(0, 0, 0, .45); z-index: 4; }
+.lv-drawer { position: absolute; inset: 0 0 0 auto; width: min(520px, 100%); background: var(--panel); border-left: 1px solid var(--line);
+  z-index: 5; padding: 16px; overflow: auto; display: grid; gap: 12px; align-content: start; }
+.lv-log { list-style: none; padding: 0; margin: 0; display: grid; gap: 6px; }
+.lv-log li { font-size: 13px; display: grid; grid-template-columns: 96px minmax(0, 1fr); gap: 8px; color: var(--text); }
+.lv-log .lv-when { color: var(--dim); font-variant-numeric: tabular-nums; }
+.lv-log .lv-broken { color: var(--bad); }
+
+.lv-toast { position: absolute; left: 50%; bottom: 16px; transform: translateX(-50%); z-index: 6; max-width: calc(100% - 32px);
+  background: var(--panel-2); border: 1px solid var(--line); border-radius: var(--radius-s); padding: 10px 16px;
+  font-size: 13.5px; color: var(--text); box-shadow: var(--shadow); }
+
+/* A live space, its own page embedded under the layer's head, as wide as the canvas. */
+.lv-frame { flex: 1 1 0; min-height: 0; width: 100%; border: 0; border-radius: var(--radius-s); background: var(--bg); }
+
+@media (max-width: 720px) {
+  /* Room under the last box for the orb, which floats over the bottom corner on a phone. */
+  .lv-body { padding-bottom: 120px; }
+  .lv-sec { padding: 14px; }
+  .lv-lede h2 { font-size: 17px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .lv-view * { transition: none !important; animation: none !important; }
+}
+.lv-wrap[hidden], .lv-frame[hidden], .lv-view [hidden] { display: none !important; }

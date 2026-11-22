@@ -1,7 +1,7 @@
 """The open network (phase 5): being found by email, and other makers' agents reaching a Rouh.
 
 Everything here is held off for every Rouh until rouh.land's terms cover the relay and Rouhs talking
-(`me.held`); then each part is the owner's own switch on Connections, off until they turn it on.
+(`me.held`); then each part is the owner's own switch on Live, off until they turn it on.
 
 - **Found by email, opt-in, no directory** (``findable_by_email``). The Rouh tells rouh.land, signed
   with its key, that its owner may be found by their rouh.land account's email (``POST /relay/findable``).

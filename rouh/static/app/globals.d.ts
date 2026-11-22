@@ -32,6 +32,8 @@ interface Window {
   RouhInstrHost: Record<string, any>;
   RouhApprovalsHost: Record<string, any>;
   RouhSourcesHost: Record<string, any>;
+  /** Live's layer, for `link/live.js` and an embedded live space (`link/inrouh.js`). */
+  RouhLiveHost: Record<string, any>;
   RouhEvolutionHost: Record<string, any>;
   RouhThoughtsHost: Record<string, any>;
   RouhBoxHost: Record<string, any>;
@@ -101,6 +103,8 @@ interface Window {
   RouhEvolution?: any;
   /** The Thoughts page (thoughtspage.js). */
   RouhThoughts?: any;
+  /** Live (`link/live.js`). */
+  RouhLive?: any;
   /** The Box page (boxpage.js). */
   RouhBox?: any;
   RouhDecision?: any;

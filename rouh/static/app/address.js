@@ -15,7 +15,7 @@ import { CARDVIEW, cardViewing, clearTheCards, standingDown, WORKSPACE_ROUTE } f
 import { JOBVIEW, jobViewing, taskRecs, webOpen, webViewing } from 'app/tasks.js';
 import { BRIEF, briefOpen, briefViewing, CANVAS, canvasDoc, controlOpen, controlViewing, CRUMB_HOME,
   WORK, workOpen, workViewing, DECIDE, decisionsOpen, decisionsViewing, ACTS, actionsOpen, actionsViewing, HOLD, handholdingAddress, handholdingOpen, handholdingViewing, receiptsOpen,
-  receiptsViewing, homeOpen, homeViewing, APPROVALS, approvalsOpen, approvalsViewing, SOURCES, sourcesOpen, sourcesViewing, THOUGHTS, thoughtsOpen, thoughtsViewing,
+  receiptsViewing, homeOpen, homeViewing, APPROVALS, approvalsOpen, approvalsViewing, SOURCES, sourcesOpen, sourcesViewing, LIVE, liveOpen, liveViewing, THOUGHTS, thoughtsOpen, thoughtsViewing,
   EVO, evolutionOpen, evolutionViewing,
   BOX, boxOpen, boxViewing,
   crumbLevels, goalsOpen, goalsViewing, goNow, MEMORY, memoryAddress, memoryOpen, memoryViewing, ONE, remindersOpen,
@@ -239,6 +239,10 @@ var EVO_SUB = /^(new|trial|passed|failed|unused|month|out|review|rouh|off|reject
 // The Pool's families by id; since 25 October 2026 its two pages, `outgoing` (with one gene on it) and
 // `incoming`; `yours`, the outgoing list's address from 22 October, still opens it.
 var EVO_POOL = /^([0-9a-f]{1,16}|yours|yours\/\d+|outgoing|outgoing\/\d+|incoming)$/;
+//: Live, Rouh Link's hub, and a live space in it (`addressing.LIVE`); `/link` is its address in
+//: every link sent before 22 November 2026, and a live space's own is still `/link/space/<id>`.
+var ADDR_LIVE = '/live';
+var ADDR_LINK = '/link';
 //: The person's thoughts, every one and one in focus by its number (`addressing.THOUGHTS`).
 var ADDR_THOUGHTS = '/thoughts';
 //: The box, what the person keeps from the model (`addressing.BOX`).
@@ -436,6 +440,21 @@ function addrReadPlace(path, query) {
   if (parts.length === 2 && '/' + parts[0] === ADDR_BOX && /^\d+$/.test(parts[1])) {
     return { kind: '', id: '', chat: chat, box: parts[1] };
   }
+  // Live: /live or /link, /link/accept?link= with a link to bring, and a live space.
+  if (('/' + parts[0] === ADDR_LIVE || '/' + parts[0] === ADDR_LINK) && parts.length <= 3) {
+    if (parts.length === 1) return { kind: '', id: '', chat: chat, live: { space: '', accept: '' } };
+    if (parts.length === 2 && parts[1] === 'accept') {
+      var bring = /[?&]link=([^&#]*)/.exec(String(query || ''));
+      var brought = '';
+      if (bring) {
+        try { brought = decodeURIComponent(bring[1].replace(/\+/g, ' ')); } catch (err) { brought = bring[1]; }
+      }
+      return { kind: '', id: '', chat: chat, live: { space: '', accept: brought.slice(0, 400) } };
+    }
+    if (parts.length === 3 && parts[1] === 'space' && /^[A-Za-z0-9_-]{1,40}$/.test(parts[2])) {
+      return { kind: '', id: '', chat: chat, live: { space: parts[2], accept: '' } };
+    }
+  }
   if (parts.length === 1 && '/' + parts[0] === ADDR_THOUGHTS) {
     return { kind: '', id: '', chat: chat, thoughts: '' };
   }
@@ -578,6 +597,7 @@ function addrOnCanvas() {
   if (approvalsViewing()) return APPROVALS.key ? ADDR_CASE + '/' + encodeURIComponent(APPROVALS.key) : ADDR_APPROVALS;
   if (sourcesViewing()) return ADDR_SOURCES + '/' + SOURCES.folder.split('/').map(encodeURIComponent).join('/');
   if (evolutionViewing()) return ADDR_EVOLUTION + '/' + (EVO.page === 'parameters' ? 'tuning' : EVO.page) + (EVO.page !== 'parameters' && EVO.page !== 'nightly' && EVO.sub ? '/' + EVO.sub : '');
+  if (liveViewing()) return LIVE.space ? ADDR_LINK + '/space/' + encodeURIComponent(LIVE.space) : ADDR_LIVE;
   if (thoughtsViewing()) return ADDR_THOUGHTS + (THOUGHTS.id ? '/' + THOUGHTS.id : '');
   if (boxViewing()) return ADDR_BOX + (BOX.id ? '/' + BOX.id : '');
   if (offlineViewing()) return ADDR_OFFLINE;
@@ -784,6 +804,7 @@ function addrName() {
     : EVO.page === 'trials' ? trialsTitle(EVO.sub, EVO.title)
     : EVO.page === 'pool' ? (EVO.sub && EVO.title ? EVO.title + ' - Gene Pool' : EVO.title || 'Gene Pool')
     : (EVO.title ? EVO.title + ' - Mutations' : 'Mutations');
+  if (liveViewing()) return LIVE.space ? (LIVE.title || 'Live space') + ' - Live' : 'Live';
   if (thoughtsViewing()) return THOUGHTS.id ? 'Thought ' + THOUGHTS.id + ' - Thoughts' : 'Thoughts';
   if (boxViewing()) return BOX.id ? 'Box ' + BOX.id + ' - Boxes' : 'Boxes';
   if (offlineViewing()) return 'Offline';
@@ -1075,6 +1096,14 @@ function addrAsk() {
     ADDR.wanted = null;
     ADDR.asked = false;
     boxOpen(false, want.box);
+    if (want.chat) chatIsWanted();
+    return;
+  }
+  // And Live, or a live space in it.
+  if (want.live) {
+    ADDR.wanted = null;
+    ADDR.asked = false;
+    liveOpen(want.live.space, want.live.accept);
     if (want.chat) chatIsWanted();
     return;
   }

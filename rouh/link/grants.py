@@ -5,7 +5,7 @@ for me: up to an hour, weekdays, 9 to 18, at most five a week"). It is:
 
 - **written**: kept here with its limits and its words, signed by this Rouh, and its id;
 - **shown to both people**: the other Rouh is sent the same grant (``grant.shown``) and its person
-  sees it on their Connections page, exactly as written;
+  sees it on their Live page, exactly as written;
 - **checked in code**: when the delegate's person says yes on this person's behalf
   (``grant.decide``), this Rouh's own code checks the grant is in force, of this kind, and that
   the time fits every limit, before it records the yes, as this person's yes "by grant"; nothing

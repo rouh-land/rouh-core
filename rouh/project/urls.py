@@ -193,6 +193,8 @@ urlpatterns = [
     path("link", link_web.connections_page),
     path("link/accept", link_web.accept_page),
     path("link/space/<str:sid>", link_web.space_page),
+    path("live", link_web.connections_page),
+    path("live/space/<str:sid>", link_web.space_page),
     path("api/link", link_web.api_state),
     path("api/link/invite", link_web.api_invite),
     path("api/link/invite/withdraw", link_web.api_invite_withdraw),

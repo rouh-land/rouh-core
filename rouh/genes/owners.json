@@ -3377,7 +3377,9 @@
     "rouh/static/link/livepage.css",
     "rouh/static/link/frame-bridge.js",
     "rouh/static/link/cursors.js",
-    "rouh/static/link/connections.js",
+    "rouh/static/link/live.js",
+    "rouh/static/link/live.css",
+    "rouh/static/link/inrouh.js",
     "rouh/management/commands/rouh_link.py",
     "LINK.md"
    ]

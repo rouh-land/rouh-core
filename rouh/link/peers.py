@@ -10,7 +10,7 @@ person:
    same link.
 2. **A contact.** A contact's "their Rouh" line names their Rouh's address. Saying ``hello`` to it
    with no secret asks to connect; the other side connects at once if its person put this Rouh on
-   that person's contact too, and otherwise asks its person (a request on the Connections page).
+   that person's contact too, and otherwise asks its person (a request on the Live page).
 3. **A stranger's Rouh** (phase 4), only while the owner's strangers switch is on.
 
 Lowering a level or cutting a connection is one press (`set_trust`, `cut`), takes effect at once
@@ -128,7 +128,7 @@ def invite(org: str, *, trust_level: str = "known", silo: str = "", for_label: s
 
     me = _me.me(org)
     if not me.address:
-        raise Problem("This Rouh has no address other Rouhs can reach yet (Settings, Connections, Phone).")
+        raise Problem("This Rouh has no address other Rouhs can reach yet (Anatomy, Your Rouh, Your Rouh’s URL).")
     token = secrets.token_urlsafe(24)
     now = _now()
     row = LinkInvite.objects.create(org_id=org, token_hash=_hash(token), trust=trust.valid(trust_level),

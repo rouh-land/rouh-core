@@ -324,6 +324,11 @@ EVOLUTION = "/evolution"
 #: Thoughts (`rouh/thoughts.py`): the person's own thoughts, in their words, newest first by month,
 #: at `/thoughts`, and one of them at `/thoughts/<its number>`. Since 12 October 2026.
 THOUGHTS = "/thoughts"
+#: Live (Rouh Link, task 189, `rouh/web/link.py`): the live spaces this Rouh works in with other
+#: people's Rouhs, its connections and connect links, at `/live`, drawn in Rouh's own page since
+#: 22 November 2026; `/link` (its address while it was Connections) and `/link/accept` open it too,
+#: and a live space is `/link/space/<id>`, as every link already sent says.
+LIVE = "/live"
 #: The box (`rouh/boxes.py`): what the person keeps from the model, sealed - a secret on its way to
 #: an env file, an idea held back until they give it to Rouh - at `/box`, and one of them at
 #: `/box/<its number>`. Since 13 October 2026.

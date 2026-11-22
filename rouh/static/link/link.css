@@ -1,4 +1,4 @@
-/* Rouh Link's two pages: Connections (/link) and a live shared space (/link/space/<id>).
+/* Rouh Link's pages: a live shared space (/link/space/<id>), and its look inside Rouh's frame at the end.
    Task 189. Dark by default, light by the person's system or the switch. Turquoise is Rouh's own
    colour (the orb's); a partner's Rouh is amber, the colour the orb takes while it works. People
    are round, Rouhs are rounded squares, so the two differ by shape as well as colour. */
@@ -259,3 +259,30 @@ label.switch input:checked { background: var(--accent); border-color: var(--acce
 label.switch input:checked::after { transform: translateX(16px); background: var(--accent-ink); }
 label.switch input:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
 label.switch:hover input { border-color: var(--dim); }
+
+/* A live space inside Rouh's own frame (`link/inrouh.js`, since 22 November 2026): Rouh's dark ground,
+   panels, lines, ink and type, so the space reads as part of Rouh. Turquoise (this Rouh), amber (a
+   partner's) and the people's colours keep their meaning. The bar keeps only presence. */
+:root.in-rouh, :root.in-rouh[data-theme] {
+  --ground: #0a0c10; --panel: #12161c; --raised: #171c24; --line: #232a34; --ink: #e7ecf3; --dim: #8d9aac;
+  --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  /* Rouh's one accent, blue, for this Rouh and its buttons, as everywhere else in Rouh. */
+  --accent: #5ec2ff; --accent-ink: #04121c; --focus: #5ec2ff;
+  --good: #57d9a3; --warn: #f2b45e; --bad: #ff7a70;
+  color-scheme: dark;
+}
+/* Rouh's controls: rounded buttons, fields with Rouh's corners. */
+:root.in-rouh button:not(.av) { border-radius: 999px; background: #171c24; }
+:root.in-rouh button.primary { background: var(--accent); }
+:root.in-rouh button.quiet { background: transparent; }
+/* A switch of several parts (Page, Source) stays one rounded piece, its parts square inside it. */
+:root.in-rouh .seg { border-radius: 999px; }
+:root.in-rouh .seg button { border-radius: 0; background: transparent; }
+:root.in-rouh .seg button[aria-pressed="true"] { background: color-mix(in srgb, var(--accent) 20%, var(--panel)); }
+:root.in-rouh input[type="text"], :root.in-rouh input[type="url"], :root.in-rouh select, :root.in-rouh textarea { border-radius: 9px; background: #0e1116; }
+:root.in-rouh .bar { padding: 6px 16px; min-height: 0; background: var(--ground); backdrop-filter: none; }
+:root.in-rouh .bar:not(:has(.who > *)):not(:has(.at-work:not([hidden]))) { display: none; }
+:root.in-rouh .page { padding-top: 12px; }
+:root.in-rouh section.box { border-radius: 14px; }
+/* Live's head already says the space's name; the page keeps its kind and its live line under it. */
+:root.in-rouh .lead h1 { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }

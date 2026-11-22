@@ -11,9 +11,10 @@ is handed itself:
 
 Signed in, the person's own:
 
-    GET  /link                          Connections: Rouhs, links, requests, live spaces
-    GET  /link/accept?link=...          bring someone's connect link to your own Rouh
-    GET  /link/space/<id>               a live shared space
+    GET  /live, /link                   Live: live spaces, Rouhs, links, requests (Rouh's own page)
+    GET  /link/accept?link=...          Live, with someone's connect link ready to bring
+    GET  /link/space/<id>, /live/space/<id>   a live shared space, inside Rouh's own page
+    GET  /link/space/<id>?in=rouh       the space's own page, as Rouh's page embeds it
     /api/link/...                       what those pages ask
 """
 from __future__ import annotations
@@ -214,12 +215,22 @@ async def _me_or_none(request):
     return await sync_to_async(who)(request)
 
 
+async def _in_rouh(request: HttpRequest):
+    """Rouh's own page, which draws Live in its frame (`liveOpen` in app/runs.js). Live was a page
+    of its own, Connections, with none of Rouh's navigation, until 22 November 2026 (Petar: "can we
+    make it a page that fits in the same framework everything else does?"); its addresses, in links
+    already sent, open it there."""
+    from rouh.web import views
+
+    return await views.index(request)
+
+
 @only("GET")
 async def connections_page(request: HttpRequest):
     me = await _me_or_none(request)
     if me is None:
         return HttpResponse(status=401)
-    return render(request, "rouh/link_connections.html", {})
+    return await _in_rouh(request)
 
 
 @only("GET")
@@ -227,7 +238,7 @@ async def accept_page(request: HttpRequest):
     me = await _me_or_none(request)
     if me is None:
         return HttpResponse(status=401)
-    return render(request, "rouh/link_connections.html", {"accept_link": str(request.GET.get("link") or "")[:400]})
+    return await _in_rouh(request)
 
 
 @only("GET")
@@ -235,13 +246,21 @@ async def space_page(request: HttpRequest, sid: str):
     me = await _me_or_none(request)
     if me is None:
         return HttpResponse(status=401)
+    if request.GET.get("in") != "rouh":
+        return await _in_rouh(request)
     from rouh.link import spaces
 
+    # The space's own page, embedded under Live's head: none of its own bar's way home, and Rouh's
+    # dark look. Opened by itself in a tab, its script sends the tab to the space's address in Rouh.
     row = await sync_to_async(spaces._row)(str(me.org_id), sid[:40])
     if row is not None and row.kind == "html":
         # A Live page (step 189-08): the page drawn live in a sealed frame, beside its source.
-        return render(request, "rouh/link_livepage.html", {"space_id": sid[:40]})
-    return render(request, "rouh/link_space.html", {"space_id": sid[:40]})
+        response = render(request, "rouh/link_livepage.html", {"space_id": sid[:40]})
+    else:
+        response = render(request, "rouh/link_space.html", {"space_id": sid[:40]})
+    # Only Rouh's own page may hold it in a frame.
+    response["X-Frame-Options"] = "SAMEORIGIN"
+    return response
 
 
 # --- the person's API ---------------------------------------------------------------------------------
@@ -497,7 +516,7 @@ async def api_settings(request):
 
 @only("GET")
 async def api_calendars(request):
-    """The calendars Connections offers for agreed meetings, one choice per side: the owner's
+    """The calendars Live offers for agreed meetings, one choice per side: the owner's
     calendars this Rouh may write to (owner or writer), each with its side by the silo rules."""
     from rouh.link import meeting
 

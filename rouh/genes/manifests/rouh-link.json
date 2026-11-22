@@ -1,8 +1,9 @@
 {
   "id": "rouh-link",
-  "name": "Connections",
-  "title": "Rouh Link: other people's Rouhs you are connected to, how far each is trusted, and the live spaces you work in together",
+  "name": "Live",
+  "title": "Rouh Link: the live spaces you work in with other people's Rouhs, the Rouhs you are connected to and how far each is trusted, inside Rouh's own frame",
   "aliases": [
+    "live",
     "rouh link",
     "connections",
     "other rouhs",
@@ -13,7 +14,7 @@
     "trust level"
   ],
   "group": "work",
-  "route": "/link",
+  "route": "/live",
   "icon": "<circle cx=\"7\" cy=\"12\" r=\"3.5\"/><circle cx=\"17\" cy=\"12\" r=\"3.5\"/><path d=\"M10.5 12h3\"/>",
   "attaches_to": [
     "task"
@@ -22,7 +23,7 @@
   "nav": {
     "place": "list",
     "order": 50,
-    "opens": "page"
+    "opens": "address"
   },
   "touches": {
     "permissions": [

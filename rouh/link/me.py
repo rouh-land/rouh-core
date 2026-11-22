@@ -29,7 +29,7 @@ DEFAULTS = {
     "pace": True,
     # Where an agreed meeting goes, one calendar id per side (`meeting.book_calendar`): "" is the
     # usual calendar for Work, and for Personal the one personal calendar the silo rules name, else
-    # nowhere until one is chosen on Connections. Never the work calendar for a Personal meeting.
+    # nowhere until one is chosen on Live. Never the work calendar for a Personal meeting.
     "book_calendar_work": "",
     "book_calendar_personal": "",
 }

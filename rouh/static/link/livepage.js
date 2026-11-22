@@ -1142,7 +1142,7 @@
   function showGone() {
     dropFrames();
     clear($('main')).appendChild(el('div', { class: 'empty' }, [el('h2', { text: 'This page is not here' }),
-      el('p', { text: 'Its space may have ended, or you were never asked into it.' }), el('a', { href: '/link', text: 'Back to Connections' })]));
+      el('p', { text: 'Its space may have ended, or you were never asked into it.' }), el('a', { href: '/live', text: 'Back to Live' })]));
   }
 
   // --- history ----------------------------------------------------------------------------------------
@@ -1267,7 +1267,7 @@
       act('invite', { label: label, role: $('inviteRole').value }).then(function (got) { toast('Asked ' + got.label + ' in, as ' + got.role + '.'); }).catch(fail);
     });
     $('leave').addEventListener('click', function () {
-      act('leave').then(function () { location.href = '/link'; }).catch(fail);
+      act('leave').then(function () { if (window.linkHome) window.linkHome(); else location.href = '/live'; }).catch(fail);
     });
     document.addEventListener('keydown', function (ev) {
       if (ev.key !== 'Escape') return;
@@ -1290,7 +1290,7 @@
       sendCursors(true);
       drawSourceSel();
     });
-    try { var th = localStorage.getItem('link-theme'); if (th) document.documentElement.setAttribute('data-theme', th); } catch (e) {}
+    // Inside Rouh's frame a space is always in Rouh's own dark look (`link/inrouh.js`), whatever was picked before.
     setView(wide.matches ? 'both' : 'page');
     wire();
     loadBridge().catch(function () {});
