@@ -393,6 +393,7 @@ urlpatterns = [
     path("api/trials/<int:number>", trials_web.trial),
     path("api/trials/<int:number>/again", trials_web.again),
     path("api/trials/<int:number>/fix", trials_web.fix),
+    path("api/trials/<int:number>/names", trials_web.names),
     path("api/trials/<int:number>/shot/<int:step>", trials_web.shot),
     # The nightly feature run as a feature of its own (`rouh/web/nightly_run.py`).
     path("api/evolution/nightly", nightly_run_web.page),

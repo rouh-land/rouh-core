@@ -37,7 +37,7 @@
   var S = { root: null, top: null, main: null, sub: '', host: null, data: {}, error: '', said: '', busy: '', seq: 0,
             poll: 0, shell: null, open: null, jobsFilter: { persona: '', result: '' },
             probFilter: { status: 'open', who: '', job: '' }, probView: { screen: null, bad: '', group: false, all: false },
-            tryBad: '', ticked: {}, confirm: '', editJob: false, deciding: false, draft: null, form: null, carry: '',
+            tryBad: '', confirm: '', editJob: false, deciding: false, draft: null, form: null, carry: '',
             sayDraft: null, step: {}, toast: null };
 
   var RESULT = {
@@ -502,6 +502,9 @@
       main.appendChild(foot);
     }
     drawToast();
+    // The step strip stays pinned under the Trials header, which is itself pinned on a wide page.
+    if (S.top && getComputedStyle(S.top).position === 'sticky') { root.style.setProperty('--tr-top-h', S.top.offsetHeight + 'px'); }
+    else { root.style.setProperty('--tr-top-h', '0px'); }
     if (keep) { var back = document.getElementById(keep); if (back) { back.focus(); } }
   }
 
@@ -1235,6 +1238,9 @@
 
   /* ---- one try ---- */
 
+  /* ---- one try (Petar, 22 November 2026): the overview and how it ended together on top, then each step
+     with the problems met at it, a navigator and a details panel, and the ticked fixes sent in waves ---- */
+
   function drawTry(root, w) {
     var d = S.data['try'];
     if (!d || String(d.trial.number) !== w.n) {
@@ -1246,7 +1252,64 @@
     moved((t.job_name || upper(t.subject)) + ', try ' + t.number);
     root.appendChild(crumbs(t.job ? [['Atlas', HOME], [t.job_name, HOME + '/job/' + t.job], ['Try ' + t.number]]
       : [['Atlas', HOME], ['Try ' + t.number]]));
-    var head = el('section', 'tr-runhead');
+    var going = t.state === 'queued' || t.state === 'running';
+    var walk = t.walk || [];
+    var found = t.found || [];
+    var foundAt = {};
+    found.forEach(function (f) { var k = f.step || 0; (foundAt[k] = foundAt[k] || []).push(f); });
+    var stuckAt = 0;
+    walk.forEach(function (s) { if ((foundAt[s.n] || []).some(function (f) { return f.how_bad === 'blocked'; })) { stuckAt = s.n; } });
+    if (!going) { nameSteps(t); }
+
+    root.appendChild(tryOverview(t, going, stuckAt));
+    if ((t.waves || []).length) { root.appendChild(waveList(t)); }
+
+    var story = section('tr-steps', 'Step by step', 'tr-steps-sec');
+    if (!walk.length) { story.appendChild(el('p', 'tr-empty', going ? 'No steps yet: each one appears here as ' + name + ' takes it.' : 'No steps were kept.')); }
+    else {
+      story.appendChild(stepStrip(t, walk, foundAt, stuckAt));
+      walk.forEach(function (s) { story.appendChild(stepBlock(t, s, foundAt[s.n] || [], s.n === stuckAt, walk.length, going)); });
+    }
+    if ((foundAt[0] || []).length) { story.appendChild(stepBlock(t, null, foundAt[0], false, walk.length, going)); }
+    root.appendChild(story);
+
+    root.appendChild(runAgain(d.personas || [], t.persona, function (persona) {
+      return call('/' + t.number + '/again', { persona: persona });
+    }, 'Ask for a review', 'A tester who has seen nothing before tries the same job from the start, and you get a report ' +
+      'like this one. It takes a few minutes. Nothing is fixed from it until you choose what.'));
+    if (!going && found.length) { root.appendChild(fixBar(t)); }
+    setTimeout(markHere, 0);
+  }
+
+  /* The strip marks the step being read, and on a phone keeps that step's button in sight. */
+  function markHere() {
+    if (S.hereWatch) { S.hereWatch.disconnect(); S.hereWatch = null; }
+    var strip = document.querySelector('.tr-strip');
+    if (!strip || !window.IntersectionObserver) { return; }
+    S.hereWatch = new IntersectionObserver(function (seen) {
+      seen.forEach(function (e) {
+        if (!e.isIntersecting) { return; }
+        var n = e.target.id.replace('step-', '');
+        strip.querySelectorAll('.tr-strip-b').forEach(function (b) {
+          var on = b.getAttribute('data-n') === n;
+          b.classList.toggle('is-here', on);
+          if (on) {
+            b.setAttribute('aria-current', 'step');
+            if (b.offsetLeft < strip.scrollLeft || b.offsetLeft + b.offsetWidth > strip.scrollLeft + strip.clientWidth) {
+              strip.scrollLeft = b.offsetLeft - strip.clientWidth / 2;
+            }
+          } else { b.removeAttribute('aria-current'); }
+        });
+      });
+    }, { rootMargin: '-35% 0px -60% 0px' });
+    document.querySelectorAll('.tr-sblock[id^="step-"]').forEach(function (b) { if (b.id !== 'step-whole') { S.hereWatch.observe(b); } });
+  }
+
+  /* The top: who tried what, the numbers, and how it ended, in one panel. */
+  function tryOverview(t, going, stuckAt) {
+    var name = t.persona_name;
+    var head = el('section', 'tr-panel tr-over');
+    head.setAttribute('aria-label', 'How the try went');
     var h = el('h1', 'tr-h1', 'Try ' + t.number + ': ' + name + ' on ' + (t.job_name || upper(t.subject) || 'a page of Rouh'));
     h.appendChild(el('small', '', tryName(t.round, t.mode) + ' · ' + day(t.created_at)));
     head.appendChild(h);
@@ -1259,7 +1322,7 @@
     who.appendChild(nm);
     head.appendChild(who);
     head.appendChild(el('p', 'tr-goalq', '“' + t.goal + '”'));
-    if (t.state !== 'queued' && t.state !== 'running') {
+    if (!going) {
       var facts = el('div', 'tr-facts');
       [[String(t.steps), plural(t.steps, 'step').replace(/^\d+ /, '')], [String(foundN(t)), 'problems found' + (t.open ? ', ' + t.open + ' not fixed' : '')],
        [minShort(t.seconds), 'time it took'], [MANAGED[t.managed] || '–', 'managed it?']].forEach(function (x) {
@@ -1269,15 +1332,52 @@
         facts.appendChild(f);
       });
       var res = el('div', 'tr-fact');
-      res.appendChild(el('b', '', t.mode === 'review' && (t.state === 'passed' || t.state === 'failed')
-        ? ({ yes: 'They managed it', partly: 'Partly managed', no: 'Did not manage' }[t.managed] || 'Done') : (RESULT[t.state] || ['–'])[0]));
-      res.appendChild(el('span', '', t.mode === 'review' ? 'a review' : 'the result'));
+      // A review has no pass or fail, and "managed it?" is said beside it: its fifth tile is its waves of fixes.
+      var nw = (t.waves || []).length;
+      res.appendChild(el('b', '', t.mode === 'review' ? String(nw) : (RESULT[t.state] || ['–'])[0]));
+      res.appendChild(el('span', '', t.mode === 'review' ? (nw === 1 ? 'wave of fixes' : 'waves of fixes') : 'the result'));
       facts.appendChild(res);
       head.appendChild(facts);
     }
+    if (t.ending || t.nearly_gave_up) {
+      var end = el('div', 'tr-over-end');
+      if (t.ending) {
+        var q = el('figure', 'tr-over-q');
+        q.appendChild(el('blockquote', 'tr-last', '“' + t.ending + '”'));
+        q.appendChild(el('figcaption', 'tr-dim', name + ', at the end'));
+        end.appendChild(q);
+      }
+      if (t.nearly_gave_up) {
+        var g = el('div', 'tr-over-gave');
+        g.appendChild(el('h2', 'tr-h3', 'Where ' + name + ' nearly gave up'));
+        g.appendChild(el('p', '', t.nearly_gave_up));
+        if (stuckAt) {
+          var j = button('tr-btn tr-btn-s tr-quiet', 'Go to step ' + stuckAt + ', where ' + name + ' was stopped');
+          j.addEventListener('click', function () { toStep(stuckAt); });
+          g.appendChild(j);
+        }
+        end.appendChild(g);
+      }
+      head.appendChild(end);
+    }
     var why = t.mode === 'review' ? '' : verdictWhy(t);
     if (why) { head.appendChild(el('p', 'tr-why', why)); }
-    if (t.state === 'queued' || t.state === 'running') {
+    if ((t.closed || []).length) {
+      head.appendChild(said('Fixed, because ' + name + ' got past them this time',
+        t.closed.map(function (c) { return 'Problem ' + c.number + ': ' + c.what; }).join('; ')));
+    }
+    if (!going && (t.found || []).length) {
+      var c = choiceCounts(t);
+      var line = el('p', 'tr-over-line');
+      if (t.mode !== 'review') { line.appendChild(modeChip(t.mode)); }
+      line.appendChild(el('span', '', t.mode === 'review'
+        ? 'Nothing is fixed until you tick what to fix and press Fix the ones I chose. '
+        : 'Run by itself while a feature was built; its builder fixed what it could. You can still choose fixes here. '));
+      line.appendChild(el('strong', '', plural(c.distinct, 'problem') + ' · ' + c.waiting + ' waiting for your choice · ' + c.picked + ' chosen to fix' +
+        (c.inWave ? ' · ' + c.inWave + ' in a wave now' : '')));
+      head.appendChild(line);
+    }
+    if (going) {
       // A try going on is read again every few seconds, so its steps appear as they happen.
       clearTimeout(S.poll);
       S.poll = setTimeout(function () { if (S.root && S.root.isConnected && S.sub === String(t.number)) { load(); } }, 5000);
@@ -1289,211 +1389,458 @@
         : t.state === 'queued' ? 'This try is about to start. It takes a few minutes.'
         : name + ' is trying it now. Each step appears here as it happens.'));
       head.appendChild(live);
+    } else if ((t.waves || []).some(function (x) { return x.state === 'running'; })) {
+      // A wave going on is read again now and then, so it says done or failed without a reload.
+      clearTimeout(S.poll);
+      S.poll = setTimeout(function () { if (S.root && S.root.isConnected && S.sub === String(t.number)) { load(); } }, 30000);
     }
     if (t.state === 'broken') {
       var nr = el('div', 'tr-banner is-stuck');
       nr.appendChild(el('p', '', 'This try could not finish, so there is no report: ' + (t.why || 'something went wrong.') + ' That is not the same as no problems.'));
       head.appendChild(nr);
-    } else if (t.why) { head.appendChild(el('p', 'tr-dim', t.why)); }
-    root.appendChild(head);
-
-    var walk = t.walk || [];
-    var foundAt = {};
-    (t.found || []).forEach(function (f) { (foundAt[f.step] = foundAt[f.step] || []).push(f); });
-    var stuckAt = 0;
-    walk.forEach(function (s) { if ((foundAt[s.n] || []).some(function (f) { return f.how_bad === 'blocked'; })) { stuckAt = s.n; } });
-    var sel = S.step[t.number] || stuckAt || (walk.length ? walk[walk.length - 1].n : 0);
-    var story = section('tr-replay', 'Step by step', 'tr-steps-sec');
-    if (!walk.length) { story.appendChild(el('p', 'tr-dim', 'No steps yet.')); }
-    else {
-      // The strip: one bar per step, its height the problems hit there; where they got stuck is outlined.
-      var most = Math.max.apply(null, [1].concat(walk.map(function (s) { return (foundAt[s.n] || []).length; })));
-      var strip = el('div', 'tr-strip');
-      strip.setAttribute('role', 'group');
-      strip.setAttribute('aria-label', 'Steps');
-      walk.forEach(function (s) {
-        var n = (foundAt[s.n] || []).length;
-        var b = button('tr-strip-b' + (n ? ' has' : '') + (s.n === stuckAt ? ' is-stuck' : ''), null);
-        b.setAttribute('aria-pressed', s.n === sel ? 'true' : 'false');
-        b.setAttribute('aria-label', 'Step ' + s.n + ': ' + plural(n, 'problem') + (s.n === stuckAt ? ', stuck here' : ''));
-        var marks = el('span', 'tr-marks');
-        (foundAt[s.n] || []).slice(0, 4).forEach(function (f) { marks.appendChild(shape(f.how_bad, 9)); });
-        b.appendChild(marks);
-        var bar = el('span', 'tr-strip-bar');
-        bar.style.height = (n ? Math.round(4 + n / most * 18) : 2) + 'px';
-        b.appendChild(bar);
-        b.appendChild(el('span', '', String(s.n)));
-        b.addEventListener('click', function () { pickStep(t, s.n); });
-        strip.appendChild(b);
-      });
-      story.appendChild(strip);
-      var key = el('div', 'tr-strip-key');
-      if (stuckAt) { var k1 = el('span', 'tr-stuckword'); k1.appendChild(shape('blocked', 10)); k1.appendChild(el('span', '', 'outlined: where ' + name + ' was stopped')); key.appendChild(k1); }
-      key.appendChild(el('span', '', 'bar height: problems at that step'));
-      story.appendChild(key);
-      // The storyboard: a phone frame per step, what they saw, what they did, and what they thought.
-      var board = el('ol', 'tr-board');
-      board.setAttribute('aria-label', 'Every step');
-      walk.forEach(function (s) {
-        var li = el('li', 'tr-frame' + (s.n === stuckAt ? ' is-stuck' : '') + (s.n === sel ? ' is-on' : ''));
-        li.id = 'step-' + s.n;
-        var ph = el('div', 'tr-phone');
-        var pick = button('tr-frame-pick', null);
-        pick.setAttribute('aria-pressed', s.n === sel ? 'true' : 'false');
-        var sn = el('span', 'tr-frame-sn');
-        sn.appendChild(el('span', '', 'Step ' + s.n));
-        if (s.n === stuckAt) { var sw = el('span', 'tr-stuckword'); sw.appendChild(shape('blocked', 9)); sw.appendChild(el('span', '', 'Stuck here')); sn.appendChild(sw); }
-        pick.appendChild(sn);
-        pick.appendChild(el('span', 'tr-frame-t', s.title || ('Step ' + s.n)));
-        pick.setAttribute('aria-label', 'Show step ' + s.n + (s.title ? ', ' + s.title : '') + ' below the strip');
-        pick.addEventListener('click', function () { pickStep(t, s.n); });
-        ph.appendChild(pick);
-        if (s.shot) { ph.appendChild(shot(API + '/' + t.number + '/shot/' + s.n, 'What ' + name + ' saw at step ' + s.n, 'tr-frame-shot')); }
-        var f = foundAt[s.n] || [];
-        var marks = el('div', 'tr-marks');
-        f.forEach(function (x) { marks.appendChild(shape(x.how_bad, 10)); });
-        marks.appendChild(el('span', '', f.length ? plural(f.length, 'problem') : 'No problem'));
-        ph.appendChild(marks);
-        li.appendChild(ph);
-        if (s.does) { var did = el('div', 'tr-did'); did.appendChild(icon('tap')); did.appendChild(el('span', '', s.does)); li.appendChild(did); }
-        if (s.think) { li.appendChild(el('div', 'tr-bubble', s.think)); }
-        board.appendChild(li);
-      });
-      story.appendChild(board);
-      story.appendChild(stepDetail(t, walk, foundAt, sel, stuckAt));
-    }
-    root.appendChild(story);
-
-    var end = section('tr-end', 'How it ended', 'tr-end-sec');
-    if (t.managed || t.ending) {
-      if (t.ending) { end.appendChild(el('p', 'tr-last', '“' + t.ending + '”')); }
-      end.appendChild(said('Did ' + name + ' manage it?', MANAGED[t.managed] || '–'));
-      if (t.nearly_gave_up) { end.appendChild(said('Where ' + name + ' nearly gave up', t.nearly_gave_up)); }
-      if ((t.closed || []).length) {
-        end.appendChild(said('Fixed, because ' + name + ' got past them this time',
-          t.closed.map(function (c) { return 'Problem ' + c.number + ': ' + c.what; }).join('; ')));
-      }
-    } else { end.appendChild(el('p', 'tr-dim', 'It has not ended yet.')); }
-    root.appendChild(end);
-
-    // What kind of try it was, and for a review the button that starts the fixes, just above the problems
-    // it is about: above the steps it pushed the step strip off a phone's first screen.
-    var kind = el('section', 'tr-sec');
-    kind.appendChild(modeBox(t));
-    root.appendChild(kind);
-    root.appendChild(tryProblems(t));
-    root.appendChild(runAgain(d.personas || [], t.persona, function (persona) {
-      return call('/' + t.number + '/again', { persona: persona });
-    }, 'Ask for a review', 'A tester who has seen nothing before tries the same job from the start, and you get a report ' +
-      'like this one. It takes a few minutes. Nothing is fixed from it until you choose what.'));
+    } else if (t.why && !going) { head.appendChild(el('p', 'tr-dim', t.why)); }
+    return head;
   }
 
-  function pickStep(t, n) {
-    S.step[t.number] = n;
-    draw();
-    var to = document.getElementById('tr-stepd');
-    if (to) { to.scrollIntoView({ block: 'nearest' }); }
+  /* Steps from before testers named their own are named once, by Rouh, and kept. */
+  function nameSteps(t) {
+    S.naming = S.naming || {};
+    if (S.naming[t.number] || !(t.walk || []).some(function (s) { return !s.name; })) { return; }
+    S.naming[t.number] = 1;
+    call('/' + t.number + '/names', {}).then(function (j) {
+      var d = S.data['try'];
+      if (!d || d.trial.number !== t.number || !j || !j.names) { return; }
+      d.trial.walk.forEach(function (s) { if (!s.name && j.names[s.n]) { s.name = j.names[s.n]; } });
+      draw();
+    }, function () { /* the screen's name stands in */ });
   }
 
-  /* One step whole: what they saw, said and did, the three questions, and the problems hit there. */
-  function stepDetail(t, walk, foundAt, n, stuckAt) {
-    var s = walk.filter(function (x) { return x.n === n; })[0] || walk[walk.length - 1];
-    var name = t.persona_name;
-    var box = el('div', 'tr-panel tr-stepd');
-    box.id = 'tr-stepd';
-    box.setAttribute('aria-live', 'polite');
-    var left = el('div');
-    left.appendChild(el('h3', 'tr-h3', 'Step ' + s.n + ' of ' + walk.length + (s.n === stuckAt ? ': stuck here' : '') + (s.title ? ' · ' + s.title : '')));
-    var kv = el('dl', 'tr-kv');
-    [['Saw', s.see], ['Said', s.think ? '“' + s.think + '”' : ''], ['Did', s.does]].forEach(function (x) {
-      if (!x[1]) { return; }
-      kv.appendChild(el('dt', '', x[0]));
-      kv.appendChild(el('dd', x[0] === 'Said' ? 'tr-think' : '', x[1]));
+  function stepTitle(s) { return s.name || s.title || 'Step ' + s.n; }
+
+  /* The strip: one bar per step, its height the problems met there; a press goes to that step. */
+  function stepStrip(t, walk, foundAt, stuckAt) {
+    var wrap = el('div', 'tr-stripw');
+    var most = Math.max.apply(null, [1].concat(walk.map(function (s) { return (foundAt[s.n] || []).length; })));
+    var strip = el('nav', 'tr-strip');
+    strip.setAttribute('aria-label', 'Go to a step');
+    walk.forEach(function (s) {
+      var n = (foundAt[s.n] || []).length;
+      var b = button('tr-strip-b' + (n ? ' has' : '') + (s.n === stuckAt ? ' is-stuck' : ''), null);
+      b.setAttribute('aria-label', 'Go to step ' + s.n + ', ' + stepTitle(s) + ': ' + plural(n, 'problem') + (s.n === stuckAt ? ', stopped here' : ''));
+      b.title = 'Step ' + s.n + ': ' + stepTitle(s);
+      b.setAttribute('data-n', String(s.n));
+      var marks = el('span', 'tr-marks');
+      (foundAt[s.n] || []).slice(0, 4).forEach(function (f) { marks.appendChild(shape(f.how_bad, 9)); });
+      if (n > 4) { marks.appendChild(el('span', 'tr-strip-more', '+' + (n - 4))); }
+      b.appendChild(marks);
+      var bar = el('span', 'tr-strip-bar');
+      bar.style.height = (n ? Math.round(4 + n / most * 18) : 2) + 'px';
+      b.appendChild(bar);
+      b.appendChild(el('span', '', String(s.n)));
+      b.addEventListener('click', function () { toStep(s.n); });
+      strip.appendChild(b);
     });
-    left.appendChild(kv);
-    if (s.answers && (s.answers.what || s.answers.how || s.answers.then)) {
-      var three = el('dl', 'tr-three');
-      [['What is this?', s.answers.what], ['What do I do here?', s.answers.how], ['What happens when I do it?', s.answers.then]]
-        .forEach(function (q, i) {
-          var clear = !s.answers.clear || s.answers.clear[i] !== false;
-          var dt = el('dt', '', q[0]);
-          if (!clear) { dt.appendChild(chip('Not clear to ' + name, 'amber')); }
-          three.appendChild(dt);
-          three.appendChild(el('dd', '', q[1] || '–'));
-        });
-      left.appendChild(three);
+    wrap.appendChild(strip);
+    var key = el('div', 'tr-strip-key');
+    if (stuckAt) { var k1 = el('span', 'tr-stuckword'); k1.appendChild(shape('blocked', 10)); k1.appendChild(el('span', '', 'outlined: where ' + t.persona_name + ' was stopped')); key.appendChild(k1); }
+    key.appendChild(el('span', '', 'bar height: problems at that step · press a step to go to it'));
+    wrap.appendChild(key);
+    return wrap;
+  }
+
+  function toStep(n) {
+    var to = document.getElementById('step-' + n);
+    if (to) { to.scrollIntoView({ block: 'start', behavior: 'smooth' }); var h = to.querySelector('h3'); if (h) { h.focus({ preventScroll: true }); } }
+  }
+
+  /* One step whole: its name, the screen and the three answers, what they saw, said and did, and the
+     problems met there. With s null it is the block for the problems met at no step. */
+  function stepBlock(t, s, found, isStuck, total, going) {
+    var name = t.persona_name;
+    var box = el('section', 'tr-sblock' + (isStuck ? ' is-stuck' : ''));
+    box.id = s ? 'step-' + s.n : 'step-whole';
+    var head = el('div', 'tr-sblock-head');
+    var h = el('h3', 'tr-h2', s ? 'Step ' + s.n + ': ' + stepTitle(s) : 'Whole trial');
+    h.tabIndex = -1;
+    head.appendChild(h);
+    var meta = el('p', 'tr-sblock-meta');
+    if (s) { meta.appendChild(el('span', '', (s.name && s.title ? s.title + ' · ' : '') + 'step ' + s.n + ' of ' + total)); }
+    else { meta.appendChild(el('span', '', 'Problems ' + name + ' named that belong to no one step')); }
+    if (isStuck) { var sw = el('span', 'tr-stuckword'); sw.appendChild(shape('blocked', 10)); sw.appendChild(el('span', '', 'Stopped here')); meta.appendChild(sw); }
+    var marks = el('span', 'tr-marks');
+    found.forEach(function (x) { marks.appendChild(shape(x.how_bad, 10)); });
+    marks.appendChild(el('span', '', found.length ? plural(found.length, 'problem') : 'No problem here'));
+    meta.appendChild(marks);
+    head.appendChild(meta);
+    box.appendChild(head);
+    if (s) {
+      var grid = el('div', 'tr-sgrid');
+      var left = el('div', 'tr-sleft');
+      if (s.shot) { left.appendChild(shot(API + '/' + t.number + '/shot/' + s.n, 'What ' + name + ' saw at step ' + s.n, 'tr-sshot')); }
+      else { left.appendChild(el('p', 'tr-noshot', 'No picture was kept of this step.')); }
+      if (s.answers && (s.answers.what || s.answers.how || s.answers.then)) {
+        var three = el('dl', 'tr-three');
+        [['What is this?', s.answers.what], ['What do I do here?', s.answers.how], ['What happens when I do it?', s.answers.then]]
+          .forEach(function (q, i) {
+            var clear = !s.answers.clear || s.answers.clear[i] !== false;
+            var dt = el('dt', '', q[0]);
+            if (!clear) { dt.appendChild(chip('Not clear to ' + name, 'amber')); }
+            three.appendChild(dt);
+            three.appendChild(el('dd', '', q[1] || '–'));
+          });
+        left.appendChild(three);
+      }
+      grid.appendChild(left);
+      var right = el('div', 'tr-sright');
+      var kv = el('dl', 'tr-kv');
+      [['Saw', s.see], ['Said', s.think ? '“' + s.think + '”' : ''], ['Did', s.does]].forEach(function (x) {
+        if (!x[1]) { return; }
+        kv.appendChild(el('dt', '', x[0]));
+        kv.appendChild(el('dd', x[0] === 'Said' ? 'tr-think' : '', x[1]));
+      });
+      right.appendChild(kv);
+      grid.appendChild(right);
+      box.appendChild(grid);
     }
-    box.appendChild(left);
-    var right = el('div');
-    var f = foundAt[s.n] || [];
-    right.appendChild(el('h3', 'tr-h3', f.length ? plural(f.length, 'problem') + ' hit here' : 'No problem hit here'));
-    var ul = el('ul', 'tr-mini');
-    f.forEach(function (x) {
-      var li = el('li');
-      var a = link('', HOME + '/problem/' + x.number);
-      a.appendChild(shape(x.how_bad, 12));
-      var w = el('span');
-      w.appendChild(el('span', '', x.what));
-      w.appendChild(el('span', 'tr-dim', ' · ' + BAD[x.how_bad] + ' · Problem ' + x.number + (x.notes ? ' · ' + plural(x.notes, 'message') : '')));
-      a.appendChild(w);
-      li.appendChild(a);
+    if (found.length) { box.appendChild(stepProblems(t, s ? s.n : 0, found, going)); }
+    return box;
+  }
+
+  /* ---- the problems at one step: a navigator, and the selected one's details beside it ---- */
+
+  function waveOf(f) { return f.wave || null; }
+  /* Whether a problem is chosen for the next wave: decided, not fixed, in no running wave, and chosen again since
+     a finished wave fixed it. The tick says exactly this, so it and the count on the button always agree. */
+  function chosenNext(f) {
+    if (f.verdict !== 'decided' || f.standing === 'fixed') { return false; }
+    var w = waveOf(f);
+    if (!w) { return true; }
+    if (w.state === 'running') { return false; }
+    if (w.state === 'done') { return (f.verdict_at || 0) > w.started_at; }
+    return true;
+  }
+  function runningWave(f) { var w = waveOf(f); return w && w.state === 'running' ? w : null; }
+  function choiceCounts(t) {
+    var seen = {}, c = { distinct: 0, picked: 0, waiting: 0, inWave: 0 };
+    (t.found || []).forEach(function (f) {
+      if (seen[f.number]) { return; }
+      seen[f.number] = 1;
+      c.distinct += 1;
+      if (f.awaiting_choice) { c.waiting += 1; }
+      if (chosenNext(f)) { c.picked += 1; }
+      if (runningWave(f)) { c.inWave += 1; }
+    });
+    return c;
+  }
+  /* The one short line under a problem's name in the navigator. */
+  function clarify(f) {
+    var w = waveOf(f);
+    if (f.standing === 'fixed') { return 'Fixed'; }
+    if (w && w.state === 'running') { return 'In wave ' + w.number + ', being fixed now'; }
+    if (w && w.state === 'done' && !chosenNext(f)) { return 'Fixed by wave ' + w.number + ', waiting for a re-test'; }
+    if (w && w.state === 'failed' && f.verdict === 'decided') { return 'Wave ' + w.number + ' failed · chosen again'; }
+    if (f.verdict === 'decided') { return f.decision && f.decision !== f.fix ? 'Chosen: fixed your way' : 'Chosen: use this fix'; }
+    if (f.verdict === 'not_a_problem') { return 'Not a problem'; }
+    if (f.verdict === 'wont_fix') { return 'Won’t fix'; }
+    if (f.verdict === 'sent') { return 'Sent as feedback'; }
+    return f.awaiting_choice ? 'Waiting for your choice' : 'Not decided';
+  }
+  function rowId(stepN, f) { return 'tr-pr-' + stepN + '-' + f.number; }
+
+  function stepProblems(t, stepN, found, going) {
+    S.pick = S.pick || {};
+    var key = t.number + ':' + stepN;
+    // Each step opens on a problem still waiting for a choice, not on one already chosen or in a wave.
+    var sel = found.filter(function (f) { return f.number === S.pick[key]; })[0] ||
+      found.filter(function (f) { return f.awaiting_choice || (!f.verdict && f.standing !== 'fixed'); })[0] || found[0];
+    var wrap = el('div', 'tr-sprobs');
+    wrap.appendChild(el('h4', 'tr-sprobs-h', plural(found.length, 'problem') + ' at ' + (stepN ? 'this step' : 'no one step')));
+    var grid = el('div', 'tr-pgrid');
+    var nav = el('ul', 'tr-pnav');
+    nav.setAttribute('aria-label', 'Problems at ' + (stepN ? 'step ' + stepN : 'no one step'));
+    found.forEach(function (f) {
+      var li = el('li', 'tr-pnr' + (f === sel ? ' is-on' : '') + (f.standing === 'fixed' || f.standing === 'set_aside' ? ' is-closed' : ''));
+      var tick = el('input', 'tr-ptick');
+      tick.type = 'checkbox';
+      tick.id = 'tr-tick-' + stepN + '-' + f.number;
+      var rw = runningWave(f);
+      tick.checked = !!rw || chosenNext(f);
+      tick.disabled = going || !!rw || f.standing === 'fixed' || !!S.busy;
+      tick.setAttribute('aria-label', 'Fix problem ' + f.number + ': ' + f.what);
+      tick.title = rw ? 'In wave ' + rw.number + ', being fixed now' : f.standing === 'fixed' ? 'Already fixed' : 'Tick to have it fixed: the same as Use this fix';
+      tick.addEventListener('change', function () { setTick(t, stepN, f, tick.checked); });
+      li.appendChild(tick);
+      var b = button('tr-pnr-b', null);
+      b.id = rowId(stepN, f);
+      b.setAttribute('aria-pressed', f === sel ? 'true' : 'false');
+      b.setAttribute('aria-controls', 'tr-pd-' + key.replace(':', '-'));
+      var ty = el('span', 'tr-ptype');
+      ty.appendChild(shape(f.how_bad, 14));
+      ty.title = 'Type: ' + (BAD[f.how_bad] || f.how_bad);
+      b.appendChild(ty);
+      var words = el('span', 'tr-pnr-w');
+      words.appendChild(el('span', 'tr-pnr-t', f.what));
+      words.appendChild(el('span', 'tr-pnr-s', 'Problem ' + f.number + ' · ' + BAD_SHORT[f.how_bad] + ' here · ' + clarify(f)));
+      b.appendChild(words);
+      b.addEventListener('click', function () {
+        S.pick[key] = f.number; S.cardDeciding = 0; draw();
+        // Stacked (a phone, a narrow column), the details are under every row: bring them up to the eye.
+        var pd = document.getElementById('tr-pd-' + key.replace(':', '-'));
+        var row = document.getElementById(rowId(stepN, f));
+        if (pd && row && pd.getBoundingClientRect().top > row.getBoundingClientRect().bottom + 40) { pd.scrollIntoView({ block: 'start', behavior: 'smooth' }); }
+      });
+      li.appendChild(b);
+      nav.appendChild(li);
+    });
+    grid.appendChild(nav);
+    var pd = problemDetails(t, stepN, sel, going);
+    pd.id = 'tr-pd-' + key.replace(':', '-');
+    grid.appendChild(pd);
+    wrap.appendChild(grid);
+    return wrap;
+  }
+
+  /* What the problem page has that the step above does not show: their words, what should have happened and
+     what did, the suggested fix, the four choices, how far it is from fixed, and the talk with Rouh. */
+  function problemDetails(t, stepN, f, going) {
+    var name = t.persona_name;
+    var p = (S.pcache && S.pcache[f.number]) || null;
+    var box = el('div', 'tr-pd');
+    box.setAttribute('aria-live', 'polite');
+    var top = el('div', 'tr-pd-top');
+    top.appendChild(el('h4', 'tr-h3 tr-pd-h', f.what));
+    var chips = el('div', 'tr-chips');
+    chips.appendChild(sev(f.how_bad, true));
+    chips.appendChild(standBadge(p ? Object.assign({}, p, f, { sightings: p.sightings }) : f));
+    top.appendChild(chips);
+    var sub = el('p', 'tr-dim');
+    sub.appendChild(document.createTextNode('Problem ' + f.number + (f.count > 1 ? ' · seen ' + f.count + ' times' : ' · seen once') +
+      (f.screen_name ? ' · ' + f.screen_name : '') + ' · '));
+    sub.appendChild(link('Open its own page', HOME + '/problem/' + f.number, 'tr-a'));
+    top.appendChild(sub);
+    box.appendChild(top);
+    var w = waveOf(f);
+    if (w) {
+      var wl = el('p', 'tr-pd-wave is-' + w.state);
+      wl.appendChild(icon(w.state === 'done' ? 'check' : w.state === 'failed' ? 'x' : 'wait'));
+      wl.appendChild(el('span', '', w.state === 'running' ? 'In wave ' + w.number + ', started ' + day(w.started_at) + ': being fixed now. It can be chosen again once the wave ends.'
+        : w.state === 'done' ? 'Wave ' + w.number + ' fixed this, ' + day(w.started_at) + '. It counts as fixed once a later try gets past it.' + (chosenNext(f) ? ' Chosen again for the next wave.' : ' Tick it to have it fixed again in a new wave.')
+        : 'Wave ' + w.number + ' failed, ' + day(w.started_at) + '. Tick it to try again in a new wave.'));
+      box.appendChild(wl);
+    }
+    if (f.quote) { box.appendChild(said(name + ' said', '“' + f.quote + '”', 'tr-think')); }
+    var eh = el('div', 'tr-eh');
+    if (f.expected) { var a1 = el('div'); a1.appendChild(el('h5', 'tr-label', 'What should have happened')); a1.appendChild(el('p', '', f.expected)); eh.appendChild(a1); }
+    if (f.actual) { var a2 = el('div'); a2.appendChild(el('h5', 'tr-label', 'What happened')); a2.appendChild(el('p', '', f.actual)); eh.appendChild(a2); }
+    if (eh.childNodes.length) { box.appendChild(eh); }
+    if (f.decision && f.verdict === 'decided') { box.appendChild(said('You decided: fix it like this', f.decision, 'tr-decided')); }
+    if (f.fix && !(f.verdict === 'decided' && f.decision === f.fix)) { box.appendChild(said(f.decision && f.verdict === 'decided' ? 'Rouh’s first suggestion' : 'Suggested fix', f.fix)); }
+    if (f.decision === f.fix && f.verdict === 'decided') { box.appendChild(el('p', 'tr-dim', 'That is the suggested fix, as Rouh wrote it.')); }
+    if (!going && f.standing !== 'fixed') { box.appendChild(choices(t, stepN, f)); }
+    var far = el('div', 'tr-pd-far');
+    far.appendChild(el('h5', 'tr-label', 'How far it is from fixed'));
+    far.appendChild(chain(p ? Object.assign({}, p, { verdict: f.verdict, verdict_at: f.verdict_at, standing: f.standing }) : f));
+    far.appendChild(el('p', 'tr-rule', RULE));
+    box.appendChild(far);
+    var talk = el('div', 'tr-pd-talk');
+    S.talkOpen = S.talkOpen || {};
+    if (!S.talkOpen[f.number]) {
+      // Closed until pressed: 24 open talks made the page very long, and each asked Rouh for its thread. A
+      // question can still be asked in one press, and the talk opens with Rouh's answer.
+      talk.appendChild(el('h5', 'tr-label', 'Talk it over with Rouh'));
+      var qs = el('div', 'tr-actions');
+      if (!f.notes) {
+        [f.how_bad === 'blocked' ? 'Why did this stop the tester?' : 'Why did this happen?', 'How would you fix it?', 'Is it worth fixing now?']
+          .forEach(function (q) {
+            var b = button('tr-btn tr-btn-s', q);
+            b.disabled = !!S.busy;
+            b.addEventListener('click', function () { askRouh(t, f, q); });
+            qs.appendChild(b);
+          });
+      }
+      var open = button('tr-btn tr-btn-s tr-quiet', f.notes ? 'Open the talk (' + plural(f.notes, 'message') + ')' : 'Write your own question');
+      open.addEventListener('click', function () { S.talkOpen[f.number] = 1; draw(); });
+      qs.appendChild(open);
+      talk.appendChild(qs);
+      if (S.busy === 'say' && S.asking === f.number) { talk.appendChild(el('p', 'tr-thinking', 'Rouh is answering…')); }
+    } else if (p) { talk.appendChild(thread(p, function (got) { keepProblem(t, got); })); }
+    else {
+      S.pload = S.pload || {};
+      if (!S.pload[f.number]) {
+        S.pload[f.number] = 1;
+        call('/problems/' + f.number).then(function (j) { S.pcache = S.pcache || {}; S.pcache[f.number] = j.problem; draw(); },
+          function (e) { S.pload[f.number] = 0; S.talkOpen[f.number] = 0; fail(e); });
+      }
+      talk.appendChild(el('p', 'tr-loading', 'Opening the talk with Rouh…'));
+    }
+    box.appendChild(talk);
+    return box;
+  }
+
+  /* One question to Rouh about a problem, from the closed talk: it opens with the answer. */
+  function askRouh(t, f, q) {
+    S.busy = 'say'; S.asking = f.number;
+    draw();
+    call('/problems/' + f.number + '/say', { text: q }).then(function (got) {
+      // The talk opens with the question and Rouh's answer in it.
+      S.busy = ''; S.asking = 0; S.talkOpen[f.number] = 1;
+      keepProblem(t, got.problem);
+      draw();
+    }, function (e) { S.asking = 0; fail(e); });
+  }
+
+  /* The four choices, the same as on the problem page, and Take it back. */
+  function choices(t, stepN, f) {
+    var wrap = el('div', 'tr-pd-choose');
+    var rw = runningWave(f);
+    wrap.appendChild(el('h5', 'tr-label', f.verdict ? 'You chose: ' + (f.verdict === 'decided' ? (f.decision === f.fix ? 'Use this fix' : 'Fix it your way') : (VERDICT_LINE[f.verdict] || f.verdict)) : 'Your choice'));
+    var row = el('div', 'tr-actions');
+    function act(text, cls, fn, what, on) {
+      var b = button('tr-btn tr-btn-s' + (cls ? ' ' + cls : ''), text);
+      b.disabled = !!S.busy || !!rw;
+      b.title = what;
+      if (on) { b.setAttribute('aria-pressed', 'true'); }
+      b.addEventListener('click', fn);
+      row.appendChild(b);
+    }
+    if (f.fix) {
+      act('Use this fix', '', function () { decideOn(t, f, 'decided', f.fix); },
+        'Fix it the way suggested: ' + f.fix, f.verdict === 'decided' && f.decision === f.fix && chosenNext(f));
+    }
+    act(f.verdict === 'decided' && f.decision !== f.fix ? 'Change how' : 'Say how to fix it', '',
+      function () { S.cardDeciding = stepN + ':' + f.number; draw(); }, 'Write your own way to fix it');
+    act('Not a problem', '', function () { decideOn(t, f, 'not_a_problem'); }, 'The tester was wrong: it is fine as it is.', f.verdict === 'not_a_problem');
+    act('Won’t fix', '', function () { decideOn(t, f, 'wont_fix'); }, 'It is real, but not worth changing.', f.verdict === 'wont_fix');
+    if (f.verdict) { act('Take it back', 'tr-quiet', function () { decideOn(t, f, ''); }, 'Undo your choice: it is open again.'); }
+    wrap.appendChild(row);
+    if (S.cardDeciding === stepN + ':' + f.number) {
+      var form = el('form', 'tr-form');
+      var how = field(form, 'How should it be fixed?', 'textarea', f.decision || f.fix || '', 'tr-how-' + stepN + '-' + f.number);
+      var r2 = el('div', 'tr-actions');
+      var save = button('tr-btn tr-btn-s tr-primary', 'Save how');
+      save.type = 'submit';
+      var cancel = button('tr-btn tr-btn-s', 'Cancel');
+      cancel.addEventListener('click', function () { S.cardDeciding = 0; draw(); });
+      r2.appendChild(save);
+      r2.appendChild(cancel);
+      form.appendChild(r2);
+      form.addEventListener('submit', function (e) { e.preventDefault(); if (how.value.trim()) { decideOn(t, f, 'decided', how.value); } });
+      wrap.appendChild(form);
+      setTimeout(function () { how.focus(); }, 0);
+    }
+    wrap.appendChild(el('p', 'tr-dim', rw ? 'It is in wave ' + rw.number + ' now, so it cannot be changed until that wave ends.'
+      : 'Ticking it is the same as Use this fix, or keeps your own way if you wrote one. Nothing is fixed until you press Fix the ones I chose.'));
+    return wrap;
+  }
+
+  /* The tick: on is Use this fix (or your own way, kept); off takes the choice back, with Undo. */
+  function setTick(t, stepN, f, on) {
+    S.ownFix = S.ownFix || {};
+    if (on) {
+      if (f.verdict === 'decided' && f.decision) { decideOn(t, f, 'decided', f.decision); return; }
+      // Their own way, written before and unticked since, comes back with the tick.
+      if (S.ownFix[f.number]) { decideOn(t, f, 'decided', S.ownFix[f.number]); return; }
+      if (f.fix) { decideOn(t, f, 'decided', f.fix); return; }
+      // No suggested fix to use: say how, right here.
+      S.pick = S.pick || {}; S.pick[t.number + ':' + stepN] = f.number; S.cardDeciding = stepN + ':' + f.number; draw();
+      return;
+    }
+    if (f.verdict === 'decided' && f.decision && f.decision !== f.fix) { S.ownFix[f.number] = f.decision; }
+    decideOn(t, f, '');
+  }
+
+  function decideOn(t, f, v, decision) {
+    var before = { verdict: f.verdict || '', decision: f.decision || '' };
+    S.busy = 'verdict'; draw();
+    call('/problems/' + f.number + '/verdict', { verdict: v, decision: decision || '' }).then(function (got) {
+      S.busy = ''; S.cardDeciding = 0;
+      keepProblem(t, got.problem);
+      if (S.shell) { loadShell().catch(function () {}); }
+      draw();
+      var msg = v === '' ? 'Taken back: problem ' + f.number + ' is open again.' : v === 'decided' ? 'Problem ' + f.number + ' chosen to fix. It is fixed when you press Fix the ones I chose.'
+        : 'Saved for problem ' + f.number + ': ' + (VERDICT_LINE[v] || v) + '.';
+      toast(msg, function () { decideOn(t, Object.assign({}, f, got.problem), before.verdict, before.decision); });
+    }, fail);
+  }
+
+  /* A problem as Rouh now has it, put into every place on the page that shows it. */
+  function keepProblem(t, p) {
+    if (!p) { return; }
+    S.pcache = S.pcache || {};
+    S.pcache[p.number] = p;
+    (t.found || []).forEach(function (f) {
+      if (f.number !== p.number) { return; }
+      ['verdict', 'verdict_name', 'decision', 'standing', 'status', 'awaiting_choice', 'verdict_at', 'notes', 'fix', 'expected', 'actual']
+        .forEach(function (k) { if (k in p) { f[k] = p[k]; } });
+    });
+  }
+
+  /* ---- waves of fixes ---- */
+
+  function waveList(t) {
+    var box = section('tr-waves', 'Waves of fixes', 'tr-waves-sec');
+    var byN = {};
+    (t.found || []).forEach(function (f) { if (!byN[f.number]) { byN[f.number] = f; } });
+    var ul = el('ul', 'tr-wlist');
+    (t.waves || []).slice().reverse().forEach(function (w) {
+      var li = el('li', 'tr-wave is-' + w.state);
+      var det = el('details');
+      if (S.waveOpen && S.waveOpen[w.number]) { det.open = true; }
+      det.addEventListener('toggle', function () { S.waveOpen = S.waveOpen || {}; S.waveOpen[w.number] = det.open; });
+      var sm = el('summary');
+      sm.appendChild(icon(w.state === 'done' ? 'check' : w.state === 'failed' ? 'x' : 'wait'));
+      sm.appendChild(el('span', 'tr-wave-t', 'Wave ' + w.number + ' · ' + dayShort(w.started_at) + ' · ' + plural(w.problems.length, 'fix', 'fixes')));
+      sm.appendChild(el('span', 'tr-wave-st', { running: 'running', done: 'done', failed: 'failed' }[w.state] || w.state));
+      det.appendChild(sm);
+      var body = el('div', 'tr-wave-body');
+      body.appendChild(el('p', 'tr-dim', 'Started ' + day(w.started_at) + (w.ended_at ? ', ended ' + day(w.ended_at) : '') + '.'));
+      if (w.said) { body.appendChild(said(w.state === 'failed' ? 'What went wrong' : 'What its run said it changed', w.said)); }
+      else if (w.state === 'running') { body.appendChild(el('p', 'tr-dim', 'Its run is fixing them now. This says done or failed when it ends.')); }
+      var pl = el('ul', 'tr-mini');
+      w.problems.forEach(function (n) {
+        var f = byN[n];
+        var li2 = el('li');
+        var a = link('', HOME + '/problem/' + n);
+        if (f) { a.appendChild(shape(f.how_bad, 12)); }
+        var ww = el('span');
+        ww.appendChild(el('span', '', f ? f.what : 'Problem ' + n));
+        ww.appendChild(el('span', 'tr-dim', ' · Problem ' + n + (w.decisions && w.decisions[String(n)] ? ' · fix: ' + w.decisions[String(n)] : '')));
+        a.appendChild(ww);
+        li2.appendChild(a);
+        pl.appendChild(li2);
+      });
+      body.appendChild(pl);
+      if (w.run_id) { body.appendChild(link('Open its run', '/run/' + w.run_id, 'tr-btn tr-btn-s tr-outline')); }
+      det.appendChild(body);
+      li.appendChild(det);
       ul.appendChild(li);
     });
-    right.appendChild(ul);
-    if (s.shot) { right.appendChild(shot(API + '/' + t.number + '/shot/' + s.n, 'What ' + name + ' saw at step ' + s.n, 'tr-stepd-shot')); }
-    box.appendChild(right);
+    box.appendChild(ul);
     return box;
+  }
+
+  /* The bar that stays at the bottom of the page: how many are chosen, and the one button that sends them. */
+  function fixBar(t) {
+    var c = choiceCounts(t);
+    var bar = el('section', 'tr-fixbar');
+    bar.setAttribute('aria-label', 'Fix what you chose');
+    bar.appendChild(el('p', 'tr-fixbar-words', c.picked ? plural(c.picked, 'problem') + ' chosen' + (c.waiting ? ', ' + c.waiting + ' waiting for your choice' : '') +
+      (c.inWave ? ' · ' + c.inWave + ' being fixed in a wave' : '') : c.inWave ? c.inWave + ' being fixed in a wave. Tick more to start another.' : 'Tick the problems you want fixed.'));
+    var go2 = button('tr-btn tr-primary', S.busy === 'fix' ? 'Starting the wave…' : c.picked === 1 ? 'Fix the one I chose' : c.picked ? 'Fix the ' + c.picked + ' I chose' : c.inWave ? 'Tick to fix more · ' + c.inWave + ' in a wave' : 'Tick problems to fix them');
+    go2.disabled = !c.picked || !!S.busy;
+    if (!c.picked) { go2.title = 'Tick a problem, or press Use this fix on one, first'; }
+    go2.addEventListener('click', function () {
+      S.busy = 'fix'; draw();
+      call('/' + t.number + '/fix', {}).then(function (j) { S.busy = ''; S.said = j.said; S.waveOpen = S.waveOpen || {}; if (j.wave) { S.waveOpen[j.wave] = true; } load(); },
+        // A wave that could not start is written down as failed: read the try again so it shows, with the reason above.
+        function (e) { var why = String((e && e.message) || e); load().then(function () { S.busy = ''; S.error = why; draw(); }); });
+    });
+    bar.appendChild(go2);
+    return bar;
   }
 
   function reviewChip(t) {
     return chip({ yes: 'They managed it', partly: 'They partly managed it', no: 'They did not manage it' }[t.managed] || 'Done', 'blue');
-  }
-
-  /* What this try's mode means, and for a review what is waiting on the owner and the one button that starts the fixes. */
-  function modeBox(t) {
-    var box = el('div', 'tr-mode tr-mode-' + (t.mode === 'review' ? 'review' : 'auto'));
-    var top = el('div', 'tr-head-line');
-    top.appendChild(modeChip(t.mode));
-    box.appendChild(top);
-    if (t.mode !== 'review') {
-      box.appendChild(el('p', 'tr-dim', 'Run by itself while a feature was built. The builder fixes what tripped the tester, ' +
-        'within what you already approved, and it is tried again, at most two rounds of fixes. Then it ships. Nobody is asked.'));
-      return box;
-    }
-    var found = t.found || [];
-    var seen = {}, all = [];
-    found.forEach(function (f) { if (!seen[f.number]) { seen[f.number] = 1; all.push(f); } });
-    var waiting = all.filter(function (f) { return f.awaiting_choice; }).length;
-    var picked = all.filter(function (f) { return f.verdict === 'decided' && f.standing !== 'fixed'; }).length;
-    box.appendChild(el('p', 'tr-mode-words', 'You asked for this review. Nothing is fixed from it until you choose. Go through each ' +
-      'problem below: Use this fix, Say how to fix it, Not a problem or Won’t fix. Then press Fix the ones I chose, here or ' +
-      'under the problems, and Rouh fixes only those, your way, in one go.'));
-    box.appendChild(el('p', 'tr-dim', all.length ? plural(all.length, 'problem') + ' found · ' + (waiting ? waiting + ' waiting for your choice' :
-      'all chosen') + ' · ' + plural(picked, 'chosen to fix', 'chosen to fix') : 'No problems found.'));
-    if (all.length) { box.appendChild(fixButton(t, picked)); }
-    return box;
-  }
-
-  function reviewCounts(t) {
-    var seen = {}, picked = 0, waiting = 0;
-    (t.found || []).forEach(function (f) {
-      if (seen[f.number]) { return; }
-      seen[f.number] = 1;
-      if (f.awaiting_choice) { waiting += 1; }
-      if (f.verdict === 'decided' && f.standing !== 'fixed') { picked += 1; }
-    });
-    return { picked: picked, waiting: waiting };
-  }
-
-  function fixButton(t, picked) {
-    var go2 = button('tr-btn tr-primary', picked === 1 ? 'Fix the one I chose' : picked ? 'Fix the ' + picked + ' I chose' : 'Fix the ones I chose');
-    go2.disabled = !picked || !!S.busy;
-    if (!picked) { go2.title = 'Choose Use this fix or Say how to fix it on a problem first'; }
-    go2.addEventListener('click', function () {
-      S.busy = 'fix'; draw();
-      call('/' + t.number + '/fix', {}).then(function (j) { S.busy = ''; S.said = j.said; load(); }, fail);
-    });
-    return go2;
   }
 
   /* Whether they managed it, said so it never reads against Passed or Did not pass (trials 17 and 21). */
@@ -1515,185 +1862,6 @@
     if (t.managed === 'partly') { return who + ' only partly managed it.'; }
     if (t.managed === 'no') { return who + ' did not manage it.'; }
     return t.why || '';
-  }
-
-  /* The try's problems, worst first: Teodora's cards, each with its picture, what should have happened,
-     what did, how to fix it, and Send as feedback; a filter by how bad, and ticking and copying. */
-  function tryProblems(t) {
-    var box = section('tr-probs', 'Problems, worst first', 'tr-probs-sec');
-    var found = t.found || [];
-    if (!found.length) { box.appendChild(el('p', 'tr-dim', t.state === 'passed' || t.managed ? 'No problems.' : 'None yet.')); return box; }
-    var by = {}, distinct = {};
-    found.forEach(function (f) { by[f.how_bad] = (by[f.how_bad] || 0) + 1; distinct[f.number] = 1; });
-    var nd = Object.keys(distinct).length;
-    // One card for each time a problem was met, so a problem met at two steps has two cards: said, so the counts agree.
-    if (nd < found.length) { box.appendChild(el('p', 'tr-dim', plural(nd, 'problem') + ', met ' + found.length + ' times in this try: a card for each time.')); }
-    var bar = el('div', 'tr-tabs');
-    bar.setAttribute('role', 'group');
-    bar.setAttribute('aria-label', 'Show by how bad');
-    [['', 'All', found.length]].concat(BAD_ORDER.filter(function (b) { return by[b]; }).map(function (b) {
-      return [b, BAD[b], by[b]];
-    })).forEach(function (o) {
-      var b = button('tr-tab', null);
-      if (o[0]) { b.appendChild(shape(o[0], 11)); }
-      b.appendChild(el('span', '', o[1]));
-      b.appendChild(el('b', '', String(o[2])));
-      b.setAttribute('aria-pressed', S.tryBad === o[0] ? 'true' : 'false');
-      b.addEventListener('click', function () { S.tryBad = o[0]; draw(); });
-      bar.appendChild(b);
-    });
-    box.appendChild(bar);
-    var list = el('ul', 'tr-list');
-    found.filter(function (f) { return !S.tryBad || f.how_bad === S.tryBad; }).forEach(function (f) {
-      list.appendChild(problemCard(f, { shot: f.step ? API + '/' + t.number + '/shot/' + f.step : '', name: t.persona_name,
-                                        stepOf: t, tick: true, review: t.mode === 'review' }));
-    });
-    box.appendChild(list);
-    // The button that starts the fixes, also where the choosing ends: at the top only, Vesela scrolled up and
-    // down and never found it (trial 26).
-    if (t.mode === 'review') {
-      var c = reviewCounts(t);
-      var end = el('div', 'tr-mode tr-mode-review');
-      end.appendChild(el('p', 'tr-mode-words', c.picked ? plural(c.picked, 'problem') + ' chosen to fix' +
-        (c.waiting ? ', ' + c.waiting + ' still waiting for your choice.' : '.') : 'Choose on each problem above, then press this.'));
-      end.appendChild(fixButton(t, c.picked));
-      box.appendChild(end);
-    }
-    var n = Object.keys(S.ticked).filter(function (k) { return S.ticked[k]; }).length;
-    var copy = el('div', 'tr-copy');
-    var cb = button('tr-btn tr-btn-s', n ? 'Copy the ' + plural(n, 'ticked problem') : 'Tick Copy on problems to copy them as text');
-    cb.disabled = !n;
-    cb.addEventListener('click', function () {
-      var text = found.filter(function (f) { return S.ticked[f.number]; }).map(reportText).join('\n\n---\n\n');
-      copyText(text).then(function () { toast('Copied ' + plural(n, 'problem') + '.'); });
-    });
-    copy.appendChild(cb);
-    box.appendChild(copy);
-    return box;
-  }
-
-  function reportText(p) {
-    var lines = ['Problem ' + p.number + ': ' + p.what, 'How bad: ' + (BAD[p.how_bad] || p.how_bad) +
-      (p.screen_name ? ' · Where: ' + p.screen_name : '')];
-    if (p.quote) { lines.push('In their words: “' + p.quote + '”'); }
-    if (p.expected) { lines.push('What should have happened: ' + p.expected); }
-    if (p.actual) { lines.push('What happened: ' + p.actual); }
-    if (p.decision) { lines.push('Fix it like this: ' + p.decision); } else if (p.fix) { lines.push('How to fix it: ' + p.fix); }
-    lines.push('Page: ' + location.origin + HOME + '/problem/' + p.number);
-    return lines.join('\n');
-  }
-  function copyText(text) {
-    if (navigator.clipboard && navigator.clipboard.writeText) {
-      return navigator.clipboard.writeText(text).catch(function () { return copyOld(text); });
-    }
-    return Promise.resolve(copyOld(text));
-  }
-  function copyOld(text) {
-    var a = el('textarea');
-    a.value = text;
-    a.style.position = 'fixed';
-    a.style.opacity = '0';
-    document.body.appendChild(a);
-    a.select();
-    try { document.execCommand('copy'); } catch (e) { /* nothing more to try */ }
-    a.remove();
-  }
-
-  function problemCard(f, o) {
-    var li = el('li', 'tr-card' + (f.standing === 'fixed' || f.standing === 'set_aside' ? ' tr-closed' : ''));
-    li.id = 'problem-' + f.number;
-    var top = el('div', 'tr-card-top');
-    if (o.tick) {
-      var tick = el('input', 'tr-tick');
-      tick.type = 'checkbox';
-      tick.id = 'tick-' + f.number;
-      tick.checked = !!S.ticked[f.number];
-      tick.addEventListener('change', function () { S.ticked[f.number] = tick.checked; draw(); });
-      // A box with words beside it: a bare one said nothing of what ticking it does (Vesela, trial 17).
-      var tl = el('label', 'tr-tick-l');
-      tl.appendChild(tick);
-      tl.appendChild(el('span', '', 'Copy'));
-      tl.title = 'Tick problems, then press Copy at the bottom of the list to copy them';
-      top.appendChild(tl);
-    }
-    var title = el('div', 'tr-card-title');
-    title.appendChild(link(f.what, HOME + '/problem/' + f.number, 'tr-card-what'));
-    var chips = el('div', 'tr-chips');
-    chips.appendChild(sev(f.how_bad, true));
-    chips.appendChild(standBadge(f));
-    title.appendChild(chips);
-    top.appendChild(title);
-    li.appendChild(top);
-    var body = el('div', 'tr-card-body');
-    if (o.shot) { body.appendChild(shot(o.shot, 'The screen when ' + o.name + ' ran into problem ' + f.number, 'tr-card-shot')); }
-    var words = el('div', 'tr-card-words');
-    if (f.quote) { words.appendChild(said(o.name + ' said', '“' + f.quote + '”', 'tr-think')); }
-    if (f.expected) { words.appendChild(said('What should have happened', f.expected)); }
-    if (f.actual) { words.appendChild(said('What happened', f.actual)); }
-    if (f.decision) { words.appendChild(said('You decided: fix it like this', f.decision, 'tr-decided')); }
-    else if (f.fix) { words.appendChild(said('How to fix it', f.fix)); }
-    body.appendChild(words);
-    li.appendChild(body);
-    var acts = el('div', 'tr-actions');
-    if (o.stepOf && f.step) {
-      var st = button('tr-btn tr-btn-s', 'See step ' + f.step);
-      st.addEventListener('click', function () { pickStep(o.stepOf, f.step); });
-      acts.appendChild(st);
-    }
-    acts.appendChild(link(f.notes ? 'Discuss (' + plural(f.notes, 'message') + ')' : 'Discuss it with Rouh', HOME + '/problem/' + f.number, 'tr-btn tr-btn-s tr-outline'));
-    li.appendChild(acts);
-    // In a review the owner chooses on each problem, right here, as on Mira's ten suggestions; deciding how
-    // happens in the card too, and Rouh's suggestion can be taken as it is (Vesela, trial 25).
-    if (o.review && f.standing !== 'fixed') {
-      var pick = el('div', 'tr-actions tr-pick-row');
-      pick.appendChild(el('span', 'tr-label', f.verdict ? 'You chose: ' + (VERDICT_LINE[f.verdict] || f.verdict) : 'Your choice'));
-      function choose2(v, decision) {
-        S.busy = 'verdict';
-        call('/problems/' + f.number + '/verdict', { verdict: v, decision: decision || '' }).then(function () {
-          S.busy = ''; S.cardDeciding = 0;
-          S.said = 'Saved for problem “' + f.what + '”: ' + (VERDICT_LINE[v] || v) + '.' +
-            (v === 'decided' ? ' It is fixed when you press Fix the ones I chose, under the problems.' : '');
-          load();
-        }, fail);
-      }
-      if (f.fix && f.verdict !== 'decided') {
-        var use = button('tr-btn tr-btn-s tr-primary', 'Use this fix');
-        use.title = 'Fix it the way suggested above: ' + f.fix;
-        use.disabled = !!S.busy;
-        use.addEventListener('click', function () { choose2('decided', f.fix); });
-        pick.appendChild(use);
-      }
-      var own = button('tr-btn tr-btn-s', f.verdict === 'decided' ? 'Change how' : 'Say how to fix it');
-      own.disabled = !!S.busy;
-      own.addEventListener('click', function () { S.cardDeciding = f.number; draw(); });
-      pick.appendChild(own);
-      [['not_a_problem', 'Not a problem'], ['wont_fix', 'Won’t fix']].forEach(function (v) {
-        if (f.verdict === v[0]) { return; }
-        var b = button('tr-btn tr-btn-s', v[1]);
-        b.disabled = !!S.busy;
-        b.addEventListener('click', function () { choose2(v[0]); });
-        pick.appendChild(b);
-      });
-      li.appendChild(pick);
-      if (S.cardDeciding === f.number) {
-        var form = el('form', 'tr-form');
-        var how = field(form, 'How should it be fixed?', 'textarea', f.decision || f.fix || '', 'tr-how-' + f.number);
-        var row = el('div', 'tr-actions');
-        var save = button('tr-btn tr-btn-s tr-primary', 'Save how');
-        save.type = 'submit';
-        var cancel = button('tr-btn tr-btn-s', 'Cancel');
-        cancel.addEventListener('click', function () { S.cardDeciding = 0; draw(); });
-        row.appendChild(save);
-        row.appendChild(cancel);
-        form.appendChild(row);
-        form.addEventListener('submit', function (e) { e.preventDefault(); if (how.value.trim()) { choose2('decided', how.value); } });
-        li.appendChild(form);
-        setTimeout(function () { how.focus(); }, 0);
-      }
-      li.appendChild(el('p', 'tr-dim', 'Use this fix: fix it as suggested above. Say how to fix it: write your own way. Not a problem: ' +
-        'it is fine as it is. Won’t fix: it is real, but not worth changing. Nothing is fixed until you press Fix the ones I chose, under the problems.'));
-    }
-    return li;
   }
 
   /* ---- the Fix list: the problems, every job ---- */
@@ -2001,7 +2169,7 @@
     seen.appendChild(ul);
     story.appendChild(seen);
     focus.appendChild(story);
-    focus.appendChild(thread(p));
+    focus.appendChild(thread(p, function (got) { S.data.problem.problem = got; }));
     root.appendChild(focus);
     root.appendChild(decide(p, 'bar'));
   }
@@ -2107,7 +2275,8 @@
     }, fail);
   }
 
-  function thread(p) {
+  /* The talk with Rouh about one problem; `kept` is handed the problem as Rouh answers with it. */
+  function thread(p, kept) {
     var box = el('section', 'tr-panel tr-talk');
     box.appendChild(el('h2', 'tr-h2', 'Talk it over with Rouh'));
     var list = el('ol', 'tr-msgs');
@@ -2125,7 +2294,7 @@
       S.busy = 'say'; S.sayDraft = { n: p.number, text: text }; draw();
       call('/problems/' + p.number + '/say', { text: text }).then(function (got) {
         S.busy = ''; S.sayDraft = null;
-        S.data.problem.problem = got.problem;
+        kept(got.problem);
         draw();
       }, fail);
     }

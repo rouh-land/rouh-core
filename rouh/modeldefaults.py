@@ -507,6 +507,10 @@ USES: tuple[Use, ...] = (
         "Answers you in a problem's discussion on the Trials page, with the problem, its screenshot and "
         "the try it came from in front of it.",
         purposes=("trial_discuss",)),
+    Use("trial_step_names", "Genes", "Trials: naming each step",
+        "Gives each step of a try a short name for what the tester was doing, such as \"Looking for the "
+        "memory link\", once, for a try from before testers named their own steps.",
+        purposes=("trial_step_names",)),
     Use("gene_match", "Genes", "Genes for you from the Gene Pool",
         "Picks the Gene Pool's genes and branches that fit how you use Rouh, says why, and may "
         "propose how one should be different for you.",

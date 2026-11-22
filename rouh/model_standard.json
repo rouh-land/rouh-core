@@ -852,6 +852,24 @@
         ]
       }
     },
+    "trial_step_names": {
+      "tier": "cheaper",
+      "why": "A short label for each step of a try; once a try, and nothing is decided from it.",
+      "order": {
+        "cheaper": [
+          "openai",
+          "anthropic",
+          "google",
+          "xai"
+        ],
+        "smart": [
+          "anthropic",
+          "openai",
+          "google",
+          "xai"
+        ]
+      }
+    },
     "gene_eval": {
       "tier": "smart",
       "why": "Once a month: few calls, and the score decides what is kept.",

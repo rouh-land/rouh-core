@@ -61,6 +61,8 @@ MATCH_USE = "trial_matcher"
 #: Writing a whole tester from a sentence, and Rouh's side of a problem's discussion.
 WRITE_USE = "trial_writer"
 TALK_USE = "trial_discuss"
+#: A short name for each step of a try from before steps had one, written once and kept (`name_steps`).
+NAME_USE = "trial_step_names"
 
 #: Where the personas are: one Markdown file each, in the second person, with a short header.
 PERSONAS = Path(__file__).resolve().parent / "personas"
@@ -115,6 +117,7 @@ Each time, you are shown a picture of your screen. Every thing on it that can be
 Answer with one JSON object and nothing else:
 
 {
+  "step_name": "a short name for what you are doing at this step, 2 to 6 words, such as: Looking for the memory link",
   "see": "what you see, in a sentence or two",
   "think": "what you think about it, out loud, as yourself",
   "new_screen": true or false,
@@ -675,6 +678,7 @@ def trial_dict(t, *, steps: bool = False, names: dict | None = None) -> dict:
     if steps:
         walk = _m().TrialStep.objects.filter(trial_id=t.id, org_id=t.org_id, user_id=t.user_id).order_by("n")
         out["walk"] = [{"n": s.n, "at": s.at, "url": s.url, "screen": s.screen, "title": screen_name(s.title, s.screen),
+                        "name": s.name,
                         "shot": bool(s.shot), "see": s.see, "think": s.think, "does": s.does,
                         "answers": s.answers or None, "found": s.found or []} for s in walk]
         seen = list(_m().TrialSighting.objects.filter(trial_id=t.id, org_id=t.org_id, user_id=t.user_id).order_by("at"))
@@ -686,6 +690,15 @@ def trial_dict(t, *, steps: bool = False, names: dict | None = None) -> dict:
         out["found"].sort(key=lambda f: (HOW_BAD.index(f["how_bad"]) if f["how_bad"] in HOW_BAD else 9, f["step"] or 0))
         closed = _m().TrialProblem.objects.filter(closed_by=t.id, org_id=t.org_id, user_id=t.user_id)
         out["closed"] = [{"number": p.number, "what": p.what} for p in closed]
+        # The waves of fixes from this try, newest last, and for each problem the newest wave it is in.
+        out["waves"] = waves(who, t)
+        latest: dict = {}
+        for w in out["waves"]:
+            for n in w["problems"]:
+                latest[n] = w
+        for f in out["found"]:
+            w = latest.get(f["number"])
+            f["wave"] = {"number": w["number"], "state": w["state"], "started_at": w["started_at"]} if w else None
     return out
 
 
@@ -897,7 +910,8 @@ def problem_brief(p, *, notes: dict | None = None, reviewed: set | None = None) 
             "standing": standing(p), "verdict": p.verdict, "verdict_name": VERDICTS.get(p.verdict, p.verdict),
             "decision": p.decision, "expected": p.expected, "actual": p.actual, "fix": p.fix,
             "screen": p.screen, "screen_name": p.screen_name or p.screen or "", "source": p.source,
-            "personas": p.personas or [], "notes": (notes or {}).get(p.id, 0), "feedback_id": p.feedback_id}
+            "personas": p.personas or [], "notes": (notes or {}).get(p.id, 0), "feedback_id": p.feedback_id,
+            "verdict_at": p.verdict_at}
 
 
 def problem_dict(p, *, sightings: bool = True, notes: bool = False, names: dict | None = None) -> dict:
@@ -1449,7 +1463,7 @@ async def step(who, number, obs: dict) -> dict:
             **_whose(who), trial_id=t.id, n=n, at=_now(), url=url, screen=screen_key(url),
             title=_cut(obs.get("title"), 200), shot=shot, see=_cut(got.get("see"), 1500),
             think=_cut(got.get("think"), 3000), does=_cut(got.get("doing"), 600), action=do, answers=answers or {},
-            found=found)
+            found=found, name=_step_name(got.get("step_name")))
         key = screen_key(url)
         screens_seen = list(t.screens or [])
         if key not in screens_seen:
@@ -1509,6 +1523,10 @@ async def finish(who, number, *, ending: dict | None = None, gave_up: bool = Fal
     # Cut short with no ending of their own (the tester stopped answering) is "partly", never a "no" they did not say.
     managed = managed if managed in ("yes", "partly", "no") else ("no" if gave_up else "partly")
     found = await _put_on_list(who, t)
+    try:
+        await name_steps(who, number)
+    except Exception:  # noqa: BLE001 - a step's name is never worth the ending
+        log.exception("trial %s: its steps could not be named", t.number)
     t = await asyncio.to_thread(_trial, who, number)
     # A problem the owner set aside (not a problem, won't fix) no longer fails a try.
     stops = any(f["how_bad"] in FAILS and f.get("verdict") not in SET_ASIDE for f in found)
@@ -1722,14 +1740,83 @@ def owner_said(who, text: str, *, chat: str = "", screen: str = "", screen_name:
         return []
 
 
-# --- a review's chosen fixes ---------------------------------------------------------------------
+# --- a review's chosen fixes, run in waves ------------------------------------------------------
+#
+# Petar, 22 November 2026: the problems he ticks on a try's page are fixed together, as one batch, by the
+# one run Fix the ones I chose starts; each batch is a wave, written down and listed on the try's page.
+# A problem in a wave still running is not put in another; one a finished wave fixed goes in a new wave only
+# when it is chosen again after that wave began; one in a wave that failed can be chosen again at once.
+
+#: The run states that end a wave, and which of them mean its run finished its work.
+WAVE_DONE = ("idle", "done", "saving")
+WAVE_FAILED = ("failed", "killed", "lost", "reaped")
+#: A wave whose run the register never knew is called failed after this long.
+WAVE_LOST_AFTER = 6 * 3600
+
+
+def _wave_dict(w) -> dict:
+    return {"number": w.number, "problems": list(w.problems or []), "decisions": dict(w.decisions or {}),
+            "state": w.state, "run_id": w.run_id, "said": w.said, "started_at": w.started_at, "ended_at": w.ended_at}
+
+
+def _settle_wave(w) -> None:
+    """A running wave whose run has ended is written down as done or failed, with what its run said."""
+    if w.state != "running":
+        return
+    try:
+        from rouh import runs
+
+        row = runs.get(w.run_id) if w.run_id else None
+        state = runs.status_of(row) if row is not None else ""
+    except Exception:  # noqa: BLE001 - a wave's state is never worth the page
+        log.exception("wave %s: its run could not be read", w.id)
+        return
+    if row is None:
+        if _now() - w.started_at < WAVE_LOST_AFTER:
+            return
+        w.state, w.said = "failed", "Its run could not be found any more."
+    elif state in WAVE_DONE:
+        w.state = "done"
+        w.said = _cut(getattr(row, "detail", "") or getattr(row, "summary", "") or "Its run finished.", 2000)
+    elif state in WAVE_FAILED:
+        w.state = "failed"
+        w.said = _cut(getattr(row, "detail", "") or f"Its run ended as {state}.", 2000)
+    else:
+        return
+    w.ended_at = _now()
+    w.save(update_fields=["state", "said", "ended_at"])
+
+
+def waves(who, t) -> list[dict]:
+    """A try's waves of fixes, oldest first, each settled against its run first."""
+    rows = list(_m().TrialWave.objects.filter(**_whose(who), trial_id=t.id).order_by("number"))
+    for w in rows:
+        _settle_wave(w)
+    return [_wave_dict(w) for w in rows]
+
+
+def _in_waves(who, t) -> tuple[set, dict]:
+    """The problem numbers in a running wave, and for each in a finished one when that wave began."""
+    running, finished = set(), {}
+    for w in _m().TrialWave.objects.filter(**_whose(who), trial_id=t.id).order_by("number"):
+        _settle_wave(w)
+        for n in w.problems or []:
+            if w.state == "running":
+                running.add(n)
+            elif w.state == "done":
+                finished[n] = w.started_at
+    return running, finished
 
 
 def chosen(who, number) -> list[dict]:
-    """The problems a try found that the owner chose to have fixed, and how: "Fix it like this", not yet fixed."""
+    """The problems a try found that the owner chose to have fixed, and how: "Fix it like this", not yet fixed,
+    and not in a wave already: none in a running wave, and one a finished wave fixed only if chosen again since."""
     t = _trial(who, number)
     ids = set(_m().TrialSighting.objects.filter(**_whose(who), trial_id=t.id).values_list("problem_id", flat=True))
     rows = _m().TrialProblem.objects.filter(**_whose(who), id__in=ids, verdict="decided", status="open")
+    running, finished = _in_waves(who, t)
+    rows = [p for p in rows if p.number not in running
+            and not (p.number in finished and (p.verdict_at or 0) <= finished[p.number])]
     return [problem_dict(p) for p in sorted(rows, key=_rank)]
 
 
@@ -1760,7 +1847,8 @@ async def fix_chosen(who, number) -> dict:
     t = await asyncio.to_thread(one, who, number)
     picked = await asyncio.to_thread(chosen, who, number)
     if not picked:
-        raise Refused("Nothing is chosen to fix yet: on a problem, press Fix it like this and say how.")
+        raise Refused("Nothing is chosen to fix yet: tick a problem, or press Use this fix or Say how to fix it on one.")
+    wave = await asyncio.to_thread(_new_wave, who, number, picked)
     try:
         if nightly_feature.hooks.start is None:
             raise RuntimeError("Rouh's runs are not ready")
@@ -1772,11 +1860,91 @@ async def fix_chosen(who, number) -> dict:
             one_fields={"browser_port": nightly_feature._free_port()})
     except Exception as exc:  # noqa: BLE001 - said plainly
         log.exception("review %s: its chosen fixes could not be started", t["number"])
-        raise Refused(f"The fixes could not be started ({str(exc).strip().rstrip('.') or type(exc).__name__}).") from None
+        why = str(exc).strip().rstrip('.') or type(exc).__name__
+        await asyncio.to_thread(_wave_ended, wave, "failed", f"Its run could not be started ({why}).")
+        raise Refused(f"The fixes could not be started ({why}).") from None
     n = len(picked)
-    return {"run_id": str(got.get("id") or ""), "count": n,
-            "said": f"Rouh is fixing the {n} problem{'' if n == 1 else 's'} you chose, your way, in one go. Nothing else "
-                    "from this review is touched."}
+    run_id = str(got.get("id") or "")
+    await asyncio.to_thread(_wave_run, wave, run_id)
+    return {"run_id": run_id, "count": n, "wave": wave.number,
+            "said": f"Wave {wave.number} started: Rouh is fixing the {n} problem{'' if n == 1 else 's'} you chose, your "
+                    "way, in one go. Nothing else from this try is touched."}
+
+
+def _new_wave(who, number, picked: list[dict]):
+    from django.db import IntegrityError, transaction
+    from django.db.models import Max
+
+    t = _trial(who, number)
+    M = _m()
+    for _ in range(5):
+        n = (M.TrialWave.objects.filter(**_whose(who), trial_id=t.id).aggregate(m=Max("number"))["m"] or 0) + 1
+        try:
+            with transaction.atomic():
+                return M.TrialWave.objects.create(
+                    **_whose(who), trial_id=t.id, number=n, problems=[p["number"] for p in picked],
+                    decisions={str(p["number"]): p.get("decision") or "" for p in picked}, state="running",
+                    started_at=_now())
+        except IntegrityError:
+            continue
+    raise Refused("The wave could not be written down; press it again.")
+
+
+def _wave_run(wave, run_id: str) -> None:
+    wave.run_id = run_id[:120]
+    wave.save(update_fields=["run_id"])
+
+
+def _wave_ended(wave, state: str, said: str) -> None:
+    wave.state, wave.said, wave.ended_at = state, _cut(said, 2000), _now()
+    wave.save(update_fields=["state", "said", "ended_at"])
+
+
+# --- each step's name ----------------------------------------------------------------------------
+
+NAMES = """You name the steps of a usability test. A made-up person tried an app one screen at a time, and for each step you are given what they saw, what they thought and what they did. Give each step a short name, 2 to 6 plain words, for what the person was doing or trying at that step, the way a colleague would say it, such as "First screen", "Looking for the memory link", "Figuring out what the orb is", "Opening the Rules page". Names of neighbouring steps should differ where the steps differ. Answer with one JSON object and nothing else: {"names": {"1": "...", "2": "..."}}, one for every step you are given."""
+
+
+def _step_name(value) -> str:
+    name = re.sub(r"\s+", " ", str(value or "")).strip().strip("\"'.").strip()
+    return _cut(name[:1].upper() + name[1:], 80) if name else ""
+
+
+async def name_steps(who, number) -> dict:
+    """Every step of a try that has no name yet is named, by one model call, and the names kept: so a try from
+    before the tester named its steps reads step by step as well. Answers {"names": {n: name}}."""
+    import asyncio
+
+    from rouh import llm
+
+    t = await asyncio.to_thread(_trial, who, number)
+
+    def gather():
+        return list(_m().TrialStep.objects.filter(trial_id=t.id, **_whose(who), name="").order_by("n"))
+
+    steps = await asyncio.to_thread(gather)
+    if not steps:
+        return {"names": {}}
+    lines = []
+    for s in steps:
+        lines.append(f"Step {s.n}, on the screen \"{screen_name(s.title, s.screen)}\":\n  Saw: {_cut(s.see, 400)}\n"
+                     f"  Thought: {_cut(s.think, 500)}\n  Did: {_cut(s.does, 200)}")
+    text = f"What they wanted: {t.goal}\n\n" + "\n\n".join(lines)
+    answer = await llm.ask(NAME_USE, system=NAMES, messages=[{"role": "user", "content": text}], max_tokens=2000,
+                           who=who, subject=f"trial {t.number}, naming its steps", timeout=120)
+    got = _json_in(answer.text) or {}
+    names = got.get("names") if isinstance(got.get("names"), dict) else {}
+    out = {}
+
+    def write():
+        for s in steps:
+            name = _step_name(names.get(str(s.n)) or names.get(s.n))
+            if name:
+                _m().TrialStep.objects.filter(id=s.id, name="").update(name=name)
+                out[s.n] = name
+
+    await asyncio.to_thread(write)
+    return {"names": out}
 
 
 # --- in gene therapy -----------------------------------------------------------------------------

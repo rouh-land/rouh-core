@@ -184,6 +184,7 @@ USES = {
     "trial_matcher": "Trials: spotting repeated problems",
     "trial_writer": "Trials: writing testers",
     "trial_discuss": "Trials: talking problems over",
+    "trial_step_names": "Trials: naming steps",
     "second_name": "Naming a Rouh",
     "double_call": "Judging double calls",
     "provider_check_anthropic": "Checking Anthropic is back",

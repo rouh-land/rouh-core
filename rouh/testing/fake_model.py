@@ -1016,6 +1016,26 @@ TRIAGE_KINDS = (
 )
 
 
+#: The start of what a try's steps are named with (`trials.NAMES`).
+STEP_NAMING = "You name the steps of a usability test"
+
+
+def is_step_naming(body: dict) -> bool:
+    return STEP_NAMING in _flat(body.get("system"))
+
+
+def step_names(body: dict) -> str:
+    """A name for every step asked about, made from what the tester did there, so a page can show it:
+    "Step 3, on the screen ..., Did: I scroll down more ..." is named "Scroll down more"."""
+    said = last_user_text(body)
+    names = {}
+    for m in re.finditer(r"Step (\d+), on the screen[^\n]*\n(?:.*\n)*?\s*Did: ([^\n]*)", said):
+        did = re.sub(r"^(I|I'm|I am)\s+", "", m.group(2).strip()).rstrip(".")
+        words = did.split()[:5]
+        names[m.group(1)] = (" ".join(words) or "A step").capitalize()
+    return json.dumps({"names": names})
+
+
 def is_triage(body: dict) -> bool:
     return TRIAGE in _flat(body.get("system"))
 
@@ -3101,6 +3121,7 @@ def build_app(record_dir: str) -> FastAPI:
         errands = (
             (is_naming(body), TITLE_FILE, a_title),
             (is_triage(body), TRIAGE_FILE, a_decision),
+            (is_step_naming(body), "step-names-", step_names),
             (is_filing(body), FILING_FILE, a_filing),
             (is_space_work(body), "space-work-", a_space_plan),
             (is_page_work(body), "page-work-", a_page_plan),

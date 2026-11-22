@@ -2398,6 +2398,7 @@
     "rouh/migrations/0239_trial_jobs_testers.py",
     "rouh/migrations/0240_trial_mode.py",
     "rouh/migrations/0242_trial_tester_paused.py",
+    "rouh/migrations/0269_trial_step_names_waves.py",
     "bin/rouh-trial"
    ]
   },

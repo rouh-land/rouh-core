@@ -87,6 +87,9 @@ class TrialStep(models.Model):
     answers = models.JSONField(default=dict, blank=True)
     #: The problems they named at this step: [{"what", "said", "how_bad"}], put on the list at the end.
     found = models.JSONField(default=list, blank=True)
+    #: A short name for what the tester was doing at this step, such as "Looking for the memory link":
+    #: said by the tester as it steps, or written once afterwards for a try from before (`name_steps`).
+    name = models.TextField(blank=True, default="")
 
     class Meta:
         db_table = "trial_steps"
@@ -250,3 +253,33 @@ class TrialNote(models.Model):
     class Meta:
         db_table = "trial_notes"
         indexes = [models.Index(fields=["org_id", "user_id", "problem_id"], name="trial_note_problem")]
+
+
+class TrialWave(models.Model):
+    """One wave of fixes from one try: the problems the owner ticked, fixed together by one run.
+
+    Petar, 22 November 2026: "a clearly visible button ... runs all of the chosen fixes at once as one
+    batch. One such batch is a wave of fixes. Record each wave." A wave is the run Fix the ones I chose
+    starts, written down: which problems, how each was to be fixed, and how the run ended."""
+
+    id = models.BigAutoField(primary_key=True)
+    org_id = models.TextField()
+    user_id = models.TextField()
+    trial_id = models.BigIntegerField()
+    #: Its number among this try's waves, shown as "Wave <number>".
+    number = models.IntegerField()
+    #: The problems in it by their numbers, and how each was to be fixed then: {"<number>": "decision"}.
+    problems = models.JSONField(default=list, blank=True)
+    decisions = models.JSONField(default=dict, blank=True)
+    #: running, done or failed.
+    state = models.TextField(default="running")
+    #: The run doing it, and what it said it changed (or why it failed) once it ended.
+    run_id = models.TextField(blank=True, default="")
+    said = models.TextField(blank=True, default="")
+    started_at = models.FloatField()
+    ended_at = models.FloatField(null=True, blank=True)
+
+    class Meta:
+        db_table = "trial_waves"
+        constraints = [models.UniqueConstraint(fields=["trial_id", "number"], name="trial_wave_number_once")]
+        indexes = [models.Index(fields=["org_id", "user_id", "trial_id"], name="trial_wave_whose")]

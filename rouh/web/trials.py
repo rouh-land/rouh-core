@@ -8,7 +8,8 @@
     GET  /api/trials/<n>                      one try whole: its walk-through, step by step, its problems and ending
     GET  /api/trials/<n>/shot/<step>          one step's screenshot
     POST /api/trials/<n>/again                the same try again, by a new tester, in a run of its own (a review)
-    POST /api/trials/<n>/fix                  a review's Fix the ones I chose: one run fixes what the owner decided
+    POST /api/trials/<n>/fix                  Fix the ones I chose: one run fixes what the owner ticked, a wave of fixes
+    POST /api/trials/<n>/names                each step with no name yet named once, by a model call, and kept
     POST /api/trials/new                      {"page", "goal", "persona"?, "subject"?}: a try by hand
     GET  /api/trials/problems                 the list: ?status=open|decided|fixed|set_aside|all&source=persona|owner
                                               &persona=vesela&job=3&screen=/x, open first, the worst first
@@ -228,6 +229,16 @@ async def fix(request: HttpRequest, number: int):
 
     async def go(me, b):
         return await trials.fix_chosen(me, number)
+    return await _do(request, go)
+
+
+@only("POST")
+async def names(request: HttpRequest, number: int):
+    """Each step of a try with no name yet named once (a try from before the tester named its steps)."""
+    from rouh import trials
+
+    async def go(me, b):
+        return await trials.name_steps(me, number)
     return await _do(request, go)
 
 

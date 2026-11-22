@@ -54,7 +54,7 @@
       "trial_notes"
     ],
     "jobs": [],
-    "remove": "Delete this manifest, rouh/trials/ (the code and its personas), rouh/models/trials.py and its import, rouh/web/trials.py and its addresses in urls.py, trialspage.js and trialspage.css and their lines in index.html, its page in evolutionpage.js, app/runs.js and app/address.js, bin/rouh-trial, the trials tool in tools.py and toolsearch.py, the Trials section in agent_instructions.py, the trial stage in starting.py, the owner's confusions in brain.py, its four uses in modeldefaults.py and model_standard.json, `window.RouhGeneTherapy` in app/gene_therapy.js, the screenshots under the data folder's trials/, and drop the tables trials, trial_steps, trial_problems, trial_sightings, trial_testers, trial_jobs and trial_notes with a migration."
+    "remove": "Delete this manifest, rouh/trials/ (the code and its personas), rouh/models/trials.py and its import, rouh/web/trials.py and its addresses in urls.py, trialspage.js and trialspage.css and their lines in index.html, its page in evolutionpage.js, app/runs.js and app/address.js, bin/rouh-trial, the trials tool in tools.py and toolsearch.py, the Trials section in agent_instructions.py, the trial stage in starting.py, the owner's confusions in brain.py, its five uses in modeldefaults.py and model_standard.json, `window.RouhGeneTherapy` in app/gene_therapy.js, the screenshots under the data folder's trials/, and drop the tables trials, trial_steps, trial_problems, trial_sightings, trial_testers, trial_jobs, trial_notes and trial_waves with a migration."
   },
   "uses": {
     "tools": [
@@ -64,7 +64,8 @@
       "trial_tester",
       "trial_matcher",
       "trial_writer",
-      "trial_discuss"
+      "trial_discuss",
+      "trial_step_names"
     ]
   }
 }
