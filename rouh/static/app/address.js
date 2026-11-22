@@ -144,11 +144,12 @@ var ADDR = {
 /* The tab's title on a page of Testing (called Trials until 22 November 2026): the page's own name when it said one, then where it is. */
 function trialsTitle(sub, title) {
   var where = sub === 'problems' ? 'Problems' : sub === 'testers' ? 'Testers' : sub === 'testers/new' ? 'New tester'
-    : sub === 'how' ? 'How testing works' : /^(?:job|journey)\//.test(sub) ? 'Journey ' + sub.replace(/^\w+\//, '')
+    : sub === 'how' ? 'How testing works' : /^jobs?\//.test(sub) ? 'Job ' + sub.replace(/^\w+\//, '')
+    : /^journey\//.test(sub) ? 'Journey ' + sub.slice(8)
     : /^problem\//.test(sub) ? 'Problem ' + sub.slice(8) : /^tester\//.test(sub) ? 'Tester'
-    : /^\d+$/.test(sub) ? 'Try ' + sub : '';
+    : /^\d+$/.test(sub) ? 'Attempt ' + sub : '';
   if (!where) return 'Testing';
-  // A problem's page says its number in its try, "Try 49 · #12 · <what>", which its own title carries.
+  // A problem's page says its number in its attempt, "Attempt 49 · #12 · <what>", which its own title carries.
   if (/^problem\//.test(sub) && title) return title + ' - Testing';
   return (title ? title + ' - ' : '') + where + ' - Testing';
 }

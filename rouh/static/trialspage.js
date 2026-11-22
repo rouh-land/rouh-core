@@ -24,9 +24,10 @@
    The pages, each its own address under /evolution/testing:
      ''                 the Dashboard (the Atlas until 22 November 2026): the tiles, one card for each job (?kind=manual|automatic
                         filters them), and the pages of Rouh
-     jobs/<n>           one job (one request): what was asked, its summary, every journey with its attempts
-     journey/<n>        one journey (job/<n> until 22 November 2026, and still): its goal, its tries as a ladder and a list
-     <n>                one try: its storyboard, step by step, how it ended, and its problems, worst first
+     job/<n>            one job (one request): what was asked, its summary, every journey with its attempts, and for each
+                        journey another attempt, its name and goal changed, and its problems (jobs/<n> opens it too)
+     journey/<n>        opens its job's page at that journey; a journey has no page of its own (Petar, 22 November 2026)
+     <n>                one attempt: its storyboard, step by step, how it ended, and its problems, worst first
      problems           the Fix list: every problem across the jobs, open first, worst first
      problem/<n>        one problem: its story, every sighting, its talk with Rouh, and what to do with it
      testers            the Testers (the Cast until 22 November 2026); testers/new adds one; tester/<key> one whole; tester/<key>/edit changes one
@@ -37,7 +38,7 @@
 
   var API = '/api/trials';
   var S = { root: null, top: null, main: null, sub: '', host: null, data: {}, error: '', said: '', busy: '', seq: 0,
-            poll: 0, shell: null, open: null, kind: '',
+            poll: 0, shell: null, open: null, kind: '', jOpen: {}, focusJourney: 0,
             probFilter: { status: 'open', who: '', job: '' }, probView: { screen: null, bad: '', group: false, all: false },
             tryBad: '', confirm: '', editJob: false, deciding: false, draft: null, form: null, carry: '',
             sayDraft: null, step: {}, toast: null };
@@ -60,7 +61,7 @@
   var VERDICT_LINE = { not_a_problem: 'Not a problem', wont_fix: 'Won’t fix', decided: 'Decided how to fix it',
                        sent: 'Sent as feedback' };
   // Petar, 22 November 2026: fixed as soon as its wave of fixes has finished, with no second test to prove it.
-  var RULE = 'Fixed as soon as the wave of fixes it was chosen for has finished. A later try that meets it again opens it again. Sent is never shown as fixed.';
+  var RULE = 'Fixed as soon as the wave of fixes it was chosen for has finished. A later attempt that meets it again opens it again. Sent is never shown as fixed.';
 
   /* ---- small things ---- */
 
@@ -137,7 +138,7 @@
   /* Which try it is. A review has no rounds: nothing is fixed between its tries until the owner chooses. */
   function tryName(n, mode) {
     if (mode === 'review') { return 'Review you asked for'; }
-    return n >= 3 ? 'Third and last try' : n === 2 ? 'Second try, after fixes' : 'First try';
+    return n >= 3 ? 'Third and last attempt' : n === 2 ? 'Second attempt, after fixes' : 'First attempt';
   }
   /* The two modes, said plainly (Petar, 4 November 2026). */
   function modeChip(mode) {
@@ -228,7 +229,7 @@
   function numLabel(p, trialN) {
     var nums = p.numbers || [];
     var at = nums.filter(function (x) { return trialN && x.trial === trialN; })[0] || p.home || nums[0];
-    return at ? 'Try ' + at.trial + ' · #' + at.n : 'Problem ' + p.number;
+    return at ? 'Attempt ' + at.trial + ' · #' + at.n : 'Problem ' + p.number;
   }
 
   /* Sent or decided, and then hit again by a later try: the fix did not hold. Read from its sightings. */
@@ -244,7 +245,7 @@
     if (p.standing === 'fixed') { s.classList.add('is-fixed'); return withIcon(s, 'check', fixedWords(p)); }
     if (p.standing === 'set_aside') { return withIcon(s, 'x', 'Set aside: ' + (VERDICT_LINE[p.verdict] || 'set aside') + (p.verdict === 'wont_fix' && p.reason ? ': ' + p.reason : '')); }
     var again = seenAgain(p);
-    if (again) { s.classList.add('is-again'); return withIcon(s, 'up', (p.verdict === 'sent' ? 'Sent' : 'Decided') + ', but seen again' + (again.trial ? ' in try ' + again.trial : '')); }
+    if (again) { s.classList.add('is-again'); return withIcon(s, 'up', (p.verdict === 'sent' ? 'Sent' : 'Decided') + ', but seen again' + (again.trial ? ' in attempt ' + again.trial : '')); }
     if (p.standing === 'decided' && p.verdict === 'sent') { return withIcon(s, 'wait', 'Sent as feedback'); }
     if (p.standing === 'decided') { return withIcon(s, 'thumb', 'Chosen to fix in the next wave'); }
     return withIcon(s, 'ask', 'Needs your decision');
@@ -252,8 +253,8 @@
   /* What fixed a problem, in a line: the wave and when (Petar, 22 November 2026), or the try that got past it. */
   function fixedWords(p) {
     var w = p.fixed_by_wave;
-    if (w) { return 'Wave ' + w.number + (w.trial && p.home && p.home.trial !== w.trial ? ' of try ' + w.trial : '') + ' fixed this' + (w.at ? ', ' + day(w.at) : ''); }
-    return p.closed_by ? 'Fixed: try ' + p.closed_by + ' got past it' : 'Fixed';
+    if (w) { return 'Wave ' + w.number + (w.trial && p.home && p.home.trial !== w.trial ? ' of attempt ' + w.trial : '') + ' fixed this' + (w.at ? ', ' + day(w.at) : ''); }
+    return p.closed_by ? 'Fixed: attempt ' + p.closed_by + ' got past it' : 'Fixed';
   }
   /* The proof chain: a problem is fixed once the wave chosen for it has finished, never when a fix is only sent. */
   function chain(p) {
@@ -263,13 +264,13 @@
     function ln() { var l = el('span', 'tr-chain-ln'); l.setAttribute('aria-hidden', 'true'); c.appendChild(l); }
     if (p.standing === 'fixed') {
       n('done', 'check', p.verdict ? (VERDICT_LINE[p.verdict] || 'Decided') : 'Found'); ln();
-      n('ok', 'check', p.fixed_by_wave ? 'Wave ' + p.fixed_by_wave.number + ' finished ' + dayShort(p.fixed_by_wave.at) : p.closed_by ? 'Try ' + p.closed_by + ' got past it' : 'A later try got past it'); ln(); n('ok', 'check', 'Fixed');
+      n('ok', 'check', p.fixed_by_wave ? 'Wave ' + p.fixed_by_wave.number + ' finished ' + dayShort(p.fixed_by_wave.at) : p.closed_by ? 'Attempt ' + p.closed_by + ' got past it' : 'A later attempt got past it'); ln(); n('ok', 'check', 'Fixed');
     } else if (p.standing === 'set_aside') {
       n('done', 'x', VERDICT_LINE[p.verdict] || 'Set aside'); ln(); n('', '', 'No longer counted');
     } else if (seenAgain(p)) {
       var ag = seenAgain(p);
       n('done', 'check', (p.verdict === 'sent' ? 'Sent ' : 'Decided ') + dayShort(p.verdict_at)); ln();
-      n('bad', 'up', ag.trial ? 'Try ' + ag.trial + ' hit it again' : 'Seen again ' + dayShort(ag.at)); ln(); n('bad', '', 'Not fixed');
+      n('bad', 'up', ag.trial ? 'Attempt ' + ag.trial + ' hit it again' : 'Seen again ' + dayShort(ag.at)); ln(); n('bad', '', 'Not fixed');
     } else if (p.standing === 'decided') {
       n('done', 'check', (p.verdict === 'sent' ? 'Sent ' : 'Chosen ') + dayShort(p.verdict_at)); ln(); n('', 'wait', p.verdict === 'sent' ? 'Gene therapy' : 'Its wave of fixes'); ln(); n('', '', 'Fixed');
     } else {
@@ -412,10 +413,11 @@
     var s = S.sub, m;
     if (!s) { return { page: 'jobs' }; }
     if (/^\d+$/.test(s)) { return { page: 'try', n: s }; }
-    // A journey; /job/<n> was its address while journeys were called jobs, and still opens it.
-    if ((m = /^(?:job|journey)\/(\d+)$/.exec(s))) { return { page: 'job', n: m[1] }; }
-    // A job, one request with its journeys (22 November 2026, fifth round).
-    if ((m = /^jobs\/(\d+)$/.exec(s))) { return { page: 'request', n: m[1] }; }
+    // A job, one request with its journeys, is /job/<n> (Petar, 22 November 2026: "this should be the link of the
+    // job, which contains all the journeys"); /jobs/<n> was its address for an hour and still opens it.
+    if ((m = /^jobs?\/(\d+)$/.exec(s))) { return { page: 'request', n: m[1] }; }
+    // A journey has no page of its own: /journey/<n> opens its job's page, at that journey.
+    if ((m = /^journey\/(\d+)$/.exec(s))) { return { page: 'journey', n: m[1] }; }
     if ((m = /^problem\/(\d+)$/.exec(s))) { return { page: 'problem', n: m[1] }; }
     if (s === 'problems') { return { page: 'problems' }; }
     if (s === 'testers') { return { page: 'testers' }; }
@@ -448,7 +450,16 @@
     } else {
       var shellFirst = S.shell ? null : loadShell().catch(function () {});
       if (w.page === 'problems' || w.page === 'testers') { shellFirst = Promise.all([shellFirst, loadAll()]); }
-      if (w.page === 'job') { want = call('/jobs/' + w.n).then(keep('job')); }
+      if (w.page === 'journey') {
+        want = call('/jobs/' + w.n).then(function (j) {
+          if (seq !== S.seq) { return; }
+          var r = j.job && j.job.request;
+          if (!r) { throw new Error('Journey ' + w.n + ' belongs to no job.'); }
+          S.focusJourney = Number(w.n);
+          S.sub = 'job/' + r.number;
+          return call('/requests/' + r.number).then(function (x) { if (seq === S.seq) { S.data.request = x.request; } });
+        });
+      }
       else if (w.page === 'request') { want = call('/requests/' + w.n).then(function (j) { if (seq === S.seq) { S.data.request = j.request; } }); }
       else if (w.page === 'try') { want = call('/' + w.n).then(keep('try')); }
       else if (w.page === 'problems') { want = loadProblems(seq); }
@@ -525,11 +536,11 @@
       main.appendChild(err);
     }
     if (S.said) { main.appendChild(el('p', 'tr-saidnow', S.said)); }
-    ({ jobs: drawJobs, job: drawJob, request: drawRequest, 'try': drawTry, problems: drawProblems, problem: drawProblem,
+    ({ jobs: drawJobs, journey: drawRequest, request: drawRequest, 'try': drawTry, problems: drawProblems, problem: drawProblem,
        testers: drawTesters, tester: drawTester, form: drawForm, how: drawHow })[w.page](main, w);
     // At the end of a long page, the way back to every list, so nobody has to press Back three times (trial 17).
     // Not on a try's page, which ends with its Fix bar (Petar, 22 November 2026, third round).
-    if (w.page === 'job' || w.page === 'request' || w.page === 'problem' || w.page === 'tester') {
+    if (w.page === 'request' || w.page === 'problem' || w.page === 'tester') {
       var foot = el('nav', 'tr-foot');
       foot.setAttribute('aria-label', 'Back to a list');
       foot.appendChild(el('span', 'tr-dim', 'Back to:'));
@@ -554,7 +565,7 @@
     if (!top) { return; }
     top.textContent = '';
     var page = where().page;
-    var on = page === 'job' || page === 'request' || page === 'try' || page === 'jobs' ? 'jobs'
+    var on = page === 'journey' || page === 'request' || page === 'try' || page === 'jobs' ? 'jobs'
       : page === 'problem' || page === 'problems' ? 'problems'
       : page === 'tester' || page === 'testers' || page === 'form' ? 'testers' : 'how';
     var sh = S.shell;
@@ -600,8 +611,8 @@
     sw.appendChild(track);
     sw.appendChild(el('span', 'tr-switch-name', 'Automatic testing'));
     sw.appendChild(el('b', 'tr-switch-state', isOn ? 'ON' : 'OFF'));
-    sw.title = isOn ? 'Testers try each change Rouh builds that you will see. Press to turn it off.'
-      : 'No tester tries a change by itself. A test you start still runs. Press to turn it on.';
+    sw.title = isOn ? 'Testers test each change Rouh builds that you will see. Press to turn it off.'
+      : 'No tester tests a change by itself. A test you start still runs. Press to turn it on.';
     sw.addEventListener('click', function () { setPause('', isOn, ''); });
     box.appendChild(sw);
     var live = liveTesters(sh);
@@ -726,7 +737,7 @@
       var arrows = el('div', 'tr-arrows');
       tr.forEach(function (x) {
         var a = icon(x.dir === 'worse' ? 'up' : x.dir === 'better' ? 'down' : x.dir === 'same' ? 'flat' : 'one');
-        a.title = x.job.name + ': ' + (x.dir === 'one' ? 'one try that ended so far' : x.prev + ' → ' + x.last + ' problems');
+        a.title = x.job.name + ': ' + (x.dir === 'one' ? 'one attempt that ended so far' : x.prev + ' → ' + x.last + ' problems');
         a.removeAttribute('aria-hidden');
         a.setAttribute('role', 'img');
         a.setAttribute('aria-label', a.title);
@@ -740,7 +751,7 @@
     var week = Date.now() / 1000 - 7 * 86400;
     var recent = (sh.trials || []).filter(function (t) { return t.created_at >= week; });
     var t3 = stat('Tested lately');
-    t3.appendChild(el('div', 'tr-big-n', plural(recent.length, 'try', 'tries')));
+    t3.appendChild(el('div', 'tr-big-n', plural(recent.length, 'attempt')));
     var who = {};
     recent.forEach(function (t) { who[t.persona_name] = (who[t.persona_name] || 0) + 1; });
     var whoLine = Object.keys(who).map(function (k) { return k + ' ' + who[k]; }).join(', ');
@@ -757,7 +768,7 @@
       }
       days.forEach(function (x) { var s = el('span'); var b = el('b'); b.style.height = Math.round(x[1] / most * 100) + '%'; s.appendChild(b); s.appendChild(el('span', '', String(x[0]))); bars.appendChild(s); });
       t3.appendChild(bars);
-      t3.appendChild(el('p', 'tr-cap', 'Tries each day, by date'));
+      t3.appendChild(el('p', 'tr-cap', 'Attempts each day, by date'));
     }
     tiles.appendChild(t3);
 
@@ -923,7 +934,7 @@
   function jobCard(r) {
     var s = r.summary || {}, k = kindOf(r);
     var li = el('li', 'tr-jcard-li');
-    var a = link('', HOME + '/jobs/' + r.number, 'tr-jcard is-' + k);
+    var a = link('', HOME + '/job/' + r.number, 'tr-jcard is-' + k);
     a.id = 'job-' + r.number;
     var top = el('div', 'tr-jcard-top');
     top.appendChild(kindBadge(r));
@@ -1014,9 +1025,10 @@
   }
   function drawRequest(root, w) {
     var d = S.data.request;
-    if (!d || String(d.number) !== w.n) {
-      root.appendChild(crumbs([['Dashboard', HOME], ['Job ' + w.n]]));
-      if (!S.error) { root.appendChild(el('p', 'tr-loading', 'Opening the job…')); }
+    if (!d || w.page !== 'request' || String(d.number) !== w.n) {
+      // A journey's address is looking for its job: it names the journey until the job is found.
+      root.appendChild(crumbs([['Dashboard', HOME], [(w.page === 'journey' ? 'Journey ' : 'Job ') + w.n]]));
+      if (!S.error) { root.appendChild(el('p', 'tr-loading', w.page === 'journey' ? 'Opening the job of journey ' + w.n + '…' : 'Opening the job…')); }
       return;
     }
     var s = d.summary || {}, k = kindOf(d);
@@ -1059,10 +1071,13 @@
     var js = d.journeys || [], head0 = /^([^:]{1,40}):\s+/.exec((js[0] || {}).name || '');
     var cut = head0 && js.length > 1 && js.every(function (j) { return String(j.name).indexOf(head0[0]) === 0; }) ? head0[0].length : 0;
     js.forEach(function (j) {
-      var li = el('li', 'tr-jr2');
+      var li = el('li', 'tr-jr2' + (S.focusJourney === j.number ? ' is-focus' : ''));
+      li.id = 'journey-' + j.number;
+      li.tabIndex = -1;
       var h = el('div', 'tr-jr2-h');
       var hn = el('h3', 'tr-jr2-t');
-      hn.appendChild(link(upper(j.name.slice(cut)), HOME + '/journey/' + j.number, 'tr-jr-name'));
+      hn.appendChild(el('span', 'tr-jr2-n', 'Journey ' + j.number));
+      hn.appendChild(el('span', '', upper(j.name.slice(cut))));
       h.appendChild(hn);
       var c = el('span', 'tr-jr2-c');
       if (j.finished) { c.appendChild(withIcon(el('span', 'is-fin'), 'check', 'Finished by a tester')); }
@@ -1078,7 +1093,7 @@
         a.appendChild(face(testerOf(t.persona) || { key: t.persona, name: t.persona_name }, 'xs'));
         var ww = el('span', 'tr-att-w');
         ww.appendChild(el('strong', '', t.persona_name));
-        ww.appendChild(el('span', 'tr-dim', 'Try ' + t.number + ' · ' + day(t.created_at)));
+        ww.appendChild(el('span', 'tr-dim', 'Attempt ' + t.number + ' · ' + day(t.created_at)));
         a.appendChild(ww);
         var res = el('span', 'tr-att-res');
         res.appendChild(el('span', 'tr-att-how is-' + (stuck(t) ? 'stuck' : t.managed || t.state), attemptWords(t)));
@@ -1087,137 +1102,65 @@
         ali.appendChild(a);
         ul.appendChild(ali);
       });
-      if (!(j.attempts || []).length) { ul.appendChild(el('li', 'tr-dim', 'Nobody has tried it yet.')); }
+      if (!(j.attempts || []).length) { ul.appendChild(el('li', 'tr-dim', 'Nobody has gone through it yet.')); }
       li.appendChild(ul);
+      // What a journey's own page had until 22 November 2026: another attempt, its words changed, its problems.
+      var acts = el('div', 'tr-jr2-acts');
+      var open = S.jOpen[j.number] || '';
+      var again = button('tr-btn tr-btn-s tr-quiet', 'Have a tester go through it again');
+      again.setAttribute('aria-expanded', open === 'run' ? 'true' : 'false');
+      again.addEventListener('click', function () { S.jOpen[j.number] = open === 'run' ? '' : 'run'; draw(); });
+      acts.appendChild(again);
+      var change = button('tr-btn tr-btn-s tr-quiet', 'Change its name or goal');
+      change.setAttribute('aria-expanded', open === 'edit' ? 'true' : 'false');
+      change.addEventListener('click', function () { S.jOpen[j.number] = open === 'edit' ? '' : 'edit'; draw(); });
+      acts.appendChild(change);
+      if (j.found) {
+        var pl = link('Its ' + plural(j.found, 'problem') + ' in the Fix list', HOME + '/problems', 'tr-a tr-jr2-a');
+        pl.addEventListener('click', function () { S.probFilter = { status: 'all', who: '', job: String(j.number) }; S.probView = { screen: null, bad: '', group: false, all: false }; }, true);
+        acts.appendChild(pl);
+      }
+      li.appendChild(acts);
+      if (open === 'run') {
+        li.appendChild(runAgain((S.shell && S.shell.personas) || [], S.shell && S.shell['default'], function (persona) {
+          return call('/jobs/' + j.number + '/run', { persona: persona });
+        }, 'Start the attempt', 'A tester who has seen nothing before goes through this journey from the start, and you get the whole ' +
+          'walk-through and what they found. It takes a few minutes. Nothing is fixed from it until you choose what.'));
+      }
+      if (open === 'edit') { li.appendChild(journeyForm(j)); }
       ol.appendChild(li);
     });
     sec.appendChild(ol);
     root.appendChild(sec);
-
+    // Opened from a journey's address: that journey, in view, once.
+    if (S.focusJourney) {
+      var fj = S.focusJourney;
+      S.focusJourney = 0;
+      setTimeout(function () { var x = document.getElementById('journey-' + fj); if (x) { x.scrollIntoView({ block: 'start' }); x.focus({ preventScroll: true }); } }, 0);
+    }
   }
 
-  /* ---- one journey (a job until 22 November 2026; /job/<n> still opens it) ---- */
-
-  function drawJob(root, w) {
-    var d = S.data.job;
-    if (!d || String(d.job.number) !== w.n) {
-      root.appendChild(crumbs([['Dashboard', HOME], ['Journey ' + w.n]]));
-      if (!S.error) { root.appendChild(el('p', 'tr-loading', 'Opening the journey…')); }
-      return;
-    }
-    var j = d.job;
-    moved(j.name);
-    root.appendChild(crumbs(j.request ? [['Dashboard', HOME], ['Job ' + j.request.number + ': ' + j.request.title, HOME + '/jobs/' + j.request.number], [j.name]]
-      : [['Dashboard', HOME], [j.name]]));
-    var hub = el('div', 'tr-hub');
-    var ph = el('section', 'tr-phone tr-hub-phone');
-    ph.appendChild(el('h1', 'tr-h1', j.name));
-    var line = el('div', 'tr-head-line');
-    // How far its newest tester got, never pass or did not pass (Petar, 22 November 2026).
-    if (j.tries[0]) { line.appendChild(chip(attemptWords(j.tries[0]), j.tries[0].managed === 'yes' ? 'green' : 'slate')); }
-    line.appendChild(el('span', 'tr-dim', 'Journey ' + j.number + ' · ' + plural(j.tries_count, 'attempt') +
-      (j.open ? ' · ' + plural(j.open, 'problem') + ' not fixed' : '')));
-    ph.appendChild(line);
-    if (S.editJob) {
-      ph.appendChild(jobForm(j));
-    } else {
-      var g = el('div', 'tr-goal');
-      g.appendChild(el('b', '', 'What the tester is asked to do'));
-      g.appendChild(el('span', '', j.goal ? '“' + j.goal + '”' : 'Not written yet.'));
-      ph.appendChild(g);
-      if (j.covers) { var c = el('div', 'tr-goal'); c.appendChild(el('b', '', 'What it covers')); c.appendChild(el('span', '', j.covers)); ph.appendChild(c); }
-      var edit = button('tr-btn tr-btn-s', j.covers ? 'Change the name or the description' : 'Describe what this journey tests');
-      edit.addEventListener('click', function () { S.editJob = true; draw(); });
-      ph.appendChild(edit);
-    }
-    hub.appendChild(ph);
-
-    // The ladder: each try a column, its height the number of problems it found.
-    var lad = el('section', 'tr-ladder-sec');
-    lad.appendChild(el('h2', 'tr-h3', 'Each attempt, oldest to newest'));
-    lad.appendChild(el('p', 'tr-cap', 'The height is how many problems the attempt found. A dashed one gave no report, is stuck, or is still going.'));
-    var wrapL = el('div', 'tr-ladder-wrap');
-    var cols = el('div', 'tr-lcols');
-    var most = Math.max.apply(null, [1].concat(j.tries.map(function (t) { return foundN(t); })));
-    j.tries.slice().reverse().forEach(function (t) {
-      var col = link('', HOME + '/' + t.number, 'tr-lcol');
-      col.setAttribute('aria-label', 'Try ' + t.number + ' by ' + t.persona_name + ': ' + (stuck(t) ? 'stuck since ' + dayShort(t.started_at || t.created_at)
-        : (RESULT[t.state] || ['?'])[0]) + ', ' + plural(foundN(t), 'problem'));
-      var n = t.state === 'broken' ? 'no report' : stuck(t) ? 'stuck' : t.state === 'running' || t.state === 'queued' ? 'going' : String(foundN(t));
-      col.appendChild(el('span', 'tr-lcol-n' + (/\D/.test(n) ? ' is-word' : ''), n));
-      var bar = el('span', 'tr-lcol-bar is-' + (stuck(t) ? 'stuck' : t.state));
-      if (t.state !== 'broken' && t.state !== 'running' && t.state !== 'queued') { bar.style.height = Math.max(3, Math.round(foundN(t) / most * 110)) + 'px'; }
-      col.appendChild(bar);
-      col.appendChild(face(testerOf(t.persona) || { key: t.persona, name: t.persona_name }, 'xs'));
-      col.appendChild(el('span', 'tr-lcol-lab', 'Try ' + t.number));
-      cols.appendChild(col);
-    });
-    if (!j.tries.length) { lad.appendChild(el('p', 'tr-empty', 'Nobody has tried it yet.')); }
-    else { wrapL.appendChild(cols); lad.appendChild(wrapL); }
-    hub.appendChild(lad);
-    root.appendChild(hub);
-
-    var tries = section('', 'Attempts, newest first');
-    var ul = el('ul', 'tr-list');
-    j.tries.forEach(function (t) {
-      var li = el('li', 'tr-item');
-      var a = link('', HOME + '/' + t.number, 'tr-row tr-try');
-      var top = el('span', 'tr-row-top');
-      var who = el('span', 'tr-who-line');
-      who.appendChild(face(testerOf(t.persona) || { key: t.persona, name: t.persona_name }));
-      var wn = el('span', 'tr-who-name');
-      wn.appendChild(el('strong', '', t.persona_name));
-      wn.appendChild(el('span', 'tr-dim', tryName(t.round, t.mode)));
-      who.appendChild(wn);
-      top.appendChild(who);
-      top.appendChild(chip(attemptWords(t), t.managed === 'yes' ? 'green' : 'slate'));
-      a.appendChild(top);
-      var meta = el('span', 'tr-row-meta');
-      meta.appendChild(modeChip(t.mode));
-      meta.appendChild(el('span', '', 'Try ' + t.number + ' · ' + day(t.created_at)));
-      if (t.state !== 'queued') { meta.appendChild(el('span', '', plural(t.steps, 'step') + ' · ' + minutes(t.seconds))); }
-      if (t.managed) { meta.appendChild(el('span', '', tryLine(t))); }
-      var fn = foundN(t);
-      meta.appendChild(el('span', t.open ? 'tr-has' : '', !fn ? 'No problems'
-        : plural(fn, 'problem') + (t.open === fn ? ', not fixed yet' : t.open ? ', ' + t.open + ' not fixed yet' : ', all fixed or set aside')));
-      a.appendChild(meta);
-      li.appendChild(a);
-      ul.appendChild(li);
-    });
-    tries.appendChild(ul);
-    if (j.tries.length) { root.appendChild(tries); }
-    root.appendChild(runAgain(d.personas || [], d['default'], function (persona) {
-      return call('/jobs/' + j.number + '/run', { persona: persona });
-    }, 'Ask for a review', 'A tester who has seen nothing before tries this journey from the start, and you get the whole ' +
-      'walk-through and what they found. It takes a few minutes. Nothing is fixed from it until you choose what.'));
-    var probs = section('', 'Its problems');
-    probs.appendChild(link(j.found ? 'See the ' + plural(j.found, 'problem') + ' this journey found, in the Fix list' : 'No problems found yet',
-      HOME + '/problems', 'tr-a'));
-    probs.lastChild.addEventListener('click', function () { S.probFilter = { status: 'all', who: '', job: String(j.number) }; S.probView = { screen: null, bad: '', group: false, all: false }; }, true);
-    root.appendChild(probs);
-  }
-
-  function jobForm(j) {
+  /* Change a journey's name, what the tester is asked to do, and what it covers: on its job's page (a journey had
+     a page of its own until 22 November 2026). */
+  function journeyForm(j) {
     var f = el('form', 'tr-form');
-    var name = field(f, 'Name', 'input', j.name, 'tr-job-name');
-    var goal = field(f, 'What the tester is asked to do, as they would say it', 'textarea', j.goal, 'tr-job-goal');
-    var covers = field(f, 'What this journey tests, in a line or two', 'textarea', j.covers, 'tr-job-covers');
+    var name = field(f, 'Name', 'input', j.name, 'tr-jn-name-' + j.number);
+    var goal = field(f, 'What the tester is asked to do, as they would say it', 'textarea', j.goal, 'tr-jn-goal-' + j.number);
+    var covers = field(f, 'What this journey tests, in a line or two', 'textarea', j.covers, 'tr-jn-covers-' + j.number);
     var row = el('div', 'tr-actions');
     var save = button('tr-btn tr-primary', 'Save');
     save.type = 'submit';
     var cancel = button('tr-btn', 'Cancel');
-    cancel.addEventListener('click', function () { S.editJob = false; draw(); });
+    cancel.type = 'button';
+    cancel.addEventListener('click', function () { S.jOpen[j.number] = ''; draw(); });
     row.appendChild(save);
     row.appendChild(cancel);
     f.appendChild(row);
     f.addEventListener('submit', function (e) {
       e.preventDefault();
       save.disabled = true;
-      call('/jobs/' + j.number, { name: name.value, goal: goal.value, covers: covers.value }).then(function (got) {
-        S.editJob = false;
-        S.data.job = { job: got.job, personas: S.data.job.personas, 'default': S.data.job['default'] };
-        S.said = 'Saved.';
-        draw();
+      call('/jobs/' + j.number, { name: name.value, goal: goal.value, covers: covers.value }).then(function () {
+        S.jOpen[j.number] = ''; S.said = 'Saved.'; load();
       }, fail);
     });
     return f;
@@ -1240,12 +1183,12 @@
     var row = el('div', 'tr-again-row');
     // A word above the picker: "Vesela tries it" alone did not say a tester is being chosen (trial 22).
     var pl = el('label', 'tr-choose');
-    pl.appendChild(el('span', 'tr-label', 'Who tries it'));
+    pl.appendChild(el('span', 'tr-label', 'Who tests it'));
     var pick = el('select', 'tr-select');
-    pick.setAttribute('aria-label', 'Who tries it');
+    pick.setAttribute('aria-label', 'Who tests it');
     pl.appendChild(pick);
     personas.forEach(function (p) {
-      var o = el('option', '', p.first + ' tries it' + (p.paused ? ' (paused)' : ''));
+      var o = el('option', '', p.first + ' tests it' + (p.paused ? ' (paused)' : ''));
       o.value = p.id;
       if (p.id === def) { o.selected = true; }
       pick.appendChild(o);
@@ -1311,7 +1254,7 @@
     });
     if (!testers.length) { pickT.appendChild(el('p', 'tr-empty', 'There are no testers yet. Add one on Testers first.')); }
     f.appendChild(pickT);
-    f.appendChild(el('p', 'tr-dim', 'Each tester has seen nothing before and tries it on a phone. You get the whole walk-through and what ' +
+    f.appendChild(el('p', 'tr-dim', 'Each tester has seen nothing before and tests it on a phone. You get the whole walk-through and what ' +
       'they found; nothing is fixed until you choose what. It runs whether automatic testing is on or off.'));
     var err = el('p', 'tr-err-words');
     err.setAttribute('role', 'alert');
@@ -1357,8 +1300,8 @@
         shut();
         S.shell = null;
         if (started.length === 1) { S.carry = started[0].said || 'Starting.'; go(HOME + '/' + started[0].trial.number); return; }
-        S.carry = started.length + ' tests are starting: ' + started.map(function (j) { return j.trial.persona_name + ' in try ' + j.trial.number; }).join(', ') +
-          '. Each takes a few minutes, and shows under Latest tries.';
+        S.carry = started.length + ' tests are starting: ' + started.map(function (j) { return j.trial.persona_name + ' in attempt ' + j.trial.number; }).join(', ') +
+          '. Each takes a few minutes, and shows under its job.';
         if (where().page === 'jobs') { S.said = S.carry; S.carry = ''; load(); } else { go(HOME); }
       }, function (e2) {
         startB.disabled = false;
@@ -1379,15 +1322,15 @@
   function drawTry(root, w) {
     var d = S.data['try'];
     if (!d || String(d.trial.number) !== w.n) {
-      root.appendChild(crumbs([['Dashboard', HOME], ['Try ' + w.n]]));
-      if (!S.error) { root.appendChild(el('p', 'tr-loading', 'Opening the try…')); }
+      root.appendChild(crumbs([['Dashboard', HOME], ['Attempt ' + w.n]]));
+      if (!S.error) { root.appendChild(el('p', 'tr-loading', 'Opening the attempt…')); }
       return;
     }
     var t = d.trial, name = t.persona_name;
-    moved((t.job_name || upper(t.subject)) + ', try ' + t.number);
-    root.appendChild(crumbs(t.job ? [['Dashboard', HOME]].concat(t.request ? [['Job ' + t.request.number + ': ' + t.request.title, HOME + '/jobs/' + t.request.number]] : [])
-        .concat([[t.job_name, HOME + '/journey/' + t.job], ['Try ' + t.number]])
-      : [['Dashboard', HOME], ['Try ' + t.number]]));
+    moved((t.job_name || upper(t.subject)) + ', attempt ' + t.number);
+    root.appendChild(crumbs(t.job ? [['Dashboard', HOME]].concat(t.request ? [['Job ' + t.request.number + ': ' + t.request.title, HOME + '/job/' + t.request.number]] : [])
+        .concat([['Journey: ' + t.job_name, HOME + (t.request ? '/job/' + t.request.number : '/journey/' + t.job)], ['Attempt ' + t.number]])
+      : [['Dashboard', HOME], ['Attempt ' + t.number]]));
     var going = t.state === 'queued' || t.state === 'running';
     var walk = t.walk || [];
     var found = t.found || [];
@@ -1459,8 +1402,8 @@
   function tryOverview(t, going, stuckAt) {
     var name = t.persona_name;
     var head = el('section', 'tr-panel tr-over');
-    head.setAttribute('aria-label', 'How the try went');
-    var h = el('h1', 'tr-h1', 'Try ' + t.number + ': ' + name + ' on ' + (t.job_name || upper(t.subject) || 'a page of Rouh'));
+    head.setAttribute('aria-label', 'How the attempt went');
+    var h = el('h1', 'tr-h1', 'Attempt ' + t.number + ': ' + name + ' on ' + (t.job_name || upper(t.subject) || 'a page of Rouh'));
     h.appendChild(el('small', '', tryName(t.round, t.mode) + ' · ' + day(t.created_at)));
     head.appendChild(h);
     var cols = el('div', 'tr-over-cols');
@@ -1525,9 +1468,9 @@
       var live = el('div', 'tr-banner');
       live.appendChild(el('span', 'tr-live-dot'));
       if (stuck(t)) { live.classList.add('is-stuck'); }
-      live.appendChild(el('p', '', stuck(t) ? 'Stuck since ' + day(t.started_at || t.created_at) + '. A try takes a few minutes, and this one ' +
+      live.appendChild(el('p', '', stuck(t) ? 'Stuck since ' + day(t.started_at || t.created_at) + '. An attempt takes a few minutes, and this one ' +
           'never ended, so it is probably stuck. Its steps so far are below.'
-        : t.state === 'queued' ? 'This try is about to start. It takes a few minutes.'
+        : t.state === 'queued' ? 'This attempt is about to start. It takes a few minutes.'
         : name + ' is trying it now. Each step appears here as it happens.'));
       head.appendChild(live);
     } else if ((t.waves || []).some(function (x) { return x.state === 'running'; })) {
@@ -1537,7 +1480,7 @@
     }
     if (t.state === 'broken') {
       var nr = el('div', 'tr-banner is-stuck');
-      nr.appendChild(el('p', '', 'This try could not finish, so there is no report: ' + (t.why || 'something went wrong.') + ' That is not the same as no problems.'));
+      nr.appendChild(el('p', '', 'This attempt could not finish, so there is no report: ' + (t.why || 'something went wrong.') + ' That is not the same as no problems.'));
       head.appendChild(nr);
     } else if (t.why && !going) { head.appendChild(el('p', 'tr-dim', t.why)); }
     return head;
@@ -1572,7 +1515,7 @@
     if (st === 'not') { return 'Not a problem'; }
     if (st === 'fixed') {
       var w = f.fixed_by_wave || (waveOf(f) && waveOf(f).state === 'done' ? waveOf(f) : null);
-      return w ? 'Fixed in Wave ' + w.number : f.closed_by ? 'Fixed: try ' + f.closed_by + ' got past it' : 'Fixed';
+      return w ? 'Fixed in Wave ' + w.number : f.closed_by ? 'Fixed: attempt ' + f.closed_by + ' got past it' : 'Fixed';
     }
     var rw = runningWave(f);
     return rw ? 'Open, being fixed in Wave ' + rw.number : chosenNext(f) ? 'Open, chosen for the next wave' : 'Open, not decided yet';
@@ -2224,7 +2167,7 @@
     moved('');
     if (d && d.counts && !d.counts.open && !d.counts.closed && !(d.counts.by && (d.counts.by.set_aside || d.counts.by.decided))) {
       root.appendChild(el('h1', 'tr-headline', 'Nothing to fix.'));
-      root.appendChild(el('p', 'tr-empty', d.counts.trials ? 'No problems found yet: every try so far went without one.'
+      root.appendChild(el('p', 'tr-empty', d.counts.trials ? 'No problems found yet: every attempt so far went without one.'
         : 'Nothing has been tried yet, so no problems have been found.'));
       return;
     }
@@ -2446,7 +2389,7 @@
     // On a phone the decisions sit here, under the title: a bar at the bottom would cover Rouh's own menu button.
     root.appendChild(decide(p, 'inline'));
     if (p.status === 'closed') {
-      root.appendChild(el('p', 'tr-good', 'Fixed on ' + date(p.closed_at) + (p.closed_by ? ': try ' + p.closed_by +
+      root.appendChild(el('p', 'tr-good', 'Fixed on ' + date(p.closed_at) + (p.closed_by ? ': attempt ' + p.closed_by +
         ' went past this screen without tripping on it.' : '.')));
     }
 
@@ -2458,15 +2401,15 @@
       story.appendChild(el('p', 'tr-quote', latest.quote));
       var by = el('p', 'tr-dim');
       by.appendChild(document.createTextNode((latest.source === 'owner' ? 'You' : latest.persona_name) + ', ' + day(latest.at)));
-      if (latest.trial) { by.appendChild(document.createTextNode(' · ')); by.appendChild(link('try ' + latest.trial + ', step ' + latest.step, HOME + '/' + latest.trial)); }
+      if (latest.trial) { by.appendChild(document.createTextNode(' · ')); by.appendChild(link('attempt ' + latest.trial + ', step ' + latest.step, HOME + '/' + latest.trial)); }
       story.appendChild(by);
     }
     var withShot = sights.filter(function (s) { return s.trial && s.shot; })[0];
     if (withShot) {
       var whereB = el('section', 'tr-panel tr-where');
       var wh = el('div', 'tr-sec-head');
-      wh.appendChild(el('h2', 'tr-h3', 'Where it happened: try ' + withShot.trial + ', step ' + withShot.step));
-      var open = link('Open the try', HOME + '/' + withShot.trial, 'tr-a');
+      wh.appendChild(el('h2', 'tr-h3', 'Where it happened: attempt ' + withShot.trial + ', step ' + withShot.step));
+      var open = link('Open the attempt', HOME + '/' + withShot.trial, 'tr-a');
       open.addEventListener('click', function () { S.step[withShot.trial] = withShot.step; }, true);
       wh.appendChild(open);
       whereB.appendChild(wh);
@@ -2523,7 +2466,7 @@
       from.appendChild(document.createTextNode((s.source === 'owner' ? 'You said this' : s.persona_name) + ', ' + day(s.at)));
       if (s.trial) {
         from.appendChild(document.createTextNode(' · '));
-        from.appendChild(link((s.job_name ? s.job_name + ', ' : '') + 'try ' + s.trial + ', step ' + s.step, HOME + '/' + s.trial));
+        from.appendChild(link((s.job_name ? s.job_name + ', ' : '') + 'attempt ' + s.trial + ', step ' + s.step, HOME + '/' + s.trial));
       }
       ww.appendChild(from);
       li.appendChild(ww);
@@ -2677,7 +2620,7 @@
       }, fail);
     }
     if (!(p.thread || []).length) {
-      box.appendChild(el('p', 'tr-dim', 'Rouh answers here, with the problem, its picture and the whole try in front of it. Start with a question:'));
+      box.appendChild(el('p', 'tr-dim', 'Rouh answers here, with the problem, its picture and the whole attempt in front of it. Start with a question:'));
       var qs = el('div', 'tr-suggest');
       [p.how_bad === 'blocked' ? 'Why did this stop the tester?' : 'Why did this happen?', 'How would you fix it?', 'Is it worth fixing now?']
         .forEach(function (q) {
@@ -2773,7 +2716,7 @@
 
   /* What automatic testing means, at the top of the testers. */
   function autoWords(off) {
-    return (off ? 'Automatic testing is off, so no tester tries a change by itself. ' : 'While automatic testing is on, a ticked tester tries each change Rouh builds that you will see. ') +
+    return (off ? 'Automatic testing is off, so no tester tests a change by itself. ' : 'While automatic testing is on, a ticked tester tests each change Rouh builds that you will see. ') +
       'A test you start yourself runs either way. Turn it on or off, and tick who runs, at the top of every page here.';
   }
 
@@ -2796,8 +2739,8 @@
       : (live.length === 1 ? 'One tester, running in automatic testing.' : 'All ' + live.length + ' testers run in automatic testing.');
     var finds = foundLine(d.testers);
     root.appendChild(el('h1', 'tr-headline', head + (finds ? ' ' + finds : '')));
-    root.appendChild(el('p', 'tr-lede', 'The made-up people who try Rouh’s changes on their phones. Each has a whole ' +
-      'life written down, and that is what they are told before every try.'));
+    root.appendChild(el('p', 'tr-lede', 'The made-up people who test Rouh’s changes on their phones. Each has a whole ' +
+      'life written down, and that is what they are told before every attempt.'));
     var row = el('div', 'tr-flex tr-cast-acts');
     var add = link('', HOME + '/testers/new', 'tr-btn tr-primary');
     withIcon(add, 'plus', 'Add a tester');
@@ -2807,12 +2750,12 @@
     var ul = el('ul', 'tr-cards');
     live.forEach(function (t) { ul.appendChild(personCard(t, !!d.paused_all)); });
     root.appendChild(ul);
-    if (!live.length) { root.appendChild(el('p', 'tr-empty', 'There are no testers. Add one, and they try every change.')); }
+    if (!live.length) { root.appendChild(el('p', 'tr-empty', 'There are no testers. Add one, and they test every change.')); }
     if (gone.length) {
       var det = el('details', 'brown-toggle');
       det.appendChild(el('summary', '', 'Removed testers (' + gone.length + ')'));
       var b = el('div', 'brown-toggle-body');
-      b.appendChild(el('p', 'tr-dim', 'They no longer try anything. Their old tries still say who did them.'));
+      b.appendChild(el('p', 'tr-dim', 'They no longer test anything. Their old attempts still say who did them.'));
       var ul2 = el('ul', 'tr-cards');
       gone.forEach(function (t) { ul2.appendChild(personCard(t)); });
       b.appendChild(ul2);
@@ -2837,12 +2780,12 @@
     por.appendChild(words);
     li.appendChild(por);
     var chips = el('div', 'tr-chips');
-    if (t['default']) { chips.appendChild(chip('Tries every change', 'green')); }
+    if (t['default']) { chips.appendChild(chip('Tests every change', 'green')); }
     if (t.paused && !t.archived) { chips.appendChild(chip('Not running', 'amber')); }
     if (chips.childNodes.length) { li.appendChild(chips); }
     var st = el('div', 'tr-pstat');
     var jam = t.archived ? 0 : stuckOf(t.key).length;
-    [[t.tries, t.tries === 1 ? 'try' : 'tries'], [t.problems, t.problems === 1 ? 'problem found' : 'problems found'],
+    [[t.tries, t.tries === 1 ? 'attempt' : 'attempts'], [t.problems, t.problems === 1 ? 'problem found' : 'problems found'],
      jam ? [jam, 'stuck'] : [t.running || 0, 'going now']]
       .forEach(function (x) { var dv = el('div'); dv.appendChild(el('b', '', String(x[0] || 0))); dv.appendChild(el('span', '', x[1])); st.appendChild(dv); });
     li.appendChild(st);
@@ -2850,7 +2793,7 @@
       var status = el('div', 'tr-status-line');
       status.appendChild(withIcon(el('span', 'tr-status'), held ? 'pause' : 'play',
         all ? 'Automatic testing is off' : t.paused ? t.first + ' does not run' + (t.paused_at ? ', since ' + day(t.paused_at) : '') : t.first + ' runs in automatic testing'));
-      status.appendChild(el('span', 'tr-dim', t['default'] ? 'Tries every change' : 'Tries a change when the one who tries every change is unticked, or when asked for by name'));
+      status.appendChild(el('span', 'tr-dim', t['default'] ? 'Tests every change' : 'Tests a change when the one who tests every change is unticked, or when asked for by name'));
       li.appendChild(status);
       var acts = el('div', 'tr-actions');
       acts.appendChild(runsTick(t));
@@ -2880,11 +2823,11 @@
     if (jc) { hw.appendChild(el('p', 'tr-pcard-job', jc)); }
     if (t.short) { hw.appendChild(el('p', 'tr-dim', t.short)); }
     var chips = el('div', 'tr-chips');
-    if (t['default']) { chips.appendChild(chip('Tries every change', 'green')); }
+    if (t['default']) { chips.appendChild(chip('Tests every change', 'green')); }
     if (t.archived) { chips.appendChild(chip('Removed', 'slate')); }
     if (!t.archived && (t.paused || t.paused_all)) { chips.appendChild(chip(t.paused_all && !t.paused ? 'Automatic testing off' : 'Not running', 'amber')); }
     chips.appendChild(chip(t.device === 'desk' ? 'Mostly on a computer' : 'Mostly on a phone', 'slate'));
-    chips.appendChild(chip(plural(t.tries_count, 'try', 'tries') + ' · ' + plural(t.problems, 'problem') + ' found', 'slate'));
+    chips.appendChild(chip(plural(t.tries_count, 'attempt') + ' · ' + plural(t.problems, 'problem') + ' found', 'slate'));
     hw.appendChild(chips);
     por.appendChild(hw);
     leftC.appendChild(por);
@@ -2894,19 +2837,19 @@
       pw.appendChild(el('b', '', t.paused ? firstName + ' does not run in automatic testing' : t.paused_all
         ? 'Automatic testing is off' : firstName + ' runs in automatic testing'));
       pw.appendChild(el('span', 'tr-dim', t.paused || t.paused_all
-        ? firstName + ' tries no change by itself; a test you start with ' + firstName + ' still runs.' + (!t.paused && t.paused_all
+        ? firstName + ' tests no change by itself; a test you start with ' + firstName + ' still runs.' + (!t.paused && t.paused_all
           ? ' ' + firstName + ' runs again once automatic testing is on.' : '')
-        : (t['default'] ? firstName + ' tries every change Rouh makes that you will see.' : firstName + ' tries a change when the tester who tries every change is not ticked, or when you ask for ' +
+        : (t['default'] ? firstName + ' tests every change Rouh makes that you will see.' : firstName + ' tests a change when the tester who tests every change is not ticked, or when you ask for ' +
           firstName + ' by name.')));
       var jam = stuckOf(t.key);
-      pw.appendChild(el('span', 'tr-dim', jam.length ? (jam.length === 1 ? 'Try ' + jam[0].number + ' by ' + firstName + ' has been stuck since ' +
-          day(jam[0].started_at || jam[0].created_at) + ': a try takes minutes.' : jam.length + ' tries by ' + firstName + ' are stuck.')
+      pw.appendChild(el('span', 'tr-dim', jam.length ? (jam.length === 1 ? 'Attempt ' + jam[0].number + ' by ' + firstName + ' has been stuck since ' +
+          day(jam[0].started_at || jam[0].created_at) + ': an attempt takes minutes.' : jam.length + ' attempts by ' + firstName + ' are stuck.')
         : t.running
-        ? (t.running === 1 ? 'A try by ' + firstName + ' is going now' : t.running + ' tries by ' + firstName + ' are going now') +
+        ? (t.running === 1 ? 'An attempt by ' + firstName + ' is going now' : t.running + ' attempts by ' + firstName + ' are going now') +
           (t.paused || t.paused_all ? '; it may finish.' : '.')
-        : 'No try by ' + firstName + ' is going now.'));
+        : 'No attempt by ' + firstName + ' is going now.'));
       if (t.skipped) {
-        pw.appendChild(el('span', 'tr-dim', plural(t.skipped, 'try', 'tries') + ' skipped while paused' +
+        pw.appendChild(el('span', 'tr-dim', plural(t.skipped, 'attempt') + ' skipped while paused' +
           (t.skipped_at ? ', the last on ' + day(t.skipped_at) : '') + '.'));
       }
       pbox.appendChild(pw);
@@ -2915,9 +2858,9 @@
       var acts = el('div', 'tr-actions');
       acts.appendChild(link('Change ' + firstName + '’s profile', HOME + '/tester/' + t.key + '/edit', 'tr-btn tr-btn-s'));
       if (!t['default']) {
-        var def = button('tr-btn tr-btn-s', 'Make ' + firstName + ' try every change');
+        var def = button('tr-btn tr-btn-s', 'Make ' + firstName + ' test every change');
         def.addEventListener('click', function () {
-          call('/testers/' + t.key + '/default', {}).then(function () { S.said = firstName + ' now tries every change.'; S.shell = null; load(); }, fail);
+          call('/testers/' + t.key + '/default', {}).then(function () { S.said = firstName + ' now tests every change.'; S.shell = null; load(); }, fail);
         });
         acts.appendChild(def);
         var rm = button('tr-btn tr-btn-s tr-danger', 'Remove ' + firstName);
@@ -2929,8 +2872,8 @@
         var c = el('div', 'tr-confirm');
         c.setAttribute('role', 'alertdialog');
         c.setAttribute('aria-label', 'Remove ' + firstName + '?');
-        c.appendChild(el('p', '', 'Remove ' + firstName + '? ' + firstName + ' will not try anything again. The ' +
-          plural(t.tries_count, 'try', 'tries') + ' ' + firstName + ' already did stay, and still say who did them.'));
+        c.appendChild(el('p', '', 'Remove ' + firstName + '? ' + firstName + ' will not test anything again. The ' +
+          plural(t.tries_count, 'attempt') + ' ' + firstName + ' already did stay, and still say who did them.'));
         var row = el('div', 'tr-actions');
         var yes = button('tr-btn tr-btn-s tr-danger', 'Yes, remove ' + firstName);
         yes.addEventListener('click', function () {
@@ -2951,7 +2894,7 @@
 
     // Everything written about them, a folded chapter for each part: it is what they are told, read rarely.
     var prof = section('tr-profile', 'Everything written about ' + firstName);
-    prof.appendChild(el('p', 'tr-dim', 'This is exactly what ' + firstName + ' is told before every try, written to ' +
+    prof.appendChild(el('p', 'tr-dim', 'This is exactly what ' + firstName + ' is told before every attempt, written to ' +
       ({ her: 'her', him: 'him' }[t.them] || 'them') + '. Open a part to read it.'));
     var openAll = button('tr-btn tr-btn-s', 'Open every part');
     prof.appendChild(openAll);
@@ -2974,13 +2917,13 @@
     topG.appendChild(leftC);
 
     var hist = el('section', 'tr-panel tr-hist-sec');
-    hist.appendChild(el('h2', 'tr-h2', firstName + '’s tries'));
+    hist.appendChild(el('h2', 'tr-h2', firstName + '’s attempts'));
     if (!t.tries.length) { hist.appendChild(el('p', 'tr-dim', firstName + ' has not tried anything yet.')); }
     var ul = el('ul', 'tr-hist');
     t.tries.forEach(function (x) {
       var li = el('li');
       var a = link('', HOME + '/' + x.number);
-      a.appendChild(el('span', 'tr-dim', 'Try ' + x.number));
+      a.appendChild(el('span', 'tr-dim', 'Attempt ' + x.number));
       var mid = el('span', 'tr-hist-mid');
       mid.appendChild(el('span', 'tr-strong', x.job_name || upper(x.subject) || 'A page of Rouh'));
       mid.appendChild(el('span', 'tr-dim', day(x.created_at) + ' · ' + tryName(x.round, x.mode) + ' · ' +
@@ -3104,16 +3047,17 @@
        'A model plays them. They know only what is on the screen, never how Rouh is built.'],
      ['A job', 'one request you gave, such as testing the guide with ten journeys, kept with your own words.'],
      ['A journey', 'one thing a tester is asked to do in a job, such as signing in for the first time. Every attempt at the same thing is kept in the same journey.'],
-     ['An attempt (a try)', 'one tester going through a journey from the first screen, on a phone, saying out loud what they see, think and do, ' +
+     ['An attempt', 'one tester going through a journey from the first screen, on a phone, saying out loud what they see, think and do, ' +
        'with a picture of the screen at every step.'],
      ['The three questions', 'on every new screen the tester answers: What is this? What do I do here? What happens when I do it? ' +
        'One they cannot answer is a problem.'],
-     ['Passed', 'the tester managed it, and nothing stopped or confused them.'],
-     ['Rounds', 'when a change does not pass, Rouh fixes what tripped the tester and a new tester tries again: the first try, ' +
-       'the second try after fixes, and the third and last. After that the change goes out anyway, its problems stay open, and you are told.']]
+     ['Finished', 'the tester got all the way through the journey. Got part of the way and Stopped before the end say how far they got otherwise.'],
+     ['Manual, Automatic', 'a manual job is one you started, from Test something or in a chat; an automatic one Rouh started by itself, to test a change it made.'],
+     ['Rounds', 'when a change does not pass, Rouh fixes what tripped the tester and a new tester goes through it again: the first attempt, ' +
+       'the second attempt after fixes, and the third and last. After that the change goes out anyway, its problems stay open, and you are told.']]
       .forEach(function (x) { s1.appendChild(said(x[0], x[1])); });
     grid.appendChild(s1);
-    var sm = section('tr-panel', 'Two kinds of try');
+    var sm = section('tr-panel', 'Two kinds of attempt');
     sm.appendChild(said('Automatic test while building', 'every change you will see is tried by a tester before it ships. ' +
       'The builder fixes what tripped them, within what you already approved, and it is tried again: at most two rounds of ' +
       'fixes, then it ships. Nobody asks you anything.'));
@@ -3132,12 +3076,12 @@
     s2.appendChild(el('p', 'tr-dim', 'Each kind has its own icon as well as its colour: a stop sign, a question mark, an angry face and a small i. Point at one to read its name.'));
     grid.appendChild(s2);
     var s3 = section('tr-panel', 'What you can do with a problem');
-    [['Talk it over', 'write to Rouh on the problem’s page. Rouh answers there, with the problem, its picture and the whole try in front of it.'],
+    [['Talk it over', 'write to Rouh on the problem’s page. Rouh answers there, with the problem, its picture and the whole attempt in front of it.'],
      ['Fix it like this', 'say how it should be fixed. The next round of fixes reads it and does it your way.'],
      ['Send as feedback', 'it goes, with its picture, to Rouh’s list of changes to make to itself. Edit before sending lets you change the words first.'],
-     ['Not a problem, Won’t fix', 'set it aside. A tester who runs into it again no longer fails the try.'],
+     ['Not a problem, Won’t fix', 'set it aside. A tester who runs into it again no longer counts against the attempt.'],
      ['Undo', 'every choice can be taken back: press Undo on the message that appears, or Take it back later.'],
-     ['Fixed', 'a problem is fixed as soon as the wave of fixes you chose it for has finished, or when a later try passes its screen without tripping on it. Nobody marks it by hand, and a later try that meets it again opens it again.']]
+     ['Fixed', 'a problem is fixed as soon as the wave of fixes you chose it for has finished, or when a later attempt passes its screen without tripping on it. Nobody marks it by hand, and a later attempt that meets it again opens it again.']]
       .forEach(function (x) { s3.appendChild(said(x[0], x[1])); });
     grid.appendChild(s3);
     var s4 = section('tr-panel', 'Where the ideas came from');
@@ -3154,7 +3098,7 @@
       S.host = host || null;
       S.sub = String(sub || '');
       if (was !== S.sub) {
-        S.said = S.carry || ''; S.carry = ''; S.error = ''; S.confirm = ''; S.draftError = ''; S.editJob = false; S.tryBad = '';
+        S.said = S.carry || ''; S.carry = ''; S.error = ''; S.confirm = ''; S.draftError = ''; S.jOpen = {}; S.tryBad = '';
         if (!/^problem\//.test(S.sub)) { S.deciding = false; }
         S.wontFixing = false;
         // The try a problem's page was opened from names it, until the page is left for another.

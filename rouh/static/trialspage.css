@@ -743,7 +743,15 @@ a.tr-stat:hover { border-color: var(--ink-2); }
 .tr-jrs { list-style: none; margin: 0; padding: 0; display: grid; gap: 12px; }
 .tr-jr2 { display: grid; gap: 8px; padding: 14px 16px; border-radius: 14px; background: var(--surface); border: 1.5px solid var(--line); }
 .tr-jr2-h { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 4px 14px; }
-.tr-jr2-t { font-size: 16px !important; }
+.tr-jr2-t { font-size: 16px !important; display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 10px; }
+.tr-jr2-n { font: 700 12px/1.2 var(--body); letter-spacing: 0; color: var(--ink-2); }
+.tr-jr2.is-focus { border-color: var(--accent); }
+.tr-jr2:focus { outline: none; }
+.tr-jr2-acts { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; }
+.tr-jr2-acts .tr-btn { min-height: 44px; }
+.tr-jr2-a { display: inline-flex; align-items: center; min-height: 44px; padding: 0 8px; font-size: 14px; }
+.tr-jr2 .tr-again { margin-top: 4px; }
+.tr-jr2 .tr-form { margin-top: 4px; }
 .tr-jr2-c { display: inline-flex; flex-wrap: wrap; gap: 4px 12px; font-size: 13px; }
 .tr-jr2-c .is-fin { display: inline-flex; align-items: center; gap: 5px; color: var(--st-fixed); font-weight: 600; }
 .tr .tr-jr2 a.tr-att-r { background: var(--bg); }

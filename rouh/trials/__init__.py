@@ -411,10 +411,10 @@ def _refuse_if_paused(who, pid: str) -> None:
     row = M.TrialTester.objects.filter(**_whose(who), key=pid).first()
     first = (row.name.split() or [pid])[0] if row else pid
     if everyone:
-        said = (f"All testing is paused, so {first} did not start a try. Nothing failed: the trial was skipped. "
+        said = (f"All testing is paused, so {first} did not start an attempt. Nothing failed: the trial was skipped. "
                 "Turn automatic testing on at the top of Evolution, Testing.")
     else:
-        said = (f"{first} is paused, so no try was started. Nothing failed: the trial was skipped. "
+        said = (f"{first} is paused, so no attempt was started. Nothing failed: the trial was skipped. "
                 f"Tick {first} beside Automatic testing at the top of Evolution, Testing.")
     raise Paused(said, tester=pid, everyone=everyone)
 
@@ -525,7 +525,7 @@ def remove_tester(who, pid: str) -> dict:
     tries every change: another is made that first."""
     r = _tester(who, pid, archived=False)
     if r.key == default_persona(who):
-        raise Refused(f"{r.name.split()[0]} tries every change. Make someone else the one who does first.")
+        raise Refused(f"{r.name.split()[0]} tests every change. Make someone else the one who does first.")
     r.archived_at = _now()
     r.save(update_fields=["archived_at"])
     return tester_brief(r)
@@ -1026,7 +1026,7 @@ def _request_summaries(who, rows: list, *, attempts: bool = False) -> dict:
         last = mine[-1].created_at if mine else None
         if last and (s["last_at"] or 0) < last:
             s["last_at"] = last
-        jd = {"number": j.number, "name": j.name, "goal": j.goal, "page": j.page, "attempts_n": len(mine),
+        jd = {"number": j.number, "name": j.name, "goal": j.goal, "covers": j.covers, "page": j.page, "attempts_n": len(mine),
               "finished": done, "last_at": last}
         if attempts:
             jd.update(tally({"found": 0, "fixed": 0, "set_aside": 0, "resolved": 0, "decided": 0, "open": 0},
@@ -1149,7 +1149,8 @@ def job_line(j: dict) -> str:
     r = j.get("request") or {}
     return (f"Journey {j['number']}: {j['name']}" + (f" (job {r['number']}: {r['title']})" if r else "")
             + f" - latest attempt {state}; {j['tries_count']} attempts; {j['open']} problems "
-            f"open. Goal: {j['goal'] or '-'}  Page: /evolution/testing/journey/{j['number']}")
+            f"open. Goal: {j['goal'] or '-'}  Page: /evolution/testing/"
+            + (f"job/{r['number']}" if r else f"journey/{j['number']}"))
 
 
 # --- problems ------------------------------------------------------------------------------------
@@ -2125,7 +2126,7 @@ def _close_by_wave(w) -> int:
     rows = _m().TrialProblem.objects.filter(org_id=w.org_id, user_id=w.user_id, number__in=numbers, status="open",
                                             verdict="decided", verdict_at__lte=w.started_at)
     return rows.update(status="closed", closed_at=w.ended_at or _now(), closed_by=None, closed_wave=w.id,
-                       closed_note=f"Wave {w.number}" + (f" of try {t}" if t else "") + " fixed this.")
+                       closed_note=f"Wave {w.number}" + (f" of attempt {t}" if t else "") + " fixed this.")
 
 
 def settle_waves(who) -> None:
@@ -2447,7 +2448,7 @@ async def run_by_hand(who, *, persona_id: str = "", goal: str = "", page: str = 
         raise Refused(f"The trial could not be started ({str(exc).strip().rstrip('.') or type(exc).__name__}).") from None
     run = str(got.get("id") or "")
     await asyncio.to_thread(lambda: _m().Trial.objects.filter(**_whose(who), number=t["number"]).update(run_id=run))
-    return {**t, "run_id": run, "said": f"Review {t['number']} is starting: {name} will try {t['job_name'] or t['subject'] or 'it'}. "
+    return {**t, "run_id": run, "said": f"Attempt {t['number']} is starting: {name} will go through {t['job_name'] or t['subject'] or 'it'}. "
                                          f"It takes a few minutes. Nothing is fixed from it until you choose what."}
 
 

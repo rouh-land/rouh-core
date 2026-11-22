@@ -13188,8 +13188,8 @@ class ToolRegistry:
                                                 subject=str(args.get("job") or args.get("subject") or ""),
                                                 gene=str(args.get("gene") or ""), job_no=job_no, request=request)
                 r = got.get("request") or {}
-                return (got["said"] + f" It is review {got['number']} of journey {got.get('job')}"
-                        + (f", in job {r.get('number')} ({r.get('title')})" if r else "") + f": /evolution/testing/{got['number']}. "
+                return (got["said"] + f" It is attempt {got['number']} (a review) of journey {got.get('job')}"
+                        + (f", in job {r.get('number')} ({r.get('title')}, /evolution/testing/job/{r.get('number')})" if r else "") + f": /evolution/testing/{got['number']}. "
                         "Its result comes back when its run finishes; then tell the owner what was found, and fix "
                         "nothing until they choose what.")
             if action == "record":
