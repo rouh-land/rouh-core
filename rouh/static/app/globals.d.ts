@@ -91,6 +91,8 @@ interface Window {
   RouhActions?: any;
   /** Handholding, the guided way into Rouh (handholdingpage.js). */
   RouhHandholding?: any;
+  /** First-use tips: whether an element is still new and its tip speaks for it (app/firsttips.js). */
+  RouhFirstTips?: { own(b: Element | null): boolean };
   /** The Receipts page (receiptspage.js). */
   RouhReceipts?: any;
   /** The Home page (homepage.js), and the sections each kind of device adds to it. */

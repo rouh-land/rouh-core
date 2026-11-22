@@ -106,6 +106,7 @@ import 'app/focus.js';
 import 'app/composer_extras.js';
 import 'app/reading.js';
 import 'app/tips.js';
+import 'app/firsttips.js';
 import 'app/newcomer.js';
 import { addrEarly } from 'app/address.js';
 

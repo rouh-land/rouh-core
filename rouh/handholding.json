@@ -130,6 +130,15 @@
   "Vocabulary": {
    "means": "Vocabulary is where Rouh keeps your own words and nicknames, and what you mean by them.",
    "lesson": "vocab"
+  },
+  "Metabolism": {
+   "means": "Metabolism is the page that lists every piece of work Rouh is doing in the background, and what each one is doing now.",
+   "lesson": "running"
+  },
+  "Boxes": {
+   "means": "A box is a safe for a secret, such as a password: what you put in it is sealed, and the AI never sees it.",
+   "lesson": "box",
+   "case": true
   }
  },
  "stages": [
@@ -166,7 +175,7 @@
       },
       {
        "name": "Your workspace",
-       "text": "Everything you work on is a task with steps inside it, and every task has a number, like 58, with steps 58-01, 58-02.",
+       "text": "Everything you work on is a task with steps inside it. Every task has a number, like 58, and its steps 58‑01, 58‑02. The number is why it matters: it is the short name you and Rouh both use, so “open 58” or “carry on with 58‑02” finds exactly that one, even among hundreds, and you never have to describe it again.",
        "open": {
         "label": "Task browser",
         "href": "/tasks"
@@ -354,7 +363,8 @@
         ]
        }
       },
-      "Press the cross at the top right, or Escape, to put it back in its corner."
+      "Press the cross at the top right, or Escape, to put it back in its corner.",
+      "If the orb covers words you want to read, drag it to the right side of the screen, or flick it there. It stays on that side until you drag it back."
      ],
      "says": [
       "What are you working on right now?",
@@ -368,12 +378,6 @@
      "title": "Talk to Rouh",
      "outcome": "After this you know where to type to Rouh, and where its answers appear.",
      "minutes": 2,
-     "cover": {
-      "src": "handholding/talk.webp",
-      "alt": "The chat: your message on the right, Rouh's answer on the left, and the message box at the bottom.",
-      "w": 1000,
-      "h": 625
-     },
      "summary": [
       "Everything starts with a sentence. You type it in the message box at the bottom of the chat, or say it out loud. This is the one place you talk to Rouh: every tip after this one says what to say, and you say it here."
      ],
@@ -381,52 +385,54 @@
       {
        "text": "Find the message box: the wide box at the bottom of the chat that says Type to Rouh. Press it and type what you want, in plain words.",
        "image": {
-        "src": "handholding/talk.webp",
-        "alt": "The chat with its four parts numbered: the message box, Send, your words and Rouh's answer.",
-        "w": 1000,
-        "h": 625,
+        "src": "handholding/talk-cut.webp",
+        "alt": "A cut-out of the chat on a phone, numbered: your question, Rouh's answer listing what it can do, the message box and the blue Send arrow.",
+        "w": 780,
+        "h": 1016,
+        "cut": true,
         "marks": [
          {
           "n": 1,
-          "x": 51.2,
-          "y": 90.9,
+          "x": 2.8,
+          "y": 80.6,
           "label": "The message box: type here"
          },
          {
           "n": 2,
-          "x": 93.5,
-          "y": 96.0,
-          "label": "Send, or press Enter"
+          "x": 90.3,
+          "y": 93.9,
+          "label": "Send: the blue arrow"
          },
          {
           "n": 3,
-          "x": 86.0,
-          "y": 63.2,
+          "x": 30.0,
+          "y": 9.6,
           "label": "What you said"
          },
          {
           "n": 4,
-          "x": 34.1,
-          "y": 77.8,
+          "x": 14.0,
+          "y": 22.8,
           "label": "Rouh's answer"
          }
         ]
        }
       },
-      "Press Enter, or the blue arrow at its right end, to send. Shift and Enter starts a new line instead.",
+      "On a phone, tap the blue arrow at the right end of the box to send; the return key on the phone's keyboard starts a new line. At a computer, press Enter to send, and Shift with Enter for a new line.",
       "Rouh's answer appears in the chat, under your words. Pages, tables and pictures appear on the canvas beside the chat (the next tips show it).",
       {
        "text": "If you cannot see the chat, it has been put away to a narrow bar at the left of the screen. Press that bar, Show the chat, and it comes back.",
        "image": {
-        "src": "handholding/talk-hidden.webp",
-        "alt": "The chat put away: a narrow bar at the left edge of the screen, numbered, which brings it back.",
-        "w": 1000,
-        "h": 625,
+        "src": "handholding/talk-hidden-cut.webp",
+        "alt": "A cut-out of the top left corner at a desk with the chat put away: a narrow bar at the left edge, marked Chat, numbered.",
+        "w": 720,
+        "h": 440,
+        "cut": true,
         "marks": [
          {
           "n": 1,
-          "x": 8.2,
-          "y": 50.0,
+          "x": 5.3,
+          "y": 15.9,
           "label": "Show the chat"
          }
         ]
@@ -474,19 +480,19 @@
          },
          {
           "n": 2,
-          "x": 33.6,
+          "x": 54.5,
           "y": 45.3,
           "label": "Turn on the microphone"
          },
          {
           "n": 3,
-          "x": 33.6,
+          "x": 54.5,
           "y": 59.4,
           "label": "Voice replies on or off"
          },
          {
           "n": 4,
-          "x": 33.6,
+          "x": 54.5,
           "y": 73.5,
           "label": "Dictate a long message"
          }
@@ -495,7 +501,7 @@
       },
       "Press Turn on the microphone. Allow the microphone if the browser asks. Speak, and Rouh answers when you pause.",
       "Voice replies decides whether Rouh reads its answers out loud. Leave it on to listen, or turn it off to read.",
-      "For a long message, press Dictate (or Ctrl, Shift and Space), say all of it, then press Dictate again. A pause never ends your turn.",
+      "For a long message, press Dictate, say all of it, then press Dictate again. A pause never ends your turn. At a computer, Ctrl, Shift and Space does the same as pressing Dictate.",
       "Press the microphone again to turn it off. Off means off: nothing is heard until you turn it on again."
      ],
      "says": [

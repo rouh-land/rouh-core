@@ -562,11 +562,27 @@ function sayPlainer(turn) {
     headers: { 'Content-Type': 'application/json' }, body: '{}' }).catch(function () {});
 }
 
+/* What each small button under a message does, in plain words, while it is new to this person (review 50,
+   problem 331: "hover for desktop. nothing extra for phones"; app/firsttips.js). */
+var ACT_FIRST = /** @type {Record<string, string>} */ ({
+  retry: 'Asks the same again, for a new answer.',
+  copy: 'Copies the words, to paste them somewhere else.',
+  edit: 'Puts your message back in the box to change it, then asks again.',
+  when: 'Shows the day and time this was written.',
+  say: 'Rouh reads this answer out loud.',
+  plain: 'Rouh says the same again in simpler words.'
+});
+
 function actBtn(kind, said) {
   var b = el('button', 'act act-' + kind);
   b.type = 'button';
   b.title = said;
   b.setAttribute('aria-label', said);
+  if (ACT_FIRST[kind]) {
+    b.dataset.first = 'act-' + kind;
+    b.dataset.firstName = said;
+    b.dataset.firstTip = ACT_FIRST[kind];
+  }
   b.appendChild(actIcon(kind));
   return b;
 }

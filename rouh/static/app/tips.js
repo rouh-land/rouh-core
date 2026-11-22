@@ -39,6 +39,8 @@ function hide() {
 /** @param {HTMLElement} b */
 function show(b) {
   var words = b.dataset.tip || '';
+  // While a button is new, its first-use tip (app/firsttips.js) speaks for it instead.
+  if (window.RouhFirstTips && window.RouhFirstTips.own(b)) return;
   if (!words || !document.contains(b) || b.offsetParent === null) return;
   tip.textContent = words;
   if (b.dataset.key && words.indexOf(b.dataset.key) < 0) {

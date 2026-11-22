@@ -3157,7 +3157,9 @@ function orbIntroTip() {
     '<span class="l">This circle is the orb: a live picture of everything Rouh is doing. The rings round it ' +
     'show how busy this machine is.</span>' +
     '<div class="d">' + (orbMenuButton() ? 'Press it to open the menu, with every part of Rouh.'
-      : 'Press it to see everything running.') + ' The Guide\u2019s first tips explain it.</div>';
+      : 'Press it to see everything running.') +
+    // Review 50, problem 347: the orb stays where it is, and people are told it can be slid aside.
+    ' In the way? Drag it to the other side of the screen; it stays there until you drag it back.</div>';
   tip.hidden = false;
   var s = tipScreen(tip), b = box.getBoundingClientRect(), size = tipSize(tip);
   var y = b.top - size.h - 8;

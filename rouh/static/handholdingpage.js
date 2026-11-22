@@ -75,6 +75,23 @@
   var TICK = '<path d="M6 12.5l4 4 8-9"/>';
   /** Leaves the Guide for another page of Rouh. */
   var OUT = '<path d="M5 12h13M13 7l5 5-5 5"/>';
+  /** Opens in a new tab: a box with an arrow leaving it (review 50, problem 401). */
+  var AWAY = '<path d="M14 4h6v6M20 4l-8.5 8.5"/><path d="M18 14v4.5a1.5 1.5 0 0 1-1.5 1.5h-11A1.5 1.5 0 0 1 4 18.5v-11A1.5 1.5 0 0 1 5.5 6H10"/>';
+  /** A link from a tip to another part of Rouh: it opens in a new tab, says so with its glyph and its
+      name, and is quieter than the tip's own words, so the person reads on and keeps their place here
+      (review 50, problem 401, Petar: "open those in new tabs ... an icon that gives indication it will
+      open in a new tab ... make it less intrusive"). */
+  function away(href, text, cls) {
+    var a = el('a', cls || 'hh-away');
+    a.href = href;
+    a.target = '_blank';
+    a.rel = 'noopener';
+    a.appendChild(el('span', '', text));
+    a.appendChild(glyph(AWAY, 14));
+    a.setAttribute('aria-label', text + ' (opens in a new tab)');
+    a.title = 'Opens in a new tab, so this tip stays open here';
+    return a;
+  }
   /** A link: an address in Rouh opens in Rouh, a web address in a new tab. `mine` marks a press
       inside the Guide, so Back on the place it opens is the browser's own. */
   function link(href, text, cls, mine) {
@@ -146,6 +163,12 @@
     return !!(s && s.kind !== 'unknown');
   }
   function isDone(l) { return detected(l.id) || skipped(l.id) || (ticked(l.id) && !liveOnly(l)); }
+  /** The person's next tip: the first on the path not done yet (review 50, problem 346), or null. */
+  function nextTip() {
+    var list = all();
+    for (var i = 0; i < list.length; i++) { if (!isDone(list[i].lesson)) { return list[i]; } }
+    return null;
+  }
   function stageCounts(stage) {
     var ls = stage.lessons || [];
     return { done: ls.filter(isDone).length, all: ls.length };
@@ -266,6 +289,8 @@
     } else {
       var def = pageDef();
       page.appendChild(tabs(def));
+      var note = orbNote();
+      if (note) { page.appendChild(note); }
       (def.views || []).forEach(function (v) {
         var words = (content().sections || {})[v];
         var drawn = VIEWS[v] ? VIEWS[v](words ? { title: words.title, lede: words.lede || '' } : def) : null;
@@ -277,6 +302,7 @@
     live.setAttribute('aria-live', 'polite');
     page.appendChild(live);
     body.scrollTop = top;
+    if (H.lesson) { hookReading(); reading(); }
     if (keep) {
       var back = body.querySelector('[data-k="' + keep + '"]');
       if (back) { back.focus({ preventScroll: true }); }
@@ -306,6 +332,7 @@
       if (h) { h.focus({ preventScroll: true }); }
     }
     H.back = '';
+    if (H.lesson) { reading(); }
   }
 
   /* ---- a picture ---- */
@@ -315,7 +342,8 @@
   /** A picture: lazy, its own size kept so nothing jumps, and a designed blank with its words if
       it does not load. With `marks`, numbered callouts drawn over it and the same numbers below. */
   function picture(p, cls, withLegend) {
-    var fig = el('figure', 'hh-fig' + (cls ? ' ' + cls : ''));
+    // A cut-out of the screen (`cut`) is shown at its own size at most (review 50, problems 407 and 410).
+    var fig = el('figure', 'hh-fig' + (cls ? ' ' + cls : '') + (p.cut ? ' hh-cut' : ''));
     var frame = el('div', 'hh-shot');
     if (p.w && p.h) { frame.style.aspectRatio = p.w + ' / ' + p.h; }
     var im = el('img');
@@ -387,8 +415,16 @@
       t.appendChild(glyph(TICK, 14));
       t.appendChild(el('span', '', 'Done'));
       w.appendChild(t);
-    } else if (l.optional) {
-      w.appendChild(el('span', 'hh-state', 'Optional'));
+    } else {
+      // The one tip to do next, marked in words and a shape of its own (review 50, problem 346).
+      var nx = nextTip();
+      if (nx && nx.lesson.id === l.id) {
+        var n = el('span', 'hh-state hh-state-next');
+        n.appendChild(glyph('<path d="M5 12h12M12 7l5 5-5 5"/>', 14));
+        n.appendChild(el('span', '', 'Your next tip'));
+        w.appendChild(n);
+      }
+      if (l.optional) { w.appendChild(el('span', 'hh-state', 'Optional')); }
     }
     if (l.connection) { w.appendChild(badge(connBadge(l))); }
     return w;
@@ -411,10 +447,20 @@
   }
   function card(x, from, withStage) {
     var l = x.lesson;
-    var a = k(link(lessonHref(l.id, from), '', 'hh-card' + (isDone(l) ? ' done' : ''), true), 'card-' + l.id);
+    var nx = nextTip();
+    var isNext = !isDone(l) && nx && nx.lesson.id === l.id;
+    var a = k(link(lessonHref(l.id, from), '', 'hh-card' + (isDone(l) ? ' done' : '') + (isNext ? ' next' : ''), true), 'card-' + l.id);
     var seen = already(l.id);
-    a.setAttribute('aria-label', l.title + '. ' + l.outcome + (seen ? ' Already there: ' + seen : ''));
-    a.appendChild(art(l));
+    a.setAttribute('aria-label', (isDone(l) ? 'Done. ' : isNext ? 'Your next tip. ' : '') + l.title + '. ' + l.outcome +
+                   (seen ? ' Already there: ' + seen : ''));
+    var tile = art(l);
+    // A finished tip carries a green tick on its symbol too, so a glance down the list shows it (problem 398).
+    if (isDone(l) && !skipped(l.id)) {
+      var tk = el('span', 'hh-art-tick');
+      tk.appendChild(glyph(TICK, 14));
+      tile.appendChild(tk);
+    }
+    a.appendChild(tile);
     var w = el('span', 'hh-card-words');
     var meta = el('span', 'hh-card-meta');
     meta.appendChild(el('span', 'hh-card-n', withStage ? stageName(x.stage) + ', ' + spot(x).toLowerCase() : spot(x)));
@@ -476,6 +522,56 @@
     return wrap;
   }
 
+  /** Where the person stands, above the stages (review 50, problem 346, Petar: "open up guide at the main page
+      where you see a good overview of what has been completed and what not. Maybe some slightly different
+      indicator telling you what is your next step"): how many tips are done, and the next one, which a press
+      shows in its place on the list, its stage opened, rather than opening it, so the list stays the overview. */
+  function overview() {
+    var list = all();
+    var done = list.filter(function (x) { return isDone(x.lesson); }).length;
+    var box = el('div', 'hh-overview');
+    var top = el('div', 'hh-ov-top');
+    var said = el('p', 'hh-ov-count');
+    said.appendChild(el('b', '', String(done)));
+    said.appendChild(document.createTextNode(' of ' + list.length + ' tips done'));
+    top.appendChild(said);
+    var bar = el('span', 'hh-bar hh-ov-bar');
+    var fill = el('span', 'hh-bar-fill');
+    fill.style.width = (list.length ? Math.round(done * 100 / list.length) : 0) + '%';
+    bar.appendChild(fill);
+    top.appendChild(bar);
+    box.appendChild(top);
+    var nx = nextTip();
+    if (!nx) {
+      box.appendChild(el('p', 'hh-ov-next-words', 'Every tip on the path is done.'));
+      return box;
+    }
+    var b = k(button('', 'hh-ov-next', function () { showTip(nx.lesson.id); }), 'ov-next');
+    b.appendChild(glyph('<path d="M5 12h12M12 7l5 5-5 5"/>', 18));
+    var w = el('span', 'hh-ov-next-w');
+    w.appendChild(el('span', 'hh-ov-next-k', done ? 'Your next tip' : 'Start here'));
+    w.appendChild(el('span', 'hh-ov-next-t', nx.lesson.title));
+    w.appendChild(el('span', 'hh-ov-next-s', stageName(nx.stage)));
+    b.appendChild(w);
+    b.setAttribute('aria-label', (done ? 'Show your next tip on the list: ' : 'Show where to start on the list: ') +
+                   nx.lesson.title + ', ' + stageName(nx.stage));
+    box.appendChild(b);
+    return box;
+  }
+  /** A tip's card on the list, its stage opened, brought into view and focused. */
+  function showTip(id) {
+    var x = find(id);
+    if (!x) { return; }
+    H.find = '';
+    H.stages[x.stage.id] = true;
+    draw();
+    var c = document.querySelector('[data-k="card-' + id + '"]');
+    if (c) {
+      c.scrollIntoView({ block: 'center', behavior: reduced() ? 'auto' : 'smooth' });
+      c.focus({ preventScroll: true });
+    }
+  }
+
   /** The stages' names in one short row: pressing one opens that stage and goes to it (problem 366). */
   function stageJumps() {
     var nav = el('nav', 'hh-jumps');
@@ -490,8 +586,12 @@
         var t = document.querySelector('[data-k="stage-' + stage.id + '"]');
         if (t) { t.focus({ preventScroll: true }); }
       }), 'jump-' + stage.id);
-      b.appendChild(el('span', 'hh-jump-n', String(stage.n)));
+      var jc = stageCounts(stage);
+      var jn = el('span', 'hh-jump-n' + (jc.all && jc.done === jc.all ? ' all' : ''));
+      if (jc.all && jc.done === jc.all) { jn.appendChild(glyph(TICK, 14)); } else { jn.textContent = String(stage.n); }
+      b.appendChild(jn);
       b.appendChild(el('span', '', stage.title));
+      if (jc.all && jc.done === jc.all) { b.setAttribute('aria-label', stage.title + ', every tip done'); }
       nav.appendChild(b);
     });
     return nav;
@@ -522,6 +622,7 @@
       }
       return sec;
     }
+    sec.appendChild(overview());
     sec.appendChild(stageJumps());
     var ol = el('ol', 'hh-stages');
     (content().stages || []).forEach(function (stage) {
@@ -547,12 +648,19 @@
       t.appendChild(tw);
       var meter = el('span', 'hh-stage-meter');
       meter.appendChild(el('span', 'hh-stage-count', sc.done + ' of ' + sc.all + ' done'));
-      if (sc.done) {
-        var bar = el('span', 'hh-bar');
-        var fill = el('span', 'hh-bar-fill');
-        fill.style.width = (sc.all ? Math.round(sc.done * 100 / sc.all) : 0) + '%';
-        bar.appendChild(fill);
-        meter.appendChild(bar);
+      // One mark per tip, in order: a green tick for each done, a ring for the next (review 50, problem 398).
+      var pips = el('span', 'hh-pips');
+      pips.setAttribute('aria-hidden', 'true');
+      var nxt = nextTip();
+      (stage.lessons || []).forEach(function (les) {
+        var d = isDone(les);
+        var pip = el('span', 'hh-pip' + (d ? ' done' : nxt && nxt.lesson.id === les.id ? ' next' : ''));
+        if (d) { pip.appendChild(glyph(TICK, 10)); }
+        pips.appendChild(pip);
+      });
+      meter.appendChild(pips);
+      if (nxt && nxt.stage.id === stage.id && !full) {
+        tw.appendChild(el('span', 'hh-stage-next', 'Your next tip is in this stage'));
       }
       t.appendChild(meter);
       t.appendChild(glyph('<path d="M7 10l5 5 5-5"/>', 18));
@@ -820,7 +928,8 @@
     while (names.length) {
       var best = null;
       names.forEach(function (w) {
-        var m = new RegExp('\\b(' + w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + ')s?\\b', 'i').exec(rest);
+        // A word marked `case` is only itself with its capital: Boxes, the safe, never a message box.
+        var m = new RegExp('\\b(' + w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + ')s?\\b', t[w].case ? '' : 'i').exec(rest);
         if (m && (!best || m.index < best.m.index)) { best = { w: w, m: m }; }
       });
       if (!best) { break; }
@@ -837,6 +946,28 @@
     return out;
   }
   var termSeq = 0;
+  /** The hover of a word of Rouh's own: its name and what it means, in the look of every first-use tip. */
+  var TT = { el: null };
+  function termTip(b, key, def) {
+    if (!TT.el) {
+      TT.el = el('div', 'first-tip hh-termtip');
+      TT.el.setAttribute('role', 'tooltip');
+      TT.el.id = 'hh-termtip';
+      document.body.appendChild(TT.el);
+    }
+    var t = TT.el;
+    t.textContent = '';
+    t.appendChild(el('b', 'first-tip-name', key.charAt(0).toUpperCase() + key.slice(1)));
+    t.appendChild(el('span', 'first-tip-text', def.means));
+    t.hidden = false;
+    var r = b.getBoundingClientRect();
+    var w = t.offsetWidth, h = t.offsetHeight;
+    t.style.left = Math.round(Math.max(8, Math.min(window.innerWidth - w - 8, r.left + r.width / 2 - w / 2))) + 'px';
+    var y = r.top - h - 8;
+    t.style.top = Math.round(y >= 8 ? y : r.bottom + 8) + 'px';
+    b.setAttribute('aria-describedby', 'hh-termtip');
+  }
+  function termTipHide() { if (TT.el) { TT.el.hidden = true; } }
   function termButton(said, key, def) {
     var id = 'hh-term-' + (++termSeq);
     var b = k(button(said, 'hh-term', function () {
@@ -844,7 +975,13 @@
       b.setAttribute('aria-expanded', open ? 'true' : 'false');
       means.hidden = !open;
     }), 'term-' + key.toLowerCase());
-    b.title = def.means;
+    // Its meaning is its hover at a desk (review 50, problem 348: "keep the words, let's have definitions as
+    // hovers"); on a phone a tap opens it under the paragraph, as a press does anywhere.
+    b.addEventListener('pointerenter', function (e) { if (e.pointerType === 'mouse') { termTip(b, key, def); } });
+    b.addEventListener('pointerleave', termTipHide);
+    b.addEventListener('focus', function () { if (b.matches(':focus-visible')) { termTip(b, key, def); } });
+    b.addEventListener('blur', termTipHide);
+    b.addEventListener('click', termTipHide);
     b.setAttribute('aria-expanded', 'false');
     b.setAttribute('aria-controls', id);
     var means = el('p', 'hh-term-means');
@@ -872,10 +1009,10 @@
       said += w ? (n ? ', and knows ' : '. It knows ') + w + ' ' + plural(w, 'word', 'words') + ' of yours. ' : '. ';
       p.appendChild(el('span', '', said));
     }
-    p.appendChild(k(link('/rules?mine=1', 'See your rules', 'hh-link', true), 'remembers'));
+    p.appendChild(k(away('/rules?mine=1', 'See your rules'), 'remembers'));
     if (r && r.words) {
       p.appendChild(el('span', '', ' · '));
-      p.appendChild(k(link('/synapse/vocabulary', 'See your words', 'hh-link', true), 'remembers-words'));
+      p.appendChild(k(away('/synapse/vocabulary', 'See your words'), 'remembers-words'));
     }
     return p;
   }
@@ -899,10 +1036,13 @@
       return wrap;
     }
     var l = x.lesson;
+    wrap.appendChild(readLine(l));
     var top = el('div', 'hh-ltop');
     top.appendChild(back);
     top.appendChild(crumbs(x));
     wrap.appendChild(top);
+    var on = orbNote();
+    if (on) { wrap.appendChild(on); }
     if (l.cover) { wrap.appendChild(picture(l.cover, 'hh-cover', false)); }
     var head = el('header', 'hh-lhead');
     var meta = el('p', 'hh-lmeta');
@@ -920,7 +1060,7 @@
     (l.summary || []).forEach(function (s) { wrap.appendChild(rich('p', 'hh-para', s, l.id, used)); });
     if (l.remembers) { wrap.appendChild(remembers()); }
     if (l.connection) { wrap.appendChild(connectionFacts(l)); }
-    if (l.parts && l.parts.length) { wrap.appendChild(partsList(l)); }
+    if (l.parts && l.parts.length) { wrap.appendChild(partsList(l, used)); }
     if (l.how && l.how.length) {
       var hh = el('h4', 'hh-h2', 'How');
       wrap.appendChild(hh);
@@ -952,8 +1092,7 @@
     }
     if (l.open && l.open.href) {
       var op = el('p', 'hh-open');
-      var oa = k(link(l.open.href, l.open.words || 'Open ' + l.open.label, 'hh-quiet'), 'open');
-      oa.appendChild(glyph(OUT, 16));
+      var oa = k(away(l.open.href, l.open.words || 'Open ' + l.open.label, 'hh-quiet hh-away-btn'), 'open');
       op.appendChild(oa);
       wrap.appendChild(op);
     }
@@ -993,10 +1132,15 @@
     if (H.viaPress && window.history.length > 1) {
       remember();
       H.back = H.lesson;
+      if (x) { H.stages[x.stage.id] = true; }
       window.history.back();
       return;
     }
     if (o.stage) { H.stages[o.stage] = true; }
+    // Back to Your path lands on the list, with this tip's stage open and its card in view (review 50,
+    // problem 397), never on the top of the page.
+    var path = pageWith('path');
+    if (x && path && o.href === '/guide/' + path.id) { H.stages[x.stage.id] = true; }
     H.back = H.lesson;
     go(o.href, false);
   }
@@ -1021,17 +1165,17 @@
     return box;
   }
 
-  function partsList(l) {
+  function partsList(l, used) {
     var ul = el('ul', 'hh-parts');
     l.parts.forEach(function (p, i) {
       var li = el('li', 'hh-part');
       li.appendChild(el('h4', 'hh-h3', p.name));
-      li.appendChild(el('p', 'hh-part-t', p.text));
+      // Rouh's own words in a part are explained where they stand, as in the tip's other words (problem 348).
+      li.appendChild(rich('p', 'hh-part-t', p.text, l.id, used));
       if (p.open) {
         var to = p.open.lesson ? find(p.open.lesson) : null;
-        var a = to ? link(lessonHref(to.lesson.id, 'lesson-' + l.id), to.lesson.title, 'hh-link', true)
-          : p.open.href ? link(p.open.href, 'Open ' + p.open.label, 'hh-link hh-out') : null;
-        if (a && !to) { a.appendChild(glyph(OUT, 14)); }
+        var a = to ? link(lessonHref(to.lesson.id, 'lesson-' + l.id), 'Tip: ' + to.lesson.title, 'hh-away hh-away-tip', true)
+          : p.open.href ? away(p.open.href, 'Open ' + p.open.label) : null;
         if (a) { li.appendChild(k(a, 'part-' + i)); }
       }
       ul.appendChild(li);
@@ -1058,6 +1202,9 @@
     }
     var b = k(button('', on ? 'hh-markdone on' : 'hh-markdone', function () { if (!fixed) { save(l.id, !on); } }), 'markdone');
     b.setAttribute('aria-pressed', on ? 'true' : 'false');
+    // The button is its own message (review 50, problem 405): Mark done becomes Done, in green, and the line
+    // at the top of the tip fills green with it. Pressed again it is not done; its hover says so.
+    if (on && !fixed) { b.title = 'Press again to mark it not done'; }
     if (fixed) { b.setAttribute('aria-disabled', 'true'); b.classList.add('fixed'); }
     var face = el('span', 'hh-markdone-box');
     face.appendChild(glyph(TICK, 16));
@@ -1068,13 +1215,96 @@
     if (seenDone && conn) { why = 'Rouh sees it connected, so it stays done while it is.'; }
     else if (seenDone) { why = 'Rouh saw it: ' + H.data.detected[l.id] + ' Press to mark it not done.'; }
     else if (fixed) { why = 'This tip is done when Rouh sees the connection working. It ticks itself.'; }
-    else if (on) { why = 'Press again to mark it not done.'; }
     else if (already(l.id)) { why = 'Already there: ' + already(l.id) + ' It counts as done once you have tried it yourself.'; }
     if (why) { box.appendChild(el('span', 'hh-done-hint', why)); }
     if (l.optional && !on) {
       box.appendChild(k(button('Not for me', 'hh-quiet hh-small', function () { save(l.id, true, true); }), 'skip'));
     }
     if (H.failed[l.id]) { box.appendChild(el('p', 'hh-failed', H.failed[l.id])); }
+    return box;
+  }
+
+  /* ---- the reading line (review 50, problems 404 and 405) ----
+     Petar: "as you scroll a line increases to show you how far you are from that article ... and as it reaches
+     the end we have there a mark as done." A thin line held at the top of a tip's page fills as the page is
+     read, measured to the tip's own Mark done at its foot. When it reaches the end, Mark done appears at the
+     line's end, so finishing is one press where the eye already is; pressed, it says Done in green, the line
+     turns green, and it stays so whenever the tip is opened again. The Mark done at the foot is the same
+     switch, drawn from the same state. */
+  function readLine(l) {
+    var bar = el('div', 'hh-read');
+    var track = el('div', 'hh-read-track');
+    track.setAttribute('role', 'progressbar');
+    track.setAttribute('aria-label', 'How far through this tip you are');
+    track.setAttribute('aria-valuemin', '0');
+    track.setAttribute('aria-valuemax', '100');
+    track.appendChild(el('div', 'hh-read-fill'));
+    bar.appendChild(track);
+    var seenDone = detected(l.id);
+    var on = seenDone || ticked(l.id);
+    var fixed = (seenDone && /^connection:/.test(l.detect || '')) || (!seenDone && liveOnly(l));
+    if (isDone(l)) { bar.classList.add('is-done'); }
+    if (!skipped(l.id) && !fixed) {
+      var b = k(button('', 'hh-read-done' + (on ? ' on' : ''), function () { save(l.id, !on); }), 'readdone');
+      b.setAttribute('aria-pressed', on ? 'true' : 'false');
+      b.appendChild(glyph(TICK, 16));
+      b.appendChild(el('span', '', on ? 'Done' : 'Mark done'));
+      if (on) { b.title = 'Press again to mark it not done'; }
+      bar.appendChild(b);
+    }
+    return bar;
+  }
+  /** How far the page is read: the bottom of the view against the foot of Mark done. Changes only classes and
+      one width, so it runs on every scroll without drawing the page again. */
+  function reading() {
+    var body = $('handholdingBody');
+    var bar = body && body.querySelector('.hh-read');
+    var end = body && body.querySelector('.hh-done');
+    var art = body && body.querySelector('.hh-lesson');
+    if (!body || !bar || !end || !art) { return; }
+    var b = body.getBoundingClientRect();
+    var start = art.getBoundingClientRect().top;
+    var stop = end.getBoundingClientRect().bottom;
+    var total = stop - start - b.height;
+    var got = total <= 0 ? 1 : Math.max(0, Math.min(1, (b.top - start) / total));
+    if (stop <= b.bottom + 2) { got = 1; }
+    var pct = Math.round(got * 100);
+    var fill = bar.querySelector('.hh-read-fill');
+    if (fill) { /** @type {HTMLElement} */ (fill).style.width = (bar.classList.contains('is-done') ? 100 : pct) + '%'; }
+    var track = bar.querySelector('.hh-read-track');
+    if (track) { track.setAttribute('aria-valuenow', String(bar.classList.contains('is-done') ? 100 : pct)); }
+    bar.classList.toggle('at-end', got >= 0.999);
+  }
+  var readHooked = false;
+  function hookReading() {
+    var body = $('handholdingBody');
+    if (!body || readHooked) { return; }
+    readHooked = true;
+    body.addEventListener('scroll', reading, { passive: true });
+    body.addEventListener('scroll', termTipHide, { passive: true });
+    window.addEventListener('resize', reading);
+    // A picture arriving makes the page longer.
+    body.addEventListener('load', reading, true);
+  }
+
+  /* ---- the orb, which can be slid aside (review 50, problem 347) ----
+     Petar: "we keep the orb where it is and how it behaves. rather we have to let people know they can slide it
+     to the right side when they need." One quiet line at the top of the Guide's pages says so, until the person
+     presses Got it or slides the orb to the right, which is the lesson learned (app/orb.js keeps the side). */
+  var ORB_SIDE = 'rouh.orb.side.v1';
+  var ORB_NOTE = 'rouh.guide.orbnote.v1';
+  function stored(key) { try { return localStorage.getItem(key) || ''; } catch (e) { return ''; } }
+  function orbNote() {
+    if (stored(ORB_SIDE) === 'right' || stored(ORB_NOTE)) { return null; }
+    var box = el('div', 'hh-orbnote');
+    var mark = el('span', 'hh-orbnote-mark');
+    mark.setAttribute('aria-hidden', 'true');
+    box.appendChild(mark);
+    box.appendChild(el('p', 'hh-orbnote-t', 'Is the round button in the corner covering words? Drag it to the right side of the screen. It stays there until you drag it back.'));
+    box.appendChild(k(button('Got it', 'hh-quiet hh-small', function () {
+      try { localStorage.setItem(ORB_NOTE, '1'); } catch (e) { /* this visit only */ }
+      draw();
+    }), 'orbnote'));
     return box;
   }
 

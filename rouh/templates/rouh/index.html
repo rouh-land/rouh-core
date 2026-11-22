@@ -1185,7 +1185,9 @@ with {% asset %}, which gives it its hashed address.
                while the panel is closed: the microphone live, dictation on, and a speaker
                waiting for a press. {% endcomment %}
           <div class="voice-wrap" id="voiceWrap">
-            <button id="voiceMenuBtn" class="tog voice-menu-btn" type="button"
+            <button id="voiceMenuBtn" data-first="voice" data-first-name="Voice"
+                    data-first-tip="Talk to Rouh out loud, have its answers read to you, or dictate a long message. Nothing listens until you turn the microphone on."
+                    class="tog voice-menu-btn" type="button"
                     aria-haspopup="true" aria-expanded="false" aria-controls="voicePop"
                     aria-label="Voice: microphone, voice replies and dictation"
                     title="Voice: microphone, voice replies and dictation">
@@ -1243,7 +1245,9 @@ with {% asset %}, which gives it its hashed address.
                live, as the voice button's does. Anywhere else it opens the file picker, as it always
                did. {% endcomment %}
           <div class="attach-wrap" id="attachWrap">
-          <button id="attachBtn" class="tog attach-btn" type="button"
+          <button id="attachBtn" data-first="attach" data-first-name="Attach"
+                    data-first-tip="Add files, photos or a screenshot to your message."
+                    class="tog attach-btn" type="button"
                   title="Attach files. You can also drop them on the conversation, or paste a screenshot."
                   aria-label="Attach files">
             <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
@@ -1282,7 +1286,9 @@ with {% asset %}, which gives it its hashed address.
                (`#pictureBar`). Asking out loud or in words works as well: the
                model has the same drawing as a tool (`make_picture`). Greyed
                out, saying why, on a server with no provider set up. {% endcomment %}
-          <button id="pictureBtn" class="tog" type="button" aria-pressed="false"
+          <button id="pictureBtn" data-first="picture" data-first-name="Make a picture"
+                    data-first-tip="Describe a picture in the box and send it: Rouh draws it for you."
+                    class="tog" type="button" aria-pressed="false"
                   title="Make a picture: describe it, then send" aria-label="Make a picture">
             <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
               <rect x="3" y="5" width="15" height="14" rx="2.5"/><circle cx="8.5" cy="10" r="1.6"/><path d="M18 15l-4.5-4.5L5 19"/><path d="M20.5 2.5v4M18.5 4.5h4"/>
@@ -1297,7 +1303,9 @@ with {% asset %}, which gives it its hashed address.
                Cheap). Always on the line, as its one word, and the panel says what each
                choice means and which model it is (app/composer_extras.js). {% endcomment %}
           <div class="model-wrap" id="modelWrap">
-            <button id="modelBtn" class="model-btn" type="button" aria-haspopup="true"
+            <button id="modelBtn" data-first="model" data-first-name="Which AI answers"
+                    data-first-tip="Auto lets Rouh choose for each message: a quick model for simple asks, a smarter one for hard ones. Smart always uses the strongest, Cheap the quickest. Press to choose."
+                    class="model-btn" type="button" aria-haspopup="true"
                     aria-expanded="false" aria-controls="modelPop"
                     aria-label="Model for this chat" title="Which model answers in this chat">
               <span class="model-btn-word" id="modelWord">Model</span>
@@ -1318,7 +1326,9 @@ with {% asset %}, which gives it its hashed address.
                one word, as the model's button says Smart or Cheap (Petar, 16 November 2026: "the icon
                for those settings should show current setup. Simple or Full"). {% endcomment %}
           <div class="reading-wrap" id="readingWrap">
-            <button id="readingBtn" class="model-btn reading-btn" type="button" aria-haspopup="dialog"
+            <button id="readingBtn" data-first="options" data-first-name="Chat Options"
+                    data-first-tip="How much of Rouh this chat uses. Full is everything: what Rouh remembers, your rules and its tools. Simple is plain talk with the AI. Press to change it."
+                    class="model-btn reading-btn" type="button" aria-haspopup="dialog"
                     aria-expanded="false" aria-controls="readingPop" aria-label="Chat Options"
                     data-tip="Chat Options: what this chat uses - memory, your rules and tools">
               <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
@@ -1331,7 +1341,9 @@ with {% asset %}, which gives it its hashed address.
                "incognito should be a separate icon"): pressed, a new chat where nothing is kept, with
                Chat Options open on it; pressed again, back to General (rouh/incognito.py,
                app/reading.js). Orange while on, as the whole column is. {% endcomment %}
-          <button id="incogBtn" class="tog incog-btn" type="button" aria-pressed="false" aria-label="Incognito"
+          <button id="incogBtn" data-first="incognito" data-first-name="Incognito"
+                    data-first-tip="A private chat: nothing in it is kept, and it is deleted when you leave it."
+                    class="tog incog-btn" type="button" aria-pressed="false" aria-label="Incognito"
                   data-tip="Incognito: a new chat where nothing is kept, deleted when you leave it">
             <svg viewBox="0 0 24 24" width="17" height="17" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
               <path d="M3 11h18"/><path d="M6.5 11l1.6-5.5h7.8L17.5 11"/><circle cx="7.5" cy="16" r="2.6"/><circle cx="16.5" cy="16" r="2.6"/><path d="M10.1 16h3.8"/>
@@ -1351,7 +1363,9 @@ with {% asset %}, which gives it its hashed address.
                off a Mac), or the same with Shift, is the same press from the
                keyboard. Not drawn in
                a chat with nothing in it yet, where there is nothing to fork. {% endcomment %}
-          <button id="forkBtn" class="tog fork-btn" type="button" hidden disabled
+          <button id="forkBtn" data-first="fork" data-first-name="Fork"
+                    data-first-tip="Ask this in a new side chat, so this conversation stays as it is."
+                    class="tog fork-btn" type="button" hidden disabled
                   aria-label="Fork this chat"
                   aria-keyshortcuts="Meta+Enter Control+Enter Meta+Shift+Enter Control+Shift+Enter">
             {% comment %} Icon only since 18 November 2026 (Petar: "remove the "Fork" letters"); the icon is

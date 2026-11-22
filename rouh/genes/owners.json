@@ -996,6 +996,7 @@
     "rouh/web/handholding.py",
     "rouh/static/handholdingpage.*",
     "rouh/static/handholding/*",
+    "rouh/static/app/firsttips.js",
     "rouh/genes/manifests/handholding.json"
    ]
   },

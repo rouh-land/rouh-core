@@ -1231,10 +1231,18 @@ function paintPaneButton() {
   var label = !open ? (holds ? 'Open the canvas, which has something on it' : 'Open the canvas')
     : borrowed && (CARDS_UP || !layerOpen()) ? 'Put this card back in the conversation'
       : layerOpen() ? 'Show the conversation, and keep this open' : 'Show the conversation';
-  btn.title = label;
+  // While its first-use tip speaks for it (app/firsttips.js), the browser's own waits.
+  if (btn.dataset.firstTitle != null) btn.dataset.firstTitle = label; else btn.title = label;
   btn.setAttribute('aria-label', label);
   btn.setAttribute('aria-expanded', open ? 'true' : 'false');
   btn.classList.toggle('holds', holds);
+  /* What the corner is, in words, while it is new (review 50, problem 298): the two places it switches
+     between, and which one it goes to now. */
+  btn.dataset.first = 'pane-toggle';
+  btn.dataset.firstName = open ? 'Back to the chat' : 'The canvas';
+  btn.dataset.firstTip = open
+    ? 'The speech bubble takes you back to the conversation, where you talk to Rouh. What is open here stays open: the square brings it back.'
+    : 'This square opens the canvas, where Rouh shows pages, tables and pictures. In the canvas the same button becomes a speech bubble that brings you back to the chat.';
 }
 
 // Said again the moment it changes, rather than by every way of putting a

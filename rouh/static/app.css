@@ -11747,6 +11747,17 @@ body.chat-incognito .welcome-name { display: none; }
   padding: 0 4px; white-space: nowrap;
 }
 
+/* First-use tips (app/firsttips.js): what a button is, in words, while it is new to this person. A little
+   larger than a composer tip, with its name on a line of its own, and the accent's edge so it reads as help. */
+.first-tip {
+  position: fixed; z-index: 410; max-width: min(300px, calc(100vw - 16px)); padding: 9px 12px; display: grid; gap: 2px;
+  border-radius: 10px; border: 1px solid color-mix(in srgb, var(--accent) 45%, var(--line)); background: var(--panel-2);
+  box-shadow: var(--shadow); color: var(--text); font-size: 13px; line-height: 1.45; pointer-events: none;
+}
+.first-tip[hidden] { display: none; }
+.first-tip-name { font-weight: 700; font-size: 13px; }
+.first-tip-text { color: var(--text); }
+
 /* The foot of Chat Options: the full list, as a link, and Reset to defaults. */
 .reading-link {
   appearance: none; display: flex; align-items: center; justify-content: space-between; gap: 8px; width: 100%;
