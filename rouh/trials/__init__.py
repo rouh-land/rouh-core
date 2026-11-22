@@ -1456,7 +1456,8 @@ def line_for_model(t: dict) -> str:
              "broken": "could not finish"}.get(t["state"], t["state"])
     when = time.strftime("%Y-%m-%d", time.localtime(t["created_at"]))
     return (f"Trial {t['number']} ({when}): {t['persona_name']} tried {t['job_name'] or t['subject'] or 'a page'}"
-            f"{' (job ' + str(t['job']) + ')' if t.get('job') else ''}, round {t['round']} of "
+            f"{' (journey ' + str(t['job']) + (', job ' + str(t['request']['number']) if t.get('request') else '') + ')' if t.get('job') else ''}"
+            f", round {t['round']} of "
             f"{ROUNDS}, {state}; managed it: {t['managed'] or '-'}; {t['steps']} steps; {t['problems']} problems. "
             f"Goal: {t['goal']}  Page: /evolution/testing/{t['number']}")
 
