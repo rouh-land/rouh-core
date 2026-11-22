@@ -17,7 +17,7 @@ import { sbSet } from 'app/controls.js';
 import { ORB_SOUND, orbSoundArrived, orbSoundSync, wireOrbSound } from 'app/orb_sound.js';
 import { orbUsageOpen, orbUsageShow, orbUsageUp, wireOrbUsage } from 'app/orb_costs.js';
 import { orbPanelOpen, orbPanelPaint, orbPanelShow, wireOrbPanel } from 'app/orb_panel.js';
-import { O3, orb3dCoreAt, orb3dFrame, orb3dKeeps, orb3dPick, orb3dPoints, orb3dRecenter, orb3dStart } from 'app/orb3d.js';
+import { O3, orb3dFrame, orb3dKeeps, orb3dPick, orb3dPoints, orb3dRecenter, orb3dStart } from 'app/orb3d.js';
 
 /* ------------------------------------------------------------------ 7 */
 
@@ -754,7 +754,6 @@ function orbShow2d() {
   O3.on = false;
   if (orb3d) orb3d.style.display = 'none';
   orb.style.display = '';
-  orb.classList.remove('orb-rings-layer');
   var labels = document.querySelector('.orb3d-labels');
   if (labels) labels.remove();
   orbW = 0;
@@ -765,8 +764,7 @@ if (orb3d) {
   orb3dStart(orb3d, { kindOf: kindOf, slowMo: slowMo, host: $('orbBox'), onLost: orbShow2d })
     .then(function (ok) {
       if (!ok) { orbShow2d(); return; }
-      // The flat canvas stays, over the 3D one, as the layer the core's rings are drawn on.
-      orb.classList.add('orb-rings-layer');
+      orb.style.display = 'none';
       orb3d.style.display = '';
       orbW = 0;
       shared.orbSizedAt = -1e9;
@@ -1541,8 +1539,7 @@ function sizeOrb(ts) {
   var ratio = Math.max(0.5, Math.min(window.devicePixelRatio || 1, 2, Math.sqrt(4e6 / (w * h))));
   if (w === orbW && h === orbH && ratio === orbR) return;
   orbW = w; orbH = h; orbR = ratio;
-  // The 3D orb sizes its own canvas; this one is sized all the same, as the core's rings are drawn
-  // on it over the 3D one.
+  if (O3.on) return;            // the 3D orb sizes its own canvas
   orb.width = Math.round(w * ratio);
   orb.height = Math.round(h * ratio);
 }
@@ -1840,20 +1837,11 @@ function paintItem(g, it, pal, under, t) {
 }
 
 // The core: three thin crossing rings turning slowly, and one ring round
-// them breathing, red while anything waits for the person. They are drawn at
-// all times, whatever else is or is not (Petar, 22 November 2026: "the rings
-// ... need to be present always ... even during hamburger icon time"): round
-// the core of the flat orb, over the core of the 3D one (`renderOrb3d`), and,
-// while the circle in the corner is the menu button at rest (`orbRest`),
-// round its three lines, wide enough to go round them and inside the load
-// rings at the circle's edge.
-function drawCore(g, pal, t, cmp, live, waiting, at) {
-  var r = (cmp ? 7 : 15) * (2.15 / 3.15) * 0.5, x = PJ.cx, y = PJ.cy, k, swell = 0.9, base = 1.5;
-  if (at) { x = at.x; y = at.y; r = Math.max(r, at.r); }
-  var rest = ORB_REST === '1' && ORBX.state === 'corner' && !ORBX.anim;
-  if (rest) { r = Math.min(orbW, orbH) * 0.24; base = 1.12; swell = 0.38; }
+// them breathing, red while anything waits for the person.
+function drawCore(g, pal, t, cmp, live, waiting) {
+  var r = (cmp ? 7 : 15) * (2.15 / 3.15) * 0.5, x = PJ.cx, y = PJ.cy, k;
   g.strokeStyle = pal.ink;
-  g.globalAlpha = rest ? 0.6 : 0.5;
+  g.globalAlpha = 0.5;
   g.lineWidth = 1;
   for (k = 0; k < 3; k++) {
     g.beginPath();
@@ -1861,13 +1849,13 @@ function drawCore(g, pal, t, cmp, live, waiting, at) {
     g.stroke();
   }
   var br = 0.5 + 0.5 * Math.sin(t * 1.5);
-  g.globalAlpha = rest ? 0.18 + 0.22 * br : 0.10 + 0.14 * br * (live ? 1 : 0.4);
+  g.globalAlpha = 0.10 + 0.14 * br * (live ? 1 : 0.4);
   g.strokeStyle = waiting ? pal.wait : pal.ink;
-  g.beginPath(); g.arc(x, y, r * (base + br * swell), 0, 6.2831853); g.stroke();
+  g.beginPath(); g.arc(x, y, r * (1.5 + br * 0.9), 0, 6.2831853); g.stroke();
   // Rouh Link: while a partner's Rouh is at work in a live space with this one, a second ring in
   // its own colour, breathing against the first (`link_partner_working`).
   var partner = window.rouhPartnerAtWork;
-  if (partner && partner.on && !rest) {
+  if (partner && partner.on) {
     var pb = 0.5 + 0.5 * Math.sin(t * 1.5 + 3.14159);
     g.globalAlpha = 0.35 + 0.35 * pb;
     g.lineWidth = cmp ? 1.2 : 2;
@@ -1944,14 +1932,6 @@ function renderOrb3d(t, dt) {
   var state = ORBX.anim ? (ORBX.anim.menu ? 'menu' : ORBX.state) : ORBX.state;
   orb3dFrame({ tnow: tnow, t: t, dt: dt, jobs: ORB_JOBS, own: ORB_OWN, self: SELF,
                mode: state === 'open' ? 'open' : state === 'menu' ? 'menu' : 'corner', w: orbW, h: orbH });
-  // The core's rings, over the 3D core, on the flat canvas laid over the 3D one: there at all times.
-  var g = octx, c = orb3dCoreAt();
-  g.setTransform(orbR, 0, 0, orbR, 0, 0);
-  g.clearRect(0, 0, orbW, orbH);
-  // Never so small, as the camera draws back to fit a growing tree, that they stop reading as rings.
-  var small = orbW < 170 || state === 'menu';
-  if (c && c.z < 1) drawCore(g, ORB_PAL, t, small, live, waiting,
-    { x: c.x, y: c.y, r: Math.max(c.r * 1.7, small ? Math.min(orbW, orbH) * 0.1 : 24) });
   pickCount = 0;
   orbRowSay(live, waiting);
 }

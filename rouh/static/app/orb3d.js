@@ -762,18 +762,6 @@ function orb3dPick(clientX, clientY) {
   return toCore < CORE_RADIUS ? 'core' : null;
 }
 
-/* Where the core is on the 3D canvas, in its own CSS pixels, and how big it is drawn there: for the
-   core's three crossing rings and its breathing ring, which the flat canvas draws over this one
-   (`renderOrb3d` in app/orb.js), so they are there in the 3D orb as they were in the flat one. */
-function orb3dCoreAt() {
-  if (!O3.on || !canvas || !PV) return null;
-  var rect = canvas.getBoundingClientRect();
-  if (!rect.width || !rect.height) return null;
-  group.updateMatrixWorld();
-  var c = screenOf(new T.Vector3(), rect);
-  return { x: c.x - rect.left, y: c.y - rect.top, r: coreScreenRadius(rect), z: c.z };
-}
-
 function coreScreenRadius(rect) {
   var a = screenOf(new T.Vector3(), rect), b = screenOf(new T.Vector3(coreRadius, 0, 0).applyMatrix4(new T.Matrix4().copy(group.matrixWorld).invert()), rect);
   return Math.hypot(a.x - b.x, a.y - b.y);
@@ -1178,5 +1166,5 @@ function orb3dDump() {
   return JSON.stringify(prefs, null, 1);
 }
 
-export { O3, orb3dCoreAt, orb3dDump, orb3dFrame, orb3dKeeps, orb3dPanelPaint, orb3dPick, orb3dPoints, orb3dPutBackAll,
+export { O3, orb3dDump, orb3dFrame, orb3dKeeps, orb3dPanelPaint, orb3dPick, orb3dPoints, orb3dPutBackAll,
   orb3dStart, recenter as orb3dRecenter };
