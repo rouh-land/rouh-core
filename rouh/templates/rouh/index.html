@@ -4108,17 +4108,13 @@ with {% asset %}, which gives it its hashed address.
          November 2026: the guided way into Rouh for someone who has never seen it, at `/guide`:
          a path of seven stages of lessons, each lesson a step with its own page at
          `/guide/lesson/<id>`. Every word is `rouh/handholding.json`'s. The root opens it beside
-         General until "Don't show this link" is pressed, kept per person on the server
-         (`handholding.on_start`), and the same control turns it back on. {% endcomment %}
+         General, always (`handholding.on_start`): its "Don't show this link" went on 22 November
+         2026, Petar: "it will always stay there". {% endcomment %}
     <article id="handholdingView" class="canvas-layer settings-view clock-view hh-view" hidden
              tabindex="-1" aria-label="Guide">
       <div class="run-head">
         <div class="run-heading">
           <h3>Guide</h3>
-          <div class="run-meta hh-start-row">
-            <button id="guideStartBtn" class="hh-start" type="button" hidden></button>
-            <span id="guideStartSaid" class="hh-start-said" role="status" aria-live="polite"></span>
-          </div>
         </div>
         <button id="handholdingClose" class="layer-x" type="button"
                 title="Close (Esc)" aria-label="Close and go back to the canvas">&times;</button>

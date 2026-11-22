@@ -8,8 +8,11 @@
    which put words in a chat nobody could find again; pictures in every lesson.
 
    Three pages, from the data file's `pages`:
-   - Your path: Continue (how far, and the current lesson's card), then the eight stages, each
-     opening into its lessons' cards.
+   - Your path: a search over every tip, a row of the stages' names to jump to, then the eight
+     stages, all closed at first, each with the topics inside it in plain words, and each opening
+     into its tips' cards. Lessons are called tips on every page since 22 November 2026 (review 49):
+     a card shows a symbol, not a screenshot, and where it stands in its own stage, never out of
+     every tip there is. There is no card of the tip to carry on with at the top any more.
    - Enabling Rouh: every lesson that is a connection, as the same card with its live badge, and
      the real switches.
    - Pro tips.
@@ -36,7 +39,9 @@
     // Each page's scroll, and the lesson to bring back into view on returning to it.
     scroll: {}, back: '',
     // The feature switches as their own pages read them.
-    feat: {}, featRead: false, tipArea: ''
+    feat: {}, featRead: false, tipArea: '',
+    // What is typed in the path's search box.
+    find: ''
   };
 
   function host() { return window.RouhHandholdingHost || {}; }
@@ -128,6 +133,9 @@
     return null;
   }
   function detected(id) { return !!(H.data && H.data.detected && H.data.detected[id]); }
+  /** What Rouh sees already there for a tip, which the person may not have made: never done by itself. */
+  function already(id) { return (H.data && H.data.already && !isDoneNoAlready(id) && H.data.already[id]) || ''; }
+  function isDoneNoAlready(id) { return detected(id) || skipped(id) || ticked(id); }
   function ticked(id) { return !!(H.data && H.data.progress && H.data.progress[id] > 0); }
   /** An optional lesson the person said is not for them: done, as far as the path is concerned. */
   function skipped(id) { return !!(H.data && H.data.progress && H.data.progress[id] < 0); }
@@ -138,21 +146,6 @@
     return !!(s && s.kind !== 'unknown');
   }
   function isDone(l) { return detected(l.id) || skipped(l.id) || (ticked(l.id) && !liveOnly(l)); }
-  function counts() {
-    var list = all();
-    var done = list.filter(function (x) { return isDone(x.lesson); }).length;
-    return { done: done, all: list.length, pct: list.length ? Math.round(done * 100 / list.length) : 0 };
-  }
-  /** The lesson to carry on with: the first not done; an optional one only once every other is. */
-  function current() {
-    var list = all(), later = null;
-    for (var i = 0; i < list.length; i++) {
-      if (isDone(list[i].lesson)) { continue; }
-      if (!list[i].lesson.optional) { return list[i]; }
-      if (!later) { later = list[i]; }
-    }
-    return later;
-  }
   function stageCounts(stage) {
     var ls = stage.lessons || [];
     return { done: ls.filter(isDone).length, all: ls.length };
@@ -200,7 +193,6 @@
           } else {
             var first = !H.data;
             H.data = j;
-            startPaint();
             if (!H.page && !H.lesson) { H.page = pageDef().id; place(); }
             if (!H.arrived) { arrive(); }
             if (first) { draw(); settle(); return; }
@@ -215,11 +207,9 @@
         draw();
       });
   }
-  /** The first drawing with data: the stage of the current lesson is open. */
+  /** The first drawing with data: every stage closed, a short list of their names (review 49, problem 324). */
   function arrive() {
     H.arrived = true;
-    var c = current();
-    if (c) { H.stages[c.stage.id] = true; }
   }
   function place() { if (host().place) { host().place(H.page, H.lesson, H.from); } }
 
@@ -384,7 +374,7 @@
     if (detected(l.id)) {
       var d = el('span', 'hh-state hh-state-done');
       d.appendChild(glyph(TICK, 14));
-      d.appendChild(el('span', '', 'Detected'));
+      d.appendChild(el('span', '', 'Done'));
       w.appendChild(d);
     } else if (skipped(l.id)) {
       w.appendChild(el('span', 'hh-state', 'Not for me'));
@@ -399,109 +389,142 @@
     if (l.connection) { w.appendChild(badge(connBadge(l))); }
     return w;
   }
-  function card(x, from, big) {
+  /** A tip's symbol: a line drawing on a tile, big enough to read at a card's size (review 49, problem
+      325). The screenshots are inside the tip. */
+  function art(l) {
+    var tile = el('span', 'hh-art');
+    tile.setAttribute('aria-hidden', 'true');
+    var g = (content().glyphs || {})[l.glyph || ''];
+    tile.appendChild(glyph(g || '<circle cx="12" cy="12" r="8"/>', 34));
+    return tile;
+  }
+  /** Where a tip stands in its stage: "Tip 2 of 7". Never out of every tip there is (problem 301). */
+  function spot(x) {
+    var ls = x.stage.lessons || [];
+    var n = 0;
+    for (var i = 0; i < ls.length; i++) { if (ls[i].id === x.lesson.id) { n = i + 1; break; } }
+    return 'Tip ' + n + ' of ' + ls.length;
+  }
+  function card(x, from, withStage) {
     var l = x.lesson;
-    var a = k(link(lessonHref(l.id, from), '', 'hh-card' + (big ? ' hh-card-big' : '') + (isDone(l) ? ' done' : ''), true),
-              (big ? 'cont-' : 'card-') + l.id);
-    a.setAttribute('aria-label', l.title + '. ' + l.outcome);
-    if (l.cover) {
-      var c = picture(l.cover, 'hh-card-cover', false);
-      c.querySelector('img').alt = '';
-      a.appendChild(c);
-    }
+    var a = k(link(lessonHref(l.id, from), '', 'hh-card' + (isDone(l) ? ' done' : ''), true), 'card-' + l.id);
+    var seen = already(l.id);
+    a.setAttribute('aria-label', l.title + '. ' + l.outcome + (seen ? ' Already there: ' + seen : ''));
+    a.appendChild(art(l));
     var w = el('span', 'hh-card-words');
     var meta = el('span', 'hh-card-meta');
-    meta.appendChild(el('span', 'hh-card-n', big ? stageName(x.stage) : 'Lesson ' + (x.i + 1)));
+    meta.appendChild(el('span', 'hh-card-n', withStage ? stageName(x.stage) + ', ' + spot(x).toLowerCase() : spot(x)));
     meta.appendChild(el('span', 'hh-min', l.minutes + ' min'));
     w.appendChild(meta);
     w.appendChild(el('span', 'hh-card-t', l.title));
     w.appendChild(el('span', 'hh-card-o', l.outcome));
-    if (big && l.summary && l.summary[0]) { w.appendChild(el('span', 'hh-card-s', l.summary[0])); }
+    if (detected(l.id)) {
+      // Done because Rouh saw it, said in words: what it saw.
+      w.appendChild(el('span', 'hh-card-why', 'Done: ' + H.data.detected[l.id]));
+    } else if (seen) {
+      w.appendChild(el('span', 'hh-card-why', 'Already there: ' + seen + ' It counts as done once you have tried it yourself.'));
+    }
     var st = stateChips(l);
     if (st.childNodes.length) { w.appendChild(st); }
-    if (big) { w.appendChild(el('span', 'hh-card-go', isDone(l) ? 'Open the lesson' : 'Start this lesson')); }
     a.appendChild(w);
     return a;
   }
 
-  /* ---- Your path: Continue, then the stages ---- */
+  /* ---- Your path: a search, the stages' names to jump to, then the stages, each closed until pressed ---- */
 
-  function ring(pct) {
-    var wrap = el('div', 'hh-ring');
-    wrap.setAttribute('role', 'img');
-    wrap.setAttribute('aria-label', pct + ' percent of your path done');
-    var r = 52, c = 2 * Math.PI * r;
-    var s = svg('svg', { viewBox: '0 0 120 120', width: '120', height: '120', 'aria-hidden': 'true' });
-    s.appendChild(svg('circle', { cx: '60', cy: '60', r: String(r), class: 'hh-ring-track' }));
-    s.appendChild(svg('circle', { cx: '60', cy: '60', r: String(r), class: 'hh-ring-arc',
-                                  'stroke-dasharray': String(c), 'stroke-dashoffset': String(c * (1 - pct / 100)),
-                                  transform: 'rotate(-90 60 60)' }));
-    wrap.appendChild(s);
-    var mid = el('div', 'hh-ring-mid');
-    mid.appendChild(el('span', 'hh-ring-pct', pct + '%'));
-    mid.appendChild(el('span', 'hh-ring-word', 'done'));
-    wrap.appendChild(mid);
+  /** Every tip whose words have all the words typed, in the order of the path. */
+  function found(q) {
+    var words = q.toLowerCase().split(/\s+/).filter(Boolean);
+    return all().filter(function (x) {
+      var l = x.lesson;
+      var hay = [l.title, l.outcome, (l.summary || []).join(' '), x.stage.title, x.stage.topics || '',
+                 (l.says || []).join(' '), (l.parts || []).map(function (p) { return p.name + ' ' + p.text; }).join(' '),
+                 (l.how || []).map(function (h) { return typeof h === 'string' ? h : h.text; }).join(' ')].join(' ').toLowerCase();
+      return words.every(function (w) { return hay.indexOf(w) >= 0; });
+    }).sort(function (a, b) {
+      // A tip whose own title has the words comes before one that only mentions them.
+      var ta = words.every(function (w) { return a.lesson.title.toLowerCase().indexOf(w) >= 0; }) ? 0 : 1;
+      var tb = words.every(function (w) { return b.lesson.title.toLowerCase().indexOf(w) >= 0; }) ? 0 : 1;
+      return ta - tb || a.i - b.i;
+    });
+  }
+
+  function findBox() {
+    var wrap = el('div', 'hh-find');
+    var lab = el('label', 'hh-sr', 'Search the tips');
+    lab.htmlFor = 'hh-find-box';
+    wrap.appendChild(lab);
+    wrap.appendChild(glyph('<circle cx="11" cy="11" r="6.5"/><path d="M16 16l4.5 4.5"/>', 18));
+    var box = k(el('input', 'hh-find-box'), 'find');
+    box.id = 'hh-find-box';
+    box.type = 'search';
+    box.placeholder = 'Search tips: rules, email, 30-06';
+    box.autocomplete = 'off';
+    box.value = H.find;
+    box.addEventListener('input', function () {
+      var at = box.selectionStart;
+      H.find = box.value;
+      draw();
+      var again = $('hh-find-box');
+      if (again) { again.focus({ preventScroll: true }); try { again.setSelectionRange(at, at); } catch (e) { /* a search box may refuse */ } }
+    });
+    wrap.appendChild(box);
     return wrap;
   }
 
-  function continueView() {
-    var c = counts(), x = current();
-    var sec = el('section', 'hh-sec hh-continue');
-    sec.setAttribute('aria-labelledby', 'hh-cont-h');
-    var head = el('div', 'hh-cont-head');
-    head.appendChild(ring(c.pct));
-    var words = el('div', 'hh-cont-words');
-    var h = k(el('h3', 'hh-h1', !x ? 'You have done every lesson' : !c.done ? 'Start here' : 'Carry on where you left off'), 'h-cont');
-    h.id = 'hh-cont-h';
-    h.setAttribute('tabindex', '-1');
-    words.appendChild(h);
-    var hero = content().hero || {};
-    words.appendChild(el('p', 'hh-lede', !c.done ? (hero.fresh || '') : !x ? (hero.done || '') : doneLine(c)));
-    head.appendChild(words);
-    sec.appendChild(head);
-    if (x) {
-      sec.appendChild(card(x, 'path', true));
-    } else {
-      var tips = pageWith('tips');
-      if (tips) {
-        var row = el('div', 'hh-acts');
-        row.appendChild(k(link('/guide/' + tips.id, tips.name, 'hh-main', true), 'to-tips'));
-        sec.appendChild(row);
-      }
-    }
-    return sec;
-  }
-  function doneLine(c) {
-    var left = all().filter(function (x) { return skipped(x.lesson.id) && !detected(x.lesson.id); }).length;
-    return c.done + ' of ' + c.all + ' lessons done' + (left ? ', ' + left + ' of them left out as not for you' : '') + '.';
-  }
-
-  function hereMarker(y) {
-    var m = el('div', 'hh-here');
-    m.appendChild(el('span', 'hh-card-n', 'Lesson ' + (y.i + 1) + ', you are here'));
-    m.appendChild(el('span', 'hh-card-t', y.lesson.title));
-    var up = k(button('', 'hh-quiet hh-small', function () {
-      var c = document.querySelector('[data-k="cont-' + y.lesson.id + '"]');
-      if (c) { c.scrollIntoView({ block: 'start', behavior: reduced() ? 'auto' : 'smooth' }); c.focus({ preventScroll: true }); }
-    }), 'here-' + y.lesson.id);
-    up.appendChild(glyph('<path d="M12 19V5M6 11l6-6 6 6"/>', 16));
-    up.appendChild(el('span', '', 'Its card is at the top'));
-    m.appendChild(up);
-    return m;
+  /** The stages' names in one short row: pressing one opens that stage and goes to it (problem 366). */
+  function stageJumps() {
+    var nav = el('nav', 'hh-jumps');
+    nav.setAttribute('aria-label', 'Go to a stage');
+    (content().stages || []).forEach(function (stage) {
+      var b = k(button('', 'hh-jump', function () {
+        H.find = '';
+        H.stages[stage.id] = true;
+        draw();
+        var li = $('hh-stage-' + stage.id);
+        if (li) { li.scrollIntoView({ block: 'start', behavior: reduced() ? 'auto' : 'smooth' }); }
+        var t = document.querySelector('[data-k="stage-' + stage.id + '"]');
+        if (t) { t.focus({ preventScroll: true }); }
+      }), 'jump-' + stage.id);
+      b.appendChild(el('span', 'hh-jump-n', String(stage.n)));
+      b.appendChild(el('span', '', stage.title));
+      nav.appendChild(b);
+    });
+    return nav;
   }
 
   function pathView(def) {
     var sec = el('section', 'hh-sec hh-path');
     sec.id = 'hh-path';
     sec.setAttribute('aria-labelledby', 'hh-path-h');
-    heading(sec, 'hh-path-h', def, 'Your path', !!pageWith('continue'));
+    heading(sec, 'hh-path-h', def, 'Your path');
+    sec.appendChild(findBox());
+    var q = H.find.trim();
+    if (q) {
+      var got = found(q);
+      var said = el('p', 'hh-count', got.length ? got.length + ' ' + plural(got.length, 'tip', 'tips') + ' with “' + q + '”'
+        : 'No tip has “' + q + '”. Try another word, such as rules, email or task.');
+      said.setAttribute('aria-live', 'polite');
+      sec.appendChild(said);
+      var ul = el('ul', 'hh-cards');
+      got.forEach(function (y) {
+        var item = el('li');
+        item.appendChild(card(y, 'path', true));
+        ul.appendChild(item);
+      });
+      sec.appendChild(ul);
+      if (!got.length) {
+        sec.appendChild(k(button('Clear the search', 'hh-quiet', function () { H.find = ''; draw(); }), 'find-clear'));
+      }
+      return sec;
+    }
+    sec.appendChild(stageJumps());
     var ol = el('ol', 'hh-stages');
-    var x = current();
     (content().stages || []).forEach(function (stage) {
       var sc = stageCounts(stage);
       var open = !!H.stages[stage.id];
       var full = sc.done === sc.all && sc.all;
-      var li = el('li', 'hh-stage' + (open ? ' open' : '') + (full ? ' all' : '') + (x && x.stage.id === stage.id ? ' here' : ''));
+      var li = el('li', 'hh-stage' + (open ? ' open' : '') + (full ? ' all' : ''));
       li.id = 'hh-stage-' + stage.id;
       var mark = el('span', 'hh-mark');
       mark.setAttribute('aria-hidden', 'true');
@@ -515,36 +538,36 @@
       var tw = el('span', 'hh-stage-words');
       tw.appendChild(el('span', 'hh-stage-n', 'Stage ' + stage.n));
       tw.appendChild(el('span', 'hh-stage-name', stage.title));
-      tw.appendChild(el('span', 'hh-stage-why', stage.why));
+      // What is inside, in plain words, so the right stage is found without opening each (problem 412).
+      if (stage.topics) { tw.appendChild(el('span', 'hh-stage-topics', stage.topics)); }
       t.appendChild(tw);
       var meter = el('span', 'hh-stage-meter');
-      meter.appendChild(el('span', 'hh-stage-count', sc.done + ' of ' + sc.all));
-      var bar = el('span', 'hh-bar');
-      var fill = el('span', 'hh-bar-fill');
-      fill.style.width = (sc.all ? Math.round(sc.done * 100 / sc.all) : 0) + '%';
-      bar.appendChild(fill);
-      meter.appendChild(bar);
+      meter.appendChild(el('span', 'hh-stage-count', sc.done + ' of ' + sc.all + ' done'));
+      if (sc.done) {
+        var bar = el('span', 'hh-bar');
+        var fill = el('span', 'hh-bar-fill');
+        fill.style.width = (sc.all ? Math.round(sc.done * 100 / sc.all) : 0) + '%';
+        bar.appendChild(fill);
+        meter.appendChild(bar);
+      }
       t.appendChild(meter);
       t.appendChild(glyph('<path d="M7 10l5 5 5-5"/>', 18));
       hd.appendChild(t);
       box.appendChild(hd);
-      var grid = el('ul', 'hh-cards');
-      grid.id = 'hh-stage-body-' + stage.id;
-      grid.hidden = !open;
+      var body = el('div', 'hh-stage-body');
+      body.id = 'hh-stage-body-' + stage.id;
+      body.hidden = !open;
       if (open) {
+        if (stage.why) { body.appendChild(el('p', 'hh-stage-why', stage.why)); }
+        var grid = el('ul', 'hh-cards');
         all().filter(function (y) { return y.stage.id === stage.id; }).forEach(function (y) {
           var item = el('li');
-          // The lesson to carry on with is the card at the top of this page. Here is only where it
-          // stands on the path, pointing up to it: never a second card for the same lesson.
-          if (x && x.lesson.id === y.lesson.id && pageWith('continue') && pageDef().views.indexOf('continue') >= 0) {
-            item.appendChild(hereMarker(y));
-          } else {
-            item.appendChild(card(y, 'path'));
-          }
+          item.appendChild(card(y, 'path'));
           grid.appendChild(item);
         });
+        body.appendChild(grid);
       }
-      box.appendChild(grid);
+      box.appendChild(body);
       li.appendChild(box);
       ol.appendChild(li);
     });
@@ -756,7 +779,7 @@
       var from = t.lesson ? find(t.lesson) : null;
       if (from) {
         var foot = el('p', 'hh-tip-from');
-        foot.appendChild(el('span', '', 'From the lesson '));
+        foot.appendChild(el('span', '', 'From the tip '));
         foot.appendChild(k(link(lessonHref(from.lesson.id, 'tips'), from.lesson.title, 'hh-link', true), 'tip-' + t.id));
         li.appendChild(foot);
       }
@@ -786,8 +809,8 @@
     if (!x) {
       wrap.appendChild(crumbs(null));
       var e = el('div', 'hh-empty');
-      e.appendChild(el('p', 'hh-empty-big', 'There is no such lesson'));
-      e.appendChild(el('p', 'hh-empty-small', 'It may have been renamed. Every lesson is on your path.'));
+      e.appendChild(el('p', 'hh-empty-big', 'There is no such tip'));
+      e.appendChild(el('p', 'hh-empty-small', 'It may have been renamed. Every tip is on your path.'));
       var p = pageWith('path');
       if (p) { e.appendChild(k(link('/guide/' + p.id, 'Open your path', 'hh-quiet'), 'nolesson')); }
       wrap.appendChild(e);
@@ -801,7 +824,7 @@
     if (l.cover) { wrap.appendChild(picture(l.cover, 'hh-cover', false)); }
     var head = el('header', 'hh-lhead');
     var meta = el('p', 'hh-lmeta');
-    meta.appendChild(el('span', '', 'Lesson ' + (x.i + 1) + ' of ' + all().length));
+    meta.appendChild(el('span', '', stageName(x.stage) + ', ' + spot(x).toLowerCase()));
     meta.appendChild(el('span', '', 'About ' + l.minutes + ' ' + plural(l.minutes, 'minute', 'minutes')));
     if (l.optional) { meta.appendChild(el('span', '', 'Optional')); }
     head.appendChild(meta);
@@ -933,7 +956,7 @@
   /** Mark done, on the page itself; or Detected; or done when Rouh sees it connected. */
   function doneBox(l) {
     var box = el('section', 'hh-done' + (isDone(l) ? ' is-done' : ''));
-    box.setAttribute('aria-label', 'Your progress on this lesson');
+    box.setAttribute('aria-label', 'Your progress on this tip');
     if (detected(l.id)) {
       var d = el('p', 'hh-done-words');
       d.appendChild(glyph(TICK, 20));
@@ -943,8 +966,10 @@
       box.appendChild(el('p', 'hh-done-words', 'Not for me: you left this one out.'));
       box.appendChild(k(button('I want this after all', 'hh-quiet', function () { save(l.id, false); }), 'unskip'));
     } else if (liveOnly(l)) {
-      box.appendChild(el('p', 'hh-done-words', 'This lesson is done when Rouh sees the connection working. It ticks itself.'));
+      box.appendChild(el('p', 'hh-done-words', 'This tip is done when Rouh sees the connection working. It ticks itself.'));
     } else {
+      var seen = already(l.id);
+      if (seen) { box.appendChild(el('p', 'hh-done-words', 'Already there: ' + seen + ' It counts as done once you have tried it yourself.')); }
       var on = ticked(l.id);
       var b = k(button('', on ? 'hh-markdone on' : 'hh-markdone', function () { save(l.id, !on); }), 'markdone');
       b.setAttribute('aria-pressed', on ? 'true' : 'false');
@@ -973,13 +998,9 @@
     sec.appendChild(h);
     if (nx) {
       var a = k(link(lessonHref(nx.lesson.id, 'lesson-' + x.lesson.id), '', 'hh-nextcard', true), 'next');
-      if (nx.lesson.cover) {
-        var c = picture(nx.lesson.cover, 'hh-next-cover', false);
-        c.querySelector('img').alt = '';
-        a.appendChild(c);
-      }
+      a.appendChild(art(nx.lesson));
       var w = el('span', 'hh-card-words');
-      w.appendChild(el('span', 'hh-card-n', nx.stage.id !== x.stage.id ? 'New stage: ' + stageName(nx.stage) : 'Lesson ' + (nx.i + 1)));
+      w.appendChild(el('span', 'hh-card-n', nx.stage.id !== x.stage.id ? 'New stage: ' + stageName(nx.stage) : spot(nx)));
       w.appendChild(el('span', 'hh-card-t', nx.lesson.title));
       w.appendChild(el('span', 'hh-card-o', nx.lesson.outcome));
       if (nx.lesson.optional) { w.appendChild(el('span', 'hh-state', 'Optional')); }
@@ -988,7 +1009,7 @@
       sec.appendChild(a);
     } else {
       var end = el('div', 'hh-empty');
-      end.appendChild(el('p', 'hh-empty-big', 'This is the last lesson on the path'));
+      end.appendChild(el('p', 'hh-empty-big', 'This is the last tip on the path'));
       end.appendChild(el('p', 'hh-empty-small', 'Pro tips has the small habits that make Rouh faster.'));
       var tips = pageWith('tips');
       if (tips) { end.appendChild(k(link('/guide/' + tips.id, 'Open Pro tips', 'hh-quiet', true), 'next')); }
@@ -1025,7 +1046,6 @@
   }
 
   var VIEWS = {
-    'continue': continueView,
     path: pathView,
     connections: connectionsView,
     features: featuresView,
@@ -1075,41 +1095,6 @@
     e.stopImmediatePropagation();
     goBack();
   }, true);
-
-  /* "Don't show this link": whether opening Rouh at its root opens the Guide beside General, kept
-     for the person on the server (`handholding.on_start`), so it holds on every device. The same
-     control turns it back on. Petar, 21 November 2026. */
-  function startPaint(said) {
-    var b = $('guideStartBtn'), out = $('guideStartSaid');
-    if (!b || !H.data) { return; }
-    var on = H.data.on_start !== false;
-    b.hidden = false;
-    b.textContent = on ? 'Don\u2019t show this link' : 'Show the guide on start';
-    b.title = on ? 'Stop opening the Guide when you open Rouh. It stays in the navigation.'
-      : 'Open the Guide beside General again whenever you open Rouh.';
-    if (out) { out.textContent = said || ''; }
-  }
-  function startSave() {
-    if (!H.data || H.startBusy) { return; }
-    var want = H.data.on_start === false;
-    H.startBusy = true;
-    fetch('/api/handholding/start', {
-      method: 'POST', credentials: 'same-origin', cache: 'no-store',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ on: want })
-    }).then(function (r) {
-      return r.json().catch(function () { return null; }).then(function (j) {
-        if (!r.ok || !j || typeof j.on_start !== 'boolean') { throw new Error(''); }
-        H.data.on_start = j.on_start;
-        startPaint(j.on_start ? 'The Guide opens again when you open Rouh.'
-          : 'The Guide no longer opens when you open Rouh. It stays in the navigation.');
-      });
-    }).catch(function () {
-      startPaint('That could not be saved. Check the connection and try again.');
-    }).then(function () { H.startBusy = false; });
-  }
-  var sb = $('guideStartBtn');
-  if (sb) { sb.addEventListener('click', startSave); }
 
   window.RouhHandholding = { shown: shown, hidden: hidden, reload: load };
 

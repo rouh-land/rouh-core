@@ -654,6 +654,11 @@ button { font: inherit; color: inherit; }
   background: var(--void);
 }
 .orb-layer[data-orb="open"] .orb-box { pointer-events: auto; background: var(--void); }
+/* The word Menu on the circle, while it is new and it is the menu button (`orbIntroWord`). */
+.orb-intro-word {
+  position: absolute; left: 0; right: 0; bottom: 16%; text-align: center; pointer-events: none;
+  font: 600 9px/1 var(--mono); letter-spacing: 0.12em; text-transform: uppercase; color: var(--orb-ink);
+}
 
 /* ---------- how busy the machine is, round the circle in the corner ----------
    An arc from twelve o'clock, clockwise, as long a share of the circle as the
@@ -4581,7 +4586,7 @@ button.rule-tag:focus-visible { outline: 2px solid var(--r-accent); outline-offs
 .rules-pop-row .rules-nav-count { margin-top: 4px; color: var(--r-muted); }
 
 /* The rules, in topics. */
-.rules-scroll { flex: 1 1 0; min-height: 0; overflow: auto; padding: 0 24px 24px; scrollbar-width: thin; max-width: none; }
+.rules-scroll { flex: 1 1 0; min-height: 0; overflow: auto; padding: 0 24px 112px; scrollbar-width: thin; max-width: none; }
 .rules-scroll > .settings-say { margin: 12px 0 0; }
 #memoryBody { container: rulelist / inline-size; display: block; }
 #memoryBody > .memory-card, #memoryBody > .rules-adding { margin-top: 16px; }
@@ -4599,6 +4604,38 @@ button.rule-tag:focus-visible { outline: 2px solid var(--r-accent); outline-offs
 .rules-topic .rules-group-said { margin: 10px 0 0; }
 .rules-topic .rules-list { padding: 0; margin: 0; gap: 0; }
 .rules-topic .rules-list > .settings-note { padding: 14px 0; }
+/* A topic shown alone on a phone: its name is already on the topic button above, so its head keeps only its
+   count and its (i), the name kept for a screen reader (review 49, problem 422). */
+.rules-topic-alone .rules-topic-head { padding-top: 10px; }
+.rules-topic-alone .rules-topic-head > .rules-nav-count { display: none; }
+.rules-topic-alone .rules-topic-sec, .rules-topic-alone .rules-topic-title {
+  position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap;
+}
+/* An (i) whose words are shown is a cross that closes them (problem 425). */
+.tc-info.rules-group-info.is-open { font: 600 16px/1 system-ui, sans-serif; }
+/* All rules or My rules, over the rules (problem 417). */
+.rules-mine { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 14px 0 4px; }
+.rules-mine-btn {
+  display: inline-flex; align-items: center; gap: 8px; min-height: 36px; padding: 0 14px; border-radius: 18px;
+  border: 1px solid var(--r-ctl); background: none; color: var(--r-second); font: inherit; font-size: 14px; cursor: pointer;
+}
+.rules-mine-btn:hover { color: var(--r-text); border-color: var(--r-muted); }
+.rules-mine-btn.on { background: var(--r-active); border-color: var(--r-accent); color: var(--r-text); font-weight: 600; }
+.rules-mine-btn:focus-visible { outline: 2px solid var(--r-accent); outline-offset: 2px; }
+.rules-mine-none { flex-basis: 100%; margin: 4px 0 0; font-size: 13.5px; color: var(--r-muted); }
+/* The rules Rouh came with, in each topic, under a heading closed until pressed. */
+.rules-builtin-head {
+  display: flex; align-items: center; gap: 10px; width: 100%; min-height: 48px; padding: 12px 0; text-align: left;
+  border: 0; border-bottom: 1px solid var(--r-line); background: none; color: var(--r-text); font: inherit; cursor: pointer;
+}
+.rules-builtin-words { display: grid; gap: 2px; flex: 1 1 auto; min-width: 0; }
+.rules-builtin-name { font-size: 14.5px; font-weight: 600; }
+.rules-builtin-line { font-size: 12.5px; color: var(--r-muted); }
+.rules-builtin-head svg { width: 16px; height: 16px; color: var(--r-muted); transition: transform 0.15s ease; }
+.rules-builtin-head[aria-expanded="true"] svg { transform: rotate(180deg); }
+.rules-builtin-head:hover .rules-builtin-name { color: #fff; }
+.rules-builtin-head:focus-visible { outline: 2px solid var(--r-accent); outline-offset: 2px; border-radius: 4px; }
+.rules-topic .rules-builtin-list { padding-left: 0; }
 
 /* One rule: its words, then a line of its tags, its date and its conditions; its switches and its ⋯ beside. */
 .rule-row {
@@ -4636,6 +4673,8 @@ button.rule-tag:focus-visible { outline: 2px solid var(--r-accent); outline-offs
 .rule-why svg { flex: 0 0 auto; margin-top: 2px; }
 .rule-full { display: grid; gap: 6px; min-width: 0; font-size: 14px; color: var(--r-list); }
 .rule-acts { display: flex; align-items: flex-start; gap: 8px; }
+.rule-sides-wrap { display: grid; gap: 4px; justify-items: start; }
+.rule-sides-label { font-size: 12px; color: var(--r-muted); }
 .rule-confirm { grid-column: 1 / -1; }
 .rule-confirm .setting-actions { margin-left: 0; }
 .rule-row > .rule-history { grid-column: 1 / -1; }
@@ -4691,7 +4730,7 @@ button.rule-tag:focus-visible { outline: 2px solid var(--r-accent); outline-offs
   .rules-filters { display: none; }
   .rules-controls { display: grid; gap: 10px; padding: 0 16px 12px; border-bottom: 1px solid var(--r-line); }
   .rules-aside .rules-controls { border-bottom: 0; }
-  .rules-scroll { padding: 0 16px 24px; }
+  .rules-scroll { padding: 0 16px 112px; }
   .rule-title { font-size: 16px; line-height: 1.45; }
   .rule-sides .gt-switch.rule-side { height: 44px; padding: 0 14px; border-radius: 22px; font-size: 14px; gap: 8px; }
   .rule-acts .rule-more { width: 44px; height: 44px; }

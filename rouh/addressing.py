@@ -264,8 +264,8 @@ ACTIONS = "/actions"
 #: a section of its own: its sub-pages at `/guide/<page>` (the data file's `pages`), and every
 #: lesson's own page at `/guide/lesson/<id>`. Since 20 November 2026, called Handholding at
 #: `/handholding` until 21 November 2026, when Petar renamed it the Guide; every old address is sent
-#: on to the same place under `/guide`. The root, `/`, opens it beside General until the person
-#: says "Don't show this link" on it (`handholding.on_start`).
+#: on to the same place under `/guide`. The root, `/`, opens it beside General, always
+#: (`handholding.on_start`; its "Don't show this link" went on 22 November 2026).
 GUIDE = "/guide"
 HANDHOLDING = "/handholding"
 #: Receipts (`rouh/receipts.py`): every receipt and invoice in the person's mail, by month,

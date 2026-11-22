@@ -1052,19 +1052,17 @@ def page_rows(ds: dict, org_id: str = "") -> list[dict]:
 # each clause what `reach`, `in_chat`, `prompt_parts` and `run_block` do. Every rule's own "Conditions:" line
 # says the same for that rule (`conditions`).
 _INCLUDED = (
-    ("always", "a rule with no condition is added to every chat Rouh has, typed, spoken, by Telegram, mail, Slack, "
-               "Clockwork or the heartbeat, and to every agent it starts, while its Chat and Agent switches are on"),
-    ("chats", "a rule kept to chats, its Agent switch off, is added to every chat Rouh has, never to an agent"),
-    ("situational", "a rule with a condition, such as a tool, is added only to chats where that condition holds"),
-    ("text", "a rule for written replies is added only when Rouh answers in writing"),
-    ("voice", "a rule for spoken replies is added only when Rouh answers out loud"),
-    ("runs", "a rule kept to agents, its Chat switch off, is added only to the agents Rouh starts, never to a "
-             "chat"),
-    ("person", "a rule for a person is added only when that person is named in the conversation, the mail or "
-               "a job's instructions"),
-    ("place", "a rule for a task or project is added only in its own chats and in jobs that work on it or name "
-              "it"),
-    ("synapse", "a rule Synapse attached is added only when a search of your memory finds what it is about"),
+    # In plain words (review 49, problem 423): no "condition", "Clockwork", "heartbeat" or "agent".
+    ("always", "Rouh follows these in every conversation with you, and in the work it does for you in the "
+               "background"),
+    ("chats", "some are followed only in your conversations, not in background work"),
+    ("situational", "some are followed only at the moments they name, such as when Rouh uses a certain tool"),
+    ("text", "some are followed only when Rouh writes its answer"),
+    ("voice", "some are followed only when Rouh speaks its answer out loud"),
+    ("runs", "some are followed only in the work Rouh does for you in the background"),
+    ("person", "some are followed only when the person they are about comes up"),
+    ("place", "some are followed only while you work on the task or project they are for"),
+    ("synapse", "some are followed only when what they are about comes up in Rouh's memory"),
 )
 
 
@@ -1091,10 +1089,16 @@ def _included_kind(row: dict) -> str:
 def included_said(rows: list[dict]) -> str:
     """When the rules of one group are told to a model, as one sentence, from the kinds of rule it holds; a
     group with none says what a rule added to it would be."""
-    have = {_included_kind(r) for r in rows} or {"always"}
+    if not rows:
+        return ("There are no rules here yet, because nobody has given Rouh one about this. "
+                "A rule you add here is followed in every conversation with you.")
+    have = {_included_kind(r) for r in rows}
     clauses = [said for kind, said in _INCLUDED if kind in have]
-    text = "; ".join(clauses)
-    return text[:1].upper() + text[1:] + "."
+    if "always" not in have and len(clauses) == 1:
+        clauses[0] = "these are " + clauses[0][len("some are "):]
+    elif "always" not in have:
+        clauses.insert(0, "Rouh follows these rules only at certain times")
+    return ". ".join(c[:1].upper() + c[1:] for c in clauses) + "."
 
 
 # --- notes ------------------------------------------------------------------------------------

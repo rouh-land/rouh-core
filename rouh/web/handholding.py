@@ -6,8 +6,6 @@
     POST /api/handholding/progress   {step, done, skip?}: tick a step, or take the tick off; skip marks
                                      an optional step not for this person; answers the
                                      ticks as they now are, or 400 with the words to show
-    POST /api/handholding/start      {on}: whether `/` opens the Guide for this person ("Don't show
-                                     this link" is off); answers {on_start}
     GET  /guide/<page>         one of the section's sub-pages (the data file's `pages`); a page's
                                      old id (`old_pages`: next, learn) is sent on to the page it is now
     GET  /guide/lesson/<id>    one lesson, its full page; an old id is sent on to the lesson it is now
@@ -53,17 +51,6 @@ async def progress(request: HttpRequest):
     except ValueError as exc:
         return refuse(str(exc), 400)
     return answer({"progress": got}, headers=NO_STORE)
-
-
-@only("POST")
-async def start(request: HttpRequest):
-    from rouh import handholding
-
-    me = await asyncio.to_thread(_signed_in, request)
-    if me is None:
-        return refuse("Sign in first.", 401)
-    got = await asyncio.to_thread(handholding.set_on_start, me, bool(body_of(request).get("on")))
-    return answer({"on_start": got}, headers=NO_STORE)
 
 
 def old_address(request: HttpRequest, rest: str = ""):

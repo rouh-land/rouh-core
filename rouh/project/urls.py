@@ -678,7 +678,6 @@ urlpatterns = [
     # Handholding: the guided way into Rouh (`rouh/web/handholding.py`).
     path("api/handholding", handholding_web.page),
     path("api/handholding/progress", handholding_web.progress),
-    path("api/handholding/start", handholding_web.start),
     # The quests the heartbeat carries (`rouh/web/quests.py`).
     path("api/quests", quests.listing),
     path("api/quests/<int:number>", quests.page),

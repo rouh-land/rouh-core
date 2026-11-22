@@ -1047,8 +1047,8 @@ async def index(request: HttpRequest, rest: str = ""):
     user = await request.auser()
     if await asyncio.to_thread(firstrun.unfinished, user):
         return HttpResponseRedirect(await asyncio.to_thread(firstrun.next_path, user), status=303)
-    # The root opens the Guide beside General, at its own address, until the person said
-    # "Don't show this link" on it (Petar, 21 November 2026; `handholding.on_start`). Only the
+    # The root opens the Guide beside General, at its own address, always: there is no way to
+    # stop seeing it (Petar, 22 November 2026; `handholding.on_start`). Only the
     # bare root: `/?chat=...`, `/?open=...` and the rest are addresses of their own.
     if request.path == "/" and not request.META.get("QUERY_STRING") and await asyncio.to_thread(_guide_on_start, request):
         from rouh import handholding

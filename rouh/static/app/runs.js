@@ -13949,17 +13949,24 @@ var MEMORY = { open: false, data: null, editing: '', confirming: '', busy: false
                drafts: {},
                // The server's refusal of an add or an edit, shown under the box it came from: { at, text }.
                /** @type {{at: string, text: string} | null} */
-               refused: null };
+               refused: null,
+               // Only the person's own rules (`ruleMine`), from the My rules button over the rules.
+               mine: false,
+               // Topics whose Built-in rules are open, by key.
+               /** @type {Object<string, boolean>} */
+               builtin: {}, builtinSaid: false };
 
 // The replies a rule can be kept to (rouh/rules.py MODES); '' is every reply.
 var RULE_MODES = [['', 'Every reply'], ['text', 'Written replies'], ['voice', 'Spoken replies']];
 var RULE_HOMES = [['rule', 'A rule, every conversation'], ['rulefor', 'A rule for a person, task or project'],
                   ['vocabulary', 'Vocabulary in Synapse'], ['note', 'A note in Synapse'], ['drop', 'Drop it']];
 // Where a rule came from (rouh/rules.py ORIGINS), as its flag says it and as the filter offers it.
-var RULE_FROM = { manual: 'Manually added', chat: 'From chat', agents: 'From agents', gene: 'Gene update',
+// "Built in", never "Gene update" (review 49, problem 415): the rules every Rouh comes with.
+var RULE_FROM = { manual: 'Manually added', chat: 'From chat', agents: 'From agents', gene: 'Built in',
                   unknown: 'Origin not known' };
 // Who a rule is for (rouh/rules.py SCOPES), as its tag says it.
-var RULE_SCOPE = { creator: 'Creator only', instances: 'Rouh instances' };
+// In plain words, never "Rouh instances" (review 49, problem 415).
+var RULE_SCOPE = { creator: 'Only yours', instances: 'Shared with every Rouh' };
 // Every label a rule's row carries, under the four questions Petar asked each to answer (30 October 2026,
 // fr_0034ebae3ca2): where it came from (one flag on every rule), who it is for (one tag on every rule), whether
 // a rule for its creator alone could help others (Useful), and where it is told (its two switches). Each has its
@@ -14001,7 +14008,7 @@ var RULE_LABELS = [
     means: 'Work done by Rouh\'s agents led to it: a job\'s report, a scheduled turn, or Synapse reading a note.' },
   { key: 'gene', kind: 'from', name: RULE_FROM.gene, icon: 'gene', color: '#a78bfa',
     has: function (r) { return r.from === 'gene'; },
-    means: 'A gene or mutation from the pool added or changed it, such as the defaults every Rouh starts with.' },
+    means: 'Rouh came with it. It tells Rouh how to work for you; you can change it or turn it off.' },
   { key: 'unknown', kind: 'from', name: RULE_FROM.unknown, icon: 'unknown', color: '#8a90a0', dashed: true,
     has: function (r) { return !RULE_FROM[r.from] || r.from === 'unknown'; },
     means: 'Nothing kept says where it came from, so it is not guessed.' },
@@ -14010,7 +14017,7 @@ var RULE_LABELS = [
     means: 'For you, who made it, alone. It is never published.' },
   { key: 'instances', kind: 'scope', name: RULE_SCOPE.instances, icon: 'globe', color: '#4ade80',
     has: function (r) { return r.scope === 'instances'; },
-    means: 'In the defaults every Rouh installed from now on starts with.' },
+    means: 'Every new Rouh starts with it, not only yours.' },
   // Its two switches (fr_61e683ffbada), kept with /agent-instructions opening ?label=agent.
   { key: 'chat', kind: 'switch', name: 'Chat', icon: 'megaphone', color: '#5cc3f0',
     has: function (r) { return !!r.chat; },
@@ -14070,6 +14077,9 @@ function memoryOpen(group, from) {
     if (narrow()) $('canvasPanel').scrollIntoView({ block: 'start', behavior: 'smooth' });
   }
   memoryDraw();
+  // Picking another topic or tag on the page is not a step to come Back through: Back leaves the Rules page for
+  // where the person came from, such as the Guide (review 49, problem 426).
+  if (was) ADDR.replace = true;
   addrTouch();
   if (was) memoryShowGroup();
 }
@@ -14222,6 +14232,7 @@ function memoryCard(id, title, help) {
 /* Whether a rule has the tags picked: any of one facet's, and every facet with one picked. So From chat and
    From agents is either of them, and From chat and Chat is both. */
 function memoryTagged(r) {
+  if (MEMORY.mine && !ruleMine(r)) return false;
   return RULE_FACETS.every(function (f) {
     var on = RULE_LABELS.filter(function (l) { return l.kind === f.key && MEMORY.tags.indexOf(l.key) >= 0; });
     return !on.length || on.some(function (l) { return l.has(r); });
@@ -14232,12 +14243,18 @@ function memoryTagged(r) {
 function memoryShown(rows) {
   return rows.filter(function (r) {
     if (r.ref === MEMORY.editing) return true;
-    return memoryTagged(r) && memoryHit(r.title + ' ' + r.text + ' ' + ' ' +
+    return memoryTagged(r) && memoryHit(r.title + ' ' + r.text + ' ' + (r.text_shown || '') + ' ' +
       (r['for'] || []).map(function (f) { return f.name; }).join(' '));
   });
 }
 
-function memoryFiltering() { return MEMORY.tags.length > 0 || !!memoryQuery(); }
+function memoryFiltering() { return MEMORY.tags.length > 0 || !!MEMORY.mine || !!memoryQuery(); }
+
+/* A rule the person made: added by hand, or kept from a chat with them. Every other rule Rouh came with or
+   learned for itself (review 49, problem 417). */
+function ruleMine(r) { return r.from === 'manual' || r.from === 'chat'; }
+/* A rule Rouh came with, shown under its own closed heading in each topic. */
+function ruleBuiltIn(r) { return r.from === 'gene'; }
 
 function memoryAside() { return MEMORY.group === 'told' || MEMORY.group === 'agents'; }
 
@@ -14322,12 +14339,14 @@ function memoryDrawn() {
     return;
   }
   if (d.old.length) body.appendChild(memoryOldCard(d.old));
+  body.appendChild(memoryMineBar(d.rows));
   var adding = memoryAdding();
   if (adding) body.appendChild(adding);
   var alone = memoryNarrow() && !!MEMORY.group;
   var filtering = memoryFiltering();
   var shown = memoryShown(d.rows);
   var any = false;
+  MEMORY.builtinSaid = false;
   // Every topic in its section's order (rouh/rule_groups.py), each under a head that stays at the top while its
   // rules go by; on a phone a topic picked is shown alone. Filtered, a topic with none of the rules is left out.
   (d.sections || []).forEach(function (sec) {
@@ -14340,9 +14359,34 @@ function memoryDrawn() {
       body.appendChild(memoryTopic(sec, g, rows));
     });
   });
-  if (!any) body.appendChild(el('p', 'settings-note rules-none', 'No rule matches.'));
+  // With My rules on and none made yet, the line under My rules has said so and how to add one.
+  if (!any && !(MEMORY.mine && !d.rows.some(ruleMine))) body.appendChild(el('p', 'settings-note rules-none', 'No rule matches.'));
   if (scroller) scroller.scrollTop = top;
   memorySpy();
+}
+
+/* My rules (review 49, problem 417): one clear switch over the rules, between every rule and only those the
+   person made, with how many each is. */
+function memoryMineBar(rows) {
+  var mine = rows.filter(ruleMine).length;
+  var bar = el('div', 'rules-mine');
+  bar.setAttribute('role', 'group');
+  bar.setAttribute('aria-label', 'Which rules');
+  [[false, 'All rules', rows.length], [true, 'My rules', mine]].forEach(function (o) {
+    var b = el('button', 'rules-mine-btn' + (MEMORY.mine === o[0] ? ' on' : ''));
+    b.type = 'button';
+    b.setAttribute('aria-pressed', MEMORY.mine === o[0] ? 'true' : 'false');
+    b.setAttribute('data-focus', 'mine:' + (o[0] ? 'mine' : 'all'));
+    b.appendChild(el('span', null, o[1]));
+    b.appendChild(el('span', 'rules-nav-count', String(o[2])));
+    b.addEventListener('click', function () { MEMORY.mine = o[0]; memoryDraw(); });
+    bar.appendChild(b);
+  });
+  if (MEMORY.mine && !mine) {
+    bar.appendChild(el('p', 'settings-note rules-mine-none',
+      'You have not given Rouh a rule yet. Press Add a rule at the top (a + on a phone) to add one, or tell Rouh in a chat, such as "From now on, always answer me in short sentences".'));
+  }
+  return bar;
 }
 
 /* A label as a tag: its icon and its words in its colour, as every place draws it. */
@@ -14802,7 +14846,7 @@ function memorySheetShut() {
 /* One topic: a head that stays at the top while its rules go by - its section, its name, its count and its (i)
    - and its rules. */
 function memoryTopic(sec, g, rows) {
-  var box = el('section', 'rules-topic');
+  var box = el('section', 'rules-topic' + (memoryNarrow() && MEMORY.group === g.key ? ' rules-topic-alone' : ''));
   box.id = 'rulesGroup-' + g.key;
   box.setAttribute('data-key', g.key);
   box.setAttribute('aria-labelledby', 'rulesTopic-' + g.key);
@@ -14819,7 +14863,8 @@ function memoryTopic(sec, g, rows) {
   info.setAttribute('data-group', g.key);
   info.setAttribute('aria-controls', 'rulesGroupInfo-' + g.key);
   info.setAttribute('aria-expanded', MEMORY.info === g.key ? 'true' : 'false');
-  info.setAttribute('aria-label', 'When the rules in ' + g.name + ' are used');
+  info.setAttribute('data-name', g.name);
+  ruleInfoFace(info, MEMORY.info === g.key);
   info.addEventListener('click', function () { memoryInfo(MEMORY.info === g.key ? '' : g.key); });
   head.appendChild(info);
   box.appendChild(head);
@@ -14827,10 +14872,41 @@ function memoryTopic(sec, g, rows) {
   said.id = 'rulesGroupInfo-' + g.key;
   said.hidden = MEMORY.info !== g.key;
   box.appendChild(said);
+  // The person's rules first; the rules Rouh came with under a heading of their own, closed until pressed
+  // (review 49, problem 417).
+  var own = rows.filter(function (r) { return !ruleBuiltIn(r) || r.ref === MEMORY.editing; });
+  var built = rows.filter(function (r) { return ruleBuiltIn(r) && r.ref !== MEMORY.editing; });
   var list = el('ul', 'memory-list rules-list');
-  rows.forEach(function (r) { list.appendChild(ruleRow(r)); });
-  if (!rows.length) list.appendChild(el('li', 'settings-note', memoryFiltering() ? 'Nothing here matches.' : 'Nothing here yet.'));
-  box.appendChild(list);
+  own.forEach(function (r) { list.appendChild(ruleRow(r)); });
+  if (!rows.length) list.appendChild(el('li', 'settings-note', memoryFiltering() ? 'Nothing here matches.'
+    : 'No rules here yet. Press Add a rule at the top (a + on a phone) to add one, or tell Rouh in a chat, starting with From now on.'));
+  if (own.length || !built.length) box.appendChild(list);
+  if (built.length) {
+    var open = !!MEMORY.builtin[g.key] || (!!memoryQuery() && !own.length);
+    var bh = el('button', 'rules-builtin-head');
+    bh.type = 'button';
+    bh.setAttribute('aria-expanded', open ? 'true' : 'false');
+    bh.setAttribute('aria-controls', 'rulesBuiltin-' + g.key);
+    bh.setAttribute('data-focus', 'builtin:' + g.key);
+    var bw = el('span', 'rules-builtin-words');
+    bw.appendChild(el('span', 'rules-builtin-name', 'Built-in rules'));
+    // What built-in means, said once, under the first such heading on the page.
+    if (!MEMORY.builtinSaid) bw.appendChild(el('span', 'rules-builtin-line', 'Rouh came with these. You can change or turn off any of them.'));
+    MEMORY.builtinSaid = true;
+    bh.appendChild(bw);
+    bh.appendChild(el('span', 'rules-nav-count', String(built.length)));
+    bh.appendChild(ruleIcon(RULE_ICONS.down));
+    bh.addEventListener('click', function () {
+      if (open) delete MEMORY.builtin[g.key]; else MEMORY.builtin[g.key] = true;
+      memoryDraw();
+    });
+    box.appendChild(bh);
+    var bl = el('ul', 'memory-list rules-list rules-builtin-list');
+    bl.id = 'rulesBuiltin-' + g.key;
+    bl.hidden = !open;
+    if (open) built.forEach(function (r) { bl.appendChild(ruleRow(r)); });
+    box.appendChild(bl);
+  }
   return box;
 }
 
@@ -14996,7 +15072,8 @@ function memoryGroup(g, rows, how) {
   info.setAttribute('data-group', g.key);
   info.setAttribute('aria-controls', 'rulesGroupInfo-' + g.key);
   info.setAttribute('aria-expanded', MEMORY.info === g.key ? 'true' : 'false');
-  info.setAttribute('aria-label', 'When the rules in ' + g.name + ' are used');
+  info.setAttribute('data-name', g.name);
+  ruleInfoFace(info, MEMORY.info === g.key);
   info.addEventListener('click', function () { memoryInfo(MEMORY.info === g.key ? '' : g.key); });
   h.appendChild(info);
   sec.appendChild(h);
@@ -15015,6 +15092,16 @@ function memoryGroup(g, rows, how) {
   return sec;
 }
 
+/* An (i) shows "i" while its words are hidden and a cross, Close, while they are shown (review 49, problem 425). */
+/** @param {HTMLElement} b @param {boolean} on */
+function ruleInfoFace(b, on) {
+  var name = b.getAttribute('data-name') || '';
+  b.textContent = on ? '\u00d7' : 'i';
+  b.classList.toggle('is-open', on);
+  b.setAttribute('aria-label', on ? 'Close the explanation' : 'What the rules in ' + name + ' are, and when Rouh follows them');
+  b.title = on ? 'Close' : 'What these rules are';
+}
+
 /* Show the sentence behind one group's (i), and put away any other; '' puts them all away. In place, not
    by drawing the page again, so the (i) pressed keeps its focus. */
 function memoryInfo(key) {
@@ -15024,6 +15111,7 @@ function memoryInfo(key) {
   [].slice.call(view.querySelectorAll('.rules-group-info')).forEach(function (b) {
     var on = b.getAttribute('data-group') === key;
     b.setAttribute('aria-expanded', on ? 'true' : 'false');
+    ruleInfoFace(/** @type {HTMLElement} */ (b), on);
     var said = document.getElementById(b.getAttribute('aria-controls') || '');
     if (said) said.hidden = !on;
   });
@@ -15124,11 +15212,17 @@ function ruleSide(r, side) {
 }
 
 function ruleSwitches(r) {
+  var wrap = el('div', 'rule-sides-wrap');
+  var id = 'ruleSidesLabel-' + String(r.ref).replace(/[^a-zA-Z0-9_-]/g, '_');
+  var lab = el('span', 'rule-sides-label', 'Use this rule for:');
+  lab.id = id;
+  wrap.appendChild(lab);
   var box = el('div', 'rule-sides');
   box.setAttribute('role', 'group');
-  box.setAttribute('aria-label', 'Where it is told');
+  box.setAttribute('aria-labelledby', id);
   RULE_SIDES.forEach(function (side) { box.appendChild(ruleSide(r, side)); });
-  return box;
+  wrap.appendChild(box);
+  return wrap;
 }
 
 function ruleFlag(r) {
@@ -15144,7 +15238,7 @@ function ruleFlag(r) {
 }
 
 function ruleTitle(r) {
-  return el('div', 'rule-title', r.title);
+  return el('div', 'rule-title', r.title_shown || r.title);
 }
 
 /* `bare` is the same row without its controls (its switches and its ⋯) and their lines, for What context/rules
@@ -15161,13 +15255,15 @@ function ruleRow(r, bare) {
   if (r.long) {
     var full = el('div', 'rule-full');
     if (r.newer) full.appendChild(el('p', 'settings-note', 'The defaults have newer words for this rule. They are in its history, to put back if you want them.'));
-    full.appendChild(memoryText(r.flow ? ruleFlow(r.text) : r.text, ''));
+    var words = r.text_shown || r.text;
+    full.appendChild(memoryText(r.flow ? ruleFlow(words) : words, ''));
     main.appendChild(full);
   }
   var meta = el('div', 'rule-meta');
   // Where it came from, and who it is for: on every rule, in sight without opening it.
   meta.appendChild(ruleFlag(r));
-  meta.appendChild(ruleTag(ruleLabel(r.scope === 'instances' ? 'instances' : 'creator')));
+  // Who it is for, only when that is more than this Rouh: "Only yours" on every row said nothing.
+  if (r.scope === 'instances') meta.appendChild(ruleTag(ruleLabel('instances')));
   // For its creator alone and could help others: Useful, and the way to make it a rule for every Rouh.
   if (r.useful) {
     meta.appendChild(ruleTag(ruleLabel('useful')));

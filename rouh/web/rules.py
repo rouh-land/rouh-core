@@ -50,7 +50,7 @@ NO_STORE = {"Cache-Control": "no-store"}
 
 
 def _page(me) -> dict:
-    from rouh import agent_instructions, rule_groups, ruledefaults, rules, silos, vocabulary
+    from rouh import agent_instructions, prompting, rule_groups, ruledefaults, rules, silos, vocabulary
 
     ds = rules.master(me.user_id, me.org_id)
     # The person's old words, moved by what each does before the page is drawn without them.
@@ -68,8 +68,47 @@ def _page(me) -> dict:
     # Each group with the sentence its (i) says: when its rules are told to a model (`rules.included_said`).
     groups = [{**g, "included": rules.included_said([r for r in rows if r["group"] == g["key"]])}
               for g in rule_groups.listing()]
+    # What the page shows of a rule holding live values: the values filled in, never `{rouh_name}` (review 49,
+    # problem 415). Its own words, with the marks, are still what Edit opens.
+    values = _shown_values(me)
+    for r in rows:
+        if r.get("values"):
+            r["text_shown"] = prompting.fill(r["text"], values)
+            r["title_shown"] = prompting.fill(r["title"], values)
     return {"rows": rows, "groups": groups, "sections": rule_groups.sections(), "old": rules.old_facts(),
             "master": ds["name"], "silos": [s.chip() for s in silos.of(me.user_id, me.org_id)]}
+
+
+def _shown_values(me) -> dict:
+    """The live values a rule can hold, for the page: this Rouh's name, birthday and address where they are
+    known, and for every other one (a model, a time, a build, known only when a turn is made) its plain words."""
+    from datetime import datetime
+
+    from rouh import birth, clock, prompting
+
+    out = {k: v for k, v in prompting.VALUES.items()}
+    # Read inside a sentence, before the real ones are known: "given your own name, its own name".
+    out.update({"rouh_name": "its own name", "born_day": "its birthday", "rouh_nickname": "its nickname",
+                "name": "the AI model's name", "model": "the AI model", "company": "the AI company"})
+    try:
+        row = birth.current(me.org_id)
+        if row is not None:
+            day = datetime.fromtimestamp(row.born_at, clock.zone())
+            out["rouh_name"], out["born_day"] = row.name, f"{day.day} {day.strftime('%B %Y')}"
+            nick = birth.nickname(me.org_id, me.user_id)
+            if nick:
+                out["rouh_nickname"] = nick
+    except Exception:  # noqa: BLE001 - the plain words stand in
+        log.exception("the Rouh's own name could not be read for the Rules page")
+    try:
+        from rouh.inbox import own
+
+        mine = own()
+        if mine:
+            out["own_mail"] = mine[0]
+    except Exception:  # noqa: BLE001
+        log.exception("Rouh's own address could not be read for the Rules page")
+    return out
 
 
 async def _me(request):

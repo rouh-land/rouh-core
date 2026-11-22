@@ -3101,11 +3101,58 @@ function orbMenu(on, silent) {
   }
 }
 
+/* The orb's first days (review 49, problem 297, Petar: "in the beginning we should show a tooltip that explains
+   about it until the person clicks it about 20, 30 times. then we get the regular hover tips about machine
+   resources"). Until the circle has been pressed ORB_INTRO_UNTIL times in this browser, pointing at it or
+   focusing it says what it is, and where it is the menu button (a phone) it carries the word Menu. After that
+   the rings' own tips about the machine come back. */
+var ORB_INTRO_KEY = 'rouh.orb.presses';
+var ORB_INTRO_UNTIL = 25;
+function orbPresses() {
+  try { return Number(localStorage.getItem(ORB_INTRO_KEY) || 0) || 0; } catch (err) { return 0; }
+}
+function orbIntro() { return orbPresses() < ORB_INTRO_UNTIL; }
+function orbPressed() {
+  var n = orbPresses();
+  if (n >= ORB_INTRO_UNTIL) return;
+  try { localStorage.setItem(ORB_INTRO_KEY, String(n + 1)); } catch (err) { /* this visit only */ }
+  orbOpenSays();
+}
+// The word on the circle while it is new and it is the menu button.
+function orbIntroWord() {
+  var btn = $('orbOpen');
+  if (!btn) return;
+  var word = btn.querySelector('.orb-intro-word');
+  var on = orbIntro() && orbMenuButton();
+  if (on && !word) {
+    word = el('span', 'orb-intro-word', 'Menu');
+    word.setAttribute('aria-hidden', 'true');
+    btn.appendChild(word);
+  } else if (!on && word) {
+    word.remove();
+  }
+}
+function orbIntroTip() {
+  var tip = $('orbTip'), box = $('orbBox');
+  if (!tip || !box) return;
+  tip.innerHTML = '<span class="k">The orb' + (orbMenuButton() ? ', your menu button' : '') + '</span>' +
+    '<span class="l">This circle is the orb: a live picture of everything Rouh is doing. The rings round it ' +
+    'show how busy this machine is.</span>' +
+    '<div class="d">' + (orbMenuButton() ? 'Press it to open the menu, with every part of Rouh.'
+      : 'Press it to see everything running.') + ' The Guide\u2019s first tips explain it.</div>';
+  tip.hidden = false;
+  var s = tipScreen(tip), b = box.getBoundingClientRect(), size = tipSize(tip);
+  var y = b.top - size.h - 8;
+  if (y < s.top + 8) y = b.bottom + 8;
+  tipPut(tip, b.left, y, size, s);
+}
+
 // What the circle is to a screen reader: the menu button wherever the
 // navigation is a drawer, and the way to the orb everywhere else.
 function orbOpenSays() {
   var btn = $('orbOpen');
   if (!btn) return;
+  orbIntroWord();
   if (orbMenuButton()) {
     btn.setAttribute('aria-label', 'Open menu');
     btn.setAttribute('aria-expanded', ORBX.menu ? 'true' : 'false');
@@ -3124,7 +3171,9 @@ function orbCornerTip() {
   var tip = $('orbTip'), box = $('orbBox');
   // On a phone the circle is the menu button, and the row it opens into
   // says what is running in its own words.
-  if (!tip || !box || ORBX.state !== 'corner' || orbMenuButton()) return;
+  if (!tip || !box || ORBX.state !== 'corner') return;
+  if (orbIntro()) { orbIntroTip(); return; }
+  if (orbMenuButton()) return;
   var ms = machineSummary(), waiting = 0, jobs = [];
   for (var i = 0; i < ORDER.length; i++) {
     var n = SCENE[ORDER[i]];
@@ -3275,6 +3324,7 @@ wireOrbPanel();
      circle's: the menu where it is the menu button, the orb elsewhere. */
   btn.addEventListener('pointermove', function (e) {
     if (e.pointerType !== 'mouse' || flick || ORBX.state !== 'corner') return;
+    if (orbIntro()) { orbIntroTip(); return; }
     var key = ringAt(e.clientX, e.clientY);
     if (key && orbRingTip(key)) return;
     if (orbMenuButton()) orbTipHide();
@@ -3282,6 +3332,7 @@ wireOrbPanel();
   });
   btn.addEventListener('click', function (e) {
     letGo();
+    orbPressed();
     if (orbMenuButton()) sbSet(true);
     else orbExpand(true);
   });

@@ -19,7 +19,9 @@ full page at `/guide/lesson/<id>` that ends with the next lesson on the path.
   (`renamed`, the first version's step ids) are read under the new one, and written back that way the
   next time the person ticks anything, so nobody loses progress.
 - **What Rouh can see for itself** is ticked by itself and marked Detected (`detected`): a
-  connection that is live, a first task, a rule of the person's own, a reminder. Each is a small
+  connection that is live, a rule of the person's own, a reminder. What only shows that something
+  exists - a task, a card, a run - is not the person's doing, so it is never a tick: the tip says in
+  words what Rouh sees there (`already`, `ALREADY_THERE`), and it is done when the person ticks it. Each is a small
   read of the database, never a call to a service, and one that cannot be read is simply not
   detected.
 - **A connection's badge** says what `connection_status` says of it (and, for the few it does not
@@ -62,9 +64,6 @@ def content() -> dict:
 ROOT = "/guide"
 #: Where they lived while the section was called Handholding; every address under it is sent on.
 OLD_ROOT = "/handholding"
-#: Whether the root, `/`, opens the Guide, kept per person in `user_settings`: no row is yes, and
-#: `false` is the person's "Don't show this link" (Petar, 21 November 2026).
-ON_START = "guide_on_start"
 #: The word in a lesson's address, which no page may be called.
 LESSON = "lesson"
 
@@ -85,27 +84,10 @@ def lesson_route(lesson: str) -> str:
 
 
 def on_start(who) -> bool:
-    """Whether `/` opens the Guide for this person: yes until they said "Don't show this link"."""
-    from .models import UserSetting
-
-    value = (UserSetting.objects.filter(user_id=str(who.user_id), org_id=str(who.org_id or ""), name=ON_START)
-             .values_list("value", flat=True).first())
-    try:
-        return json.loads(value) is not False if value else True
-    except (TypeError, ValueError):
-        return True
-
-
-def set_on_start(who, on: bool) -> bool:
-    """Keep whether `/` opens the Guide for this person, on the server, so it holds on every device."""
-    from .models import UserSetting
-
-    UserSetting.objects.bulk_create(
-        [UserSetting(user_id=str(who.user_id), org_id=str(who.org_id or ""), name=ON_START,
-                     value=json.dumps(bool(on)), updated_at=time.time())],
-        update_conflicts=True, unique_fields=["user_id", "name"],
-        update_fields=["org_id", "value", "updated_at"])
-    return on_start(who)
+    """Whether `/` opens the Guide for this person: always. Petar, 22 November 2026 (review 49, problem
+    300): "we won't have an option to stop seeing the guide. it will always stay there." Until that day a
+    "Don't show this link" kept a no per person (`guide_on_start` in `user_settings`, now unread)."""
+    return True
 
 
 def lessons(data: dict | None = None) -> list[dict]:
@@ -417,8 +399,24 @@ def page(who) -> dict:
     try:
         from . import lesson_ticks
 
-        lesson_ticks.seen(who, seen)
+        lesson_ticks.seen(who, {k: v for k, v in seen.items() if _detector(k) not in ALREADY_THERE})
     except Exception:  # noqa: BLE001 - a use not counted never stops the page
         log.exception("handholding: the use of lesson_ticks could not be counted")
-    return {"content": content(), "progress": progress(who), "detected": seen, "status": conns,
-            "on_start": on_start(who)}
+    # What Rouh sees already there, which the person may not have made (a task, a card, a run: the
+    # workspace is shared), is not counted as done: the tip says so in words instead, and is done when
+    # the person ticks it (review 49, problem 369).
+    there = {k: v for k, v in seen.items() if _detector(k) in ALREADY_THERE}
+    seen = {k: v for k, v in seen.items() if k not in there}
+    return {"content": content(), "progress": progress(who), "detected": seen, "already": there,
+            "status": conns}
+
+
+#: The detectors that see something that exists, not something this person did: never a tick by themselves.
+ALREADY_THERE = frozenset({"task", "pinned", "goal", "run", "artifact"})
+
+
+def _detector(lesson: str) -> str:
+    for les in lessons():
+        if les.get("id") == lesson:
+            return str(les.get("detect") or "")
+    return ""
