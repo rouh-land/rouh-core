@@ -15,7 +15,7 @@ from .accounts import (DEFAULT_ORG_ID, DEFAULT_ORG_NAME, Handover, Organisation,
                        SignInFailure, User)
 from .evolution import EvolutionSetting, GeneMutation, GeneQuestion, MutationsGene, MutationsGeneEvent
 from .incubator import IncubatorEvent, IncubatorIdea
-from .trials import Trial, TrialJob, TrialNote, TrialProblem, TrialProblemNumber, TrialSighting, TrialStep, TrialTester, TrialWave
+from .trials import Trial, TrialJob, TrialNote, TrialRequest, TrialProblem, TrialProblemNumber, TrialSighting, TrialStep, TrialTester, TrialWave
 from .genelog import (GeneEval, GeneLogCommit, GeneLogEvent, GeneLogGene, GeneMark, GeneUseDaily,
                       PoolMembership)
 from .birth import RouhBirth, RouhNickname
@@ -71,7 +71,7 @@ __all__ = [
     "LeanApplied", "LeanChoice", "LeanState",
     "PermissionGate", "PermissionMode", "PermissionModeFlip", "UnrestrictedAction",
     "IncubatorEvent", "IncubatorIdea",
-    "Trial", "TrialJob", "TrialNote", "TrialProblem", "TrialProblemNumber", "TrialSighting", "TrialStep", "TrialTester", "TrialWave",
+    "Trial", "TrialJob", "TrialNote", "TrialRequest", "TrialProblem", "TrialProblemNumber", "TrialSighting", "TrialStep", "TrialTester", "TrialWave",
     "DemoApproval", "DemoEvent", "DemoState",
     "CapabilityGrant", "CapabilityGrantEvent", "CapabilityUse",
     "AgentInstruction", "AgentInstructionChange", "AgentInstructionGroup", "AgentInstructionIssue",

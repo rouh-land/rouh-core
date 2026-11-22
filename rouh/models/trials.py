@@ -215,8 +215,39 @@ class TrialTester(models.Model):
         constraints = [models.UniqueConstraint(fields=["org_id", "user_id", "key"], name="trial_tester_key_once")]
 
 
+class TrialRequest(models.Model):
+    """A job: one request the person gave, such as "test our guide with 10 journeys" (Petar, 22 November 2026:
+    "JOB -> JOURNEYS (tries) -> ATTEMPTS (runs)"). It holds the words they started it with, and its journeys
+    (`TrialJob`, each one goal a tester is asked to reach) point at it; each journey's attempts are its `Trial` rows.
+    Called a job on every screen; `TrialJob` keeps its old name in the code and is a journey on the screen."""
+
+    id = models.BigAutoField(primary_key=True)
+    org_id = models.TextField()
+    user_id = models.TextField()
+    #: Its number in this person's list, shown as "Job <number>".
+    number = models.IntegerField()
+    #: What it is called, in a few words, such as "Guide: 10 journeys".
+    title = models.TextField()
+    #: The person's own words that started it, as they wrote or said them: the start form's text, or what they
+    #: said in the chat that asked for it. Empty when they are not known (a build's own test, or older data).
+    prompt = models.TextField(blank=True, default="")
+    #: chat (asked for in a conversation), form (the start form), run (a build's own test) or migrated.
+    source = models.TextField(blank=True, default="")
+    #: What ties the journeys of one request together while it is being started: the chat and its words, or the run.
+    key = models.TextField(blank=True, default="")
+    created_at = models.FloatField()
+    updated_at = models.FloatField()
+
+    class Meta:
+        db_table = "trial_requests"
+        constraints = [models.UniqueConstraint(fields=["org_id", "user_id", "number"], name="trial_request_number_once")]
+        indexes = [models.Index(fields=["org_id", "user_id", "key"], name="trial_request_key")]
+
+
 class TrialJob(models.Model):
-    """What is being tested: a goal on a screen or feature, tried again and again, often for one gene."""
+    """A journey: one goal a tester is asked to reach on a screen or feature, tried again and again (its attempts are
+    `Trial` rows). Belongs to the job that asked for it (`request_id`, a `TrialRequest`). Called a job until
+    22 November 2026, which is why the code still names it so."""
 
     id = models.BigAutoField(primary_key=True)
     org_id = models.TextField()
@@ -232,6 +263,8 @@ class TrialJob(models.Model):
     #: The address it begins at, and the gene it belongs to when it is one gene's.
     page = models.TextField(blank=True, default="")
     gene = models.TextField(blank=True, default="")
+    #: The job it belongs to (`TrialRequest`), null only before 22 November 2026's migration placed it.
+    request_id = models.BigIntegerField(null=True, blank=True)
     created_at = models.FloatField()
     updated_at = models.FloatField()
 

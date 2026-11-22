@@ -19,6 +19,7 @@ from __future__ import annotations
 
 import asyncio
 import contextlib
+import hashlib
 import json
 import logging
 import os
@@ -2146,7 +2147,9 @@ class ToolRegistry:
         self._own(
             "trials",
             "Run usability trials, where a made-up tester tries a page of Rouh on a phone, and read and keep what "
-            "they found. Every try belongs to a job (what is being tested, such as signing in for the first time); "
+            "they found. A job is one request the owner gave (\"test the guide with 10 journeys\"), kept with their own "
+            "words; it holds journeys, each one goal a tester is asked to reach (such as signing in for the first time); "
+            "and each journey holds its attempts (tries), one tester going through it. "
             "problems from every try and the owner's own confusions build up on one list, in Evolution, Trials, "
             "where the owner discusses each and decides what happens to it. "
             "A try has two modes. Automatic: the tests a feature build runs by itself, fixed by its builder within "
@@ -2155,9 +2158,11 @@ class ToolRegistry:
             "and suggestions for them to read and discuss, and nothing is fixed from it until they choose. "
             "run (always a review): start one only when the owner asks for someone to test something: page (an address in Rouh, a URL, or gene, "
             "whose page it opens) and goal, one sentence as the tester would put it, never how it was built, and job, "
-            "what is being tested in a few words; or job_number to try a job again. It answers with the try's number; "
-            "its result comes back when its run finishes. jobs and job: what is being tested, and one job with its "
-            "tries and who did each. list and read: the tries, and one with every step, the answers to What is this? "
+            "the journey's name in a few words; or job_number to try a journey again. Every run called after the "
+            "same words of the owner's is one job: give request_title, the whole request in a few words, the same on "
+            "each. It answers with the try's number; "
+            "its result comes back when its run finishes. jobs and job: the journeys, each with its job, and one "
+            "journey with its attempts and who did each. list and read: the tries, and one with every step, the answers to What is this? "
             "What do I do here? What happens when I do it?, and its ending. problems and problem: the list (status "
             "open, decided, fixed, set_aside or all; persona, job_number, screen, source owner or persona, days "
             "narrow it), and one with every time it was seen, its discussion and the owner's decision. record: put a "
@@ -2179,7 +2184,7 @@ class ToolRegistry:
             "change, so resume puts everything back as it was. A build that meets a pause skips its trial, which "
             "is not a failure. personas says who is paused. fix_chosen (number: a review's try): start one "
             "run that fixes the problems the owner chose from that review (decided, with how), only on their own "
-            "words; nothing else from it is touched. Link a job as /evolution/testing/job/<n>, a try "
+            "words; nothing else from it is touched. Link a journey as /evolution/testing/journey/<n>, a try "
             "as /evolution/testing/<n>, a problem as /evolution/testing/problem/<n>, a tester as "
             "/evolution/testing/tester/<name>, and the lists as /evolution/testing/problems and /evolution/testing/testers.",
             {"type": "object", "properties": {
@@ -2189,7 +2194,7 @@ class ToolRegistry:
                                                       "fix_chosen", "pause", "resume"]},
                 "number": {"type": "integer", "description": "For read, problem, sighting, reopen and decide: the try's "
                                                              "or problem's number."},
-                "job_number": {"type": "integer", "description": "For job, run and problems: the job's number."},
+                "job_number": {"type": "integer", "description": "For job, run and problems: the journey's number."},
                 "persona": {"type": "string", "description": "A tester's first name, such as vesela or boris. For "
                                                              "pause and resume, leave it out for all testing."},
                 "days": {"type": "integer", "description": "For list and problems: only the last this many days."},
@@ -2205,8 +2210,11 @@ class ToolRegistry:
                 "goal": {"type": "string", "description": "For run: what the tester wants to do there, in one "
                                                           "sentence, as they would put it: \"You want to see what "
                                                           "Rouh did for you yesterday.\""},
-                "job": {"type": "string", "description": "For run: what is being tested, in a few plain words, which "
-                                                         "names its job."},
+                "job": {"type": "string", "description": "For run: the journey being tested, in a few plain words, "
+                                                         "which names it."},
+                "request_title": {"type": "string", "description": "For run: the job, the owner's whole request in a "
+                                                                   "few words (\"Guide: first-time journeys\"), the "
+                                                                   "same for every journey it asks for."},
                 "what": {"type": "string", "description": "For record: the problem in one short line."},
                 "quote": {"type": "string", "description": "For record and sighting: the words, exactly as said."},
                 "how_bad": {"type": "string", "enum": ["blocked", "confused", "annoyed", "minor"]},
@@ -13167,11 +13175,21 @@ class ToolRegistry:
                     reason=str(args.get("reason") or "")))
                 return "Saved: " + _trials.problem_line(p)
             if action == "run":
+                # One request is one job, however many journeys it asks for (Petar, 22 November 2026): every run
+                # called in this chat after the same words of the person's goes into the same job, which keeps
+                # those words as its prompt.
+                chat = _turns_chat()
+                said = (await asyncio.to_thread(_his_own_words, chat, most=40)) if chat else []
+                words = said[0] if said else ""
+                request = {"source": "chat", "prompt": words, "title": str(args.get("request_title") or ""),
+                           "key": ("chat:" + chat + ":" + hashlib.sha256(words.encode()).hexdigest()[:16]) if chat and words else ""}
                 got = await _trials.run_by_hand(who, persona_id=persona, goal=str(args.get("goal") or ""),
                                                 page=str(args.get("page") or ""),
                                                 subject=str(args.get("job") or args.get("subject") or ""),
-                                                gene=str(args.get("gene") or ""), job_no=job_no)
-                return (got["said"] + f" It is review {got['number']} of job {got.get('job')}: /evolution/testing/{got['number']}. "
+                                                gene=str(args.get("gene") or ""), job_no=job_no, request=request)
+                r = got.get("request") or {}
+                return (got["said"] + f" It is review {got['number']} of journey {got.get('job')}"
+                        + (f", in job {r.get('number')} ({r.get('title')})" if r else "") + f": /evolution/testing/{got['number']}. "
                         "Its result comes back when its run finishes; then tell the owner what was found, and fix "
                         "nothing until they choose what.")
             if action == "record":

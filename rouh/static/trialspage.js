@@ -122,6 +122,8 @@
     return m < 1 ? 'under a minute' : m === 1 ? '1 minute' : m + ' minutes';
   }
   function minShort(s) { var m = Math.round((s || 0) / 60); return m < 1 ? '<1 min' : m + ' min'; }
+  /* An address that may break only after a slash, never inside a word. */
+  function slashBreaks(path) { return String(path).replace(/\//g, '/\u200b').replace(/^\/\u200b/, '/'); }
   function plural(n, one, many) { return n + ' ' + (n === 1 ? one : (many || one + 's')); }
   function chip(text, tone) { return el('span', 'tr-chip tr-tone-' + tone, text); }
   function result(state, t) {
@@ -131,7 +133,6 @@
   /* How many different problems a try found: the same unit as "not fixed". */
   function foundN(t) { return t.found_n != null ? t.found_n : (t.problems || 0); }
   function upper(text) { text = String(text || ''); return text.charAt(0).toUpperCase() + text.slice(1); }
-  function first(name) { return String(name || '').split(/\s+/)[0]; }
   /* Which try it is. A review has no rounds: nothing is fixed between its tries until the owner chooses. */
   function tryName(n, mode) {
     if (mode === 'review') { return 'Review you asked for'; }
@@ -408,7 +409,8 @@
     var s = S.sub, m;
     if (!s) { return { page: 'jobs' }; }
     if (/^\d+$/.test(s)) { return { page: 'try', n: s }; }
-    if ((m = /^job\/(\d+)$/.exec(s))) { return { page: 'job', n: m[1] }; }
+    // A journey; /job/<n> was its address while journeys were called jobs, and still opens it.
+    if ((m = /^(?:job|journey)\/(\d+)$/.exec(s))) { return { page: 'job', n: m[1] }; }
     if ((m = /^problem\/(\d+)$/.exec(s))) { return { page: 'problem', n: m[1] }; }
     if (s === 'problems') { return { page: 'problems' }; }
     if (s === 'testers') { return { page: 'testers' }; }
@@ -645,36 +647,6 @@
   function stuck(t) { return (t.state === 'running' || t.state === 'queued') && (t.started_at || t.created_at) < Date.now() / 1000 - 3600; }
   function stuckOf(key) { return ((S.shell && S.shell.trials) || []).filter(function (t) { return stuck(t) && (!key || t.persona === key); }); }
 
-  /* The verdict at the top, in a sentence: did the newest try of each job pass, who is paused, what is going. */
-  function verdictLine(sh) {
-    var jobs = (sh.jobs || []).filter(function (j) { return j.latest; });
-    if (!jobs.length) { return 'Nothing has been tried yet. When Rouh changes something you will see, a tester tries it first.'; }
-    var by = {};
-    jobs.forEach(function (j) { by[j.latest.state] = (by[j.latest.state] || 0) + 1; });
-    var parts = [];
-    if ((by.passed || 0) === jobs.length) { parts.push('Yes. The newest try of every job passed.'); }
-    else {
-      var bits = [];
-      if (by.failed) { bits.push((by.failed === jobs.length ? 'The newest try of all ' + jobs.length + ' jobs' : 'The newest try of ' + by.failed + ' of ' + jobs.length + ' jobs') + ' did not pass'); }
-      if (by.broken) { bits.push((bits.length ? '' : 'The newest try of ') + plural(by.broken, 'job') + (bits.length ? ' could not finish' : ' could not finish')); }
-      var going = jobs.filter(function (j) { return j.latest.state === 'running' || j.latest.state === 'queued'; });
-      var jammed = going.filter(function (j) { return stuck(trialOf(sh, j.latest.number) || {}); });
-      if (going.length > jammed.length) { bits.push(plural(going.length - jammed.length, 'job') + ' ' + (going.length - jammed.length === 1 ? 'is' : 'are') + ' being tried now'); }
-      if (jammed.length) {
-        var since = trialOf(sh, jammed[0].latest.number);
-        bits.push(plural(jammed.length, 'try', 'tries') + ' ' + (jammed.length === 1 ? 'has' : 'have') + ' been stuck since ' + dayShort(since.started_at || since.created_at));
-      }
-      if (by.passed) { bits.push(by.passed + ' passed'); }
-      parts.push('Not yet. ' + upper(bits.join(', ')) + '.');
-    }
-    var live = (sh.testers || []).filter(function (t) { return !t.archived; });
-    var held = live.filter(function (t) { return t.paused; });
-    if (sh.paused_all) { parts.push('All testing is paused.'); }
-    else if (held.length && held.length === live.length) { parts.push(live.length === 2 ? 'Both testers are paused.' : 'Every tester is paused.'); }
-    else if (held.length) { parts.push(held.map(function (t) { return t.first; }).join(' and ') + (held.length === 1 ? ' is paused.' : ' are paused.')); }
-    return parts.join(' ');
-  }
-
   function trialOf(sh, n) { return ((sh && sh.trials) || []).filter(function (t) { return t.number === n; })[0] || null; }
 
   /* Better or worse: each job's newest finished try against its own try before, never two jobs mixed. */
@@ -704,7 +676,9 @@
     var sh = S.shell, d = S.data.jobs;
     moved('');
     if (!sh || !d) { if (!S.error) { root.appendChild(el('p', 'tr-loading', 'Opening the dashboard…')); } return; }
-    root.appendChild(el('h1', 'tr-headline', verdictLine(sh)));
+    // No summary sentence, Needs you, Latest tries or Testers tile here (Petar, 22 November 2026): the tiles, then the
+    // jobs with their journeys and attempts, then the pages. The switch for automatic testing is the header's.
+    root.appendChild(el('h1', 'tr-sr', 'Testing dashboard'));
     var open = (S.open && S.open.problems) || [];
     var by = (sh.counts && sh.counts.by) || {};
 
@@ -739,11 +713,11 @@
     var t2 = stat('Better or worse');
     if (!cmp.length) {
       t2.appendChild(el('div', 'tr-big-n', 'No trend yet'));
-      t2.appendChild(el('p', 'tr-cap', 'No job has two finished tries among the newest ones yet.'));
+      t2.appendChild(el('p', 'tr-cap', 'No journey has two finished attempts among the newest ones yet.'));
     } else {
       t2.appendChild(el('div', 'tr-big-n', worse >= better ? worse + ' worse' : better + ' better'));
       var big = cmp.slice().sort(function (a, b) { return Math.abs(b.last - b.prev) - Math.abs(a.last - a.prev); })[0];
-      t2.appendChild(el('p', 'tr-cap', 'Of ' + plural(cmp.length, 'job') + ' with two finished tries, each against its own try before: ' +
+      t2.appendChild(el('p', 'tr-cap', 'Of ' + plural(cmp.length, 'journey') + ' with two finished attempts, each against its own attempt before: ' +
         better + ' better, ' + (cmp.length - better - worse) + ' the same, ' + worse + ' worse.' +
         (big && big.last !== big.prev ? ' Biggest change: ' + big.job.name + ', ' + big.prev + ' → ' + big.last + ' problems.' : '')));
       var arrows = el('div', 'tr-arrows');
@@ -784,48 +758,12 @@
     }
     tiles.appendChild(t3);
 
-    var live = liveTesters(sh);
-    var ticked = live.filter(function (t) { return !t.paused; });
-    var t4 = stat('Testers', HOME + '/testers');
-    t4.appendChild(el('div', 'tr-big-n', sh.paused_all ? 'Automatic testing off' : ticked.length + ' of ' + live.length + ' run'));
-    t4.appendChild(el('p', 'tr-cap', sh.paused_all ? 'No tester tries a change by itself. ' + (ticked.length ? ticked.map(function (t) { return t.first; }).join(' and ') + ' run' + (ticked.length === 1 ? 's' : '') + ' when it is on.' : '')
-      : ticked.length < live.length ? (ticked.length ? ticked.map(function (t) { return t.first; }).join(' and ') + ' run' + (ticked.length === 1 ? 's' : '') + ' in automatic testing.' : 'No tester is ticked to run.')
-      : 'Every tester runs in automatic testing.'));
-    var faces = el('div', 'tr-faces');
-    live.forEach(function (t) { faces.appendChild(face(t, 'xs', !!t.paused || !!sh.paused_all)); });
-    t4.appendChild(faces);
-    tiles.appendChild(t4);
     root.appendChild(tiles);
 
-    // The newest tries, in a row.
-    var tries = (sh.trials || []).slice(0, 5);
-    if (tries.length) {
-      var lt = el('section', 'tr-latest');
-      lt.appendChild(el('h2', 'tr-h3', 'Latest tries'));
-      var ol = el('ol');
-      tries.forEach(function (t) {
-        var li = el('li');
-        var a = link('', HOME + '/' + t.number);
-        a.appendChild(face(testerOf(t.persona) || { key: t.persona, name: t.persona_name }));
-        var m = el('span', 'tr-lr-m');
-        var tt = el('span', 'tr-lr-t');
-        tt.appendChild(el('b', '', 'Try ' + t.number));
-        tt.appendChild(document.createTextNode(' · ' + (t.job_name || upper(t.subject) || 'A page of Rouh')));
-        m.appendChild(tt);
-        m.appendChild(el('span', 'tr-lr-s', t.persona_name + ', ' + day(t.created_at)));
-        m.appendChild(el('span', 'tr-lr-r' + (t.state === 'running' || t.state === 'queued' ? ' is-live' : ''),
-          stuck(t) ? 'Stuck since ' + dayShort(t.started_at || t.created_at) : t.state === 'running' ? 'Trying now' : t.state === 'queued' ? 'Waiting to start' : t.state === 'broken' ? 'Could not finish: no report'
-            : foundN(t) ? plural(foundN(t), 'problem') : t.state === 'passed' ? 'Passed, no problems' : 'No problems'));
-        a.appendChild(m);
-        li.appendChild(a);
-        ol.appendChild(li);
-      });
-      lt.appendChild(ol);
-      root.appendChild(lt);
-    }
+    // The jobs above the pages (Petar, 22 November 2026).
+    drawJobList(root, d);
 
-    var lay = el('div', 'tr-atlas');
-    var left = el('section', 'tr-pages');
+    var left = el('section', 'tr-pages tr-sec');
     var lh = el('div', 'tr-sec-head');
     lh.appendChild(el('h2', 'tr-h2', 'The pages of Rouh'));
     var key = el('div', 'tr-legend');
@@ -834,11 +772,7 @@
     lh.appendChild(key);
     left.appendChild(lh);
     left.appendChild(pagePhones(open, sh));
-    lay.appendChild(left);
-    lay.appendChild(needsYou(open, sh));
-    root.appendChild(lay);
-
-    drawJobList(root, d);
+    root.appendChild(left);
   }
 
   /* One drawn phone for each page of Rouh with a problem to decide, one mark per problem, worst first. */
@@ -864,9 +798,14 @@
       var g = groups[k];
       var tile = link('', HOME + '/problems', 'tr-tile');
       tile.addEventListener('click', function () { S.probFilter = { status: 'open', who: '', job: '' }; S.probView = { screen: k, bad: '', group: false, all: false }; }, true);
-      tile.setAttribute('aria-label', g.name + ': ' + plural(g.list.length, 'problem') + ' to decide. Open them in the Fix list.');
+      tile.setAttribute('aria-label', g.name + ' (' + (k || '/') + '): ' + plural(g.list.length, 'problem') + ' to decide. Open them in the Fix list.');
       var ph = el('div', 'tr-phone');
       ph.appendChild(el('div', 'tr-pname', g.name));
+      // The address tells apart pages that share a name, such as the Guide and each of its lessons
+      // (Petar, 22 November 2026): no two tiles have the same one.
+      var path = el('div', 'tr-ppath', slashBreaks(k || '/'));
+      path.title = 'The address of this page in Rouh';
+      ph.appendChild(path);
       var stopped = g.list.filter(function (p) { return p.how_bad === 'blocked'; }).length;
       ph.appendChild(el('div', 'tr-pnum', g.list.length + ' to decide' + (stopped ? ', ' + stopped + ' stopped the tester' : '')));
       var dots = el('div', 'tr-dots');
@@ -880,7 +819,7 @@
           var x = tr[j.number];
           var line = el('span', 'tr-trend');
           line.appendChild(icon(!x || x.dir === 'one' ? 'one' : x.dir === 'worse' ? 'up' : x.dir === 'better' ? 'down' : 'flat'));
-          line.appendChild(el('span', '', (js.length > 1 ? first(j.name) + ': ' : '') + (!x || x.dir === 'one' ? 'one finished try, no trend yet'
+          line.appendChild(el('span', '', (js.length > 1 ? j.name.replace(/:\s*$/, '') + ': ' : '') + (!x || x.dir === 'one' ? 'one finished attempt, no trend yet'
             : (x.dir === 'same' ? 'Same' : upper(x.dir)) + ': ' + x.prev + ' → ' + x.last)));
           foot.appendChild(line);
         });
@@ -894,99 +833,136 @@
     return wrap;
   }
 
-  /* What needs the person: tries going now or stuck, reviews waiting on a choice, pauses, the worst problems. */
-  function needsYou(open, sh) {
-    var box = el('section', 'tr-needs');
-    box.appendChild(el('h2', 'tr-h2', 'Needs you'));
-    var ul = el('ul');
-    function need(ic, title, sub, href, cls) {
-      var li = el('li');
-      var a = href ? link('', href, 'tr-need' + (cls ? ' ' + cls : '')) : el('div', 'tr-need' + (cls ? ' ' + cls : ''));
-      if (typeof ic === 'string') { a.appendChild(icon(ic)); } else { a.appendChild(ic); }
-      var w = el('div', 'tr-need-w');
-      w.appendChild(el('div', 'tr-need-t', title));
-      if (sub) { w.appendChild(typeof sub === 'string' ? el('div', 'tr-need-s', sub) : sub); }
-      a.appendChild(w);
-      li.appendChild(a);
-      ul.appendChild(li);
-      return w;
-    }
-    var hour = Date.now() / 1000 - 3600;
-    (sh.trials || []).filter(function (t) { return t.state === 'running' || t.state === 'queued'; }).forEach(function (t) {
-      var long = (t.started_at || t.created_at) < hour;
-      need('clock', long ? 'Try ' + t.number + ' stuck since ' + day(t.started_at || t.created_at) : 'Try ' + t.number + ' is going now',
-        t.persona_name + ' on ' + (t.job_name || upper(t.subject) || 'a page of Rouh') + (long ? '. A try takes minutes; this one never ended. Open it to see how far it got.'
-          : '. Open it to watch its steps arrive.'), HOME + '/' + t.number, long ? 'is-stuck' : '');
-    });
-    var waiting = open.filter(function (p) { return p.awaiting_choice; });
-    if (waiting.length) {
-      var w = need('review', plural(waiting.length, 'problem') + ' from a review ' + (waiting.length === 1 ? 'waits' : 'wait') + ' for your choice',
-        'Nothing is fixed from a review until you choose.', HOME + '/problems', 'is-notif');
-      void w;
-      ul.lastChild.firstChild.addEventListener('click', function () { S.probFilter = { status: 'awaiting', who: '', job: '' }; S.probView = { screen: null, bad: '', group: false, all: false }; }, true);
-    }
-    (sh.jobs || []).filter(function (j) { return j.latest && j.latest.state === 'broken'; }).forEach(function (j) {
-      need('x', 'Try ' + j.latest.number + ' could not finish', j.name + ': the tester gave back no report, which is not the same as no problems.', HOME + '/' + j.latest.number);
-    });
-    var live = liveTesters(sh);
-    var held = live.filter(function (t) { return t.paused; });
-    if (sh.paused_all || (live.length && held.length === live.length)) {
-      need('pause', sh.paused_all ? 'Automatic testing is off' : 'No tester is ticked to run in automatic testing',
-        'No tester tries a change by itself until you turn it on at the top. A test you start still runs.', '');
-    }
-    open.filter(function (p) { return !p.awaiting_choice; }).slice(0, 3).forEach(function (p) {
-      var s = el('div', 'tr-need-s');
-      s.appendChild(el('span', '', BAD_SHORT[p.how_bad] + ', seen ' + (p.count === 1 ? 'once' : p.count + ' times') + (p.screen_name ? ' on ' + p.screen_name : '')));
-      s.appendChild(el('span', '', ' · ' + numLabel(p)));
-      need(shape(p.how_bad, 14), p.what, s, HOME + '/problem/' + p.number);
-    });
-    box.appendChild(ul);
-    // The whole number, the same as the Problems tile and the Fix list, never a remainder to add up.
-    if (open.length > 3) { box.appendChild(link('All ' + open.length + ' to decide, in the Fix list', HOME + '/problems', 'tr-a tr-more-a')); }
-    if (!ul.childNodes.length) { box.appendChild(el('p', 'tr-empty', 'Nothing needs you right now.')); }
-    return box;
-  }
-
-  /* The jobs: what is being tested, never who (that is inside a job). */
+  /* The jobs (Petar, 22 November 2026): JOB -> JOURNEYS -> ATTEMPTS. A job is one request the person gave, with their
+     own words; each journey is one goal a tester is asked to reach; each attempt is one tester going through it, with
+     who did it. Who tried is never said at the job's level. Jobs and attempts fold open and shut. */
   function drawJobList(root, d) {
     var sec = section('tr-jobs', 'Jobs');
-    sec.appendChild(el('p', 'tr-lede', 'A job is one thing a made-up tester tries on a phone, such as signing in for ' +
-      'the first time. Open a job to see each try, who did it, and the problems they ran into.'));
+    sec.appendChild(el('p', 'tr-lede', 'A job is one request you gave. It has journeys, each one thing a tester is asked to do, ' +
+      'and each journey has its attempts, one tester going through it.'));
     var people = [['', 'Anyone']].concat(((S.shell && S.shell.testers) || []).map(function (t) { return [t.key, t.first]; }));
-    if (d.jobs.length || S.jobsFilter.persona || S.jobsFilter.result) {
+    var filtering = !!(S.jobsFilter.persona || S.jobsFilter.result);
+    if (d.jobs.length || filtering) {
       var bar = el('div', 'tr-filters');
       bar.appendChild(choose('Tried by', S.jobsFilter.persona, people, function (v) { S.jobsFilter.persona = v; load(); }));
-      bar.appendChild(choose('Latest try', S.jobsFilter.result, [['', 'Any result'], ['passed', 'Passed'],
+      bar.appendChild(choose('Latest attempt', S.jobsFilter.result, [['', 'Any result'], ['passed', 'Passed'],
         ['failed', 'Did not pass'], ['running', 'Trying now or stuck'], ['broken', 'Could not finish']],
         function (v) { S.jobsFilter.result = v; load(); }));
       sec.appendChild(bar);
     }
     if (!d.jobs.length) {
-      sec.appendChild(el('p', 'tr-empty', S.jobsFilter.persona || S.jobsFilter.result ? 'No job matches that.'
-        : 'Nothing has been tried yet. When Rouh changes something you will see, a tester tries it first, and the job shows up here.'));
+      sec.appendChild(el('p', 'tr-empty', filtering ? 'No journey matches that.'
+        : 'Nothing has been tried yet. When you ask for a test, or Rouh changes something you will see, its job shows up here.'));
       root.appendChild(sec);
       return;
     }
-    var ul = el('ul', 'tr-list');
-    d.jobs.forEach(function (j) {
-      var li = el('li', 'tr-item');
-      var a = link('', HOME + '/job/' + j.number, 'tr-row');
-      var top = el('span', 'tr-row-top');
-      top.appendChild(el('span', 'tr-row-what', j.name));
-      top.appendChild(result(j.latest && j.latest.state, j.latest && trialOf(S.shell, j.latest.number)));
-      a.appendChild(top);
-      if (j.covers || j.goal) { a.appendChild(el('span', 'tr-row-goal', j.covers || '“' + j.goal + '”')); }
-      var meta = el('span', 'tr-row-meta');
-      meta.appendChild(el('span', '', plural(j.tries_count, 'try', 'tries')));
-      meta.appendChild(el('span', j.open ? 'tr-has' : '', j.open ? plural(j.open, 'problem') + ' not fixed'
-        : j.found ? 'No problems left open' : 'No problems found'));
-      if (j.last_at) { meta.appendChild(el('span', '', 'Last tried ' + day(j.last_at))); }
-      a.appendChild(meta);
-      li.appendChild(a);
+    // Each journey under its job, in the job's own order; a journey with no job yet stands as a job of its own.
+    var byNum = {};
+    d.jobs.forEach(function (j) { byNum[j.number] = j; });
+    var reqs = ((S.shell && S.shell.requests) || []).map(function (r) {
+      return { r: r, list: (r.journeys || []).map(function (n) { return byNum[n]; }).filter(Boolean) };
+    });
+    var placed = {};
+    reqs.forEach(function (x) { x.list.forEach(function (j) { placed[j.number] = 1; }); });
+    d.jobs.forEach(function (j) { if (!placed[j.number]) { reqs.push({ r: { number: 0, title: j.name, prompt: '', journeys: [j.number] }, list: [j] }); } });
+    reqs = reqs.filter(function (x) { return x.list.length; });
+    reqs.forEach(function (x) { x.last = Math.max.apply(null, x.list.map(function (j) { return j.last_at || j.updated_at || 0; })); });
+    reqs.sort(function (a, b) { return b.last - a.last; });
+    S.jobOpen = S.jobOpen || {};
+    var ul = el('ul', 'tr-joblist');
+    reqs.forEach(function (x, i) {
+      var r = x.r, list = x.list;
+      var li = el('li', 'tr-job');
+      li.id = r.number ? 'job-' + r.number : 'job-j' + list[0].number;
+      var det = el('details', 'tr-job-d');
+      var k = li.id;
+      det.open = S.jobOpen[k] != null ? !!S.jobOpen[k] : i === 0;
+      det.addEventListener('toggle', function () { S.jobOpen[k] = det.open ? 1 : 0; });
+      var sum = el('summary', 'tr-job-s');
+      var tw = el('span', 'tr-job-tw');
+      tw.appendChild(el('span', 'tr-job-t', r.title || list[0].name));
+      var tries = 0, open = 0, latest = null;
+      list.forEach(function (j) {
+        tries += j.tries_count || 0; open += j.open || 0;
+        if (j.latest && (!latest || (j.last_at || 0) > (latest.at || 0))) { latest = { at: j.last_at || 0 }; }
+      });
+      var states = {};
+      list.forEach(function (j) { var st = j.latest ? j.latest.state : 'none'; states[st] = (states[st] || 0) + 1; });
+      var meta = el('span', 'tr-job-m');
+      meta.appendChild(el('span', '', (r.number ? 'Job ' + r.number + ' · ' : '') + plural(list.length, 'journey') + ' · ' + plural(tries, 'attempt')));
+      meta.appendChild(el('span', open ? 'tr-has' : '', open ? plural(open, 'problem') + ' not fixed' : 'No problems left open'));
+      if (x.last) { meta.appendChild(el('span', '', 'Last tried ' + day(x.last))); }
+      tw.appendChild(meta);
+      sum.appendChild(tw);
+      var res = el('span', 'tr-job-res');
+      [['passed', 'passed'], ['failed', 'did not pass'], ['broken', 'could not finish'], ['running', 'going'], ['queued', 'waiting']].forEach(function (s2) {
+        if (states[s2[0]]) { res.appendChild(el('span', 'tr-job-rn is-' + s2[0], states[s2[0]] + ' ' + s2[1])); }
+      });
+      sum.appendChild(res);
+      det.appendChild(sum);
+      var body = el('div', 'tr-job-b');
+      if (r.prompt) {
+        var pr = el('figure', 'tr-job-p');
+        pr.appendChild(el('figcaption', 'tr-label', 'What you asked'));
+        pr.appendChild(el('blockquote', '', r.prompt));
+        body.appendChild(pr);
+      }
+      var jl = el('ol', 'tr-journeys');
+      jl.setAttribute('aria-label', 'Journeys of ' + (r.title || list[0].name));
+      list.forEach(function (j) { jl.appendChild(journeyRow(j)); });
+      body.appendChild(jl);
+      det.appendChild(body);
+      li.appendChild(det);
       ul.appendChild(li);
     });
     sec.appendChild(ul);
     root.appendChild(sec);
+  }
+
+  /* One journey under its job: its name and what the tester is asked to do, its newest result, and its attempts,
+     folded, each with who did it. */
+  function journeyRow(j) {
+    var li = el('li', 'tr-jr');
+    var top = el('div', 'tr-jr-top');
+    top.appendChild(link(j.name, HOME + '/journey/' + j.number, 'tr-jr-name'));
+    top.appendChild(result(j.latest && j.latest.state, j.latest && trialOf(S.shell, j.latest.number)));
+    li.appendChild(top);
+    if (j.goal) {
+      var g = el('p', 'tr-jr-goal');
+      g.appendChild(el('span', 'tr-jr-gl', 'What the tester is asked to do: '));
+      g.appendChild(el('span', '', '“' + j.goal + '”'));
+      li.appendChild(g);
+    }
+    var at = j.attempts || [];
+    // One or two attempts are shown as they are; more fold, so a journey tried eleven times stays one line.
+    var few = at.length <= 2;
+    var det = el(few ? 'div' : 'details', 'tr-att' + (few ? ' is-few' : ''));
+    var k = 'att-' + j.number;
+    det.open = few || !!S.jobOpen[k];
+    det.addEventListener('toggle', function () { S.jobOpen[k] = det.open ? 1 : 0; });
+    var sum = el(few ? 'p' : 'summary', 'tr-att-s');
+    sum.appendChild(el('span', '', plural(at.length, 'attempt')));
+    sum.appendChild(el('span', j.open ? 'tr-has' : 'tr-dim', j.open ? plural(j.open, 'problem') + ' not fixed' : j.found ? 'none left open' : 'no problems found'));
+    det.appendChild(sum);
+    var ol = el('ul', 'tr-att-l');
+    at.forEach(function (t) {
+      var ali = el('li');
+      var a = link('', HOME + '/' + t.number, 'tr-att-r');
+      a.appendChild(face(testerOf(t.persona) || { key: t.persona, name: t.persona_name }, 'xs'));
+      var w = el('span', 'tr-att-w');
+      w.appendChild(el('strong', '', t.persona_name));
+      w.appendChild(el('span', 'tr-dim', 'Try ' + t.number + ' · ' + dayShort(t.created_at)));
+      a.appendChild(w);
+      var st = trialOf(S.shell, t.number) || t;
+      a.appendChild(el('span', 'tr-att-res', stuck(st) ? 'Stuck' : t.state === 'running' ? 'Trying now' : t.state === 'queued' ? 'Waiting'
+        : t.state === 'broken' ? 'No report' : t.found_n ? plural(t.found_n, 'problem') : t.state === 'passed' ? 'Passed' : 'No problems'));
+      ali.appendChild(a);
+      ol.appendChild(ali);
+    });
+    if (!at.length) { ol.appendChild(el('li', 'tr-dim', 'Nobody has tried it yet.')); }
+    det.appendChild(ol);
+    li.appendChild(det);
+    return li;
   }
 
   /* ---- one job ---- */
@@ -994,19 +970,20 @@
   function drawJob(root, w) {
     var d = S.data.job;
     if (!d || String(d.job.number) !== w.n) {
-      root.appendChild(crumbs([['Dashboard', HOME], ['Job ' + w.n]]));
-      if (!S.error) { root.appendChild(el('p', 'tr-loading', 'Opening the job…')); }
+      root.appendChild(crumbs([['Dashboard', HOME], ['Journey ' + w.n]]));
+      if (!S.error) { root.appendChild(el('p', 'tr-loading', 'Opening the journey…')); }
       return;
     }
     var j = d.job;
     moved(j.name);
-    root.appendChild(crumbs([['Dashboard', HOME], [j.name]]));
+    root.appendChild(crumbs(j.request ? [['Dashboard', HOME], ['Job ' + j.request.number + ': ' + j.request.title, HOME], [j.name]]
+      : [['Dashboard', HOME], [j.name]]));
     var hub = el('div', 'tr-hub');
     var ph = el('section', 'tr-phone tr-hub-phone');
     ph.appendChild(el('h1', 'tr-h1', j.name));
     var line = el('div', 'tr-head-line');
     line.appendChild(result(j.latest && j.latest.state, j.latest && (trialOf(S.shell, j.latest.number) || j.tries[0])));
-    line.appendChild(el('span', 'tr-dim', 'Job ' + j.number + ' · ' + plural(j.tries_count, 'try', 'tries') +
+    line.appendChild(el('span', 'tr-dim', 'Journey ' + j.number + ' · ' + plural(j.tries_count, 'attempt') +
       (j.open ? ' · ' + plural(j.open, 'problem') + ' not fixed' : '')));
     ph.appendChild(line);
     if (S.editJob) {
@@ -1017,7 +994,7 @@
       g.appendChild(el('span', '', j.goal ? '“' + j.goal + '”' : 'Not written yet.'));
       ph.appendChild(g);
       if (j.covers) { var c = el('div', 'tr-goal'); c.appendChild(el('b', '', 'What it covers')); c.appendChild(el('span', '', j.covers)); ph.appendChild(c); }
-      var edit = button('tr-btn tr-btn-s', j.covers ? 'Change the name or the description' : 'Describe what this job tests');
+      var edit = button('tr-btn tr-btn-s', j.covers ? 'Change the name or the description' : 'Describe what this journey tests');
       edit.addEventListener('click', function () { S.editJob = true; draw(); });
       ph.appendChild(edit);
     }
@@ -1025,8 +1002,8 @@
 
     // The ladder: each try a column, its height the number of problems it found.
     var lad = el('section', 'tr-ladder-sec');
-    lad.appendChild(el('h2', 'tr-h3', 'Each try, oldest to newest'));
-    lad.appendChild(el('p', 'tr-cap', 'The height is how many problems the try found. A dashed one gave no report, is stuck, or is still going.'));
+    lad.appendChild(el('h2', 'tr-h3', 'Each attempt, oldest to newest'));
+    lad.appendChild(el('p', 'tr-cap', 'The height is how many problems the attempt found. A dashed one gave no report, is stuck, or is still going.'));
     var wrapL = el('div', 'tr-ladder-wrap');
     var cols = el('div', 'tr-lcols');
     var most = Math.max.apply(null, [1].concat(j.tries.map(function (t) { return foundN(t); })));
@@ -1048,7 +1025,7 @@
     hub.appendChild(lad);
     root.appendChild(hub);
 
-    var tries = section('', 'Tries, newest first');
+    var tries = section('', 'Attempts, newest first');
     var ul = el('ul', 'tr-list');
     j.tries.forEach(function (t) {
       var li = el('li', 'tr-item');
@@ -1079,10 +1056,10 @@
     if (j.tries.length) { root.appendChild(tries); }
     root.appendChild(runAgain(d.personas || [], d['default'], function (persona) {
       return call('/jobs/' + j.number + '/run', { persona: persona });
-    }, 'Ask for a review', 'A tester who has seen nothing before tries this job from the start, and you get the whole ' +
+    }, 'Ask for a review', 'A tester who has seen nothing before tries this journey from the start, and you get the whole ' +
       'walk-through and what they found. It takes a few minutes. Nothing is fixed from it until you choose what.'));
     var probs = section('', 'Its problems');
-    probs.appendChild(link(j.found ? 'See the ' + plural(j.found, 'problem') + ' this job found, in the Fix list' : 'No problems found yet',
+    probs.appendChild(link(j.found ? 'See the ' + plural(j.found, 'problem') + ' this journey found, in the Fix list' : 'No problems found yet',
       HOME + '/problems', 'tr-a'));
     probs.lastChild.addEventListener('click', function () { S.probFilter = { status: 'all', who: '', job: String(j.number) }; S.probView = { screen: null, bad: '', group: false, all: false }; }, true);
     root.appendChild(probs);
@@ -1092,7 +1069,7 @@
     var f = el('form', 'tr-form');
     var name = field(f, 'Name', 'input', j.name, 'tr-job-name');
     var goal = field(f, 'What the tester is asked to do, as they would say it', 'textarea', j.goal, 'tr-job-goal');
-    var covers = field(f, 'What this job tests, in a line or two', 'textarea', j.covers, 'tr-job-covers');
+    var covers = field(f, 'What this journey tests, in a line or two', 'textarea', j.covers, 'tr-job-covers');
     var row = el('div', 'tr-actions');
     var save = button('tr-btn tr-primary', 'Save');
     save.type = 'submit';
@@ -1238,10 +1215,11 @@
       var subject = goal.replace(/\s+/g, ' ').slice(0, 80);
       startB.disabled = true;
       err.textContent = '';
-      var started = [];
+      var started = [], startedAt = String(Date.now());
       keys.reduce(function (p, k) {
         return p.then(function () {
-          return call('/new', { goal: goal, page: page, subject: subject, persona: k }).then(function (j) { started.push(j); });
+          // Every tester ticked in one press is one job (`started` ties them together).
+          return call('/new', { goal: goal, page: page, subject: subject, persona: k, started: startedAt }).then(function (j) { started.push(j); });
         });
       }, Promise.resolve()).then(function () {
         shut();
@@ -1275,7 +1253,8 @@
     }
     var t = d.trial, name = t.persona_name;
     moved((t.job_name || upper(t.subject)) + ', try ' + t.number);
-    root.appendChild(crumbs(t.job ? [['Dashboard', HOME], [t.job_name, HOME + '/job/' + t.job], ['Try ' + t.number]]
+    root.appendChild(crumbs(t.job ? [['Dashboard', HOME]].concat(t.request ? [['Job ' + t.request.number + ': ' + t.request.title, HOME]] : [])
+        .concat([[t.job_name, HOME + '/journey/' + t.job], ['Try ' + t.number]])
       : [['Dashboard', HOME], ['Try ' + t.number]]));
     var going = t.state === 'queued' || t.state === 'running';
     var walk = t.walk || [];
@@ -2155,13 +2134,18 @@
       pages[k].all += 1;
     });
     porder.sort(function (a, b) { return pages[b].all - pages[a].all; });
+    // Pages that share a name (the Guide and its lessons) are told apart by their address (Petar, 22 November 2026).
+    var named = {};
+    porder.forEach(function (k) { named[pages[k].name] = (named[pages[k].name] || 0) + 1; });
+    porder.forEach(function (k) { pages[k].label = named[pages[k].name] > 1 ? pages[k].name + ' ' + (k || '/') : pages[k].name; });
     var m = el('div', 'tr-matrix');
     m.setAttribute('role', 'table');
     m.setAttribute('aria-label', 'Problems by page and how bad');
     var hrow = el('div', 'tr-mx-row tr-mx-h');
     hrow.setAttribute('role', 'row');
     hrow.appendChild(el('span', '', 'Page'));
-    BAD_ORDER.forEach(function (b) { var c = el('span'); c.appendChild(shape(b, 10)); c.appendChild(el('span', '', BAD_SHORT[b])); hrow.appendChild(c); });
+    // Each type by its icon, its name on hover and for a screen reader: the words did not fit the narrow columns.
+    BAD_ORDER.forEach(function (b) { var c = el('span'); c.title = BAD_SHORT[b]; c.appendChild(quiet(shape(b, 14))); c.appendChild(el('span', 'tr-sr', BAD_SHORT[b])); hrow.appendChild(c); });
     hrow.appendChild(el('span', '', 'All'));
     m.appendChild(hrow);
     var most = 1;
@@ -2170,6 +2154,7 @@
       var r = el('div', 'tr-mx-row');
       r.setAttribute('role', 'row');
       var pg = button('tr-mx-pg', pages[k].name);
+      if (named[pages[k].name] > 1) { pg.appendChild(el('span', 'tr-ppath', slashBreaks(k || '/'))); }
       pg.setAttribute('aria-pressed', v.screen === k && !v.bad ? 'true' : 'false');
       pg.addEventListener('click', function () { setView(v.screen === k && !v.bad ? null : k, ''); });
       r.appendChild(pg);
@@ -2182,7 +2167,7 @@
         sq.style.width = s + 'px'; sq.style.height = s + 'px'; sq.style.background = 'var(--s-' + b + ')';
         c.appendChild(sq);
         c.appendChild(el('span', '', String(n)));
-        c.setAttribute('aria-label', pages[k].name + ', ' + BAD_SHORT[b].toLowerCase() + ': ' + n + '. Show only these.');
+        c.setAttribute('aria-label', pages[k].label + ', ' + BAD_SHORT[b].toLowerCase() + ': ' + n + '. Show only these.');
         c.setAttribute('aria-pressed', v.screen === k && v.bad === b ? 'true' : 'false');
         c.addEventListener('click', function () { setView(v.screen === k && v.bad === b ? null : k, v.screen === k && v.bad === b ? '' : b); });
         r.appendChild(c);
@@ -2222,13 +2207,13 @@
     (d.testers || []).forEach(function (p) { people.push([p.key, p.first + (p.archived ? ' (removed)' : '')]); });
     people.push(['owner', 'You']);
     bar.appendChild(choose('Found by', f.who, people, function (x) { S.probFilter.who = x; reloadProblems(); }));
-    var jobs = [['', 'Every job']];
+    var jobs = [['', 'Every journey']];
     (d.jobs || []).forEach(function (j) { jobs.push([String(j.number), j.name]); });
-    bar.appendChild(choose('Job', f.job, jobs, function (x) { S.probFilter.job = x; reloadProblems(); }));
+    bar.appendChild(choose('Journey', f.job, jobs, function (x) { S.probFilter.job = x; reloadProblems(); }));
     right.appendChild(bar);
     if (v.screen != null || v.bad) {
       var on = el('div', 'tr-showing');
-      on.appendChild(el('span', '', 'Showing only: ' + [v.screen != null ? (pages[v.screen] ? pages[v.screen].name : 'that page') : '', v.bad ? BAD_SHORT[v.bad].toLowerCase() : '']
+      on.appendChild(el('span', '', 'Showing only: ' + [v.screen != null ? (pages[v.screen] ? pages[v.screen].label : 'that page') : '', v.bad ? BAD_SHORT[v.bad].toLowerCase() : '']
         .filter(Boolean).join(', ') + ' (' + list.length + ')'));
       var clr = button('tr-btn tr-btn-s', 'Show every page');
       clr.addEventListener('click', function () { setView(null, ''); });
@@ -2989,8 +2974,9 @@
     var s1 = section('tr-panel', 'The words');
     [['A tester', 'a made-up person with a whole life written down, such as Vesela, 41, head of HR in Plovdiv. ' +
        'A model plays them. They know only what is on the screen, never how Rouh is built.'],
-     ['A job', 'one thing a tester tries, such as signing in for the first time. Every try of the same thing is kept in the same job.'],
-     ['A try', 'one tester going at a job from the first screen, on a phone, saying out loud what they see, think and do, ' +
+     ['A job', 'one request you gave, such as testing the guide with ten journeys, kept with your own words.'],
+     ['A journey', 'one thing a tester is asked to do in a job, such as signing in for the first time. Every attempt at the same thing is kept in the same journey.'],
+     ['An attempt (a try)', 'one tester going through a journey from the first screen, on a phone, saying out loud what they see, think and do, ' +
        'with a picture of the screen at every step.'],
      ['The three questions', 'on every new screen the tester answers: What is this? What do I do here? What happens when I do it? ' +
        'One they cannot answer is a problem.'],

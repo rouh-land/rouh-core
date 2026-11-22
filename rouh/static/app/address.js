@@ -144,7 +144,7 @@ var ADDR = {
 /* The tab's title on a page of Testing (called Trials until 22 November 2026): the page's own name when it said one, then where it is. */
 function trialsTitle(sub, title) {
   var where = sub === 'problems' ? 'Problems' : sub === 'testers' ? 'Testers' : sub === 'testers/new' ? 'New tester'
-    : sub === 'how' ? 'How testing works' : /^job\//.test(sub) ? 'Job ' + sub.slice(4)
+    : sub === 'how' ? 'How testing works' : /^(?:job|journey)\//.test(sub) ? 'Journey ' + sub.replace(/^\w+\//, '')
     : /^problem\//.test(sub) ? 'Problem ' + sub.slice(8) : /^tester\//.test(sub) ? 'Tester'
     : /^\d+$/.test(sub) ? 'Try ' + sub : '';
   if (!where) return 'Testing';
@@ -414,9 +414,10 @@ function addrReadPlace(path, query) {
     // Trials: every try, one try by its number, and the list of problems.
     // Trials: the jobs, one job, one try by its number, the problems and one problem, the testers, one
     // tester and the form that adds or changes one, and how trials work.
+    // A journey is /journey/<n>; /job/<n> was its address while journeys were called jobs, and still opens it.
     // Testing was called Trials, at /evolution/trials, until 22 November 2026; the server sends those on,
     // and one read here opens the same page, whose address is then written as /evolution/testing.
-    if ((parts[1] === 'testing' || parts[1] === 'trials') && /^(?:|\d{1,6}|problems|job\/\d{1,6}|problem\/\d{1,6}|testers|testers\/new|tester\/[a-z0-9]{1,40}(?:\/edit)?|how)$/
+    if ((parts[1] === 'testing' || parts[1] === 'trials') && /^(?:|\d{1,6}|problems|(?:job|journey)\/\d{1,6}|problem\/\d{1,6}|testers|testers\/new|tester\/[a-z0-9]{1,40}(?:\/edit)?|how)$/
         .test(parts.slice(2).join('/'))) {
       return { kind: '', id: '', chat: chat, evolution: { page: 'trials', sub: parts.slice(2).join('/') } };
     }

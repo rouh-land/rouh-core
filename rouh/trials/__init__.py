@@ -676,6 +676,8 @@ def trial_dict(t, *, steps: bool = False, names: dict | None = None) -> dict:
         j = _m().TrialJob.objects.filter(id=t.job_id, org_id=t.org_id, user_id=t.user_id).first()
         if j is not None:
             out["job"], out["job_name"] = j.number, j.name
+            r = _request_row(j)
+            out["request"] = {"number": r.number, "title": request_title(r)} if r is not None else None
     # How many of the problems it found are still not fixed, so a try says it without opening it.
     ids = set(_m().TrialSighting.objects.filter(trial_id=t.id, org_id=t.org_id, user_id=t.user_id)
               .values_list("problem_id", flat=True))
@@ -829,9 +831,13 @@ def _job_problems(who, job_ids: list) -> dict:
     return out
 
 
-def job_dict(j, *, tries: list | None = None, latest=None, count: int = 0, problems: list | None = None) -> dict:
+def job_dict(j, *, tries: list | None = None, latest=None, count: int = 0, problems: list | None = None,
+             request=None) -> dict:
+    """A journey (`TrialJob`): its goal, its attempts' count and newest result, and the job it belongs to."""
     probs = problems or []
+    r = _request_row(j) if request is None else (request or None)
     out = {"number": j.number, "name": j.name, "goal": j.goal, "covers": j.covers, "page": j.page, "gene": j.gene,
+           "request": {"number": r.number, "title": request_title(r)} if r is not None else None,
            "created_at": j.created_at, "updated_at": j.updated_at, "tries_count": count,
            "open": sum(1 for p in probs if standing(p) in ("open", "decided")),
            "found": len(probs), "latest": None, "last_at": None}
@@ -856,6 +862,12 @@ def jobs(who, *, tester: str = "", result: str = "") -> list[dict]:
     pids = _job_problems(who, [j.id for j in rows])
     probs = {p.id: p for p in M.TrialProblem.objects.filter(**_whose(who), id__in=set().union(*pids.values()) if pids else [])}
     key = _tester(who, tester).key if tester else ""
+    reqs = {r.id: r for r in M.TrialRequest.objects.filter(**_whose(who), id__in={j.request_id for j in rows if j.request_id})}
+    names = _names(who)
+    found_n: dict = {}
+    for tid, pid in M.TrialSighting.objects.filter(**_whose(who), trial_id__in=[t.id for t in trials]).values_list(
+            "trial_id", "problem_id").distinct():
+        found_n[tid] = found_n.get(tid, 0) + 1
     out = []
     for j in rows:
         mine = by_job.get(j.id, [])
@@ -864,8 +876,97 @@ def jobs(who, *, tester: str = "", result: str = "") -> list[dict]:
         latest = mine[-1] if mine else None
         if result and (latest.state if latest else "none") != result:
             continue
-        out.append(job_dict(j, latest=latest, count=len(mine), problems=[probs[i] for i in pids.get(j.id, ()) if i in probs]))
+        d = job_dict(j, latest=latest, count=len(mine), problems=[probs[i] for i in pids.get(j.id, ()) if i in probs],
+                     request=reqs.get(j.request_id) or False)
+        # Each attempt in a line: who, its result and how many problems it found (the dashboard's journeys).
+        d["attempts"] = [{"number": t.number, "persona": t.persona, "persona_name": names.get(t.persona) or t.persona.title(),
+                          "state": t.state, "mode": t.mode or "auto", "created_at": t.created_at,
+                          "found_n": found_n.get(t.id, 0)} for t in reversed(mine)]
+        out.append(d)
     out.sort(key=lambda d: -(d["last_at"] or d["updated_at"] or 0))
+    return out
+
+
+# --- jobs: one request the person gave, holding its journeys ---------------------------------------
+#
+# Petar, 22 November 2026: "JOB -> JOURNEYS (tries) -> ATTEMPTS (runs)". A job (`TrialRequest`) is one request,
+# with the person's own words; a journey (`TrialJob`) is one goal a tester is asked to reach; an attempt (`Trial`)
+# is one tester going through a journey.
+
+def _request_row(j):
+    if not getattr(j, "request_id", None):
+        return None
+    return _m().TrialRequest.objects.filter(id=j.request_id, org_id=j.org_id, user_id=j.user_id).first()
+
+
+def _titled(names: list) -> str:
+    names = [n for n in names if n]
+    if not names:
+        return "A test"
+    if len(names) == 1:
+        return names[0]
+    heads = {n.split(":", 1)[0].strip() for n in names if ":" in n}
+    if len(heads) == 1 and all(":" in n for n in names):
+        return f"{heads.pop()}: {len(names)} journeys"
+    return f"{names[0]}, and {len(names) - 1} more"
+
+
+def request_title(r, names: list | None = None) -> str:
+    """A job's title: its own, or one made from its journeys' names."""
+    if r.title:
+        return r.title
+    if names is None:
+        names = list(_m().TrialJob.objects.filter(request_id=r.id, org_id=r.org_id, user_id=r.user_id)
+                     .order_by("number").values_list("name", flat=True))
+    return _titled(names)
+
+
+def _request_for(who, *, key: str = "", title: str = "", prompt: str = "", source: str = "", number=None):
+    """The job a new journey goes into: the one named by number, one being started with the same key in the last
+    twelve hours (the other journeys of the same request), or a new one."""
+    M = _m()
+    if number:
+        try:
+            n = int(str(number).strip().lstrip("#"))
+        except (TypeError, ValueError):
+            n = 0
+        got = M.TrialRequest.objects.filter(**_whose(who), number=n).first()
+        if got is not None:
+            return got
+    key = _cut(key, 400)
+    if key:
+        got = (M.TrialRequest.objects.filter(**_whose(who), key=key, created_at__gte=_now() - 12 * 3600)
+               .order_by("-created_at").first())
+        if got is not None:
+            if title and not got.title:
+                M.TrialRequest.objects.filter(id=got.id).update(title=_cut(title, 160))
+            return got
+    from django.db import IntegrityError, transaction
+
+    now = _now()
+    for _ in range(5):
+        try:
+            with transaction.atomic():
+                return M.TrialRequest.objects.create(**_whose(who), number=_number_next(M.TrialRequest, who),
+                                                      title=_cut(title, 160), prompt=str(prompt or "").strip()[:8000],
+                                                      source=_cut(source, 20), key=key, created_at=now, updated_at=now)
+        except IntegrityError:
+            continue
+    raise Refused("The job could not be numbered just now; try again.")
+
+
+def requests(who) -> list[dict]:
+    """Every job, the one started most lately first: its title, the person's words, and its journeys' numbers."""
+    M = _m()
+    rows = list(M.TrialRequest.objects.filter(**_whose(who)))
+    names: dict = {}
+    for rid, num, name in (M.TrialJob.objects.filter(**_whose(who), request_id__in=[r.id for r in rows])
+                           .order_by("number").values_list("request_id", "number", "name")):
+        names.setdefault(rid, []).append((num, name))
+    out = [{"number": r.number, "title": request_title(r, [n for _, n in names.get(r.id, [])]), "prompt": r.prompt,
+            "source": r.source, "created_at": r.created_at, "updated_at": r.updated_at,
+            "journeys": [num for num, _ in names.get(r.id, [])]} for r in rows]
+    out.sort(key=lambda d: -(d["updated_at"] or d["created_at"] or 0))
     return out
 
 
@@ -937,8 +1038,10 @@ def job_line(j: dict) -> str:
     latest = j.get("latest") or {}
     state = {"passed": "passed", "failed": "did not pass", "running": "running now", "queued": "waiting to start",
              "broken": "could not finish"}.get(latest.get("state"), "not tried yet")
-    return (f"Job {j['number']}: {j['name']} - latest try {state}; {j['tries_count']} tries; {j['open']} problems "
-            f"open. Goal: {j['goal'] or '-'}  Page: /evolution/testing/job/{j['number']}")
+    r = j.get("request") or {}
+    return (f"Journey {j['number']}: {j['name']}" + (f" (job {r['number']}: {r['title']})" if r else "")
+            + f" - latest attempt {state}; {j['tries_count']} attempts; {j['open']} problems "
+            f"open. Goal: {j['goal'] or '-'}  Page: /evolution/testing/journey/{j['number']}")
 
 
 # --- problems ------------------------------------------------------------------------------------
@@ -1379,9 +1482,11 @@ def problem_line(p: dict) -> str:
 
 def start(who, *, persona_id: str = "", goal: str = "", subject: str = "", gene: str = "", page: str = "",
           round_no: int = 1, first: int | None = None, number: int | None = None, by: str = "",
-          run_id: str = "", job_no=None, job_name: str = "", mode: str = "auto") -> dict:
-    """A new trial, running, or a queued one taken up by the run that came for it (`number`). It belongs to
-    the job named (`job_no`, or one called `job_name`), its first round's job, or a job made for it."""
+          run_id: str = "", job_no=None, job_name: str = "", mode: str = "auto", request: dict | None = None) -> dict:
+    """A new trial (an attempt), running, or a queued one taken up by the run that came for it (`number`). It belongs
+    to the journey named (`job_no`, or one called `job_name`), its first round's journey, or a journey made for it;
+    a journey with no job yet goes into the one `request` describes ({"number"?, "key", "title", "prompt",
+    "source"}), and without one into its run's (`by`), so one request is one job however many journeys it has."""
     M = _m()
     if number:
         t = _trial(who, number)
@@ -1414,6 +1519,16 @@ def start(who, *, persona_id: str = "", goal: str = "", subject: str = "", gene:
     j = _job_for(who, job_no=job_no, name=job_name, subject=subject, goal=goal, page=page, gene=gene, first_id=first_id)
     if not subject:
         subject = j.name
+    if not j.request_id:
+        req = dict(request or {})
+        if not req.get("key") and not req.get("number"):
+            src = "run" if str(by).startswith("run ") else (req.get("source") or ("form" if mode == "review" else "run"))
+            req = {**req, "source": src, "key": f"by:{_cut(by, 120)}" if by else f"journey:{j.id}"}
+        r = _request_for(who, key=str(req.get("key") or ""), title=str(req.get("title") or ""),
+                         prompt=str(req.get("prompt") or ""), source=str(req.get("source") or ""), number=req.get("number"))
+        _m().TrialJob.objects.filter(id=j.id).update(request_id=r.id)
+        j.request_id = r.id
+    _m().TrialRequest.objects.filter(id=j.request_id, **_whose(who)).update(updated_at=_now())
     now = _now()
     M.TrialJob.objects.filter(id=j.id).update(updated_at=now, **({"goal": goal} if not j.goal else {}),
                                               **({"page": _cut(page, 400)} if page and not j.page else {}),
@@ -2177,7 +2292,7 @@ def by_hand_brief(t: dict, name: str) -> str:
 
 
 async def run_by_hand(who, *, persona_id: str = "", goal: str = "", page: str = "", subject: str = "",
-                      gene: str = "", again: int | None = None, job_no=None) -> dict:
+                      gene: str = "", again: int | None = None, job_no=None, request: dict | None = None) -> dict:
     """A trial the person asked for ("trial this page with Boris", or Run trial again on a trial's page):
     queued here, and run by a run that stands a test world up for it."""
     import asyncio
@@ -2206,7 +2321,7 @@ async def run_by_hand(who, *, persona_id: str = "", goal: str = "", page: str = 
         raise Refused("Say where the trial begins: a page's address in Rouh, or the gene whose page it is.")
     # A trial the owner asked for in their own words is a review: a report to read, never fixed by itself.
     t = await asyncio.to_thread(lambda: start(who, persona_id=persona_id, goal=goal, page=page, subject=subject,
-                                              gene=gene, job_no=job_no, mode="review"))
+                                              gene=gene, job_no=job_no, mode="review", request=request))
     name = t["persona_name"]
     try:
         if nightly_feature.hooks.start is None:
@@ -2231,5 +2346,5 @@ __all__ = ["BRIEF", "DEFAULT_PERSONA", "GUIDANCE", "HOW_BAD", "MATCH_USE", "NotF
            "broken", "counts", "persona_read", "record", "reopen", "sighting", "default_persona", "finish", "listing", "one", "owner_said",
            "persona", "personas", "problem", "problems", "run_by_hand", "screen_key", "set_default_persona",
            "stage_section", "start", "step", "testers", "tester_read", "add_tester", "edit_tester", "remove_tester",
-           "draft_tester", "jobs", "job", "edit_job", "set_verdict", "say", "feedback_text", "VERDICTS", "MODES",
+           "draft_tester", "jobs", "job", "edit_job", "requests", "request_title", "set_verdict", "say", "feedback_text", "VERDICTS", "MODES",
            "fix_chosen", "chosen"]

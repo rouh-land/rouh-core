@@ -2,7 +2,9 @@
 
     GET  /api/trials                          the jobs (who tried each is not said here), the counts, the testers,
                                               and the newest tries (`trials`, for a run reading the old shape)
-    GET  /api/trials/jobs/<n>                 one job: its goal, what it covers, its tries newest first with who did them
+                                              and `requests`: the jobs, each one request with its words and its journeys
+    GET  /api/trials/jobs/<n>                 one journey (a job until 22 November 2026): its goal, what it covers,
+                                              its attempts newest first with who did them
     POST /api/trials/jobs/<n>                 {"name"?, "goal"?, "covers"?}: the job changed
     POST /api/trials/jobs/<n>/run             {"persona"?}: a new try of it, in a run of its own
     GET  /api/trials/<n>                      one try whole: its walk-through, step by step, its problems and ending
@@ -70,6 +72,8 @@ def _everything(me, g=None) -> dict:
             # Forty of the newest tries: enough for the Atlas's latest row, its week of bars and each job's
             # newest try against its one before (`trialspage.js`, the Page atlas design, 7 November 2026).
             "trials": trials.listing(me, limit=40), "counts": trials.counts(me), "personas": trials.personas(me),
+            # The jobs above the journeys (Petar, 22 November 2026): each request the person gave, with its words.
+            "requests": trials.requests(me),
             "testers": trials.testers(me), "paused_all": trials.paused_all(me) is not None,
             "default": trials.default_persona(me), "owner": _owner_name(me),
             "rounds": trials.ROUNDS, "verdicts": trials.VERDICTS}
@@ -147,8 +151,15 @@ async def new(request: HttpRequest):
     try:
         # The page's start form says only what needs testing (Petar, 22 November 2026): with no address it
         # begins at Rouh's first screen, and the run begins on a page the words name (`by_hand_brief`).
-        got = await trials.run_by_hand(me, persona_id=str(b.get("persona") or ""), goal=str(b.get("goal") or ""),
-                                       page=str(b.get("page") or "").strip() or "/", subject=str(b.get("subject") or ""))
+        # One press of Start is one job, whatever the number of testers ticked (Petar, 22 November 2026): the
+        # first tester's try makes it, with the person's words as its prompt, and the page sends its number with
+        # the others' (`request`).
+        goal = str(b.get("goal") or "")
+        got = await trials.run_by_hand(me, persona_id=str(b.get("persona") or ""), goal=goal,
+                                       page=str(b.get("page") or "").strip() or "/", subject=str(b.get("subject") or ""),
+                                       request={"number": b.get("request") or None, "source": "form",
+                                                "key": f"form:{b.get('started') or ''}" if b.get("started") else "",
+                                                "title": str(b.get("subject") or ""), "prompt": goal})
     except trials.Refused as exc:
         return refuse(str(exc), 400)
     return answer({"ok": True, "trial": got, "said": got.get("said", "")}, headers=NO_STORE)
