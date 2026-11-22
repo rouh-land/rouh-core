@@ -52,6 +52,7 @@ import json
 import logging
 import os
 import platform
+import re
 import secrets
 import shutil
 import socket
@@ -1288,6 +1289,52 @@ def _fresh_choice(held: dict, now: float) -> bool:
 # --- the supervisor ------------------------------------------------------------------------------
 
 
+_ANSI = re.compile(r"\x1b\[[0-9;]*m")
+# frpc's own lines: "2026-11-22 20:24:07.336 [W] [client/service.go:346] [1180aae5e3cea775] connect to
+# server error: dial tcp 169.58.54.187:7000: i/o timeout". The source file and the run id are dropped.
+_FRPC_LINE = re.compile(r"^(\d{4}-\d\d-\d\d \d\d:\d\d:\d\d)(?:\.\d+)? \[([WE])\] (?:\[[^\]]*\.go:\d+\] )?(?:\[[0-9a-f]{8,}\] )?(.*)$")
+
+
+def _span(seconds: float) -> str:
+    seconds = max(0, int(seconds))
+    return f"{seconds} s" if seconds < 120 else f"{seconds // 60} min"
+
+
+def frpc_problems(since: float, path: str | None = None, most: int = 4) -> str:
+    """frpc's warnings and errors from `since` on, each kind once with how often, newest kinds
+    last: "dial tcp 169.58.54.187:7000: i/o timeout (x12); connection write timeout (x9)".
+    Only the end of the file is read. Empty when it said nothing, or there is no log."""
+    path = path or os.path.join(folder(), "frpc.log")
+    try:
+        with open(path, "rb") as fh:
+            fh.seek(0, os.SEEK_END)
+            fh.seek(max(0, fh.tell() - 256_000))
+            text = fh.read().decode("utf-8", "replace")
+    except OSError:
+        return ""
+    counts: dict[str, int] = {}
+    for raw in text.splitlines():
+        m = _FRPC_LINE.match(_ANSI.sub("", raw).strip())
+        if not m:
+            continue
+        try:
+            # frpc writes its own clock's local time, which is this process's too.
+            at = time.mktime(time.strptime(m.group(1), "%Y-%m-%d %H:%M:%S"))
+        except (ValueError, OverflowError):
+            continue
+        if at < since:
+            continue
+        what = m.group(3).strip()[:160]
+        # Answers to a request that this Rouh broke off itself are not the relay's doing.
+        if not what or "context canceled" in what:
+            continue
+        counts[what] = counts.pop(what, 0) + 1
+    if not counts:
+        return ""
+    kinds = list(counts.items())[-most:]
+    return "; ".join(f"{what} (x{n})" if n > 1 else what for what, n in kinds)
+
+
 class Supervisor:
     """Keeps frpc running while the owner has the address on: claims first if need be, gets and
     renews the certificate, starts frpc again when it ends, and says what is happening."""
@@ -1312,8 +1359,21 @@ class Supervisor:
 
     def _set(self, state: str, said: str = "") -> None:
         if state != self.state:
+            was, was_since = self.state, self.since
             log.info("relay: %s%s", state, f" ({said})" if said else "")
             self.since = time.time()
+            # What frpc itself said goes into Rouh's log too: "Waiting for the relay to answer"
+            # alone left the night of 22 November 2026 without a cause (frpc's dials were timing
+            # out the whole time, in a file nobody reads).
+            if state == "reconnecting":
+                said_by_frpc = frpc_problems(self.since - 60)
+                if said_by_frpc:
+                    log.info("relay: frpc said in the last minute: %s", said_by_frpc)
+            elif state == "connected" and was in ("reconnecting", "connecting") and was_since:
+                said_by_frpc = frpc_problems(was_since - 60)
+                if said_by_frpc:
+                    log.info("relay: back after %s; frpc said meanwhile: %s",
+                             _span(self.since - was_since), said_by_frpc)
         self.state, self.said = state, said
 
     # running
