@@ -18494,7 +18494,7 @@ window.addEventListener('rouh:link-notice', function (e) {
    Every link is the registry's (`opens` address), so this is only the layer:
    opening it at a page, closing it, and the address it is at. */
 
-var EVO = { open: false, page: 'mutations', sub: '', title: '' };
+var EVO = { open: false, page: 'mutations', sub: '', title: '', query: '' };
 
 function evolutionViewing() { return EVO.open; }
 
@@ -18529,6 +18529,7 @@ function evolutionClose() {
   if (!EVO.open) return;
   EVO.open = false;
   EVO.title = '';
+  EVO.query = '';
   if (window.RouhEvolution) window.RouhEvolution.hidden();
   showLayer(null);
 }
@@ -18546,6 +18547,16 @@ window.RouhEvolutionHost = {
     EVO.page = evolutionPage(page);
     EVO.sub = EVO.page === 'parameters' ? '' : String(sub || '');
     EVO.title = String(title || '');
+    addrTouch();
+  },
+  /* The try page's filter, `status=open&hide=minor`, kept after its address so a reload or a shared link
+     opens on it (Petar, 22 November 2026). A change of filter replaces the address rather than adding one. */
+  /** @param {string} query */
+  filtered: function (query) {
+    var q = String(query || '');
+    if (q === EVO.query) return;
+    EVO.query = q;
+    ADDR.replace = true;
     addrTouch();
   },
   /* The page and its conversation side by side: what the Incubator asks for after it opens its own chat,

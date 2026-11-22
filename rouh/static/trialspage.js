@@ -536,6 +536,8 @@
       main.appendChild(foot);
     }
     drawToast();
+    // The try page's filter is kept in the address (Petar, 22 November 2026, fourth round).
+    if (S.host && S.host.filtered) { S.host.filtered(w.page === 'try' ? tfQuery() : ''); }
     if (keep) { var back = document.getElementById(keep); if (back) { back.focus(); } }
   }
 
@@ -1288,12 +1290,28 @@
     if ((t.waves || []).length) { root.appendChild(waveList(t)); }
 
     var story = section('tr-steps', 'Step by step', 'tr-steps-sec');
+    S.tf = S.tf || tfBlank();
+    // With a filter on, a step shows only while one of its problems matches it, and a step with none is hidden.
+    var on = tfActive();
+    function seen(list) { return !on || (list || []).some(tfShows); }
+    var vis = walk.filter(function (s) { return seen(foundAt[s.n]); });
+    var whole = (foundAt[0] || []).length && seen(foundAt[0]);
     if (!walk.length) { story.appendChild(el('p', 'tr-empty', going ? 'No steps yet: each one appears here as ' + name + ' takes it.' : 'No steps were kept.')); }
     else {
-      story.appendChild(stepStrip(t, walk, foundAt, stuckAt));
-      walk.forEach(function (s) { story.appendChild(stepBlock(t, s, foundAt[s.n] || [], s.n === stuckAt, walk.length, going)); });
+      if (found.length) { story.appendChild(tryFilter(found)); }
+      if (!vis.length && !whole) {
+        var none = el('div', 'tr-tf-none');
+        none.appendChild(el('p', '', 'No problem matches this filter, so no step is shown.'));
+        var rs = button('tr-btn tr-btn-s', 'Reset the filter');
+        rs.addEventListener('click', function () { tfSet(tfBlank()); });
+        none.appendChild(rs);
+        story.appendChild(none);
+      } else if (vis.length) {
+        story.appendChild(stepStrip(t, vis, foundAt, stuckAt));
+      }
+      vis.forEach(function (s) { story.appendChild(stepBlock(t, s, foundAt[s.n] || [], s.n === stuckAt, walk.length, going)); });
     }
-    if ((foundAt[0] || []).length) { story.appendChild(stepBlock(t, null, foundAt[0], false, walk.length, going)); }
+    if (whole) { story.appendChild(stepBlock(t, null, foundAt[0], false, walk.length, going)); }
     root.appendChild(story);
     // Asking for another review is the start form's, on the dashboard (Petar, 22 November 2026, third round).
     if (!going && found.length) { root.appendChild(fixBar(t)); }
@@ -1429,6 +1447,124 @@
 
   function stepTitle(s) { return s.name || s.title || 'Step ' + s.n; }
 
+  /* ---- where each problem stands, and the try page's filter (Petar, 22 November 2026, fourth round) ----
+     Four states: open (not decided, or chosen for the next wave, or being fixed in one), fixed, Won't fix and
+     Not a problem. The filter is the status (none pressed is All) and the types hidden; it is kept in the
+     address, ?status=open,fixed&hide=minor, so a reload or a shared link opens on the same view. */
+  var TF_STATUS = [['open', 'Open'], ['fixed', 'Fixed'], ['wont', 'Won’t fix'], ['not', 'Not a problem']];
+  function probState(f) {
+    return f.verdict === 'wont_fix' ? 'wont' : f.verdict === 'not_a_problem' ? 'not' : f.standing === 'fixed' ? 'fixed' : 'open';
+  }
+  function stateWords(f) {
+    var st = probState(f);
+    if (st === 'wont') { return 'Won’t fix'; }
+    if (st === 'not') { return 'Not a problem'; }
+    if (st === 'fixed') {
+      var w = f.fixed_by_wave || (waveOf(f) && waveOf(f).state === 'done' ? waveOf(f) : null);
+      return w ? 'Fixed in Wave ' + w.number : f.closed_by ? 'Fixed: try ' + f.closed_by + ' got past it' : 'Fixed';
+    }
+    var rw = runningWave(f);
+    return rw ? 'Open, being fixed in Wave ' + rw.number : chosenNext(f) ? 'Open, chosen for the next wave' : 'Open, not decided yet';
+  }
+  /* A problem's type icon, coloured by where it stands: its type's own colour while open, green once fixed,
+     dimmed grey when settled without a fix. The shape stays, so what went wrong is still there to read. */
+  function stateShape(f, size) {
+    var st = probState(f);
+    var s = shape(f.how_bad, size);
+    s.classList.add('is-' + st);
+    var words = (BAD_SHORT[f.how_bad] || BAD_SHORT.minor) + ' · ' + inTry(f) + ' · ' + stateWords(f);
+    s.title = words;
+    s.setAttribute('aria-label', words);
+    return s;
+  }
+  function tfBlank() { return { status: [], hide: [] }; }
+  function tfActive() { return !!(S.tf && (S.tf.status.length || S.tf.hide.length)); }
+  function tfTypeOk(f) { return !S.tf || S.tf.hide.indexOf(BAD_SHORT[f.how_bad] ? f.how_bad : 'minor') < 0; }
+  function tfShows(f) { return tfTypeOk(f) && (!S.tf || !S.tf.status.length || S.tf.status.indexOf(probState(f)) >= 0); }
+  function tfQuery() {
+    var q = [];
+    if (S.tf && S.tf.status.length) { q.push('status=' + S.tf.status.join(',')); }
+    if (S.tf && S.tf.hide.length) { q.push('hide=' + S.tf.hide.join(',')); }
+    return q.join('&');
+  }
+  function tfRead(search) {
+    var tf = tfBlank();
+    function list(name, ok) {
+      var m = new RegExp('[?&]' + name + '=([^&#]*)').exec(String(search || ''));
+      if (!m) { return []; }
+      var raw = m[1];
+      try { raw = decodeURIComponent(raw); } catch (e) { /* as it is */ }
+      return raw.split(',').filter(function (x, i, all) { return ok.indexOf(x) >= 0 && all.indexOf(x) === i; });
+    }
+    tf.status = list('status', TF_STATUS.map(function (x) { return x[0]; }));
+    tf.hide = list('hide', BAD_ORDER);
+    return tf;
+  }
+  function tfSet(tf) { S.tf = tf; draw(); }
+  /* An icon beside its own words says nothing more to a screen reader. */
+  function quiet(node) { node.removeAttribute('role'); node.removeAttribute('aria-label'); node.setAttribute('aria-hidden', 'true'); return node; }
+  function distinct(list) {
+    var seen = {};
+    return list.filter(function (f) { if (seen[f.number]) { return false; } seen[f.number] = 1; return true; });
+  }
+
+  /* The filter bar above the step map: the status, the types, and how many of the try's problems it shows. */
+  function tryFilter(found) {
+    var all = distinct(found);
+    var bar = el('div', 'tr-tf');
+    bar.setAttribute('role', 'group');
+    bar.setAttribute('aria-label', 'Filter the problems');
+    function chipB(label, on, count, fn, ic) {
+      var b = button('tr-tf-c' + (on ? ' is-on' : ''), null);
+      b.setAttribute('aria-pressed', on ? 'true' : 'false');
+      if (ic) { b.appendChild(ic); }
+      b.appendChild(el('span', '', label));
+      if (count != null) { b.appendChild(el('span', 'tr-tf-n', String(count))); }
+      b.addEventListener('click', fn);
+      return b;
+    }
+    var r1 = el('div', 'tr-tf-row');
+    r1.appendChild(el('span', 'tr-tf-l', 'Status'));
+    var typed = all.filter(tfTypeOk);
+    r1.appendChild(chipB('All', !S.tf.status.length, typed.length, function () { tfSet({ status: [], hide: S.tf.hide.slice() }); }));
+    TF_STATUS.forEach(function (x) {
+      var on = S.tf.status.indexOf(x[0]) >= 0;
+      var n = typed.filter(function (f) { return probState(f) === x[0]; }).length;
+      r1.appendChild(chipB(x[1], on, n, function () {
+        var st = S.tf.status.filter(function (y) { return y !== x[0]; });
+        if (!on) { st.push(x[0]); }
+        // Every status pressed is the same as All.
+        if (st.length === TF_STATUS.length) { st = []; }
+        tfSet({ status: TF_STATUS.map(function (y) { return y[0]; }).filter(function (y) { return st.indexOf(y) >= 0; }), hide: S.tf.hide.slice() });
+      }));
+    });
+    bar.appendChild(r1);
+    var r2 = el('div', 'tr-tf-row');
+    r2.appendChild(el('span', 'tr-tf-l', 'Type'));
+    BAD_ORDER.forEach(function (b) {
+      var n = all.filter(function (f) { return (BAD_SHORT[f.how_bad] ? f.how_bad : 'minor') === b; }).length;
+      if (!n) { return; }
+      var on = S.tf.hide.indexOf(b) < 0;
+      var c = chipB(BAD_SHORT[b], on, n, function () {
+        var hide = on ? S.tf.hide.concat([b]) : S.tf.hide.filter(function (y) { return y !== b; });
+        tfSet({ status: S.tf.status.slice(), hide: BAD_ORDER.filter(function (y) { return hide.indexOf(y) >= 0; }) });
+      }, quiet(shape(b, 14)));
+      c.title = (on ? 'Hide ' : 'Show ') + BAD_SHORT[b].toLowerCase() + ' problems';
+      r2.appendChild(c);
+    });
+    bar.appendChild(r2);
+    var r3 = el('p', 'tr-tf-sum');
+    r3.setAttribute('aria-live', 'polite');
+    r3.appendChild(el('span', '', all.filter(tfShows).length + ' of ' + plural(all.length, 'problem')));
+    if (tfActive()) {
+      var reset = button('tr-linkbtn tr-tf-reset', 'Reset');
+      reset.addEventListener('click', function () { tfSet(tfBlank()); });
+      r3.appendChild(reset);
+    }
+    bar.appendChild(r3);
+    return bar;
+  }
+
   /* The step map (Petar, 22 November 2026, third round): a row of miniature phone screens, each the step's own
      screenshot with its number, and under it the icon of every problem met there, all of them, wrapping as they
      need. The step where the tester was stopped has a red outline. The row scrolls sideways when it is wider than
@@ -1458,9 +1594,18 @@
       b.appendChild(ph);
       b.appendChild(el('span', 'tr-strip-n', String(s.n)));
       if (n) {
+        // Every problem met here that the filter shows, coloured by where it stands (Petar, 22 November 2026,
+        // fourth round), then what is still open of the types shown, or a green tick when nothing is.
+        var shown = here.filter(tfShows);
         var marks = el('span', 'tr-marks tr-strip-marks');
-        here.forEach(function (f) { marks.appendChild(shape(f.how_bad, 11)); });
-        b.appendChild(marks);
+        shown.forEach(function (f) { marks.appendChild(stateShape(f, 11)); });
+        if (shown.length) { b.appendChild(marks); }
+        var open = distinct(here.filter(function (f) { return tfTypeOk(f) && probState(f) === 'open'; })).length;
+        var left = el('span', 'tr-strip-open' + (open ? '' : ' is-clear'));
+        if (open) { left.appendChild(el('span', '', open + ' open')); }
+        else { left.appendChild(icon('check')); left.title = 'Nothing here is still open'; }
+        b.appendChild(left);
+        b.setAttribute('aria-label', b.getAttribute('aria-label') + ', ' + (open ? open + ' still open' : 'nothing still open'));
       }
       b.addEventListener('click', function () { toStep(s.n); });
       strip.appendChild(b);
@@ -1484,6 +1629,8 @@
 
   function toStep(n) {
     var to = document.getElementById('step-' + n);
+    // A step the filter hides is shown again by resetting the filter, then gone to.
+    if (!to && tfActive()) { tfSet(tfBlank()); to = document.getElementById('step-' + n); }
     if (to) { to.scrollIntoView({ block: 'start', behavior: 'smooth' }); var h = to.querySelector('h3'); if (h) { h.focus({ preventScroll: true }); } }
   }
 
@@ -1511,8 +1658,10 @@
     else { meta.appendChild(el('span', '', 'Problems ' + name + ' named that belong to no one step')); }
     if (isStuck) { var sw = el('span', 'tr-stuckword'); sw.appendChild(shape('blocked', 10)); sw.appendChild(el('span', '', 'Stopped here')); meta.appendChild(sw); }
     var marks = el('span', 'tr-marks');
-    found.forEach(function (x) { marks.appendChild(shape(x.how_bad, 10)); });
-    marks.appendChild(el('span', '', found.length ? plural(found.length, 'problem') : 'No problem here'));
+    var shown = found.filter(tfShows);
+    shown.forEach(function (x) { marks.appendChild(stateShape(x, 10)); });
+    marks.appendChild(el('span', '', !found.length ? 'No problem here' : shown.length < found.length ? shown.length + ' of ' + plural(found.length, 'problem') + ' shown'
+      : plural(found.length, 'problem')));
     meta.appendChild(marks);
     head.appendChild(meta);
     box.appendChild(head);
@@ -1547,7 +1696,7 @@
       grid.appendChild(right);
       box.appendChild(grid);
     }
-    if (found.length) { box.appendChild(stepProblems(t, s ? s.n : 0, found, going)); }
+    if (shown.length) { box.appendChild(stepProblems(t, s ? s.n : 0, shown, going, found.length)); }
     return box;
   }
 
@@ -1630,14 +1779,17 @@
     return b;
   }
 
-  function stepProblems(t, stepN, found, going) {
+  function stepProblems(t, stepN, found, going, total) {
     S.pick = S.pick || {};
     var key = t.number + ':' + stepN;
-    // Each step opens on a problem still waiting for a choice, not on one already chosen or in a wave.
-    var sel = found.filter(function (f) { return f.number === S.pick[key]; })[0] ||
+    // Each step opens on a problem still waiting for a choice, not on one already chosen or in a wave; one
+    // picked and then hidden by the filter gives way to the first problem the filter shows.
+    var picked = S.pick[key] ? found.filter(function (f) { return f.number === S.pick[key]; })[0] : null;
+    var sel = picked || (S.pick[key] ? found[0] : null) ||
       found.filter(function (f) { return f.awaiting_choice || (!f.verdict && f.standing !== 'fixed'); })[0] || found[0];
     var wrap = el('div', 'tr-sprobs');
-    wrap.appendChild(el('h4', 'tr-sprobs-h', plural(found.length, 'problem') + ' at ' + (stepN ? 'this step' : 'no one step')));
+    wrap.appendChild(el('h4', 'tr-sprobs-h', (total && total > found.length ? found.length + ' of ' + plural(total, 'problem') : plural(found.length, 'problem')) +
+      ' at ' + (stepN ? 'this step' : 'no one step')));
     var grid = el('div', 'tr-pgrid');
     var nav = el('ul', 'tr-pnav');
     nav.setAttribute('aria-label', 'Problems at ' + (stepN ? 'step ' + stepN : 'no one step'));
@@ -2896,6 +3048,8 @@
         if (!/^(testers\/new|tester\/[a-z0-9]+\/edit)$/.test(S.sub)) { S.form = null; }
         if (S.sub === 'testers/new' && S.form && S.form.key) { S.form = null; }
         if (S.sub !== 'problems') { S.probView.all = false; }
+        // A try opens on the filter its address names, and on none without one.
+        S.tf = /^\d+$/.test(S.sub) ? tfRead(location.search) : tfBlank();
       }
       S.root = el('div', 'tr');
       wrap.appendChild(S.root);

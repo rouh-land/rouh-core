@@ -557,7 +557,8 @@ a.tr-need:hover { border-color: var(--ink-2); }
 .tr-wave.is-running .tr-wave-st { color: var(--ink); border-color: var(--ink-2); }
 .tr-wave-body { display: grid; gap: 10px; padding: 0 14px 14px; justify-items: start; }
 .tr-wave-body .tr-mini { width: 100%; }
-.tr-stripw { display: grid; gap: 6px; padding: 6px 0 8px; background: var(--bg); border-bottom: 1.5px solid var(--line); }
+/* No line of its own under the map: the first step's top line is the one line between them (Petar, 22 November 2026, fourth round). */
+.tr-stripw { display: grid; gap: 6px; padding: 6px 0 8px; background: var(--bg); }
 .tr-strip-b.is-here { background: var(--accent-soft); border-color: var(--accent); }
 .tr-sblock { display: grid; gap: 16px; padding: 22px 0 6px; border-top: 2px solid var(--line); scroll-margin-top: 12px; }
 .tr-sblock.is-stuck { border-top-color: var(--s-blocked); }
@@ -654,6 +655,35 @@ a.tr-need:hover { border-color: var(--ink-2); }
   .tr-fixbar { padding: 8px 4px 10px; }
   .tr-fixbar-words { display: none; }
   .tr-fixbar .tr-btn { flex: 1 1 auto; }
+}
+/* A problem's type icon by where it stands (fourth round): the type's own colour while open, green once fixed,
+   dimmed grey once settled without a fix; its shape never changes. */
+.tr-shape.is-fixed { --s-blocked: var(--st-fixed); --s-confused: var(--st-fixed); --s-annoyed: var(--st-fixed); --s-minor: var(--st-fixed); }
+.tr-shape.is-wont, .tr-shape.is-not { --s-blocked: #5E6482; --s-confused: #5E6482; --s-annoyed: #5E6482; --s-minor: #5E6482; opacity: .75; }
+.tr-strip-open { font-size: 11px; line-height: 1.2; font-weight: 700; color: var(--ink); display: inline-flex; align-items: center; gap: 2px; }
+.tr-strip-open.is-clear { color: var(--st-fixed); }
+/* The filter above the step map: the status, the types, and how many it shows, with Reset. */
+.tr-tf { display: grid; gap: 6px; padding: 10px 12px; border-radius: 12px; background: var(--surface); border: 1.5px solid var(--line); }
+.tr-tf-row { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.tr-tf-l { flex: 0 0 52px; font-size: 13px; font-weight: 700; color: var(--ink-2); }
+.tr-tf-c { display: inline-flex; align-items: center; gap: 6px; min-height: 44px; padding: 0 12px; border-radius: 999px; border: 1.5px solid var(--line);
+  background: transparent; color: var(--ink-2); font: inherit; font-size: 14px; cursor: pointer; }
+.tr-tf-c:hover { border-color: var(--line-strong); color: var(--ink); }
+.tr-tf-c.is-on { border-color: var(--accent); background: var(--accent-soft); color: var(--ink); font-weight: 600; }
+.tr-tf-c[aria-pressed="false"] .tr-shape { opacity: .45; }
+.tr-tf-n { font-size: 12px; font-weight: 600; color: var(--ink-2); }
+.tr-tf-sum { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 14px; font-size: 14px; color: var(--ink-2); }
+.tr-tf-none { display: grid; gap: 10px; justify-items: start; padding: 18px 16px; border: 1.5px dashed var(--line); border-radius: 12px; color: var(--ink-2); }
+@container tr (max-width: 560px) {
+  /* On a phone each row is one line that scrolls sideways under its label, so the filter stays short. */
+  .tr-tf { padding: 6px 0 6px 10px; gap: 2px; }
+  .tr-tf-row { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; padding-right: 24px;
+    -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 24px), transparent); mask-image: linear-gradient(to right, #000 calc(100% - 24px), transparent); }
+  .tr-tf-sum { padding-right: 10px; }
+  .tr-tf-row::-webkit-scrollbar { display: none; }
+  .tr-tf-l { flex: none; }
+  .tr-tf-c { flex: none; padding: 0 10px; font-size: 13px; }
+  .tr-tf-c .tr-shape svg { width: 13px; height: 13px; }
 }
 @media (prefers-reduced-motion: reduce) {
   .tr *, .tr *::before, .tr *::after { animation: none !important; transition: none !important; }

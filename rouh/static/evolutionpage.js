@@ -2400,7 +2400,9 @@
       moved: function (page, sub, title) {
         R.sub = String(sub || '');
         if (host().moved) { host().moved(page, R.sub, title || ''); }
-      }
+      },
+      // A page's own filter, kept in the address after its path (the try page's, `trialspage.js`).
+      filtered: function (query) { if (host().filtered) { host().filtered(query); } }
     };
   }
 

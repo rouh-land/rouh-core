@@ -685,6 +685,10 @@ function addrWithView(addr) {
   if (settingsViewing() && SETTINGS.section === 'beats' && SETTINGS.beatsQuery) {
     return addr + (addr.indexOf('?') === -1 ? '?' : '&') + SETTINGS.beatsQuery;
   }
+  // The try page's filter (`trialspage.js`), after its address.
+  if (evolutionViewing() && EVO.page === 'trials' && EVO.query) {
+    return addr + (addr.indexOf('?') === -1 ? '?' : '&') + EVO.query;
+  }
   if (!TASKS_VIEW.view || addr.split('?')[0] !== ADDR_BROWSER) return addr;
   return addr + (addr.indexOf('?') === -1 ? '?' : '&') + 'view=' + encodeURIComponent(TASKS_VIEW.view);
 }
