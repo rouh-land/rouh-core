@@ -662,9 +662,10 @@ button { font: inherit; color: inherit; }
   color: var(--text);
 }
 .orb-layer[data-orb="corner"][data-rest] .orb-burger { display: grid; }
-.orb-layer[data-orb="corner"][data-rest] .orb-box > canvas,
-.orb-layer[data-orb="corner"][data-rest] .orb-ring { visibility: hidden; }
-.orb-layer[data-orb="corner"][data-rest] .orb-box { box-shadow: inset 0 0 0 1px var(--line); }
+/* At rest only the 3D figure stands aside for the three lines. The core's rings (drawn on the flat
+   canvas, `drawCore`) and the load rings at the circle's edge stay, round the lines and moving, since
+   Petar asked on 22 November 2026 for the rings to be there always. */
+.orb-layer[data-orb="corner"][data-rest] .orb3d { visibility: hidden; }
 
 /* ---------- how busy the machine is, round the circle in the corner ----------
    An arc from twelve o'clock, clockwise, as long a share of the circle as the
@@ -1319,6 +1320,9 @@ button { font: inherit; color: inherit; }
    takes the pointer itself, to be turned and zoomed; in the corner it is a
    picture under the circle's one button, as the flat one is. */
 .orb-layer[data-orb="open"] .orb3d { pointer-events: auto; touch-action: none; }
+/* The flat canvas over the 3D one, holding only the core's three crossing rings and its breathing
+   ring (`renderOrb3d` in app/orb.js); never the pointer's, so the 3D orb is still turned under it. */
+.orb.orb-rings-layer { z-index: 1; pointer-events: none !important; }
 /* NEEDS YOU at the tip of whatever waits for the person: a hard red square, a
    square breathing round it and the words, so waiting never rests on colour
    alone. In the small circle the square, without the words. */
