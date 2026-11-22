@@ -3,6 +3,8 @@
     GET  /api/trials                          the jobs (who tried each is not said here), the counts, the testers,
                                               and the newest tries (`trials`, for a run reading the old shape)
                                               and `requests`: the jobs, each one request with its words and its journeys
+    GET  /api/trials/requests/<n>             one job whole (its page, /evolution/testing/jobs/<n>): its prompt, whether
+                                              it is manual or automatic, its summary, and each journey with its attempts
     GET  /api/trials/jobs/<n>                 one journey (a job until 22 November 2026): its goal, what it covers,
                                               its attempts newest first with who did them
     POST /api/trials/jobs/<n>                 {"name"?, "goal"?, "covers"?}: the job changed
@@ -73,6 +75,7 @@ def _everything(me, g=None) -> dict:
             # newest try against its one before (`trialspage.js`, the Page atlas design, 7 November 2026).
             "trials": trials.listing(me, limit=40), "counts": trials.counts(me), "personas": trials.personas(me),
             # The jobs above the journeys (Petar, 22 November 2026): each request the person gave, with its words.
+            # Each with its summary and whether the person (manual) or Rouh (automatic) started it.
             "requests": trials.requests(me),
             "testers": trials.testers(me), "paused_all": trials.paused_all(me) is not None,
             "default": trials.default_persona(me), "owner": _owner_name(me),
@@ -224,6 +227,14 @@ async def one_job(request: HttpRequest, number: int):
             me, number, name=b.get("name"), goal=b.get("goal"), covers=b.get("covers"))}))
     return await _do(request, _sync(lambda me, b: {"job": trials.job(me, number), "personas": trials.personas(me),
                                                    "default": trials.default_persona(me)}))
+
+
+@only("GET")
+async def one_request(request: HttpRequest, number: int):
+    """One job whole: its words, its summary and its journeys, each with its attempts (Petar, 22 November 2026)."""
+    from rouh import trials
+
+    return await _do(request, _sync(lambda me, b: {"request": trials.job_whole(me, number)}))
 
 
 @only("POST")

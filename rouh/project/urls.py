@@ -389,6 +389,7 @@ urlpatterns = [
     path("api/trials/problems/<int:number>/say", trials_web.problem_say),
     path("api/trials/problems/<int:number>/verdict", trials_web.problem_verdict),
     path("api/trials/problems/<int:number>/report", trials_web.problem_report),
+    path("api/trials/requests/<int:number>", trials_web.one_request),
     path("api/trials/jobs/<int:number>", trials_web.one_job),
     path("api/trials/jobs/<int:number>/run", trials_web.run_job),
     path("api/trials/testers", trials_web.testers),
@@ -961,7 +962,7 @@ urlpatterns = [
     re_path(r"^" + addressing.EVOLUTION.lstrip("/") + r"/trials(?P<rest>/.*)?$", evolution_trials_old_address),
     # Tuning's address while it was called Parameters, until 21 November 2026.
     re_path(r"^" + addressing.EVOLUTION.lstrip("/") + r"/parameters/?$", evolution_tuning_old_address),
-    re_path(r"^" + addressing.EVOLUTION.lstrip("/") + r"/testing/(?:\d{1,6}|(?:job|journey)/\d{1,6}|problem/\d{1,6}|testers|testers/new"
+    re_path(r"^" + addressing.EVOLUTION.lstrip("/") + r"/testing/(?:\d{1,6}|(?:job|journey|jobs)/\d{1,6}|problem/\d{1,6}|testers|testers/new"
             r"|tester/[a-z0-9]{1,40}(?:/edit)?|how)$", views.index),
     re_path(r"^" + addressing.EVOLUTION.lstrip("/") + r"/incubator/(?:INC-)?\d{1,6}$", views.index),
     re_path(r"^" + addressing.EVOLUTION.lstrip("/")

@@ -921,7 +921,8 @@ def request_title(r, names: list | None = None) -> str:
     return _titled(names)
 
 
-def _request_for(who, *, key: str = "", title: str = "", prompt: str = "", source: str = "", number=None):
+def _request_for(who, *, key: str = "", title: str = "", prompt: str = "", source: str = "", number=None,
+                 kind: str = ""):
     """The job a new journey goes into: the one named by number, one being started with the same key in the last
     twelve hours (the other journeys of the same request), or a new one."""
     M = _m()
@@ -949,24 +950,131 @@ def _request_for(who, *, key: str = "", title: str = "", prompt: str = "", sourc
             with transaction.atomic():
                 return M.TrialRequest.objects.create(**_whose(who), number=_number_next(M.TrialRequest, who),
                                                       title=_cut(title, 160), prompt=str(prompt or "").strip()[:8000],
-                                                      source=_cut(source, 20), key=key, created_at=now, updated_at=now)
+                                                      source=_cut(source, 20), key=key,
+                                                      kind=kind if kind in KINDS else kind_of(source),
+                                                      created_at=now, updated_at=now)
         except IntegrityError:
             continue
     raise Refused("The job could not be numbered just now; try again.")
 
 
-def requests(who) -> list[dict]:
-    """Every job, the one started most lately first: its title, the person's words, and its journeys' numbers."""
+#: Who started a job (Petar, 22 November 2026): manual is testing the person started (the start form, or asked for in
+#: a chat), automatic is testing Rouh started by itself (the switch for automatic testing, a build's own tests).
+KINDS = ("manual", "automatic")
+
+
+def kind_of(source: str = "", mode: str = "") -> str:
+    """A new job's kind: manual when the person asked for it (a review, the form, a chat), else automatic."""
+    return "manual" if mode == "review" or source in ("chat", "form") else "automatic"
+
+
+def _request_summaries(who, rows: list, *, attempts: bool = False) -> dict:
+    """For each job (`TrialRequest.id`): its journeys, attempts, how many journeys a tester finished, and its problems
+    by where they stand - found, fixed (by a wave, or a later try that got past it), set aside (Won't fix or Not a
+    problem), resolved (the two together, everything settled), decided (chosen to fix, not fixed yet) and open (not
+    settled: still to decide, or decided and waiting for its fix). With `attempts`, each journey's attempts too."""
     M = _m()
-    rows = list(M.TrialRequest.objects.filter(**_whose(who)))
-    names: dict = {}
-    for rid, num, name in (M.TrialJob.objects.filter(**_whose(who), request_id__in=[r.id for r in rows])
-                           .order_by("number").values_list("request_id", "number", "name")):
-        names.setdefault(rid, []).append((num, name))
-    out = [{"number": r.number, "title": request_title(r, [n for _, n in names.get(r.id, [])]), "prompt": r.prompt,
-            "source": r.source, "created_at": r.created_at, "updated_at": r.updated_at,
-            "journeys": [num for num, _ in names.get(r.id, [])]} for r in rows]
-    out.sort(key=lambda d: -(d["updated_at"] or d["created_at"] or 0))
+    out = {r.id: {"journeys": [], "attempts_n": 0, "finished": 0, "found": 0, "fixed": 0, "set_aside": 0,
+                  "resolved": 0, "decided": 0, "open": 0, "last_at": None} for r in rows}
+    if not rows:
+        return out
+    journeys = list(M.TrialJob.objects.filter(**_whose(who), request_id__in=list(out)).order_by("number"))
+    tries = list(M.Trial.objects.filter(**_whose(who), job_id__in=[j.id for j in journeys]).order_by("created_at", "number"))
+    by_j: dict = {}
+    for t in tries:
+        by_j.setdefault(t.job_id, []).append(t)
+    seen = list(M.TrialSighting.objects.filter(**_whose(who), trial_id__in=[t.id for t in tries])
+                .values_list("trial_id", "problem_id").distinct())
+    probs = {p.id: p for p in M.TrialProblem.objects.filter(**_whose(who), id__in={pid for _, pid in seen})}
+    t_job = {t.id: t.job_id for t in tries}
+    j_req = {j.id: j.request_id for j in journeys}
+    per_req: dict = {}
+    per_try: dict = {}
+    per_j: dict = {}
+    for tid, pid in seen:
+        if pid not in probs:
+            continue
+        per_try.setdefault(tid, set()).add(pid)
+        per_j.setdefault(t_job[tid], set()).add(pid)
+        per_req.setdefault(j_req[t_job[tid]], set()).add(pid)
+    names = _names(who) if attempts else {}
+
+    def tally(d: dict, ids) -> dict:
+        for pid in ids:
+            st = standing(probs[pid])
+            d["found"] += 1
+            if st == "fixed":
+                d["fixed"] += 1
+            elif st == "set_aside":
+                d["set_aside"] += 1
+            else:
+                d["open"] += 1
+                if st == "decided":
+                    d["decided"] += 1
+        d["resolved"] = d["fixed"] + d["set_aside"]
+        return d
+
+    for rid, ids in per_req.items():
+        tally(out[rid], ids)
+    for j in journeys:
+        mine = by_j.get(j.id, [])
+        s = out[j.request_id]
+        s["attempts_n"] += len(mine)
+        # A journey is finished when any of its testers said they managed it, all the way.
+        done = any(t.managed == "yes" for t in mine)
+        s["finished"] += 1 if done else 0
+        last = mine[-1].created_at if mine else None
+        if last and (s["last_at"] or 0) < last:
+            s["last_at"] = last
+        jd = {"number": j.number, "name": j.name, "goal": j.goal, "page": j.page, "attempts_n": len(mine),
+              "finished": done, "last_at": last}
+        if attempts:
+            jd.update(tally({"found": 0, "fixed": 0, "set_aside": 0, "resolved": 0, "decided": 0, "open": 0},
+                            per_j.get(j.id, ())))
+            jd["attempts"] = [{"number": t.number, "persona": t.persona,
+                               "persona_name": names.get(t.persona) or t.persona.title(), "state": t.state,
+                               "managed": t.managed, "mode": t.mode or "auto", "created_at": t.created_at,
+                               "started_at": t.started_at, "found_n": len(per_try.get(t.id, ()))}
+                              for t in reversed(mine)]
+        s["journeys"].append(jd)
+    return out
+
+
+def _request_out(r, s: dict) -> dict:
+    return {"number": r.number, "title": request_title(r, [j["name"] for j in s["journeys"]]), "prompt": r.prompt,
+            "source": r.source, "kind": r.kind if r.kind in KINDS else kind_of(r.source),
+            "created_at": r.created_at, "updated_at": r.updated_at,
+            "journeys": [j["number"] for j in s["journeys"]],
+            "summary": {k: v for k, v in s.items() if k != "journeys"} | {"journeys_n": len(s["journeys"])}}
+
+
+def requests(who, *, kind: str = "") -> list[dict]:
+    """Every job, the one tried most lately first: its title, the person's words, whether the person started it
+    (manual) or Rouh did (automatic), its journeys' numbers and its summary (`_request_summaries`)."""
+    M = _m()
+    q = M.TrialRequest.objects.filter(**_whose(who))
+    if kind in KINDS:
+        q = q.filter(kind=kind)
+    rows = list(q)
+    sums = _request_summaries(who, rows)
+    out = [_request_out(r, sums[r.id]) for r in rows]
+    out = [d for d in out if d["journeys"]]
+    out.sort(key=lambda d: -(d["summary"]["last_at"] or d["updated_at"] or d["created_at"] or 0))
+    return out
+
+
+def job_whole(who, number) -> dict:
+    """One job whole, for its page: its summary, and each journey with its attempts, newest first, with who did each."""
+    try:
+        n = int(str(number).strip().lstrip("#").split()[-1])
+    except (TypeError, ValueError, IndexError):
+        raise NotFound(f"There is no job {number}.") from None
+    r = _m().TrialRequest.objects.filter(**_whose(who), number=n).first()
+    if r is None:
+        raise NotFound(f"There is no job {n}.")
+    s = _request_summaries(who, [r], attempts=True)[r.id]
+    out = _request_out(r, s)
+    out["journeys"] = s["journeys"]
     return out
 
 
@@ -1526,7 +1634,8 @@ def start(who, *, persona_id: str = "", goal: str = "", subject: str = "", gene:
             src = "run" if str(by).startswith("run ") else (req.get("source") or ("form" if mode == "review" else "run"))
             req = {**req, "source": src, "key": f"by:{_cut(by, 120)}" if by else f"journey:{j.id}"}
         r = _request_for(who, key=str(req.get("key") or ""), title=str(req.get("title") or ""),
-                         prompt=str(req.get("prompt") or ""), source=str(req.get("source") or ""), number=req.get("number"))
+                         prompt=str(req.get("prompt") or ""), source=str(req.get("source") or ""), number=req.get("number"),
+                         kind=kind_of(str(req.get("source") or ""), mode))
         _m().TrialJob.objects.filter(id=j.id).update(request_id=r.id)
         j.request_id = r.id
     _m().TrialRequest.objects.filter(id=j.request_id, **_whose(who)).update(updated_at=_now())
@@ -2347,5 +2456,5 @@ __all__ = ["BRIEF", "DEFAULT_PERSONA", "GUIDANCE", "HOW_BAD", "MATCH_USE", "NotF
            "broken", "counts", "persona_read", "record", "reopen", "sighting", "default_persona", "finish", "listing", "one", "owner_said",
            "persona", "personas", "problem", "problems", "run_by_hand", "screen_key", "set_default_persona",
            "stage_section", "start", "step", "testers", "tester_read", "add_tester", "edit_tester", "remove_tester",
-           "draft_tester", "jobs", "job", "edit_job", "requests", "request_title", "set_verdict", "say", "feedback_text", "VERDICTS", "MODES",
+           "draft_tester", "jobs", "job", "edit_job", "requests", "job_whole", "KINDS", "request_title", "set_verdict", "say", "feedback_text", "VERDICTS", "MODES",
            "fix_chosen", "chosen"]

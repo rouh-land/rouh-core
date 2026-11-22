@@ -235,6 +235,9 @@ class TrialRequest(models.Model):
     source = models.TextField(blank=True, default="")
     #: What ties the journeys of one request together while it is being started: the chat and its words, or the run.
     key = models.TextField(blank=True, default="")
+    #: manual (the person started it: the start form, or asked for in a chat) or automatic (Rouh started it: the
+    #: switch for automatic testing, a build's own tests after a change). Petar, 22 November 2026.
+    kind = models.TextField(blank=True, default="automatic")
     created_at = models.FloatField()
     updated_at = models.FloatField()
 

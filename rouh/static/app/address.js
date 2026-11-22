@@ -415,9 +415,10 @@ function addrReadPlace(path, query) {
     // Trials: the jobs, one job, one try by its number, the problems and one problem, the testers, one
     // tester and the form that adds or changes one, and how trials work.
     // A journey is /journey/<n>; /job/<n> was its address while journeys were called jobs, and still opens it.
+    // A job (one request, with its journeys) is /jobs/<n> (22 November 2026).
     // Testing was called Trials, at /evolution/trials, until 22 November 2026; the server sends those on,
     // and one read here opens the same page, whose address is then written as /evolution/testing.
-    if ((parts[1] === 'testing' || parts[1] === 'trials') && /^(?:|\d{1,6}|problems|(?:job|journey)\/\d{1,6}|problem\/\d{1,6}|testers|testers\/new|tester\/[a-z0-9]{1,40}(?:\/edit)?|how)$/
+    if ((parts[1] === 'testing' || parts[1] === 'trials') && /^(?:|\d{1,6}|problems|(?:job|journey|jobs)\/\d{1,6}|problem\/\d{1,6}|testers|testers\/new|tester\/[a-z0-9]{1,40}(?:\/edit)?|how)$/
         .test(parts.slice(2).join('/'))) {
       return { kind: '', id: '', chat: chat, evolution: { page: 'trials', sub: parts.slice(2).join('/') } };
     }

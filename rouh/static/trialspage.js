@@ -22,9 +22,10 @@
    design drew from numbers Rouh does not record (cost, trait dials, a stop button for a run) is not here.
 
    The pages, each its own address under /evolution/testing:
-     ''                 the Dashboard (the Atlas until 22 November 2026): a verdict, the tiles, the latest tries, the pages of Rouh, what needs
-                        you, and the jobs (what is being tested; who tried each is inside a job)
-     job/<n>            one job: its goal and what it covers, its tries as a ladder and a list
+     ''                 the Dashboard (the Atlas until 22 November 2026): the tiles, one card for each job (?kind=manual|automatic
+                        filters them), and the pages of Rouh
+     jobs/<n>           one job (one request): what was asked, its summary, every journey with its attempts
+     journey/<n>        one journey (job/<n> until 22 November 2026, and still): its goal, its tries as a ladder and a list
      <n>                one try: its storyboard, step by step, how it ended, and its problems, worst first
      problems           the Fix list: every problem across the jobs, open first, worst first
      problem/<n>        one problem: its story, every sighting, its talk with Rouh, and what to do with it
@@ -36,7 +37,7 @@
 
   var API = '/api/trials';
   var S = { root: null, top: null, main: null, sub: '', host: null, data: {}, error: '', said: '', busy: '', seq: 0,
-            poll: 0, shell: null, open: null, jobsFilter: { persona: '', result: '' },
+            poll: 0, shell: null, open: null, kind: '',
             probFilter: { status: 'open', who: '', job: '' }, probView: { screen: null, bad: '', group: false, all: false },
             tryBad: '', confirm: '', editJob: false, deciding: false, draft: null, form: null, carry: '',
             sayDraft: null, step: {}, toast: null };
@@ -181,6 +182,8 @@
     clock: '<svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><circle cx="9" cy="9" r="7"/><path d="M9 5v4.5l3 2"/></svg>',
     review: '<svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M4.5 12.5V8a4.5 4.5 0 0 1 9 0v4.5l1.5 1.5H3z"/><path d="M7.5 16h3"/></svg>',
     tap: '<svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M5 7V2.5a1 1 0 0 1 2 0V7l3.5.8c.6.2 1 .8.9 1.4l-.6 3.3H5.5L3 9.5a1 1 0 0 1 1.4-1.4z"/></svg>',
+    person: '<svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><circle cx="8" cy="5" r="2.8"/><path d="M2.5 14.5c.6-3 2.8-4.6 5.5-4.6s4.9 1.6 5.5 4.6"/></svg>',
+    cog: '<svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" aria-hidden="true"><path d="M6.9 1.5h2.2l.4 1.9 1.3.6 1.7-1 1.5 1.5-1 1.7.6 1.3 1.9.4v2.2l-1.9.4-.6 1.3 1 1.7-1.5 1.5-1.7-1-1.3.6-.4 1.9H6.9l-.4-1.9-1.3-.6-1.7 1-1.5-1.5 1-1.7-.6-1.3-1.9-.4V6.9l1.9-.4.6-1.3-1-1.7 1.5-1.5 1.7 1 1.3-.6z"/><circle cx="8" cy="8" r="2.2"/></svg>',
     plus: '<svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M8 3v10M3 8h10"/></svg>'
   };
   /* Each type's icon says what it is (Petar, 22 November 2026): a stop sign for Couldn't continue, a question
@@ -411,6 +414,8 @@
     if (/^\d+$/.test(s)) { return { page: 'try', n: s }; }
     // A journey; /job/<n> was its address while journeys were called jobs, and still opens it.
     if ((m = /^(?:job|journey)\/(\d+)$/.exec(s))) { return { page: 'job', n: m[1] }; }
+    // A job, one request with its journeys (22 November 2026, fifth round).
+    if ((m = /^jobs\/(\d+)$/.exec(s))) { return { page: 'request', n: m[1] }; }
     if ((m = /^problem\/(\d+)$/.exec(s))) { return { page: 'problem', n: m[1] }; }
     if (s === 'problems') { return { page: 'problems' }; }
     if (s === 'testers') { return { page: 'testers' }; }
@@ -431,23 +436,20 @@
     S.error = '';
     function keep(name) { return function (j) { if (seq === S.seq) { S.data[name] = j; } }; }
     if (w.page === 'jobs') {
-      var q = [];
-      if (S.jobsFilter.persona) { q.push('persona=' + encodeURIComponent(S.jobsFilter.persona)); }
-      if (S.jobsFilter.result) { q.push('result=' + encodeURIComponent(S.jobsFilter.result)); }
       want = Promise.all([
         loadShell(),
-        q.length ? call('?' + q.join('&')) : Promise.resolve(null),
         call('/problems?status=open'),
         loadAll()
       ]).then(function (got) {
         if (seq !== S.seq) { return; }
-        S.data.jobs = got[1] || got[0];
-        S.open = got[2];
+        S.data.jobs = got[0];
+        S.open = got[1];
       });
     } else {
       var shellFirst = S.shell ? null : loadShell().catch(function () {});
       if (w.page === 'problems' || w.page === 'testers') { shellFirst = Promise.all([shellFirst, loadAll()]); }
       if (w.page === 'job') { want = call('/jobs/' + w.n).then(keep('job')); }
+      else if (w.page === 'request') { want = call('/requests/' + w.n).then(function (j) { if (seq === S.seq) { S.data.request = j.request; } }); }
       else if (w.page === 'try') { want = call('/' + w.n).then(keep('try')); }
       else if (w.page === 'problems') { want = loadProblems(seq); }
       else if (w.page === 'problem') { want = call('/problems/' + w.n).then(keep('problem')); }
@@ -523,11 +525,11 @@
       main.appendChild(err);
     }
     if (S.said) { main.appendChild(el('p', 'tr-saidnow', S.said)); }
-    ({ jobs: drawJobs, job: drawJob, 'try': drawTry, problems: drawProblems, problem: drawProblem,
+    ({ jobs: drawJobs, job: drawJob, request: drawRequest, 'try': drawTry, problems: drawProblems, problem: drawProblem,
        testers: drawTesters, tester: drawTester, form: drawForm, how: drawHow })[w.page](main, w);
     // At the end of a long page, the way back to every list, so nobody has to press Back three times (trial 17).
     // Not on a try's page, which ends with its Fix bar (Petar, 22 November 2026, third round).
-    if (w.page === 'job' || w.page === 'problem' || w.page === 'tester') {
+    if (w.page === 'job' || w.page === 'request' || w.page === 'problem' || w.page === 'tester') {
       var foot = el('nav', 'tr-foot');
       foot.setAttribute('aria-label', 'Back to a list');
       foot.appendChild(el('span', 'tr-dim', 'Back to:'));
@@ -539,7 +541,8 @@
     }
     drawToast();
     // The try page's filter is kept in the address (Petar, 22 November 2026, fourth round).
-    if (S.host && S.host.filtered) { S.host.filtered(w.page === 'try' ? tfQuery() : ''); }
+    // So is the dashboard's All / Manual / Automatic (fifth round).
+    if (S.host && S.host.filtered) { S.host.filtered(w.page === 'try' ? tfQuery() : w.page === 'jobs' && S.kind ? 'kind=' + S.kind : ''); }
     if (keep) { var back = document.getElementById(keep); if (back) { back.focus(); } }
   }
 
@@ -551,7 +554,7 @@
     if (!top) { return; }
     top.textContent = '';
     var page = where().page;
-    var on = page === 'job' || page === 'try' || page === 'jobs' ? 'jobs'
+    var on = page === 'job' || page === 'request' || page === 'try' || page === 'jobs' ? 'jobs'
       : page === 'problem' || page === 'problems' ? 'problems'
       : page === 'tester' || page === 'testers' || page === 'form' ? 'testers' : 'how';
     var sh = S.shell;
@@ -713,17 +716,17 @@
     var t2 = stat('Better or worse');
     if (!cmp.length) {
       t2.appendChild(el('div', 'tr-big-n', 'No trend yet'));
-      t2.appendChild(el('p', 'tr-cap', 'No journey has two finished attempts among the newest ones yet.'));
+      t2.appendChild(el('p', 'tr-cap', 'No journey has two attempts that ended among the newest ones yet.'));
     } else {
       t2.appendChild(el('div', 'tr-big-n', worse >= better ? worse + ' worse' : better + ' better'));
       var big = cmp.slice().sort(function (a, b) { return Math.abs(b.last - b.prev) - Math.abs(a.last - a.prev); })[0];
-      t2.appendChild(el('p', 'tr-cap', 'Of ' + plural(cmp.length, 'journey') + ' with two finished attempts, each against its own attempt before: ' +
+      t2.appendChild(el('p', 'tr-cap', 'Of ' + plural(cmp.length, 'journey') + ' with two attempts that ended, each against its own attempt before: ' +
         better + ' better, ' + (cmp.length - better - worse) + ' the same, ' + worse + ' worse.' +
         (big && big.last !== big.prev ? ' Biggest change: ' + big.job.name + ', ' + big.prev + ' → ' + big.last + ' problems.' : '')));
       var arrows = el('div', 'tr-arrows');
       tr.forEach(function (x) {
         var a = icon(x.dir === 'worse' ? 'up' : x.dir === 'better' ? 'down' : x.dir === 'same' ? 'flat' : 'one');
-        a.title = x.job.name + ': ' + (x.dir === 'one' ? 'one finished try so far' : x.prev + ' → ' + x.last + ' problems');
+        a.title = x.job.name + ': ' + (x.dir === 'one' ? 'one try that ended so far' : x.prev + ' → ' + x.last + ' problems');
         a.removeAttribute('aria-hidden');
         a.setAttribute('role', 'img');
         a.setAttribute('aria-label', a.title);
@@ -761,7 +764,7 @@
     root.appendChild(tiles);
 
     // The jobs above the pages (Petar, 22 November 2026).
-    drawJobList(root, d);
+    drawJobList(root);
 
     var left = el('section', 'tr-pages tr-sec');
     var lh = el('div', 'tr-sec-head');
@@ -819,7 +822,7 @@
           var x = tr[j.number];
           var line = el('span', 'tr-trend');
           line.appendChild(icon(!x || x.dir === 'one' ? 'one' : x.dir === 'worse' ? 'up' : x.dir === 'better' ? 'down' : 'flat'));
-          line.appendChild(el('span', '', (js.length > 1 ? j.name.replace(/:\s*$/, '') + ': ' : '') + (!x || x.dir === 'one' ? 'one finished attempt, no trend yet'
+          line.appendChild(el('span', '', (js.length > 1 ? j.name.replace(/:\s*$/, '') + ': ' : '') + (!x || x.dir === 'one' ? 'no trend yet'
             : (x.dir === 'same' ? 'Same' : upper(x.dir)) + ': ' + x.prev + ' → ' + x.last)));
           foot.appendChild(line);
         });
@@ -833,139 +836,267 @@
     return wrap;
   }
 
-  /* The jobs (Petar, 22 November 2026): JOB -> JOURNEYS -> ATTEMPTS. A job is one request the person gave, with their
-     own words; each journey is one goal a tester is asked to reach; each attempt is one tester going through it, with
-     who did it. Who tried is never said at the job's level. Jobs and attempts fold open and shut. */
-  function drawJobList(root, d) {
-    var sec = section('tr-jobs', 'Jobs');
-    sec.appendChild(el('p', 'tr-lede', 'A job is one request you gave. It has journeys, each one thing a tester is asked to do, ' +
-      'and each journey has its attempts, one tester going through it.'));
-    var people = [['', 'Anyone']].concat(((S.shell && S.shell.testers) || []).map(function (t) { return [t.key, t.first]; }));
-    var filtering = !!(S.jobsFilter.persona || S.jobsFilter.result);
-    if (d.jobs.length || filtering) {
-      var bar = el('div', 'tr-filters');
-      bar.appendChild(choose('Tried by', S.jobsFilter.persona, people, function (v) { S.jobsFilter.persona = v; load(); }));
-      bar.appendChild(choose('Latest attempt', S.jobsFilter.result, [['', 'Any result'], ['passed', 'Passed'],
-        ['failed', 'Did not pass'], ['running', 'Trying now or stuck'], ['broken', 'Could not finish']],
-        function (v) { S.jobsFilter.result = v; load(); }));
-      sec.appendChild(bar);
+  /* The jobs (Petar, 22 November 2026, fifth round): one card for each job, the whole card a link to its own page,
+     which lists its journeys and their attempts. A card holds what the person asked (clamped), when it was made,
+     whether they started it (Manual) or Rouh did (Automatic), its counts, and one ring of how much of what its
+     testers found is resolved: fixed in green, set aside (Won't fix, Not a problem) in grey. No pass or did not pass anywhere. Under All the
+     cards are in two groups, the person's first; the filter is kept in the address (?kind=). */
+  var KIND = {
+    manual: { word: 'Manual', icon: 'person', group: 'You started', note: 'Tests you asked for, from the start form or in a chat.' },
+    automatic: { word: 'Automatic', icon: 'cog', group: 'Rouh started', note: 'Tests Rouh ran by itself: automatic testing, and a build testing its own change.' }
+  };
+  function kindOf(r) { return r && r.kind === 'manual' ? 'manual' : 'automatic'; }
+  function kindBadge(r) {
+    var k = kindOf(r), b = el('span', 'tr-kind is-' + k);
+    b.appendChild(icon(KIND[k].icon));
+    b.appendChild(el('span', '', KIND[k].word));
+    return b;
+  }
+  function kindRead(search) {
+    var m = /[?&]kind=(manual|automatic)(?:&|#|$)/.exec(String(search || ''));
+    return m ? m[1] : '';
+  }
+
+  /* The ring: of the problems a job's testers found, how many are resolved - fixed (green, solid) and set aside
+     (grey, hatched by a gap) - round a track of the ones still open. Its words say the same, so colour is never
+     the only sign. */
+  function ring(s, size) {
+    var n = s.found || 0, R = 42, C = 2 * Math.PI * R, w = el('div', 'tr-ring' + (size ? ' tr-ring-' + size : ''));
+    var fx = n ? s.fixed / n : 0, sa = n ? s.set_aside / n : 0;
+    function arc(cls, from, part) {
+      if (part <= 0) { return ''; }
+      var len = Math.max(0, part * C - (part < 1 ? 2 : 0));
+      return '<circle class="' + cls + '" cx="50" cy="50" r="' + R + '" fill="none" stroke-width="11" stroke-dasharray="' +
+        len.toFixed(2) + ' ' + C.toFixed(2) + '" stroke-dashoffset="' + (-from * C).toFixed(2) + '" transform="rotate(-90 50 50)"/>';
     }
-    if (!d.jobs.length) {
-      sec.appendChild(el('p', 'tr-empty', filtering ? 'No journey matches that.'
-        : 'Nothing has been tried yet. When you ask for a test, or Rouh changes something you will see, its job shows up here.'));
+    // Only these fixed shapes and numbers go through innerHTML: nothing a person or a tester wrote.
+    w.innerHTML = '<svg viewBox="0 0 100 100" aria-hidden="true"><circle class="tr-ring-track" cx="50" cy="50" r="' + R +
+      '" fill="none" stroke-width="11"/>' + arc('tr-ring-fixed', 0, fx) + arc('tr-ring-aside', fx, sa) + '</svg>';
+    var mid = el('div', 'tr-ring-mid');
+    if (!n) { mid.appendChild(el('b', 'is-none', 'None')); mid.appendChild(el('span', '', 'found yet')); }
+    else {
+      mid.appendChild(el('b', '', Math.round(s.resolved / n * 100) + '%'));
+      mid.appendChild(el('span', '', s.resolved === n ? 'all resolved' : s.resolved + ' of ' + n + ' resolved'));
+    }
+    w.appendChild(mid);
+    w.setAttribute('role', 'img');
+    w.setAttribute('aria-label', !n ? 'No problems found yet' : s.resolved + ' of ' + plural(n, 'problem') + ' resolved: ' +
+      s.fixed + ' fixed, ' + s.set_aside + ' set aside, ' + s.open + ' still open');
+    return w;
+  }
+  /* The counts beside the ring, the same on the card and the job's page. */
+  function jobCounts(s) {
+    var g = el('dl', 'tr-jc');
+    function row(label, value, cls, ic) {
+      var d = el('div', 'tr-jc-i' + (cls ? ' ' + cls : ''));
+      var dt = el('dt');
+      if (ic) { dt.appendChild(ic); }
+      dt.appendChild(el('span', '', label));
+      d.appendChild(dt);
+      d.appendChild(el('dd', '', value));
+      g.appendChild(d);
+    }
+    function key(cls) { var k = el('i', 'tr-jc-key ' + cls); k.setAttribute('aria-hidden', 'true'); return k; }
+    row('Found', String(s.found), 'is-found');
+    row('Fixed', String(s.fixed), s.fixed ? 'is-fixed' : '', key('is-fixed'));
+    row('Set aside', String(s.set_aside), 'is-aside', key('is-aside'));
+    row('Open', String(s.open), s.open ? 'is-open' : '', key('is-open'));
+    return g;
+  }
+  function jobScale(r) {
+    var s = r.summary || {}, p = el('p', 'tr-jscale');
+    p.appendChild(el('span', '', plural(s.journeys_n || 0, 'journey')));
+    p.appendChild(el('span', '', plural(s.attempts_n || 0, 'attempt')));
+    var f = el('span', 'tr-jscale-fin');
+    // A tick only when a tester finished one: a green tick on "0 of 1" read as success (critic, round 2).
+    f.appendChild(icon(s.finished ? 'check' : 'one'));
+    if (!s.finished) { f.classList.add('is-none'); }
+    f.appendChild(el('span', '', (s.finished || 0) + ' of ' + (s.journeys_n || 0) + ' finished by a tester'));
+    p.appendChild(f);
+    return p;
+  }
+  function settledLine(s) {
+    if (!s.found) { return 'No problems found yet.'; }
+    if (!s.open) { return 'All ' + plural(s.found, 'problem') + ' resolved.'; }
+    return s.resolved + ' of ' + s.found + ' resolved; ' + s.open + ' still open' + (s.decided ? ', ' + s.decided + ' of them chosen to fix' : '') + '.';
+  }
+  function jobCard(r) {
+    var s = r.summary || {}, k = kindOf(r);
+    var li = el('li', 'tr-jcard-li');
+    var a = link('', HOME + '/jobs/' + r.number, 'tr-jcard is-' + k);
+    a.id = 'job-' + r.number;
+    var top = el('div', 'tr-jcard-top');
+    top.appendChild(kindBadge(r));
+    top.appendChild(el('span', 'tr-dim', 'Job ' + r.number + ' · made ' + day(r.created_at)));
+    a.appendChild(top);
+    a.appendChild(el('h3', 'tr-jcard-t', r.title));
+    if (r.prompt) { a.appendChild(el('blockquote', 'tr-jcard-p', '“' + r.prompt + '”')); }
+    else { a.appendChild(el('p', 'tr-jcard-p is-none', k === 'manual' ? 'Your words were not kept for this one.' : 'Started by Rouh after a change, so there are no words of yours.')); }
+    var body = el('div', 'tr-jcard-b');
+    body.appendChild(ring(s));
+    body.appendChild(jobCounts(s));
+    a.appendChild(body);
+    a.appendChild(jobScale(r));
+    var foot = el('div', 'tr-jcard-f');
+    foot.appendChild(el('span', 'tr-dim', s.last_at ? 'Last tried ' + day(s.last_at) : 'Not tried yet'));
+    foot.appendChild(el('span', 'tr-jcard-go', 'Open the job'));
+    a.appendChild(foot);
+    li.appendChild(a);
+    return li;
+  }
+  function drawJobList(root) {
+    var all = ((S.shell && S.shell.requests) || []), want = S.kind || '';
+    var n = { manual: 0, automatic: 0 };
+    all.forEach(function (r) { n[kindOf(r)]++; });
+    var shown = all.filter(function (r) { return !want || kindOf(r) === want; });
+    var sec = section('tr-jobs', '');
+    var head = el('div', 'tr-jobs-head');
+    var hw = el('div', 'tr-jobs-hw');
+    hw.appendChild(el('h2', 'tr-h2', 'Jobs'));
+    var tot = { found: 0, resolved: 0, open: 0, decided: 0 };
+    all.forEach(function (r) { var x = r.summary || {}; tot.found += x.found || 0; tot.resolved += x.resolved || 0; tot.open += x.open || 0; tot.decided += x.decided || 0; });
+    hw.appendChild(el('p', 'tr-lede', !all.length ? 'A job is one request for testing, yours or Rouh’s.'
+      : plural(all.length, 'job') + ': ' + n.manual + ' you started, ' + n.automatic + ' Rouh started. ' +
+        (tot.found ? tot.resolved + ' of the ' + plural(tot.found, 'problem') + ' they found are resolved: fixed or set aside.' +
+          (tot.open ? ' ' + tot.open + ' still open' + (tot.decided ? ', ' + tot.decided + ' of them chosen to fix.' : '.') : '') : 'No problems found yet.')));
+    head.appendChild(hw);
+    var seg = el('div', 'tr-seg');
+    seg.setAttribute('role', 'group');
+    seg.setAttribute('aria-label', 'Show the jobs');
+    [['', 'All', all.length], ['manual', 'Manual', n.manual], ['automatic', 'Automatic', n.automatic]].forEach(function (o) {
+      var b = button('tr-seg-b', '');
+      if (o[0]) { b.appendChild(icon(KIND[o[0]].icon)); }
+      b.appendChild(el('span', '', o[1]));
+      b.appendChild(el('span', 'tr-seg-n', String(o[2])));
+      b.setAttribute('aria-pressed', want === o[0] ? 'true' : 'false');
+      b.addEventListener('click', function () { if (S.kind !== o[0]) { S.kind = o[0]; draw(); } });
+      seg.appendChild(b);
+    });
+    head.appendChild(seg);
+    sec.appendChild(head);
+    if (!all.length) {
+      sec.appendChild(el('p', 'tr-empty', 'Nothing has been tried yet. When you ask for a test, or Rouh changes something you will see, its job shows up here.'));
       root.appendChild(sec);
       return;
     }
-    // Each journey under its job, in the job's own order; a journey with no job yet stands as a job of its own.
-    var byNum = {};
-    d.jobs.forEach(function (j) { byNum[j.number] = j; });
-    var reqs = ((S.shell && S.shell.requests) || []).map(function (r) {
-      return { r: r, list: (r.journeys || []).map(function (n) { return byNum[n]; }).filter(Boolean) };
-    });
-    var placed = {};
-    reqs.forEach(function (x) { x.list.forEach(function (j) { placed[j.number] = 1; }); });
-    d.jobs.forEach(function (j) { if (!placed[j.number]) { reqs.push({ r: { number: 0, title: j.name, prompt: '', journeys: [j.number] }, list: [j] }); } });
-    reqs = reqs.filter(function (x) { return x.list.length; });
-    reqs.forEach(function (x) { x.last = Math.max.apply(null, x.list.map(function (j) { return j.last_at || j.updated_at || 0; })); });
-    reqs.sort(function (a, b) { return b.last - a.last; });
-    S.jobOpen = S.jobOpen || {};
-    var ul = el('ul', 'tr-joblist');
-    reqs.forEach(function (x, i) {
-      var r = x.r, list = x.list;
-      var li = el('li', 'tr-job');
-      li.id = r.number ? 'job-' + r.number : 'job-j' + list[0].number;
-      var det = el('details', 'tr-job-d');
-      var k = li.id;
-      det.open = S.jobOpen[k] != null ? !!S.jobOpen[k] : i === 0;
-      det.addEventListener('toggle', function () { S.jobOpen[k] = det.open ? 1 : 0; });
-      var sum = el('summary', 'tr-job-s');
-      var tw = el('span', 'tr-job-tw');
-      tw.appendChild(el('span', 'tr-job-t', r.title || list[0].name));
-      var tries = 0, open = 0, latest = null;
-      list.forEach(function (j) {
-        tries += j.tries_count || 0; open += j.open || 0;
-        if (j.latest && (!latest || (j.last_at || 0) > (latest.at || 0))) { latest = { at: j.last_at || 0 }; }
+    function grid(list) { var ul = el('ul', 'tr-jcards'); list.forEach(function (r) { ul.appendChild(jobCard(r)); }); return ul; }
+    if (want) {
+      if (!shown.length) {
+        sec.appendChild(el('p', 'tr-empty', want === 'manual' ? 'You have not started a test yet. Test something, at the top, starts one.'
+          : 'Rouh has not tested anything by itself yet.'));
+      } else { sec.appendChild(grid(shown)); }
+    } else {
+      ['manual', 'automatic'].forEach(function (k) {
+        var list = all.filter(function (r) { return kindOf(r) === k; });
+        if (!list.length) { return; }
+        var g = el('div', 'tr-jgroup is-' + k);
+        var gh = el('h3', 'tr-jgroup-h');
+        gh.appendChild(icon(KIND[k].icon));
+        gh.appendChild(el('span', '', KIND[k].group));
+        gh.appendChild(el('span', 'tr-seg-n', String(list.length)));
+        g.appendChild(gh);
+        g.appendChild(el('p', 'tr-cap', KIND[k].note));
+        g.appendChild(grid(list));
+        sec.appendChild(g);
       });
-      var states = {};
-      list.forEach(function (j) { var st = j.latest ? j.latest.state : 'none'; states[st] = (states[st] || 0) + 1; });
-      var meta = el('span', 'tr-job-m');
-      meta.appendChild(el('span', '', (r.number ? 'Job ' + r.number + ' · ' : '') + plural(list.length, 'journey') + ' · ' + plural(tries, 'attempt')));
-      meta.appendChild(el('span', open ? 'tr-has' : '', open ? plural(open, 'problem') + ' not fixed' : 'No problems left open'));
-      if (x.last) { meta.appendChild(el('span', '', 'Last tried ' + day(x.last))); }
-      tw.appendChild(meta);
-      sum.appendChild(tw);
-      var res = el('span', 'tr-job-res');
-      [['passed', 'passed'], ['failed', 'did not pass'], ['broken', 'could not finish'], ['running', 'going'], ['queued', 'waiting']].forEach(function (s2) {
-        if (states[s2[0]]) { res.appendChild(el('span', 'tr-job-rn is-' + s2[0], states[s2[0]] + ' ' + s2[1])); }
-      });
-      sum.appendChild(res);
-      det.appendChild(sum);
-      var body = el('div', 'tr-job-b');
-      if (r.prompt) {
-        var pr = el('figure', 'tr-job-p');
-        pr.appendChild(el('figcaption', 'tr-label', 'What you asked'));
-        pr.appendChild(el('blockquote', '', r.prompt));
-        body.appendChild(pr);
-      }
-      var jl = el('ol', 'tr-journeys');
-      jl.setAttribute('aria-label', 'Journeys of ' + (r.title || list[0].name));
-      list.forEach(function (j) { jl.appendChild(journeyRow(j)); });
-      body.appendChild(jl);
-      det.appendChild(body);
-      li.appendChild(det);
-      ul.appendChild(li);
-    });
-    sec.appendChild(ul);
+    }
     root.appendChild(sec);
   }
 
-  /* One journey under its job: its name and what the tester is asked to do, its newest result, and its attempts,
-     folded, each with who did it. */
-  function journeyRow(j) {
-    var li = el('li', 'tr-jr');
-    var top = el('div', 'tr-jr-top');
-    top.appendChild(link(j.name, HOME + '/journey/' + j.number, 'tr-jr-name'));
-    top.appendChild(result(j.latest && j.latest.state, j.latest && trialOf(S.shell, j.latest.number)));
-    li.appendChild(top);
-    if (j.goal) {
-      var g = el('p', 'tr-jr-goal');
-      g.appendChild(el('span', 'tr-jr-gl', 'What the tester is asked to do: '));
-      g.appendChild(el('span', '', '“' + j.goal + '”'));
-      li.appendChild(g);
+  /* ---- one job, the request: its words, its summary, and every journey with its attempts ---- */
+
+  function attemptWords(t) {
+    if (stuck(t)) { return 'Stuck'; }
+    if (t.state === 'running') { return 'Trying now'; }
+    if (t.state === 'queued') { return 'Waiting to start'; }
+    if (t.state === 'broken') { return 'No report'; }
+    return { yes: 'Finished', partly: 'Got part of the way', no: 'Stopped before the end' }[t.managed] || 'Ended';
+  }
+  function drawRequest(root, w) {
+    var d = S.data.request;
+    if (!d || String(d.number) !== w.n) {
+      root.appendChild(crumbs([['Dashboard', HOME], ['Job ' + w.n]]));
+      if (!S.error) { root.appendChild(el('p', 'tr-loading', 'Opening the job…')); }
+      return;
     }
-    var at = j.attempts || [];
-    // One or two attempts are shown as they are; more fold, so a journey tried eleven times stays one line.
-    var few = at.length <= 2;
-    var det = el(few ? 'div' : 'details', 'tr-att' + (few ? ' is-few' : ''));
-    var k = 'att-' + j.number;
-    det.open = few || !!S.jobOpen[k];
-    det.addEventListener('toggle', function () { S.jobOpen[k] = det.open ? 1 : 0; });
-    var sum = el(few ? 'p' : 'summary', 'tr-att-s');
-    sum.appendChild(el('span', '', plural(at.length, 'attempt')));
-    sum.appendChild(el('span', j.open ? 'tr-has' : 'tr-dim', j.open ? plural(j.open, 'problem') + ' not fixed' : j.found ? 'none left open' : 'no problems found'));
-    det.appendChild(sum);
-    var ol = el('ul', 'tr-att-l');
-    at.forEach(function (t) {
-      var ali = el('li');
-      var a = link('', HOME + '/' + t.number, 'tr-att-r');
-      a.appendChild(face(testerOf(t.persona) || { key: t.persona, name: t.persona_name }, 'xs'));
-      var w = el('span', 'tr-att-w');
-      w.appendChild(el('strong', '', t.persona_name));
-      w.appendChild(el('span', 'tr-dim', 'Try ' + t.number + ' · ' + dayShort(t.created_at)));
-      a.appendChild(w);
-      var st = trialOf(S.shell, t.number) || t;
-      a.appendChild(el('span', 'tr-att-res', stuck(st) ? 'Stuck' : t.state === 'running' ? 'Trying now' : t.state === 'queued' ? 'Waiting'
-        : t.state === 'broken' ? 'No report' : t.found_n ? plural(t.found_n, 'problem') : t.state === 'passed' ? 'Passed' : 'No problems'));
-      ali.appendChild(a);
-      ol.appendChild(ali);
+    var s = d.summary || {}, k = kindOf(d);
+    moved(d.title);
+    root.appendChild(crumbs([['Dashboard', HOME], ['Job ' + d.number]]));
+    var head = el('header', 'tr-jhead');
+    var meta = el('div', 'tr-jcard-top');
+    meta.appendChild(kindBadge(d));
+    meta.appendChild(el('span', 'tr-dim', 'Job ' + d.number + ' · made ' + day(d.created_at) + (s.last_at ? ' · last tried ' + day(s.last_at) : '')));
+    head.appendChild(meta);
+    head.appendChild(el('h1', 'tr-h1', d.title));
+    head.appendChild(el('p', 'tr-lede', settledLine(s)));
+    root.appendChild(head);
+    var top = el('div', 'tr-jtop');
+    var asked = el('figure', 'tr-jask');
+    asked.appendChild(el('figcaption', 'tr-label', k === 'manual' ? 'What you asked' : 'What started it'));
+    if (d.prompt) { asked.appendChild(el('blockquote', '', d.prompt)); }
+    else { asked.appendChild(el('p', 'tr-dim', k === 'manual' ? 'Your words were not kept for this one.' : 'Rouh tested a change it had just made, so there are no words of yours.')); }
+    top.appendChild(asked);
+    var sum = el('section', 'tr-jsum');
+    sum.setAttribute('aria-label', 'How far it has come');
+    var sb = el('div', 'tr-jcard-b');
+    sb.appendChild(ring(s, 'l'));
+    sb.appendChild(jobCounts(s));
+    sum.appendChild(sb);
+    sum.appendChild(jobScale(d));
+    if (s.found) {
+      var toDecide = (s.open || 0) - (s.decided || 0);
+      var fl = link(toDecide > 0 ? 'Decide the ' + toDecide + ' still to decide in the Fix list' : 'The Fix list', HOME + '/problems', 'tr-a tr-jsum-a');
+      sum.appendChild(fl);
+    }
+    // The summary first, at the top as on its card; what was asked beside it, whole.
+    top.insertBefore(sum, asked);
+    root.appendChild(top);
+
+    var sec = section('tr-jlist', 'Journeys');
+    sec.appendChild(el('p', 'tr-cap', 'Each journey is one thing a tester is asked to do. Each attempt is one tester going through it; open one to see it step by step.'));
+    var ol = el('ol', 'tr-jrs');
+    // Journeys that all begin "Guide: " say it once, in the job's title, not on every one of them.
+    var js = d.journeys || [], head0 = /^([^:]{1,40}):\s+/.exec((js[0] || {}).name || '');
+    var cut = head0 && js.length > 1 && js.every(function (j) { return String(j.name).indexOf(head0[0]) === 0; }) ? head0[0].length : 0;
+    js.forEach(function (j) {
+      var li = el('li', 'tr-jr2');
+      var h = el('div', 'tr-jr2-h');
+      var hn = el('h3', 'tr-jr2-t');
+      hn.appendChild(link(upper(j.name.slice(cut)), HOME + '/journey/' + j.number, 'tr-jr-name'));
+      h.appendChild(hn);
+      var c = el('span', 'tr-jr2-c');
+      if (j.finished) { c.appendChild(withIcon(el('span', 'is-fin'), 'check', 'Finished by a tester')); }
+      c.appendChild(el('span', j.open ? 'tr-has' : 'tr-dim', !j.found ? 'No problems found' : j.open ? j.open + ' of ' + plural(j.found, 'problem') + ' open' : 'All ' + plural(j.found, 'problem') + ' resolved'));
+      h.appendChild(c);
+      li.appendChild(h);
+      if (j.goal) { li.appendChild(el('p', 'tr-jr-goal', '“' + j.goal + '”')); }
+      var ul = el('ul', 'tr-att-l');
+      ul.setAttribute('aria-label', 'Attempts at ' + j.name);
+      (j.attempts || []).forEach(function (t) {
+        var ali = el('li');
+        var a = link('', HOME + '/' + t.number, 'tr-att-r');
+        a.appendChild(face(testerOf(t.persona) || { key: t.persona, name: t.persona_name }, 'xs'));
+        var ww = el('span', 'tr-att-w');
+        ww.appendChild(el('strong', '', t.persona_name));
+        ww.appendChild(el('span', 'tr-dim', 'Try ' + t.number + ' · ' + day(t.created_at)));
+        a.appendChild(ww);
+        var res = el('span', 'tr-att-res');
+        res.appendChild(el('span', 'tr-att-how is-' + (stuck(t) ? 'stuck' : t.managed || t.state), attemptWords(t)));
+        if (t.state === 'passed' || t.state === 'failed') { res.appendChild(el('span', 'tr-dim', plural(t.found_n || 0, 'problem'))); }
+        a.appendChild(res);
+        ali.appendChild(a);
+        ul.appendChild(ali);
+      });
+      if (!(j.attempts || []).length) { ul.appendChild(el('li', 'tr-dim', 'Nobody has tried it yet.')); }
+      li.appendChild(ul);
+      ol.appendChild(li);
     });
-    if (!at.length) { ol.appendChild(el('li', 'tr-dim', 'Nobody has tried it yet.')); }
-    det.appendChild(ol);
-    li.appendChild(det);
-    return li;
+    sec.appendChild(ol);
+    root.appendChild(sec);
+
   }
 
-  /* ---- one job ---- */
+  /* ---- one journey (a job until 22 November 2026; /job/<n> still opens it) ---- */
 
   function drawJob(root, w) {
     var d = S.data.job;
@@ -976,13 +1107,14 @@
     }
     var j = d.job;
     moved(j.name);
-    root.appendChild(crumbs(j.request ? [['Dashboard', HOME], ['Job ' + j.request.number + ': ' + j.request.title, HOME], [j.name]]
+    root.appendChild(crumbs(j.request ? [['Dashboard', HOME], ['Job ' + j.request.number + ': ' + j.request.title, HOME + '/jobs/' + j.request.number], [j.name]]
       : [['Dashboard', HOME], [j.name]]));
     var hub = el('div', 'tr-hub');
     var ph = el('section', 'tr-phone tr-hub-phone');
     ph.appendChild(el('h1', 'tr-h1', j.name));
     var line = el('div', 'tr-head-line');
-    line.appendChild(result(j.latest && j.latest.state, j.latest && (trialOf(S.shell, j.latest.number) || j.tries[0])));
+    // How far its newest tester got, never pass or did not pass (Petar, 22 November 2026).
+    if (j.tries[0]) { line.appendChild(chip(attemptWords(j.tries[0]), j.tries[0].managed === 'yes' ? 'green' : 'slate')); }
     line.appendChild(el('span', 'tr-dim', 'Journey ' + j.number + ' · ' + plural(j.tries_count, 'attempt') +
       (j.open ? ' · ' + plural(j.open, 'problem') + ' not fixed' : '')));
     ph.appendChild(line);
@@ -1038,7 +1170,7 @@
       wn.appendChild(el('span', 'tr-dim', tryName(t.round, t.mode)));
       who.appendChild(wn);
       top.appendChild(who);
-      top.appendChild(t.mode === 'review' && (t.state === 'passed' || t.state === 'failed') ? reviewChip(t) : result(t.state, t));
+      top.appendChild(chip(attemptWords(t), t.managed === 'yes' ? 'green' : 'slate'));
       a.appendChild(top);
       var meta = el('span', 'tr-row-meta');
       meta.appendChild(modeChip(t.mode));
@@ -1253,7 +1385,7 @@
     }
     var t = d.trial, name = t.persona_name;
     moved((t.job_name || upper(t.subject)) + ', try ' + t.number);
-    root.appendChild(crumbs(t.job ? [['Dashboard', HOME]].concat(t.request ? [['Job ' + t.request.number + ': ' + t.request.title, HOME]] : [])
+    root.appendChild(crumbs(t.job ? [['Dashboard', HOME]].concat(t.request ? [['Job ' + t.request.number + ': ' + t.request.title, HOME + '/jobs/' + t.request.number]] : [])
         .concat([[t.job_name, HOME + '/journey/' + t.job], ['Try ' + t.number]])
       : [['Dashboard', HOME], ['Try ' + t.number]]));
     var going = t.state === 'queued' || t.state === 'running';
@@ -2058,10 +2190,6 @@
     });
     bar.appendChild(go2);
     return bar;
-  }
-
-  function reviewChip(t) {
-    return chip({ yes: 'They managed it', partly: 'They partly managed it', no: 'They did not manage it' }[t.managed] || 'Done', 'blue');
   }
 
   /* Whether they managed it, said so it never reads against Passed or Did not pass (trials 17 and 21). */
@@ -3037,6 +3165,8 @@
         // A try opens on the filter its address names, and on none without one.
         S.tf = /^\d+$/.test(S.sub) ? tfRead(location.search) : tfBlank();
       }
+      // The dashboard opens on the kind of jobs its address names, and on All without one.
+      if (!S.sub) { S.kind = kindRead(location.search); }
       S.root = el('div', 'tr');
       wrap.appendChild(S.root);
       draw();
