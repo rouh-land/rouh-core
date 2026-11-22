@@ -3739,6 +3739,101 @@
    },
    "files": []
   },
+  "n51-run-again": {
+   "name": "Start again",
+   "what": "An ended run's head has Start again, which opens Start a run with that run's brief, workspace and agent filled in, so a run that went wrong, or should run again on another model, is not copied by hand.",
+   "switch": "run_again",
+   "signals": {
+    "events": {
+     "started": "You started a run from Start again on an ended run's head"
+    }
+   },
+   "files": [
+    "rouh/run_tools.py",
+    "rouh/web/run_tools.py"
+   ]
+  },
+  "n51-land-fix": {
+   "name": "What stopped it, and Fix it",
+   "what": "A run whose landing was refused says on its head, in plain words, which check stopped it and the one thing that fixes it, with Fix it, which sends the run that.",
+   "switch": "land_fix",
+   "signals": {
+    "events": {
+     "pressed": "You pressed Fix it under a run's landing that was refused"
+    }
+   },
+   "files": []
+  },
+  "n51-run-both": {
+   "name": "Both agents at once",
+   "what": "Start a run has Also start it on Codex (or on Claude Code, when Codex is picked): Start starts the same brief on both agents, each a run of its own, so which does it better is seen side by side.",
+   "switch": "run_both",
+   "signals": {
+    "events": {
+     "started": "You started the same brief on Claude Code and Codex at once"
+    }
+   },
+   "files": []
+  },
+  "n51-start-kept": {
+   "name": "The Start dialog keeps your place",
+   "what": "Start a run keeps, on this device, the brief you were writing until it is sent, and the workspace you last started in.",
+   "switch": "start_kept",
+   "signals": {
+    "events": {
+     "started": "You started a run from a brief or a workspace the Start dialog had kept for you"
+    }
+   },
+   "files": []
+  },
+  "n51-nav-plain": {
+   "name": "A plain line under each part of the navigation",
+   "what": "Each group of the navigation (Guide, Now, Work, Memory, Evolution, Anatomy) starts its links with one plain sentence of what is in it, with Got it, which puts it away on every device.",
+   "switch": "nav_plain",
+   "signals": {
+    "events": {
+     "got_it": "You read the plain line under a navigation group and pressed Got it"
+    }
+   },
+   "files": [
+    "rouh/newcomer.py",
+    "rouh/web/newcomer.py",
+    "rouh/static/app/newcomer.js"
+   ]
+  },
+  "n51-search-typos": {
+   "name": "Search forgives a misspelt word",
+   "what": "When nothing matches what was typed exactly, Search offers Rouh's own pages a letter or two from it, marked Close match, so calender finds Calendar and setings finds Settings.",
+   "switch": "search_typos",
+   "signals": {
+    "events": {
+     "opened": "You opened a page Search found from a misspelt word"
+    }
+   },
+   "files": []
+  },
+  "n51-search-lessons": {
+   "name": "Search finds the lesson that teaches it",
+   "what": "Search lists the Guide's lessons that hold every word that matters in what was typed, so how do I connect my calendar finds the lesson Connect Google, and opens it.",
+   "switch": "search_lessons",
+   "signals": {
+    "events": {
+     "opened": "You opened a Guide lesson Search found for what you typed"
+    }
+   },
+   "files": []
+  },
+  "n51-keys-list": {
+   "name": "? lists Rouh's keys",
+   "what": "Pressing ? outside a text box lists every key Rouh answers to and what each does, and the empty chat's line of keys says ? for every key.",
+   "switch": "keys_list",
+   "signals": {
+    "events": {
+     "opened": "You pressed ? and read the keys Rouh answers to"
+    }
+   },
+   "files": []
+  },
   "n50-say-plainer": {
    "name": "Say it more simply",
    "what": "Every answer has a Say it more simply button beside Read this aloud, which asks for that answer again, shorter and in plain words, as a message of your own.",

@@ -8,7 +8,7 @@ import { $, el, linkTo } from 'app/helpers.js';
 import { notify } from 'app/notices.js';
 import { send } from 'app/socket.js';
 import { transcriptEl } from 'app/transcript.js';
-import { openCardView, svgEl } from 'app/cards.js';
+import { goToAddress, openCardView, svgEl } from 'app/cards.js';
 import { jobOpens, openTask, taskRecs } from 'app/tasks.js';
 import { askDelete, canvasLoad, canvasStepPage, canvasTask, movedTell, OBJ, projectsOpen,
   railChats, railName, runKind, runsOpen, threadName } from 'app/runs.js';
@@ -16,6 +16,7 @@ import { ADDR, addrOf, addrTouch } from 'app/address.js';
 import { chatIsWanted, sidebarDone } from 'app/controls.js';
 import { geneGo, geneIcon } from 'app/navgroups.js';
 import { openImage } from 'app/attachments.js';
+import { newcomerUsed } from 'app/newcomer.js';
 
 /* ---------------------------------------------------------------- 10d */
 
@@ -95,6 +96,8 @@ var FIND_ICON = {
   run: ['M4 6l5 5-5 5', 'M12 18h8'],
   // The same branch the Fork button and a fork's mark wear (`forkIcon`).
   fork: ['M7 3v18', 'M7 15c0-5 4-8 11-8', 'm15 4 3 3-3 3'],
+  // A Guide lesson Search found for what was typed (`rouh/newcomer.py`, search_lessons): an open book.
+  lesson: ['M3 5.5c3-1.3 6-1.3 9 .5v13c-3-1.8-6-1.8-9-.5z', 'M21 5.5c-3-1.3-6-1.3-9 .5v13c3-1.8 6-1.8 9-.5z'],
   file: ['M21 11.5l-8.6 8.6a5.5 5.5 0 0 1-7.8-7.8l8.6-8.6a3.7 3.7 0 0 1 5.2 5.2l-8.6 8.6a1.8 1.8 0 0 1-2.6-2.6l7.9-7.9']
 };
 
@@ -147,6 +150,10 @@ function findMark(host, text, words) {
   text = String(text == null ? '' : text);
   if (!text) return;
   var low = text.toLowerCase(), at = 0;
+  // A word of one letter, such as the I of "how do I connect my calendar", is lit only when it is
+  // all that was typed: otherwise every i of every row lit up.
+  var longer = words.some(function (w) { return String(w || '').length > 1; });
+  if (longer) words = words.filter(function (w) { return String(w || '').length > 1; });
   while (at < text.length) {
     var best = -1, len = 0;
     for (var i = 0; i < words.length; i++) {
@@ -456,7 +463,7 @@ function findRow(row, i, words) {
   // (`searching.gene_lines`, the gene registry).
   icon.appendChild((row.type === 'gene' && geneIcon(row.id)) ||
     findIcon(row.page ? 'page' : row.branch ? 'fork' : row.type));
-  icon.title = row.type === 'gene' ? 'page in Rouh' : row.page ? 'page' : row.branch ? 'fork' : row.type;
+  icon.title = row.type === 'gene' ? 'page in Rouh' : row.type === 'lesson' ? 'lesson in the Guide' : row.page ? 'page' : row.branch ? 'fork' : row.type;
   node.appendChild(icon);
 
   // The number of the task this is, or is in, in a column of its own in
@@ -475,6 +482,8 @@ function findRow(row, i, words) {
   // know it is not on the live list before they do.
   if (row.archived) node.appendChild(el('span', 'find-tag', 'Archived'));
   if (row.branch) node.appendChild(el('span', 'find-tag', 'Fork'));
+  // Found from a word a letter or two off (`rouh/newcomer.py`, search_typos).
+  if (row.near) node.appendChild(el('span', 'find-tag', 'Close match'));
 
   // Kept, and it says the same thing on all five now. A task used to be born
   // pinned, so the mark was left off a task row to save a column of identical
@@ -686,7 +695,18 @@ function findGo(row) {
   if (how === 'run') { findGoRun(row.open.id); return; }
   if (how === 'projects') { projectsOpen(); return; }
   if (how === 'file') { findGoFile(row.open, row.title); return; }
-  if (how === 'gene') { geneGo(row.open.id); return; }
+  if (how === 'gene') {
+    if (row.open.near) newcomerUsed('search_typos', row.open.id);
+    geneGo(row.open.id);
+    return;
+  }
+  // A Guide lesson, at its own page (`rouh/newcomer.py`, search_lessons).
+  if (how === 'lesson') {
+    newcomerUsed('search_lessons', row.open.id);
+    sidebarDone();
+    goToAddress(row.open.route);
+    return;
+  }
   notify('There is nothing built to open for “' + findName(row)
     + '” yet.', { tone: 'info' });
 }

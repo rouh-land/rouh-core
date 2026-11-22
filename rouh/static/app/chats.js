@@ -18,6 +18,7 @@ import { drawTranscriptInto, drawWords, editTurn, hideTyping, endTurnOnScreen, p
 import { CARDS, cardsAdriftSay, cardWaysSay, frameLoad, projectSaidIt, resetCanvas,
   resetStreamCards, taskSaidIt, WORKSPACE_ROUTE } from 'app/cards.js';
 import { detachAsk, FIND, findAsk, findShow } from 'app/search.js';
+import { newcomerOn } from 'app/newcomer.js';
 import { ADDR, addrIsTasksOwn, addrOf, addrTouch, FRESH, freshChatOpened } from 'app/address.js';
 import { welcomeShow } from 'app/welcome.js';
 import { CANVAS_MIN, CHAT_W, chatIsWanted, chatRoom, panelsForChat, panelsHold, drawTyped, growInput, input, narrow,
@@ -2629,7 +2630,9 @@ function keysHintPaint() {
   if (!h) return;
   if (touchTyping()) { h.hidden = true; return; }
   h.hidden = false;
-  h.textContent = 'Enter to send · Shift+Enter for a new line · ' + (onMac() ? '⌘' : 'Ctrl') + '+Enter to fork';
+  h.textContent = 'Enter to send · Shift+Enter for a new line · ' + (onMac() ? '⌘' : 'Ctrl') + '+Enter to fork'
+    // And the way to the rest of them (`rouh/newcomer.py`, keys_list).
+    + (newcomerOn('keys_list') ? ' · ? for every key' : '');
 }
 
 (function () {

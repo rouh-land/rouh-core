@@ -523,6 +523,39 @@ var RUN_HEAD = (function () {
     return { on: Array.isArray(got.on) ? got.on : [], finish: String(got.finish || '') };
   } catch (err) { return { on: [], finish: '' }; }
 }());
+/* Night 51's four run tools, each with its own switch (`rouh/run_tools.py`): Start again
+   (run_again), What stopped it and Fix it (land_fix), Both agents at once (run_both), and the
+   Start dialog keeping your place (start_kept). The page is told which are on, and the fixes, in
+   `#rouhRunTools`. */
+var RUN_TOOLS = (function () {
+  try {
+    var node = document.getElementById('rouhRunTools');
+    var got = node ? JSON.parse(node.textContent || '{}') : {};
+    return { on: Array.isArray(got.on) ? got.on : [], fixes: Array.isArray(got.fixes) ? got.fixes : [],
+             say: String(got.say || '') };
+  } catch (err) { return { on: [], fixes: [], say: '' }; }
+}());
+
+/** @param {string} name */
+function runToolOn(name) { return RUN_TOOLS.on.indexOf(name) >= 0; }
+
+/** One of the four used: counted by the server. @param {string} name @param {string} event @param {string} run */
+function runToolUsed(name, event, run) {
+  return fetch('/api/run-tools', { method: 'POST', keepalive: true, credentials: 'same-origin',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ switch: name, event: event, run: String(run || '') }) });
+}
+
+/** What stopped a refused landing, from land.sh's own words, or null. @param {string} reason */
+function runFixFor(reason) {
+  var said = String(reason || '');
+  for (var i = 0; i < RUN_TOOLS.fixes.length; i++) {
+    var f = RUN_TOOLS.fixes[i];
+    if (f && f.match && said.indexOf(f.match) >= 0) return f;
+  }
+  return null;
+}
+
 /** @type {Record<string, boolean>} The runs whose live or not live was seen, once a page. */
 var RUN_LIVE_SEEN = {};
 
@@ -649,6 +682,16 @@ function oneRenderHead() {
     said.appendChild(el('strong', null, failed ? 'Needs you' : 'It said'));
     said.appendChild(document.createTextNode(words));
   }
+  // What stopped a refused landing, and Fix it (land_fix).
+  var fix = failed && runToolOn('land_fix') && run.kind === 'agent' ? runFixFor(run.land_reason) : null;
+  $('oneFix').hidden = !fix;
+  if (fix) {
+    $('oneFixWhat').textContent = fix.what;
+    $('oneFixHow').textContent = fix.fix;
+    $('oneFix').dataset.run = String(run.id);
+  }
+  // Start again, on an ended run (run_again).
+  $('oneAgain').hidden = !(runToolOn('run_again') && run.kind === 'agent' && ended);
   $('oneStop').hidden = ended;
   // Finish it, on a run that ended with work left or landed and is not live (run_carry).
   $('oneFinish').hidden = !(runHeadOn('run_carry') && RUN_HEAD.finish && run.kind === 'agent' &&
@@ -2073,6 +2116,45 @@ $('oneFinish').addEventListener('click', function () {
   });
 });
 
+// Fix it: the run is told what stopped its landing and what fixes it (land_fix).
+$('oneFixGo').addEventListener('click', function () {
+  var run = ONE.runs[ONE.selected];
+  var fix = run ? runFixFor(run.land_reason) : null;
+  if (!run || !fix || !RUN_TOOLS.say) return;
+  var btn = /** @type {HTMLButtonElement} */ ($('oneFixGo'));
+  btn.disabled = true;
+  var text = RUN_TOOLS.say.replace('{what}', fix.what).replace('{fix}', fix.fix);
+  oneSend('say', { run: run.id, text: text }).then(function (got) {
+    btn.disabled = false;
+    oneSayNote(got.how);
+    notify('Sent: what stopped its landing, and what fixes it.', { tone: 'info' });
+    runToolUsed('land_fix', 'pressed', run.id).catch(function () {});
+  }).catch(function (err) {
+    btn.disabled = false;
+    notify(err.message, { tone: 'error' });
+  });
+});
+
+// Start again (run_again): the Start dialog, with this run's brief, workspace and agent.
+var RUN_AGAIN = { run: '' };
+$('oneAgain').addEventListener('click', function () {
+  var id = ONE.selected, run = ONE.runs[id];
+  if (!run) return;
+  var btn = /** @type {HTMLButtonElement} */ ($('oneAgain'));
+  btn.disabled = true;
+  // A list of runs leaves the brief out to stay small (one/protocol.py), so it is asked for.
+  (run.brief ? Promise.resolve(run) : oneSend('run', { run: id, entries: 0 }).then(function (d) { return d.run; }))
+    .then(function (full) {
+      btn.disabled = false;
+      RUN_AGAIN.run = String(id);
+      oneStartOpen({ brief: String((full && full.brief) || ''), space: String((full && full.space) || ''),
+                     agent: (full && full.engine) === 'codex' ? 'codex' : 'claude' });
+    }).catch(function (err) {
+      btn.disabled = false;
+      notify(err.message, { tone: 'error' });
+    });
+});
+
 // Where a message went, for a few seconds under the box: at once, after
 // what the run is doing now, or into a run carried on (one/runs.py say).
 var ONE_SAY_NOTE = 0;
@@ -2158,6 +2240,9 @@ function oneAgentShow() {
   var pick = $('oneStartBilling');
   $('oneStartAgentLabel').hidden = !one;
   $('oneStartBillingLabel').hidden = !codex;
+  // Both agents at once (run_both): the other agent, named.
+  $('oneStartBothLabel').hidden = !(one && runToolOn('run_both'));
+  $('oneStartBothWords').textContent = 'Also start it on ' + (codex ? 'Claude Code' : 'Codex') + ', to compare';
   pick.querySelector('option[value="api"]').disabled = !can;
   if (!can && pick.value === 'api') pick.value = 'subscription';
   $('oneStartBillingHint').textContent = !can
@@ -2210,15 +2295,58 @@ $('oneStartPolicy').addEventListener('change', policyHint);
 $('oneStartAgent').addEventListener('change', oneAgentShow);
 $('oneStartBilling').addEventListener('change', oneAgentShow);
 $('oneStartFolder').addEventListener('input', oneFolderHint);
-$('oneStart').addEventListener('click', function () {
+/* The Start dialog keeps your place (start_kept): on this device, the brief being written until it
+   is sent, and the workspace last started in. A convenience of this browser's, so it is kept in
+   localStorage, and the dialog works the same without it. */
+var START_KEPT = 'rouh.startKept';
+/** @returns {{brief?: string, space?: string}} */
+function startKeptRead() {
+  if (!runToolOn('start_kept')) return {};
+  try { return JSON.parse(localStorage.getItem(START_KEPT) || '{}') || {}; } catch (err) { return {}; }
+}
+/** @param {{brief?: string, space?: string}} what */
+function startKeptWrite(what) {
+  if (!runToolOn('start_kept')) return;
+  try { localStorage.setItem(START_KEPT, JSON.stringify(Object.assign(startKeptRead(), what))); } catch (err) {}
+}
+/** Whether what is in the dialog now came from what it kept: {brief, space}. */
+var START_FROM = { brief: false, space: '' };
+
+/** Open Start a run, empty or with what Start again hands it. @param {{brief: string, space: string, agent: string}} [given] */
+function oneStartOpen(given) {
   $('oneStartError').hidden = true;
-  $('oneStartAgent').value = 'claude';
+  $('oneStartAgent').value = given ? given.agent : 'claude';
   $('oneStartBilling').value = 'subscription';
+  /** @type {HTMLInputElement} */ ($('oneStartBoth')).checked = false;
+  if (!given) RUN_AGAIN.run = '';
+  var kept = given ? {} : startKeptRead();
+  var box = /** @type {HTMLTextAreaElement} */ ($('oneStartBrief'));
+  START_FROM.brief = false;
+  START_FROM.space = '';
+  if (given) box.value = given.brief;
+  else if (kept.brief && !box.value.trim()) { box.value = kept.brief; START_FROM.brief = true; }
   fillPolicies();
   oneAgentShow();
-  oneFillSpaces();
+  var want = given ? given.space : (kept.space || '');
+  oneFillSpaces().then(function () {
+    var pick = /** @type {HTMLSelectElement} */ ($('oneStartSpace'));
+    // Kept only counts where it changed the pick: the first workspace is offered anyway.
+    if (!want || pick.value === want) return;
+    for (var i = 0; i < pick.options.length; i++) {
+      if (pick.options[i].value === want) {
+        pick.value = want;
+        if (!given) START_FROM.space = want;
+        oneShowAdd();
+        return;
+      }
+    }
+  });
   $('oneStartDialog').showModal();
-  $('oneStartBrief').focus();
+  box.focus();
+}
+$('oneStart').addEventListener('click', function () { oneStartOpen(); });
+$('oneStartBrief').addEventListener('input', function () {
+  startKeptWrite({ brief: /** @type {HTMLTextAreaElement} */ ($('oneStartBrief')).value });
 });
 $('oneStartCancel').addEventListener('click', function () { $('oneStartDialog').close(); });
 $('oneStartForm').addEventListener('submit', function (e) {
@@ -2270,6 +2398,22 @@ $('oneStartForm').addEventListener('submit', function (e) {
       if ($('oneStartBilling').value === 'api') start.billing = 'api';
     }
     send(start);
+    // Both agents at once (run_both): the same brief, the same workspace, on the other agent too.
+    var both = /** @type {HTMLInputElement} */ ($('oneStartBoth'));
+    if (start.policy === 'one' && runToolOn('run_both') && !$('oneStartBothLabel').hidden && both.checked) {
+      /** @type {import('./protocol').ToServer<'start_run'>} */
+      var other = { type: 'start_run', brief: brief, workspace: sp, policy: 'one' };
+      if (start.agent !== 'codex') other.agent = 'codex';
+      send(other);
+      runToolUsed('run_both', 'started', '').catch(function () {});
+    }
+    // Start again, and the dialog's kept place, say they were used (`rouh/run_tools.py`).
+    if (RUN_AGAIN.run && runToolOn('run_again')) runToolUsed('run_again', 'started', RUN_AGAIN.run).catch(function () {});
+    else if ((START_FROM.brief || (START_FROM.space && START_FROM.space === sp)) && runToolOn('start_kept')) {
+      runToolUsed('start_kept', 'started', '').catch(function () {});
+    }
+    RUN_AGAIN.run = '';
+    if (runToolOn('start_kept')) startKeptWrite({ brief: '', space: String(sp || '') });
   }).catch(function (err) {
     error.textContent = err.message;
     error.hidden = false;

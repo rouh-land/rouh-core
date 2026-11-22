@@ -886,6 +886,28 @@ def _run_head(request: HttpRequest) -> dict:
         return {"on": [], "finish": ""}
 
 
+def _run_tools(request: HttpRequest) -> dict:
+    """Which of night 51's four run tools are on here, and the fixes to match (`rouh/run_tools.py`)."""
+    from rouh import run_tools
+
+    try:
+        return run_tools.for_page(who(request))
+    except Exception:
+        log.warning("run_tools: not read for the page", exc_info=True)
+        return {"on": [], "fixes": [], "say": ""}
+
+
+def _newcomer(request: HttpRequest) -> dict:
+    """Which of night 51's four genes for a newcomer are on here, and what they need (`rouh/newcomer.py`)."""
+    from rouh import newcomer
+
+    try:
+        return newcomer.for_page(who(request))
+    except Exception:
+        log.warning("newcomer: not read for the page", exc_info=True)
+        return {"on": []}
+
+
 def _plainer(request: HttpRequest) -> dict:
     """Whether Say it more simply is on here, and what it sends."""
     from rouh import say_plainer
@@ -971,6 +993,10 @@ def _page_for(request: HttpRequest) -> HttpResponse:
         "TRY_FIT": _try_fit(request),
         # Which of the three genes on a run's head are on (`rouh/run_head.py`).
         "RUN_HEAD": _run_head(request),
+        # Start again, What stopped it, Both agents at once, the Start dialog kept (`rouh/run_tools.py`).
+        "RUN_TOOLS": _run_tools(request),
+        # A newcomer's plain lines, the keys and Search's two (`rouh/newcomer.py`).
+        "NEWCOMER": _newcomer(request),
         # Say it more simply, under an answer (`rouh/say_plainer.py`).
         "PLAINER": _plainer(request),
         "PHONE_ADDRESS": _phone_address(),

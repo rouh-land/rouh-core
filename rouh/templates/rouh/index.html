@@ -503,6 +503,8 @@ with {% asset %}, which gives it its hashed address.
         </div>
         {{ GENES|json_script:"rouhGenes" }}
         {{ RUN_HEAD|json_script:"rouhRunHead" }}
+        {{ RUN_TOOLS|json_script:"rouhRunTools" }}
+        {{ NEWCOMER|json_script:"rouhNewcomer" }}
         {{ PLAINER|json_script:"rouhPlainer" }}
         <script>
         /* The group to show before anything is painted: the one holding the page
@@ -1943,6 +1945,9 @@ with {% asset %}, which gives it its hashed address.
         {# A run that ended with work left, or is not live (`rouh/run_head.py`, run_carry). #}
         <button id="oneFinish" class="ctl small primary" type="button" hidden
                 title="Send it one message to commit what is left, land it and see it live">Finish it</button>
+        {# Start again on an ended run (`rouh/run_tools.py`, run_again). #}
+        <button id="oneAgain" class="ctl small" type="button" hidden
+                title="Open Start a run with this run's brief, workspace and agent filled in">Start again</button>
         <button id="oneStop" class="ctl small" type="button">Stop</button>
         <button id="oneBack" class="layer-x" type="button"
                 title="Close this run (Esc)" aria-label="Close this run and go back to the canvas">&times;</button>
@@ -1968,6 +1973,13 @@ with {% asset %}, which gives it its hashed address.
         </div>
       </div>
       <p id="oneSaid" class="run-said" hidden></p>
+      {# What stopped a refused landing and what fixes it, with Fix it (`rouh/run_tools.py`, land_fix). #}
+      <div id="oneFix" class="run-fix" hidden>
+        <p class="run-fix-what"><strong>What stopped it</strong> <span id="oneFixWhat"></span></p>
+        <p class="run-fix-how"><strong>What fixes it</strong> <span id="oneFixHow"></span></p>
+        <button id="oneFixGo" class="ctl small" type="button"
+                title="Send the run what stopped it and what fixes it, the same as typing it">Fix it</button>
+      </div>
       <section id="oneRead" class="one-read" role="tabpanel" aria-labelledby="oneTabRead"
                aria-live="off" hidden>
         <ol id="oneReadList" class="rd-list"></ol>
@@ -4955,6 +4967,11 @@ with {% asset %}, which gives it its hashed address.
         <option value="claude">Claude Code</option>
         <option value="codex">Codex</option>
       </select>
+    </label>
+    {# The same brief on the other agent too, each a run of its own (`rouh/run_tools.py`, run_both). #}
+    <label id="oneStartBothLabel" class="one-check" hidden>
+      <input id="oneStartBoth" type="checkbox">
+      <span id="oneStartBothWords">Also start it on Codex, to compare</span>
     </label>
     <label id="oneStartBillingLabel" hidden>Billed to
       <select id="oneStartBilling">

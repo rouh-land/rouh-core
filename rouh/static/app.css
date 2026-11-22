@@ -12064,3 +12064,57 @@ body.cot-open { overflow: hidden; }
    or tablet the floating circles' dark (`--panel-2`) with a hairline, both just above. Petar,
    21 November 2026: "Orb became transparent in background ... Return it back to opaque dark
    background". app/orb3d.js still clears to nothing if `--orb-disc` is ever made transparent. */
+
+/* Night 51 (`rouh/newcomer.py`). The plain line at the top of a navigation group's links, for
+   somebody who has never seen Rouh (nav_plain): quiet, in the panel's own colours, with Got it. */
+.nav-plain {
+  display: flex; align-items: flex-start; gap: 8px;
+  margin: 2px 0 6px; padding: 8px 8px 8px 10px;
+  background: var(--panel-2); border: 1px solid var(--line-soft); border-radius: 8px;
+}
+.nav-plain-text { flex: 1 1 auto; min-width: 0; margin: 0; font-size: 12px; line-height: 1.45; color: var(--dim); }
+.nav-plain-ok {
+  flex: 0 0 auto; appearance: none; cursor: pointer; min-height: 28px; padding: 3px 9px;
+  font: inherit; font-size: 12px; font-weight: 600; color: var(--accent);
+  background: transparent; border: 1px solid var(--line); border-radius: 7px;
+}
+.nav-plain-ok:hover { border-color: var(--accent); }
+.nav-plain-ok:focus-visible { outline: 2px solid var(--focus); outline-offset: 1px; }
+@media (pointer: coarse) { .nav-plain-ok { min-height: 44px; } }
+
+/* ? lists the keys Rouh answers to (keys_list): the key in its cap, what it does beside it. */
+.keys-form { display: grid; gap: 12px; padding: 18px; }
+.keys-form h2 { font-size: 16px; margin: 0; }
+.keys-form .hint { margin: 0; }
+.keys-list { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 8px 14px; margin: 0; }
+.keys-list dt { margin: 0; }
+.keys-list dd { margin: 0; font-size: 13px; line-height: 1.45; color: var(--text); }
+.keys-list kbd {
+  display: inline-block; padding: 2px 7px; font: inherit; font-size: 12px; font-weight: 600; white-space: nowrap;
+  color: var(--text); background: var(--panel-2); border: 1px solid var(--line); border-bottom-width: 2px; border-radius: 6px;
+}
+@media (max-width: 480px) {
+  .keys-list { grid-template-columns: minmax(0, 1fr); gap: 2px; }
+  .keys-list dd { margin-bottom: 8px; }
+}
+
+/* Night 51 (`rouh/run_tools.py`, land_fix): what stopped a run's landing and what fixes it, under
+   what it said, in the same box as it, with Fix it. */
+.run-fix {
+  display: grid; gap: 6px; justify-items: start; padding: 9px 11px; font-size: 13px; line-height: 1.45;
+  background: var(--panel-2); border: 1px solid var(--line); border-radius: var(--radius-s);
+}
+.run-fix[hidden] { display: none; }
+.run-fix p { margin: 0; overflow-wrap: anywhere; }
+.run-fix strong {
+  display: block; margin-bottom: 2px;
+  font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--dimmer);
+}
+
+/* Both agents at once (`rouh/run_tools.py`, run_both): a checkbox row in Start a run, the box beside
+   its words rather than over them, as tall as a finger needs. */
+.one-dialog label.one-check {
+  display: flex; align-items: center; gap: 10px; min-height: 44px; font-weight: 400; font-size: 13px; cursor: pointer;
+}
+.one-dialog label.one-check[hidden] { display: none; }
+.one-check input { width: 18px; height: 18px; margin: 0; accent-color: var(--accent); flex: 0 0 auto; }

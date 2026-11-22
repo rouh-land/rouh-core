@@ -250,8 +250,17 @@ def gene_lines(query: str, switch_on, shared=()) -> list[dict]:
     one of its aliases (`genes.find`). A row opens the gene as its link in the
     navigation would (`geneGo` in app/navgroups.js), and a gene with an address
     of its own can open in a tab of its own too."""
+    asked = re.findall(r"[a-z0-9]+", str(query or "").lower())
+    near = False
     try:
-        found = genes.find(re.findall(r"[a-z0-9]+", str(query or "").lower()), switch_on, extra=shared)
+        found = genes.find(asked, switch_on, extra=shared)
+        # Nothing by its exact words: a page a letter or two from them, while its switch is on
+        # (`rouh/newcomer.py`, search_typos).
+        if not found and switch_on("search_typos"):
+            from . import newcomer
+
+            found = newcomer.near(asked, (*genes.GENES, *shared), switch_on)
+            near = bool(found)
     except Exception:
         log.exception("the genes could not be searched for %r", query)
         return []
@@ -265,10 +274,31 @@ def gene_lines(query: str, switch_on, shared=()) -> list[dict]:
         out.append({
             "type": "gene", "id": m["id"], "title": m["name"], "label": "",
             "snippet": f"{group} - {what}" if what != m["name"] else group,
-            "at": 0, "open": {"how": "gene", "id": m["id"]},
+            "at": 0, "open": {"how": "gene", "id": m["id"], **({"near": True} if near else {})},
             "url": m["route"] or "", "actions": ["open", "tab"] if m["route"] else ["open"],
+            **({"near": True} if near else {}),
         })
-    return out
+    return out + lesson_lines(query, switch_on)
+
+
+def lesson_lines(query: str, switch_on) -> list[dict]:
+    """The Guide's lessons a search's words are about, as rows, while their switch is on
+    (`rouh/newcomer.py`, search_lessons): "how do I connect my calendar" finds Connect Google."""
+    try:
+        if not switch_on("search_lessons"):
+            return []
+        from . import newcomer
+
+        found = newcomer.lessons(query)
+    except Exception:
+        log.exception("the Guide's lessons could not be searched for %r", query)
+        return []
+    return [{
+        "type": "lesson", "id": les["id"], "title": les["title"], "label": "",
+        "snippet": f"Guide lesson - {les['outcome']}" if les["outcome"] else "Guide lesson",
+        "at": 0, "open": {"how": "lesson", "id": les["id"], "route": les["route"]},
+        "url": les["route"], "actions": ["open", "tab"],
+    } for les in found]
 
 
 # ---------------------------------------------------------------------------

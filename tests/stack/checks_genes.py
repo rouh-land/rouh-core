@@ -3827,3 +3827,32 @@ print(json.dumps(say_plainer.for_page(who)))
 """))
     expect('"on":' in out and "{start}" in out and "more simply" in out,
            f"Say it more simply was not told to the page as it should be: {out[-500:]}")
+
+
+@check("gene.run-tools")
+def run_tools(s: Stack) -> None:
+    """The page is told which of the four run tools are on and the fixes; refusals are matched."""
+    out = core_py(s, _owner_py("""
+from rouh import run_tools
+print(json.dumps({"genes": sorted(run_tools.GENES), "page": sorted(run_tools.for_page(who)),
+    "owners": (run_tools.fix_for("Nothing was pushed: rouh/x.py: belongs to no gene") or {}).get("what"),
+    "own": (run_tools.fix_for("its commits include the program's own files (.one/x), so nothing was pushed") or {}).get("what"),
+    "none": run_tools.fix_for("something nobody has seen")}))
+"""))
+    expect('"land_fix", "run_again", "run_both", "start_kept"' in out and '"owners": "A file belongs to no gene."' in out
+           and "the one program's own files" in out and '"none": null' in out,
+           f"the run tools were not told as they should be: {out[-500:]}")
+
+
+@check("gene.newcomer")
+def newcomer(s: Stack) -> None:
+    """Close matches and Guide lessons are found; Got it on a group's plain line is kept."""
+    out = core_py(s, _owner_py("""
+from rouh import genes, newcomer
+newcomer.got_it(who, "machine")
+print(json.dumps({"near": [m["name"] for m in newcomer.near(["calender"], genes.GENES, lambda n: True)],
+    "lesson": [l["id"] for l in newcomer.lessons("how do I connect my calendar")],
+    "seen": newcomer.seen(who)}))
+"""))
+    expect('"Email and calendar"' in out and '"google"' in out and '"seen": ["machine"]' in out,
+           f"the newcomer's genes were not told as they should be: {out[-500:]}")
