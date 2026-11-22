@@ -112,7 +112,7 @@ export interface ServerMessages {
   note_sent: { ok: any; parent?: any; note?: any; why?: any; };
   fork_refused: { text: any; why: any; root?: any; };
   stopped: { text?: any; turns?: any; chat: any; };
-  error: { message: any; fatal: any; lasting?: any; };
+  error: { message: any; fatal: any; lasting?: any; chat_setup?: ChatSetup | null; };
   canvas: { mode: any; task?: any; step?: any; page?: any; stay?: any; chat?: any; };
   objects: { tasks: any[]; projects: any[]; workspaces: any[]; policies: any[]; /** Which kinds can own which (`owning.OWNERS_FOR`). */ owners_for?: Record<string, string[]>; };
   attached: { ok: any; kind: any; id: any; owner?: any; why?: any; };
@@ -276,6 +276,8 @@ export interface Notice {
 
 /** One place a notice leads (`run_report.destinations`): a finished run's run, chat, task or
  *  page, as `to` says, with the word on its button and what it opens said in full. */
+/** The chat's own note while no AI service is connected (`providerkeys.chat_setup`). */
+export interface ChatSetup { head: string; said: string; cost: string; button: string; href: string; }
 export interface NoticeLink { to: string; label: string; href: string; title?: string; }
 
 interface Threaded { chat?: any; turn_id?: any }

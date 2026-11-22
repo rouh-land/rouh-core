@@ -16,7 +16,6 @@ from __future__ import annotations
 
 import asyncio
 import contextlib
-import json
 import logging
 import mimetypes
 import os
@@ -795,14 +794,15 @@ def _own_name(user, nickname: str = "") -> str:
 
 
 def _greeting_name(user, nickname: str = "") -> str:
-    """What the welcome on an empty conversation calls the person: "Hello, Alex".
+    """What the morning brief calls the person, "Alex" (it was the empty conversation's welcome's
+    "Hello, Alex" too, until the welcome went on 22 November 2026, review 51).
 
     The nickname on their profile, when they gave one, and otherwise the first
     name on the account, which is what signing in with Google fills in. An account made with `manage.py account add` has a username and
     nothing else, and for most people that is their own name in lower case,
     so a username that is one word of letters is used, with a capital. One
     that is not a name - `jdoe2`, `ops-bot` - is not guessed at, and the
-    welcome says Hello and nothing after it.
+    greeting has no name after it.
     """
     if nickname:
         return nickname
@@ -841,38 +841,15 @@ def _switch_for(request: HttpRequest):
 
 
 def _chats_need_key(request: HttpRequest) -> dict | None:
-    """What the welcome says when no provider has a key here, with the setup page to link to."""
+    """What the chat says while no AI service is connected here, with where to set one up; None
+    once the chats can answer (`providerkeys.chat_setup`)."""
     from rouh import providerkeys
-    from rouh.web import claude_signin
 
-    org = getattr(who(request), "org_id", None) or None
-    if providerkeys.chats_can_answer(org, config):
+    try:
+        return providerkeys.chat_setup(getattr(who(request), "org_id", None) or None, config)
+    except Exception:
+        log.warning("chat_setup: not read for the page", exc_info=True)
         return None
-    return {"said": providerkeys.where_to_add_a_key(),
-            "href": claude_signin.PATH if claude_signin.enabled() else genes.BY_ID["models"]["route"]}
-
-
-def _rouh_self(request: HttpRequest) -> str:
-    """This Rouh's own name, or "" before its birth."""
-    from rouh import birth
-
-    try:
-        row = birth.current(str(getattr(who(request), "org_id", "") or ""))
-    except Exception:
-        return ""
-    return row.name if row else ""
-
-
-def _try_fit(request: HttpRequest) -> str:
-    """What is connected, as JSON for the welcome's things to try, or "" while the switch is off."""
-    from rouh import try_fit
-
-    try:
-        got = try_fit.fit(who(request))
-    except Exception:
-        log.warning("try_fit: not read for the page", exc_info=True)
-        return ""
-    return json.dumps(got) if got else ""
 
 
 def _run_head(request: HttpRequest) -> dict:
@@ -919,15 +896,6 @@ def _plainer(request: HttpRequest) -> dict:
         return {"on": False, "ask": ""}
 
 
-def _setting_up(request: HttpRequest) -> bool:
-    from rouh.web import firstrun
-
-    try:
-        return firstrun.guiding(str(getattr(who(request), "org_id", "") or ""))
-    except Exception:
-        return False
-
-
 #: The switch for the open orb's music as an arrangement of "Cornfield Chase" (Hans Zimmer,
 #: Interstellar), in `rouh/static/app/orb_cornfield.js`. The composition is its composer's and
 #: publisher's, so unlike every other switch it is OFF until the owner turns it on, on every
@@ -945,17 +913,6 @@ def _orb_cornfield(request: HttpRequest) -> bool:
         return bool(switches.register(ORB_CORNFIELD, ORB_CORNFIELD_TITLE, org_id=org, on=False)["on"])
     except Exception:
         return False
-
-
-def _phone_address() -> str:
-    """The phone address on the relay, for the chat's "Reach me from my phone" step: the one the
-    owner changed it to once that works, else the born one; "" for none."""
-    from rouh import relay
-
-    try:
-        return (relay.current_host() or relay.hostname()) if relay.enabled() and relay.chose_connected() else ""
-    except Exception:
-        return ""
 
 
 def _page_for(request: HttpRequest) -> HttpResponse:
@@ -982,15 +939,6 @@ def _page_for(request: HttpRequest) -> HttpResponse:
         "USERNAME": getattr(user, "username", "") or "",
         # What the foot of the navigation calls them, on the button to their profile.
         "OWN_NAME": _own_name(user, nickname),
-        # Who the welcome on an empty conversation says hello to.
-        "GREET_NAME": _greeting_name(user, nickname),
-        # Its own name, once it is born, for the welcome to say who it is (`rouh/birth.py`).
-        "ROUH_SELF": _rouh_self(request),
-        # A few days after the first run the welcome's things to try are the rest of setting
-        # up, which the chat takes the owner through (`firstrun.guiding`, the rule new-rouh).
-        "SETTING_UP": _setting_up(request),
-        # And, while its switch is on, what is connected, so the things to try fit it (`rouh/try_fit.py`).
-        "TRY_FIT": _try_fit(request),
         # Which of the three genes on a run's head are on (`rouh/run_head.py`).
         "RUN_HEAD": _run_head(request),
         # Start again, What stopped it, Both agents at once, the Start dialog kept (`rouh/run_tools.py`).
@@ -999,11 +947,10 @@ def _page_for(request: HttpRequest) -> HttpResponse:
         "NEWCOMER": _newcomer(request),
         # Say it more simply, under an answer (`rouh/say_plainer.py`).
         "PLAINER": _plainer(request),
-        "PHONE_ADDRESS": _phone_address(),
         # The open orb's music: Rouh's own, or the Cornfield Chase arrangement where its switch is on.
         "ORB_CORNFIELD": _orb_cornfield(request),
-        # When the chats have no model key at all, the welcome says so and where to add one,
-        # in place of "Ask me what I can do" (`providerkeys.where_to_add_a_key`).
+        # When the chats have no AI service at all, the standard chat says so in plain words, with
+        # one button to set it up and what it costs (`providerkeys.chat_setup`, review 51).
         "CHATS_NEED_KEY": _chats_need_key(request),
         # The model the This page side asks, named beside its own box.
         "ASKAI_MODEL": work.model,

@@ -18,9 +18,7 @@ import { drawTranscriptInto, drawWords, editTurn, hideTyping, endTurnOnScreen, p
 import { CARDS, cardsAdriftSay, cardWaysSay, frameLoad, projectSaidIt, resetCanvas,
   resetStreamCards, taskSaidIt, WORKSPACE_ROUTE } from 'app/cards.js';
 import { detachAsk, FIND, findAsk, findShow } from 'app/search.js';
-import { newcomerOn } from 'app/newcomer.js';
 import { ADDR, addrIsTasksOwn, addrOf, addrTouch, FRESH, freshChatOpened } from 'app/address.js';
-import { welcomeShow } from 'app/welcome.js';
 import { CANVAS_MIN, CHAT_W, chatIsWanted, chatRoom, panelsForChat, panelsHold, drawTyped, growInput, input, narrow,
   sendTyped, setPane, sidebarDone } from 'app/controls.js';
 import { attUploading, drawAttachments } from 'app/attachments.js';
@@ -191,9 +189,6 @@ function showCrumb() {
   // already its name.
   showCrumbTitle(chat && chat.id === CHATS.general && !chat.fork_of
     && !(chat.owned_by && chat.owned_by.type === 'task') && !chat.folder_id ? '' : name);
-  // Which chat this is decides whether an empty one says hello: a task's
-  // does not (`welcomeWanted`).
-  welcomeShow();
   // A fork's glyph says what it is a fork of, and goes back there
   // (`rouh/forks.py`).
   // Closing it is not up here: it is the cross in the fork's own corner
@@ -2617,22 +2612,14 @@ function sendTip(what) {
   b.title = b.dataset.what + ' (' + sendKeys() + ')' + (touchTyping() ? '' : ' \u00b7 Shift+Enter: new line');
 }
 
-/* The line of keys in the empty chat, under the welcome, at a desk, or on a
-   phone or a tablet once a keyboard of its own is seen: what Enter,
-   Shift+Enter and Cmd+Enter do, with Ctrl in place of the Cmd sign off a Mac.
-   Petar, 16 November 2026: not under the box, where it took room at the
-   bottom; each button's tooltip says its key as well (app/tips.js). */
+/* The keys, said where they are used: Shift+Enter in each box's empty words, and Send's in its
+   tooltip, put on again whenever the keyboard changes. Petar, 16 November 2026: not under the box,
+   where it took room at the bottom; each button's tooltip says its key as well (app/tips.js). The
+   line of them in the empty chat went with the welcome, 22 November 2026 (review 51). */
 function keysHintPaint() {
   hinted().boxes.forEach(hintPut);
   var b = $('sendBtn');
   if (b && b.dataset.what) sendTip();
-  var h = $('composerKeys');
-  if (!h) return;
-  if (touchTyping()) { h.hidden = true; return; }
-  h.hidden = false;
-  h.textContent = 'Enter to send · Shift+Enter for a new line · ' + (onMac() ? '⌘' : 'Ctrl') + '+Enter to fork'
-    // And the way to the rest of them (`rouh/newcomer.py`, keys_list).
-    + (newcomerOn('keys_list') ? ' · ? for every key' : '');
 }
 
 (function () {

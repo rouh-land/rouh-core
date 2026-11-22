@@ -23,7 +23,6 @@ import { BRIEF, briefOpen, briefViewing, CANVAS, canvasDoc, controlOpen, control
   settingsOpen, settingsRead, settingsViewing, SYNAPSE, synapseOpen, synapseViewing, TASK_PREFIX, tasksOpen,
   TASKS_VIEW, tasksViewing, TC, tcAddAsked, tcPerson, threadName, wsProjects } from 'app/runs.js';
 import { chatById, CHATS, chatShow, forkTip, showCrumb } from 'app/chats.js';
-import { welcomeShow } from 'app/welcome.js';
 import { offlineOpen, offlineViewing } from 'app/offlineview.js';
 import { canvasShown, chatIsWanted, panelsChoseCanvas, cols, drawerEntryTaken, drawerPopped, drawerUnwinding, narrow, setPane, TASKS_FULL,
   tasksTakeChat } from 'app/controls.js';
@@ -950,8 +949,6 @@ function addrAsk() {
       if (narrow()) setPane('chat');
     }
     addrTouch();
-    // The welcome was held while the address was on its way (`addrOpen`).
-    welcomeShow();
     return;
   }
   /* The browser's own top names no object on the canvas, so there is
@@ -1242,11 +1239,6 @@ function addrOpen(m) {
   // takes the whole window when it is browsed on its own (`findGo`), and
   // this is not that: it is two panels, and both of them are in the link.
   if (want && want.chat) chatIsWanted();
-  // The welcome was held while the page was on its way here. An address
-  // that opens a conversation holds it again until that arrives; one that
-  // does not - a run, a card - leaves the conversation that is open, and
-  // that is what decides now.
-  welcomeShow();
 }
 
 /* A panel that was covering the canvas has closed. The address was held
@@ -1505,8 +1497,7 @@ bootWatch();
  * So `/` is a place now, and the place is empty. No conversation, no
  * transcript, no cards, nothing on the canvas, the bar left at `/` and the
  * tab called Rouh: the shell, the box and the controls, ready for a fresh
- * start - with a hello and things to try, the way every empty conversation
- * has them (the welcome, below). Every other address is untouched - `/task/…`, `/chat/…` and the
+ * start. Every other address is untouched - `/task/…`, `/chat/…` and the
  * rest open exactly what they name, which is what they are for.
  *
  * Shut since 21 October 2026 (`frontDoorShut`): an address that names

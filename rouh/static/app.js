@@ -31,7 +31,7 @@
  *                           pills, the rows and what each row's menu does
  *   app/address.js     10f  the address of what is on the screen, and the front
  *                      10g  door
- *   app/welcome.js          an empty conversation says hello
+ *   app/welcome.js          an example put in the box, and Search's wiring
  *   app/controls.js    11   controls, composer, the speakers
  *   app/attachments.js 11c  files attached to a message: the paperclip, the drop
  *                           zone, paste

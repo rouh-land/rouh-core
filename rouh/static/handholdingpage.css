@@ -738,3 +738,16 @@ a.hh-away-btn svg { color: var(--dim); }
 /* A cut-out of the screen: shown at its own size, never stretched past it, so its words stay as big as on the phone. */
 .hh-fig.hh-cut .hh-shot { max-width: 100%; }
 .hh-how .hh-fig.hh-cut { max-width: 420px; }
+
+/* The chat cannot answer yet (review 51, problem 372): over a lesson's things to say, in plain words,
+   with the one button that sets it up and the way to do the lesson without the chat. */
+.hh-nochat {
+  display: grid; gap: 8px; justify-items: start; padding: 14px 16px; border-radius: 14px;
+  border: 1px solid var(--line); background: var(--panel); max-width: 66ch;
+}
+.hh-nochat p { margin: 0; }
+.hh-nochat-head { font-size: 15px; font-weight: 680; line-height: 1.35; }
+.hh-nochat-t { font-size: 14px; line-height: 1.55; color: var(--dim); }
+.hh-nochat-other { color: var(--text); }
+.hh-nochat-other .hh-link { display: inline; min-height: 0; }
+.hh-nochat .hh-nochat-go { margin: 2px 0 4px; min-height: 44px; padding: 8px 18px; font-size: 15px; text-decoration: none; }

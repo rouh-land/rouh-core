@@ -308,10 +308,6 @@ button { font: inherit; color: inherit; }
   /* A panel put away keeps the width it had, so nothing in it is laid out
      again while it is away or on its way back (`panelHold`). */
   .col-chat.held, .canvas.held { width: var(--held-w); }
-  /* With the canvas away, the things to try are under the box, as on a
-     phone (the welcome, below). */
-  .app.no-canvas .welcome-under .try-list { display: grid; max-width: 760px; margin: 0 auto; }
-  .app.no-canvas .welcome-under { padding: 20px; }
 
   /* The panel away keeps a track as wide as its rail. Still a minmax with
      a fraction, as both tracks are, so the move between them is eased. */
@@ -463,7 +459,7 @@ button { font: inherit; color: inherit; }
    21 November 2026: "content should be flushed all the way left". */
 @media (min-width: 900px) {
   .col-chat, .app.no-chat .rail-chat, .projects { margin-left: 0; }
-  .col-chat .panel-transcript, .col-chat .panel-ask, .col-chat:not(.welcome) .composer-box,
+  .col-chat .panel-transcript, .col-chat .panel-ask, .col-chat .composer-box,
   .col-chat > .chat-tabs, .app.no-chat .rail-chat {
     border-left: 0;
     border-top-left-radius: 0; border-bottom-left-radius: 0;
@@ -2158,7 +2154,7 @@ input[type="range"]::-moz-range-thumb { width: 15px; height: 15px; border: 0; bo
    button sits on top of the input. It needs to be above it".
 
    Its place is the same on every screen, with a box at the foot or without
-   one - the welcome, whose box is up in the middle, and the canvas pane - so
+   one - the canvas pane - so
    it never jumps between them: `--fold-air` off the bottom, which is just
    above a one-line box at rest (its 108 pixels, 8 of padding and safe area
    aside, and 8 of gap). It goes higher only while the box itself does. Each
@@ -2180,7 +2176,7 @@ input[type="range"]::-moz-range-thumb { width: 15px; height: 15px; border: 0; bo
    the button should just be floating on top of content". */
 @media (max-width: 899px) {
   :root { --fold-air: 116px; }
-  .app.fold-docked .col-chat:not(.welcome) .transcript {
+  .app.fold-docked .col-chat .transcript {
     padding-bottom: calc(var(--top-chip) + 20px);
   }
   .app[data-sb="over"] .sb-nav {
@@ -7488,13 +7484,6 @@ a.pf-co:hover { color: var(--accent); text-decoration: underline; }
    the background under both belongs to the text box: clicking any part of it
    puts the cursor back in the text. */
 .composer { flex: 0 0 auto; display: block; }
-/* The keys, in the empty chat under the welcome at a desk: one quiet line
-   (`keysHintPaint`). Never under the box, where it took room (Petar, 16
-   November 2026). */
-.composer-keys {
-  margin: 14px 0 0; font-size: 12px; line-height: 16px; color: var(--dim);
-}
-.composer-keys[hidden] { display: none; }
 .composer-box {
   /* Three rows, one under the other, each with its own room: the text, the
      level meter, the controls. They used to share one box, with the meter and
@@ -9835,83 +9824,55 @@ a.att-name:hover { text-decoration: underline; }
   .gt-drawer { visibility: hidden; }
 }
 
-/* ---------- the welcome, while the conversation is empty ----------
+/* ---------- chat is not set up yet ----------
 
-   The greeting, the box in the middle of the column under it, and the things
-   to try: on the canvas beside it at a desk, and under the box on a phone
-   (`welcomeShow` in app.js says when, and why).
-
-   The column is one panel while it lasts. The transcript's panel is the top
-   half, with the greeting at the foot of it; the box is the middle; and the
-   empty panel under the box is the bottom half, the same size as the top, so
-   the box is in the middle of the column however tall the window is and
-   however many lines are typed into it. The seams between the three are not
-   drawn, so it reads as one surface with a box in it. */
-.welcome-hello[hidden], .welcome-under[hidden], .welcome-try[hidden] { display: none; }
-
-.col-chat.welcome:not([data-chat="page"]) { gap: 0; }
-.col-chat.welcome .panel-transcript {
-  flex: 1 1 0;
-  border-bottom: 0;
-  border-bottom-left-radius: 0; border-bottom-right-radius: 0;
-}
-/* There is nothing in it but the line saying so, and the greeting says it. */
-.col-chat.welcome .transcript { display: none; }
-.col-chat.welcome .composer:not(.composer-ask) {
-  padding: 0 20px;
-  background: var(--panel);
-  border-left: 1px solid var(--line); border-right: 1px solid var(--line);
-}
-.col-chat.welcome .composer:not(.composer-ask) .composer-box {
-  max-width: 680px; margin: 0 auto;
-}
-.welcome-under {
-  flex: 1 1 0; min-height: 0; overflow: auto;
-  background: var(--panel);
-  border: 1px solid var(--line); border-top: 0;
-  border-radius: 0 0 var(--radius) var(--radius);
-}
-.col-chat[data-chat="page"] .welcome-under { display: none; }
-
-.welcome-hello {
-  margin-top: auto;
-  padding: 0 24px 20px;
-  text-align: center;
-  overflow-wrap: anywhere;
-}
-.rouh-name { color: var(--rouh-name); }
-.welcome-hi {
-  margin: 0;
-  font-size: 26px; line-height: 1.25; font-weight: 600; letter-spacing: -0.01em;
+   Above the box while no AI service is connected (`#chatSetup`, review 51, problems 330 and 335):
+   what is wrong in one plain line, the one button, and what it costs. Part of the chat, not a
+   notice over it: quiet, with the column's own surface, and the button its one accent. */
+.chat-setup {
+  flex: 0 0 auto;
+  margin: 12px 12px 0;
+  padding: 14px 16px;
+  display: grid; gap: 6px; justify-items: start;
+  background: var(--panel-2);
+  border: 1px solid var(--line); border-radius: var(--radius);
   color: var(--text);
 }
-.welcome-ask { margin: 6px 0 0; font-size: 15px; color: var(--dim); }
-.welcome-key { max-width: 34em; margin-left: auto; margin-right: auto; color: var(--warn, #f2b84b); }
-.welcome-key a { color: inherit; text-decoration: underline; white-space: nowrap; }
-
-/* The canvas's half. It takes the place of the line that says a card opened
-   at full width appears here, and is above the orb the way the cards are. */
-.canvas.welcome .cards { display: none; }
-.welcome-try {
-  flex: 1 1 auto; min-height: 0; overflow: auto;
-  position: relative; z-index: 1;
-  display: flex; padding: 24px;
-  container-type: inline-size; container-name: welcome-try;
+.chat-setup[hidden] { display: none; }
+.chat-setup p { margin: 0; max-width: 60ch; }
+.chat-setup-head { font-size: 15px; font-weight: 600; line-height: 1.35; }
+.chat-setup-said { font-size: 14px; line-height: 1.5; }
+.chat-setup-cost { font-size: 13px; line-height: 1.5; color: var(--dim); }
+.chat-setup .chat-setup-go { margin-top: 6px; min-height: 44px; display: inline-flex; align-items: center;
+  padding: 0 18px; font-size: 14px; text-decoration: none; }
+.col-chat[data-chat="page"] .chat-setup { display: none; }
+@media (prefers-reduced-motion: no-preference) {
+  .chat-setup-again { animation: chat-setup-again 900ms ease; }
 }
-.try-inner { width: 100%; max-width: 760px; margin: auto; }
-.try-title { margin: 0; font-size: 18px; font-weight: 600; color: var(--text); }
-.try-sub { margin: 6px 0 18px; font-size: 13.5px; color: var(--dim); }
+@keyframes chat-setup-again {
+  0%, 100% { border-color: var(--line); }
+  30% { border-color: var(--accent); }
+}
+/* On a phone the conversation's head floats over its top: the note starts under it, and the words
+   under the note need no room of their own for it. */
+@media (max-width: 899px) {
+  .chat-setup { margin: calc(var(--top-air) * 2 + var(--top-chip) + 4px) 14px 0; }
+  .col-chat .chat-setup:not([hidden]) + .transcript { padding-top: 10px !important; }
+  /* Under the strip of what this chat uses, when it is drawn up there. */
+  .col-chat:has(#readingStrip:not([hidden])) .chat-setup {
+    margin-top: calc(var(--top-air) + var(--top-chip) - 2px + 44px + 4px);
+  }
+}
 
+/* An example to put in the box, one kind of thing Rouh does: the reminders' things to try
+   (`.clock-try`, app/runs.js). Its colour is the kind's and is on its glyph and on the edge it is
+   given under the pointer, and nowhere else. They were the empty conversation's welcome's too,
+   until it went on 22 November 2026 (review 51). */
 .try-list {
   display: grid; gap: 12px;
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
-@container welcome-try (max-width: 480px) {
-  .try-list { grid-template-columns: minmax(0, 1fr); }
-}
 .try-item { display: grid; }
-/* One kind of thing Rouh does. Its colour is the kind's and is on its glyph
-   and on the edge it is given under the pointer, and nowhere else. */
 .try-card {
   --try: var(--accent);
   appearance: none; cursor: pointer; font: inherit; text-align: left;
@@ -9928,12 +9889,6 @@ a.att-name:hover { text-decoration: underline; }
 }
 .try-card:active { transform: none; }
 .try-card:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
-.try-research { --try: var(--accent); }
-.try-page { --try: var(--good); }
-.try-task { --try: var(--warn); }
-.try-video { --try: var(--user); }
-/* The rest of setting up, for a few days after the first run (`SETUP` in app/welcome.js). */
-.try-mail, .try-chat, .try-phone, .try-you, .try-calendar { --try: var(--accent); }
 .try-mark {
   flex: 0 0 auto;
   width: 36px; height: 36px; border-radius: 10px;
@@ -9946,70 +9901,12 @@ a.att-name:hover { text-decoration: underline; }
 .try-say { font-size: 13.5px; line-height: 1.45; color: var(--dim); }
 .try-say::before { content: "\201C"; }
 .try-say::after { content: "\201D"; }
-
-/* The list under the box is the phone's. At a desk the canvas has the same
-   list beside the box, and the room under the box is left empty. */
-.welcome-under .try-list { display: none; }
-
-@media (prefers-reduced-motion: no-preference) {
-  .welcome-hello, .welcome-try .try-inner { animation: welcome-in 260ms ease both; }
-}
-@keyframes welcome-in {
-  from { opacity: 0; transform: translateY(6px); }
-  to { opacity: 1; transform: none; }
-}
-/* A still picture of the hello going, while the real one is already hidden
-   (`ghostOf` in app/welcome.js). Laid exactly over where it was. */
-.welcome-ghost {
-  position: fixed; z-index: 5; margin: 0; box-sizing: border-box;
-  pointer-events: none; animation: none;
-}
-
 @media (prefers-reduced-motion: reduce) {
   .try-card { transition: none; }
   .try-card:hover { transform: none; }
 }
 
-@media (max-width: 899px) {
-  /* A pane is edge to edge on a phone with no frame of its own, and the box
-     is not a bar across the foot of it while it is in the middle. */
-  .col-chat.welcome .composer:not(.composer-ask) {
-    padding: 0 14px;
-    border: 0;
-  }
-  .welcome-under {
-    border: 0; border-radius: 0;
-    /* Room at the end for the navigation button, which is fixed over the
-       bottom left corner, so the last suggestion scrolls out from under it. */
-    padding: 18px 14px calc(var(--fold-air) + var(--top-chip) + 8px
-                            + env(safe-area-inset-bottom, 0px));
-  }
-  .welcome-hi { font-size: 24px; }
-
-  /* Under the box, one to a row: a glyph, the kind, and the start of what to
-     ask, which goes into the box whole. */
-  .welcome-under .try-list { display: grid; grid-template-columns: minmax(0, 1fr); gap: 8px; }
-  .welcome-under .try-card {
-    flex-direction: row; align-items: center; gap: 12px;
-    padding: 10px 12px; border-radius: var(--radius-s);
-  }
-  .welcome-under .try-mark { width: 32px; height: 32px; border-radius: 9px; }
-  .welcome-under .try-words { gap: 2px; }
-  .welcome-under .try-head { font-size: 14px; }
-  .welcome-under .try-say {
-    font-size: 13px; line-height: 1.4;
-    display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 1;
-    overflow: hidden;
-  }
-  .welcome-under .try-say::after { content: none; }
-
-  /* The canvas's list, when the canvas is the pane, keeps clear of the glyph
-     fixed in its corner the way the cards do. */
-  .canvas-bar[hidden] ~ .welcome-try {
-    padding-top: calc(var(--top-air) * 2 + var(--top-chip)
-                      + env(safe-area-inset-top, 0px));
-  }
-}
+.rouh-name { color: var(--rouh-name); }
 
 /* ---------- forks ----------
 
@@ -11105,7 +11002,7 @@ button.tc-fold[aria-expanded="true"]::before { transform: rotate(45deg); top: 7p
 .app[data-sb="shut"], .app[data-sb="over"] { --sb-track: 0px; }
 /* The conversation keeps room at its end, and every scroller on the
    canvas at its own, to bring its last line out from under the circle. */
-.app.fold-docked .col-chat:not(.welcome) .transcript {
+.app.fold-docked .col-chat .transcript {
   padding-bottom: calc(var(--orb-btn) + 20px);
 }
 .app .cards,
@@ -11716,7 +11613,7 @@ body.chat-incognito .col-chat, body.chat-incognito .cot-full {
 }
 body.chat-incognito .col-chat {
   box-shadow: 0 0 0 2px var(--incog); border-radius: var(--radius); background: var(--incog-bg);
-  /* Every surface in the column darker, the empty chat's welcome included. */
+  /* Every surface in the column darker. */
   --panel: var(--incog-bg);
 }
 body.chat-incognito .panel-transcript { background: var(--incog-bg); }
@@ -11725,7 +11622,6 @@ body.chat-incognito .send-btn { background: var(--incog); color: var(--incog-ink
 body.chat-incognito .reading-strip-mark, body.chat-incognito .reading-strip-words b { color: var(--incog); }
 body.chat-incognito .stream-title, body.chat-incognito #crumbLine { display: none; }
 /* Nothing of who the person is on an incognito chat's empty screen either. */
-body.chat-incognito .welcome-name { display: none; }
 .incog-btn[aria-pressed="true"] { color: var(--incog); border-color: var(--incog); background: var(--incog-soft); }
 .incog-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .incog-mark {

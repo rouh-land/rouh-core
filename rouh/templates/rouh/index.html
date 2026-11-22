@@ -4,7 +4,7 @@ It was rouh/static/index.html, filled in by string replacement at serve
 time, until 23 September 2026. The five values the server put in then
 are the five it puts in now - {{VERSION}}, {{REVISION}},
 {{BUILD_DETAIL}}, {{ATTACH_ACCEPT}}, {{USERNAME}} - with {{MODEL}}
-and {{GREET_NAME}} beside them since 24 September, and {{ASKAI_MODEL}}
+beside them since 24 September, and {{ASKAI_MODEL}}
 with its spoken name after them, {{ATTACH_MAX}} beside the accept list since
 23 October 2026, and every file the page loads is named
 with {% asset %}, which gives it its hashed address.
@@ -586,7 +586,7 @@ with {% asset %}, which gives it its hashed address.
              magnifier and nothing else, since 10 October 2026; it was a link
              in the list above until then. Petar: "Put search in the profile
              bar, flushed right, icon only." Its key is in its hover text
-             (`title`, from app/welcome.js). {% endcomment %}
+             (`title`, from app/welcome.js, which kept only Search's wiring once the welcome went). {% endcomment %}
         <button id="searchBtn" class="sb-tool sb-search" type="button" data-nav="search"
                 aria-haspopup="dialog" aria-controls="searchDialog"
                 aria-label="Search" title="Search everything">
@@ -1049,6 +1049,18 @@ with {% asset %}, which gives it its hashed address.
       </button>
       <div class="reading-pop content-pop" id="contentPop" role="dialog" aria-labelledby="contentHead" hidden></div>
       <div class="content-back" id="contentBack" hidden></div>
+      {% comment %} Chat is not set up yet (review 51, problems 330 and 335, Petar, 22 November
+           2026): while no AI service is connected, the standard chat says so here, in plain words,
+           at the top of the conversation, where nothing floats over it, with one button to set it up
+           and whether it costs money, in place of a warning with
+           provider names. A turn that fails for the same reason shows it again rather than a red
+           notice (`error` with `chat_setup`, PROTOCOL.md; `chatSetupShow` in app/socket.js). {% endcomment %}
+      <div class="chat-setup" id="chatSetup" role="status"{% if not CHATS_NEED_KEY %} hidden{% endif %}>
+        <p class="chat-setup-head" id="chatSetupHead">{{ CHATS_NEED_KEY.head|default:"Chat is not set up yet" }}</p>
+        <p class="chat-setup-said" id="chatSetupSaid">{{ CHATS_NEED_KEY.said }}</p>
+        <p class="chat-setup-cost" id="chatSetupCost">{{ CHATS_NEED_KEY.cost }}</p>
+        <a class="ctl small primary chat-setup-go" id="chatSetupGo" href="{{ CHATS_NEED_KEY.href|default:'#' }}">{{ CHATS_NEED_KEY.button|default:"Set up chat" }}</a>
+      </div>
       <div id="transcript" class="transcript" role="log" aria-live="polite" aria-relevant="additions text" tabindex="0">
         {% comment %} The chat's own name, at the very top of its own conversation and
              nowhere else. It used to be in the row above, beside the project,
@@ -1065,24 +1077,6 @@ with {% asset %}, which gives it its hashed address.
              it, and each page read back is placed under this. {% endcomment %}
         <p id="streamOlder" class="stream-older" hidden>Loading what came before…</p>
         <p class="empty" id="transcriptEmpty">Say something, or type below.</p>
-      </div>
-      {% comment %} The welcome, over the text box while the conversation has nothing
-           in it. Petar, 24 September 2026, of somebody signing in for the
-           first time: "It is empty. No hello, no 'start here'." So an empty
-           conversation says hello by name and says where to start, with the
-           box in the middle of the column under it and the things to try on
-           the canvas beside it. The first thing said puts everything back
-           where a conversation has it (`welcomeShow` in app.js). {% endcomment %}
-      <div class="welcome-hello" id="welcomeHello" hidden>
-        <p class="welcome-hi">Hello{% if GREET_NAME %}<span class="welcome-name">, {{ GREET_NAME }}</span>{% endif %}{% if ROUH_SELF %}<span class="welcome-name">. I'm <span class="rouh-name">{{ ROUH_SELF }}</span></span>{% endif %}</p>
-{% if CHATS_NEED_KEY %}
-        <p class="welcome-ask welcome-key" role="alert">{{ CHATS_NEED_KEY.said }} <a href="{{ CHATS_NEED_KEY.href }}">Add a key</a></p>{% elif SETTING_UP %}
-        <p class="welcome-ask">Ask me anything, or drop in a screenshot</p>{% else %}
-        <p class="welcome-ask">Ask me what I can do</p>{% endif %}
-        {% comment %} The keys, quietly, in the empty chat at a desk (`keysHintPaint`). Petar, 16 November
-             2026: under the box they took the room at the bottom, so they are here and in each button's
-             tooltip instead. {% endcomment %}
-        <p class="composer-keys" id="composerKeys" hidden></p>
       </div>
       {% comment %} Whenever the reader has scrolled up from the end. Pressing it goes
            back to the very end and does nothing else: the focus stays where it
@@ -1414,15 +1408,6 @@ with {% asset %}, which gives it its hashed address.
         </div>
       </div>
     </form>
-
-    {% comment %} Under the box while the welcome is up: the other half of the column,
-         which is what holds the box in the middle of it. At a desk it is
-         empty, because the things to try are on the canvas beside it. A phone
-         has the canvas behind the conversation rather than beside it, so
-         there they are here, under the box, where the thumb already is. {% endcomment %}
-    <div class="welcome-under" id="welcomeUnder" hidden>
-      <div class="try-list" id="tryUnder" role="list" aria-label="Things to try"></div>
-    </div>
 
     {% comment %} The other half of the one surface: the conversation about the page in
          the canvas. Everything Ask AI was in the drawer, drawn here instead -
@@ -1917,21 +1902,6 @@ with {% asset %}, which gives it its hashed address.
       <button type="button" data-where="canvas" aria-pressed="false"
               title="Every card comes out here on the canvas as it is drawn">Canvas</button>
     </div>
-
-    {% comment %} What to try, while the conversation beside it has nothing in it: a
-         few kinds of thing Rouh does, each with something to ask it. Pressing
-         one puts its words in the box to be changed and sent, rather than
-         sending them, because an example is somewhere to start and not what
-         the person meant to say. It goes with the welcome, the moment the
-         first thing is said (`welcomeShow` in app.js). {% endcomment %}
-    <section class="welcome-try" id="welcomeTry" aria-labelledby="tryTitle"{% if SETTING_UP %} data-setting-up="1"{% endif %}{% if TRY_FIT %} data-fit="{{ TRY_FIT }}"{% endif %}{% if PHONE_ADDRESS %} data-phone="{{ PHONE_ADDRESS }}"{% endif %} hidden>
-      <div class="try-inner">
-        <h2 class="try-title" id="tryTitle">Things to try</h2>
-        <p class="try-sub">Pick one and it goes in the box, where you can change it before you send it.</p>
-        <div class="try-list" id="tryCanvas" role="list"></div>
-      </div>
-    </section>
-
 
     {% comment %} A run of the one program, opened from the task list, over the canvas:
          its terminal live, what it did, a message box and Stop (D45). {% endcomment %}

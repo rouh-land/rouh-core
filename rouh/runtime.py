@@ -4518,8 +4518,11 @@ class Turn:
             if not await asyncio.to_thread(providerkeys.chats_can_answer):
                 # No key for any provider: said plainly, with where to add one, and kept on
                 # the screen until closed (a new Rouh's first run, 24 October 2026).
+                # Since 22 November 2026 (review 51) the page shows it as the chat's own plain note
+                # with one button, not as a red notice (`chat_setup`, PROTOCOL.md).
                 await self.emit({"type": "error", "message": providerkeys.where_to_add_a_key(),
-                                 "fatal": False, "lasting": True})
+                                 "fatal": False, "lasting": True,
+                                 "chat_setup": await asyncio.to_thread(providerkeys.chat_setup)})
             else:
                 await self.emit({"type": "error", "message": str(exc)[:300], "fatal": False})
         finally:

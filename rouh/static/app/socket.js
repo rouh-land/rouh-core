@@ -32,7 +32,6 @@ import { ADDR, addrAsk, addrFound, addrSocketGone, FRESH } from 'app/address.js'
 import { earlyFlush, earlyLift, panelsForChat, setMic, setVoice, showDictation } from 'app/controls.js';
 import { onPicturePartial, onPictures, picturesReady } from 'app/attachments.js';
 import { gtBoardRefresh } from 'app/gene_therapy.js';
-import { welcomeShow } from 'app/welcome.js';
 import { notify, noteBuild, noticesHeard } from 'app/notices.js';
 import { offlineHeard, offlineRepaint, offlineResults, offlineSocketDown } from 'app/offline.js';
 import { compareShow } from 'app/compare.js';
@@ -208,8 +207,7 @@ function setConn(kind, text) {
 
 //: What asks the server to put another conversation on the screen. It
 //: answers with `chat_switched`, and until it has, an empty transcript is
-//: the chat being left and says nothing about the one on its way
-//: (`welcomeHeld`).
+//: the chat being left and says nothing about the one on its way.
 var SWITCHES = { open_chat: true, new_chat: true, open_thread: true };
 
 //: What moves this tab to a chat, or changes the strip of forks around it.
@@ -660,12 +658,8 @@ function handleMessage(m) {
       // before the pages the address may open have loaded (Approvals,
       // Decisions, the brief, each a script after this one), and opening one
       // before its script is there opened nothing at all.
-      // Whether an empty conversation says hello is decided again once the
-      // address has been asked: held while it was on its way, it would
-      // otherwise stay down or go up by which of it and the list of chats
-      // came first (`welcomeShow`).
-      if (window.rouhScriptsRan) { addrAsk(); welcomeShow(); }
-      else document.addEventListener('DOMContentLoaded', function () { addrAsk(); welcomeShow(); earlyFlush(); }, { once: true });
+      if (window.rouhScriptsRan) { addrAsk(); }
+      else document.addEventListener('DOMContentLoaded', function () { addrAsk(); earlyFlush(); }, { once: true });
       S.readyHere = true;
       if (!S.readyOnce) {
         S.readyOnce = true;
@@ -1224,9 +1218,12 @@ function handleMessage(m) {
       offlineResults(m.results, false);
       break;
     case 'error':
+      // No AI service connected: the chat's own plain note, with its one button, rather than a
+      // red notice with provider names in it (review 51, problems 330 and 335).
+      if (m.chat_setup) chatSetupShow(m.chat_setup);
       // `lasting` is a failure the person has to act on - a chat grown past
       // what its model can read - and stays until they close it.
-      notify(m.message || 'Something failed.', { tone: 'error', lasting: !!m.fatal || !!m.lasting });
+      else notify(m.message || 'Something failed.', { tone: 'error', lasting: !!m.fatal || !!m.lasting });
       setBusy(false);
       if (m.fatal) setMic(true);
       break;
@@ -1235,6 +1232,25 @@ function handleMessage(m) {
     default:
       break; // unknown types are ignored on purpose
   }
+}
+
+/* Chat is not set up yet: the note above the box (`#chatSetup`, drawn by the server while no AI
+   service is connected), filled with what the server said and shown, and the person's eye drawn to
+   it once, since what they just asked will not be answered.
+   @param {import('./protocol').ChatSetup} said */
+function chatSetupShow(said) {
+  var box = $('chatSetup');
+  if (!box) return;
+  /** @type {[string, string][]} */
+  var parts = [['chatSetupHead', said.head], ['chatSetupSaid', said.said], ['chatSetupCost', said.cost],
+    ['chatSetupGo', said.button]];
+  parts.forEach(function (p) { var n = $(p[0]); if (n && p[1]) n.textContent = p[1]; });
+  var go = /** @type {HTMLAnchorElement | null} */ ($('chatSetupGo'));
+  if (go && said.href) go.href = said.href;
+  var was = !box.hidden;
+  box.hidden = false;
+  box.classList.remove('chat-setup-again');
+  if (was) { void box.offsetWidth; box.classList.add('chat-setup-again'); }
 }
 
 export { connect, CONN_WORDS, handleMessage, heldMoved, holdMessages, releaseMessages, S, send, sendBinary, setConn,

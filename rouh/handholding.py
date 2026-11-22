@@ -419,7 +419,22 @@ def page(who) -> dict:
     # A tip the person marked not done is not done, whatever Rouh sees (a 0 in their ticks).
     seen = {k: v for k, v in seen.items() if ticks.get(k) != 0 or str(_detector(k)).startswith("connection:")}
     return {"content": content(), "progress": ticks, "detected": seen, "already": there,
-            "status": conns, "remembers": remembers(who)}
+            "status": conns, "remembers": remembers(who), "chat": _chat_setup(who)}
+
+
+def _chat_setup(who) -> dict | None:
+    """What a lesson says while the chat cannot answer, the chat's own words and its one button
+    (`providerkeys.chat_setup`), or None once it can. Review 51, problem 372, Petar: "When the chat
+    cannot answer, say so in the lesson in plain words, with a link to set it up. Also show another way
+    to do the step without the chat." That other way is the lesson's own (`without_chat` in the data
+    file, else its page to open)."""
+    try:
+        from . import providerkeys
+
+        return providerkeys.chat_setup(getattr(who, "org_id", None) or None)
+    except Exception:  # noqa: BLE001 - a lesson drawn without the note is still a lesson
+        log.exception("handholding: whether the chat can answer could not be read")
+        return None
 
 
 def remembers(who) -> dict | None:

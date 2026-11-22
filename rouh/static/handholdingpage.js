@@ -1078,6 +1078,7 @@
     if (l.says && l.says.length) {
       var sh = el('h4', 'hh-h2', 'Things you can say');
       wrap.appendChild(sh);
+      if (H.data && H.data.chat) { wrap.appendChild(noChat(l, H.data.chat)); }
       var note = content().talk_note;
       if (l.talk && note && note.lesson !== l.id) {
         var tn = el('p', 'hh-talknote');
@@ -1099,6 +1100,27 @@
     wrap.appendChild(doneBox(l));
     wrap.appendChild(nextBox(x));
     return wrap;
+  }
+
+  /** While the chat cannot answer (review 51, problem 372): said in plain words, the one button that
+      sets it up, and another way to do this lesson without it - its own words, else its own page. */
+  function noChat(l, chat) {
+    var box = k(el('div', 'hh-nochat'), 'nochat');
+    box.setAttribute('role', 'note');
+    box.appendChild(el('p', 'hh-nochat-head', 'The chat cannot answer yet'));
+    box.appendChild(el('p', 'hh-nochat-t', chat.said + ' ' + chat.cost));
+    var go = k(link(chat.href, chat.button, 'hh-main hh-nochat-go'), 'nochat-go');
+    box.appendChild(go);
+    var other = l.without_chat || (l.open && l.open.href
+      ? 'Without the chat, you can still look at it on its own page:'
+      : 'This one is done by talking to Rouh, so it waits until the chat is set up.');
+    var p = el('p', 'hh-nochat-t hh-nochat-other');
+    p.appendChild(el('span', '', other + ' '));
+    if (!l.without_chat && l.open && l.open.href) {
+      p.appendChild(k(link(l.open.href, l.open.words || 'Open ' + l.open.label, 'hh-link'), 'nochat-open'));
+    }
+    box.appendChild(p);
+    return box;
   }
 
   /** Guide > Stage > Lesson. */

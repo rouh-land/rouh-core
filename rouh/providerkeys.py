@@ -131,14 +131,43 @@ def chats_can_answer(org_id: str | None = None, cfg=None) -> bool:
 
 
 def where_to_add_a_key() -> str:
-    """One sentence: where the owner adds a key for the chats, on this installation."""
+    """One sentence for somebody who is not technical: the chat cannot answer yet, and why.
+
+    Until 22 November 2026 it named the providers and the Anatomy page ("Rouh's chats have no model
+    key. Add an Anthropic, OpenAI, Google or xAI key ..."), which a tester read three times and still
+    could not tell whether the chat worked (review 51, problems 330 and 335). The names, the key and
+    the page are on the page the button opens; here, only what is wrong."""
+    return "Chat is not set up yet, so Rouh cannot answer you."
+
+
+def setup_href() -> str:
+    """Where the chat is set up, on this installation: Claude's sign-in page where there is one,
+    else Models, where the keys go."""
     from .web import claude_signin
 
     if claude_signin.enabled():
-        return ("Rouh's chats have no model key. Add an Anthropic or OpenAI API key in Anatomy, Behaviour, "
-                "Models: Claude Code's sign-in does not cover them.")
-    return ("Rouh's chats have no model key. Add an Anthropic, OpenAI, Google or xAI key in Anatomy, "
-            "Behaviour, Models.")
+        return claude_signin.PATH
+    from . import genes
+
+    return genes.BY_ID["models"]["route"]
+
+
+def chat_setup(org_id: str | None = None, cfg=None) -> dict | None:
+    """What the chat shows while it cannot answer, in plain words, or None once it can: what is
+    wrong, the one button that leads to setting it up, and whether that costs money (review 51,
+    problems 330 and 335, Petar: "say that chat is not working yet, and give one clear button for
+    what to do ... and say whether it costs money")."""
+    if chats_can_answer(org_id, cfg):
+        return None
+    return {
+        "head": "Chat is not set up yet",
+        "said": "Rouh needs an AI service to answer you in the chat, and none is connected yet. "
+                "Everything else in Rouh still works.",
+        "cost": "Setting it up costs money: the AI company charges a little for each answer, usually "
+                "a few cents. If someone else set up Rouh for you, ask them to do this.",
+        "button": "Set up chat",
+        "href": setup_href(),
+    }
 
 
 def shown(org_id: str | None = None, cfg=None) -> list[dict]:

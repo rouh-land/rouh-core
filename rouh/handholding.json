@@ -175,7 +175,7 @@
       },
       {
        "name": "Your workspace",
-       "text": "Everything you work on is a task with steps inside it. Every task has a number, like 58, and its steps 58‑01, 58‑02. The number is why it matters: it is the short name you and Rouh both use, so “open 58” or “carry on with 58‑02” finds exactly that one, even among hundreds, and you never have to describe it again.",
+       "text": "Everything you work on is a task with steps inside it. Every task has a number, like 58, and its steps 58‑01, 58‑02. The number is why it matters: it is the short name you and Rouh both use, so “open 58” or “carry on with 58‑02” finds exactly that one, even among hundreds, and you never have to describe it again. 58‑02 means task 58, step 2.",
        "open": {
         "label": "Task browser",
         "href": "/tasks"
@@ -446,6 +446,7 @@
       "What did I ask you yesterday?",
       "Explain that more simply."
      ],
+     "without_chat": "Without the chat there is nobody to answer yet. Set it up first, then come back to this lesson.",
      "detect": "said_typed",
      "glyph": "chat"
     },
@@ -1157,6 +1158,7 @@
       "Make a task for organising a team offsite in March, and break it into steps.",
       "Open the offsite task."
      ],
+     "without_chat": "Without the chat you cannot make a task yet, but you can already see every task and its number: open the Task browser (menu, Work, Task browser).",
      "open": {
       "label": "Task browser",
       "href": "/tasks"
@@ -1177,7 +1179,7 @@
       "h": 562
      },
      "summary": [
-      "Every task has a number, like 58, and its steps are 58-01, 58-02. Say the number and Rouh knows exactly what you mean."
+      "Every task has a number, like 58, and its steps are numbered after it, 58-01, 58-02, written the way the Task browser writes them. 58-02 means task 58, step 2: the 0 only keeps the numbers lined up, so you can say 58-2 just as well. Say the number and Rouh knows exactly what you mean."
      ],
      "how": [
       "Ask Rouh to add a step to a task.",
@@ -1188,6 +1190,7 @@
       "Add a step to the offsite task: find three venues and compare them.",
       "What is happening with 58-02?"
      ],
+     "without_chat": "Without the chat: open the Task browser and open a task. Its steps are listed under it, each with its number, like 58-02, which means task 58, step 2.",
      "open": {
       "label": "Task browser",
       "href": "/tasks"
@@ -1290,7 +1293,7 @@
      "glyph": "share"
     }
    ],
-   "topics": "Tasks, steps and their numbers like 30-06, pinning, research, sharing"
+   "topics": "Tasks, steps and their numbers like 58-02, pinning, research, sharing"
   },
   {
    "id": "delegate",
@@ -2583,5 +2586,6 @@
   "dna": "<path d=\"M7 3c0 6 10 6 10 12s-10 6-10 6M17 3c0 6-10 6-10 12M8 7h8M8 17h8\"/>",
   "branch": "<circle cx=\"6\" cy=\"5\" r=\"2\"/><circle cx=\"6\" cy=\"19\" r=\"2\"/><circle cx=\"18\" cy=\"9\" r=\"2\"/><path d=\"M6 7v10M18 11c0 4-6 3-11.5 6.5\"/>",
   "egg": "<path d=\"M12 3c-3.9 0-7 6-7 10.5A7 7 0 0 0 19 13.5C19 9 15.9 3 12 3z\"/>"
- }
+ },
+ "without_chat_note": "A lesson whose things to say need the chat says so while the chat cannot answer (review 51, problem 372): its own `without_chat` words when it has them, else the way to its own page (`open`), else that it waits for the chat."
 }

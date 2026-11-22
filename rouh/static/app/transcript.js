@@ -14,7 +14,6 @@ import { PB, readAloud, stopPlayback } from 'app/playback.js';
 import { ANSWER_HELD, answerHeldGo, cardsUnpark, footnotes, goToAddress, renderBlock, resetCanvas, resetStreamCards, svgEl } from 'app/cards.js';
 import { copyText, growToLines } from 'app/runs.js';
 import { CHATS, composerKey, forkBtnPaint, forkComeNow, forkKeys, forkMarksDraw, FORKS, sendKeys } from 'app/chats.js';
-import { welcomeShow } from 'app/welcome.js';
 import { screenHeight } from 'app/controls.js';
 import { drawTurnFiles, isDrawn } from 'app/attachments.js';
 import { lineFor, onRecall, onRedo, recallDraw, routeDraw, traceDraw, traceMove } from 'app/turnline.js';
@@ -37,8 +36,7 @@ var T = { assistant: null, partial: null, typed: null, typing: null, dots: null,
           split: 0,
           // Whether the server has said what the conversation on screen
           // holds. Until it has, an empty transcript is one not read yet
-          // rather than one with nothing in it, and a chat with a hundred
-          // messages must not open on the welcome (`welcomeShow`).
+          // rather than one with nothing in it.
           heard: false };
 
 // Where the conversation is being drawn: the one on screen, or for the
@@ -300,13 +298,12 @@ function keepEnd() {
 }
 
 // Something is about to be drawn in the conversation, so it is not empty
-// any more, and the welcome goes with the line that said so.
+// any more, and the line that said so goes.
 function dropEmpty() {
   // A card beside the conversation being drawn is not the conversation.
   if (HOST.el) return;
   var e = $('transcriptEmpty');
   if (e) e.remove();
-  welcomeShow();
 }
 
 /* What somebody said, in a bubble.
@@ -1499,7 +1496,6 @@ function openTheStream(entries, cut) {
     return;
   }
   var drawn = restoreTranscript(entries);
-  welcomeShow();
   var t = transcriptEl();
   if (!drawn && t && t.querySelector('.turn')) return;
   resetCanvas();
@@ -1603,7 +1599,6 @@ function wipeTranscript() {
   T.now = { turn: 0, root: 0 };
   shared.RETRY = null;
   shared.VERSIONS = {};
-  welcomeShow();
   forkBtnPaint();
 }
 

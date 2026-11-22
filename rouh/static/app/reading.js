@@ -960,12 +960,11 @@ function paint(d) {
   READ.focus = '';
 }
 
-/** Over the box, sized to the room there is: the box moves (the welcome holds it in the middle of an
-    empty chat, a phone's keyboard comes up), so this is done every time the panel is drawn. */
+/** Over the box, sized to the room there is: the box moves (a phone's keyboard comes up), so this is
+    done every time the panel is drawn. */
 function place() {
   if (!pop || pop.hidden) return;
-  // Over the box itself, whatever the composer around it is: the welcome holds the box in the
-  // middle of a wide column.
+  // Over the box itself, whatever the composer around it is.
   var box = $('composerBox'), comp = $('composer');
   if (box && comp) {
     var b = box.getBoundingClientRect(), c = comp.getBoundingClientRect();

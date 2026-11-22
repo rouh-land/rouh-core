@@ -1897,13 +1897,12 @@ function placeFold() {
   /** @type {HTMLElement | null} */
   var box = null;
   if (window.matchMedia('(max-width: 899px)').matches) {
-    /** @type {NodeListOf<HTMLElement>} */ (document.querySelectorAll('.col-chat:not(.welcome) .composer')).forEach(function (c) {
+    /** @type {NodeListOf<HTMLElement>} */ (document.querySelectorAll('.col-chat .composer')).forEach(function (c) {
       if (!box && c.getBoundingClientRect().height > 0) box = c;
     });
   }
-  // A box gliding to the foot from the welcome is somewhere it is not
-  // staying: the button waits where it is, and is placed when the box has
-  // landed (`welcomeGlide`).
+  // A box still moving is somewhere it is not staying: the button waits
+  // where it is, and is placed when the box has landed.
   var gliding = /** @type {HTMLElement | null} */ (box);
   if (gliding && gliding.getAnimations && gliding.getAnimations().length) return;
   app.classList.toggle('fold-docked', !!box);
@@ -1944,7 +1943,7 @@ if (window.ResizeObserver) {
   var foldWatch = new ResizeObserver(queueFold);
   document.querySelectorAll('.col-chat .composer').forEach(function (c) { foldWatch.observe(c); });
 }
-// Which pane is showing, the welcome coming and going, the drawer opening,
+// Which pane is showing, the drawer opening,
 // the Gene therapy sheet and board closing and giving the button back: each
 // moves the box, or the button, without changing the box's size.
 if (window.MutationObserver) {
