@@ -148,6 +148,8 @@ function trialsTitle(sub, title) {
     : /^problem\//.test(sub) ? 'Problem ' + sub.slice(8) : /^tester\//.test(sub) ? 'Tester'
     : /^\d+$/.test(sub) ? 'Try ' + sub : '';
   if (!where) return 'Testing';
+  // A problem's page says its number in its try, "Try 49 · #12 · <what>", which its own title carries.
+  if (/^problem\//.test(sub) && title) return title + ' - Testing';
   return (title ? title + ' - ' : '') + where + ' - Testing';
 }
 

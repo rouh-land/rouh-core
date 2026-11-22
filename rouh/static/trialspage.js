@@ -215,6 +215,16 @@
   }
   function withIcon(node, name, text) { node.appendChild(icon(name)); if (text != null) { node.appendChild(el('span', '', text)); } return node; }
   function badChip(b) { return chip(BAD[b] || b, BAD_TONE[b] || 'slate'); }
+  /* A problem's number within a try (Petar, 22 November 2026): "#12" inside its try, "Try 49 · #12" anywhere else.
+     A problem met in several tries is named by the try the person came from, else the first it was met in;
+     one found by the owner in a chat has no try and keeps "Problem <n>". */
+  function inTry(f) { return f.local ? '#' + f.local : 'Problem ' + f.number; }
+  function numLabel(p, trialN) {
+    var nums = p.numbers || [];
+    var at = nums.filter(function (x) { return trialN && x.trial === trialN; })[0] || p.home || nums[0];
+    return at ? 'Try ' + at.trial + ' · #' + at.n : 'Problem ' + p.number;
+  }
+
   /* Sent or decided, and then hit again by a later try: the fix did not hold. Read from its sightings. */
   function seenAgain(p) {
     if (p.standing !== 'decided' || !p.verdict_at) { return null; }
@@ -916,6 +926,7 @@
     open.filter(function (p) { return !p.awaiting_choice; }).slice(0, 3).forEach(function (p) {
       var s = el('div', 'tr-need-s');
       s.appendChild(el('span', '', BAD_SHORT[p.how_bad] + ', seen ' + (p.count === 1 ? 'once' : p.count + ' times') + (p.screen_name ? ' on ' + p.screen_name : '')));
+      s.appendChild(el('span', '', ' · ' + numLabel(p)));
       need(shape(p.how_bad, 14), p.what, s, HOME + '/problem/' + p.number);
     });
     box.appendChild(ul);
@@ -1367,7 +1378,7 @@
     if (why) { head.appendChild(el('p', 'tr-why', why)); }
     if ((t.closed || []).length) {
       head.appendChild(said('Fixed, because ' + name + ' got past them this time',
-        t.closed.map(function (c) { return 'Problem ' + c.number + ': ' + c.what; }).join('; ')));
+        t.closed.map(function (c) { var f = (t.found || []).filter(function (x) { return x.number === c.number; })[0]; return (f ? inTry(f) : 'Problem ' + c.number) + ': ' + c.what; }).join('; ')));
     }
     if (!going && (t.found || []).length) {
       var c = choiceCounts(t);
@@ -1574,7 +1585,7 @@
         xb.innerHTML = '<svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true"><path d="M4 4l10 10M14 4 4 14" stroke="currentColor" stroke-width="3" stroke-linecap="round"/></svg>';
         var words0 = wf ? 'Won’t fix' + (f.reason ? ': ' + f.reason : '') : 'Not a problem';
         xb.title = words0;
-        xb.setAttribute('aria-label', words0.replace(/[.!?]$/, '') + '. Problem ' + f.number + '. Press to take it back and make it open again.');
+        xb.setAttribute('aria-label', words0.replace(/[.!?]$/, '') + '. ' + inTry(f) + '. Press to take it back and make it open again.');
         xb.disabled = going || !!S.busy;
         xb.addEventListener('click', function () { decideOn(t, f, ''); });
         li.appendChild(xb);
@@ -1585,7 +1596,7 @@
         var rw = runningWave(f);
         tick.checked = !!rw || chosenNext(f);
         tick.disabled = going || !!rw || f.standing === 'fixed' || !!S.busy;
-        tick.setAttribute('aria-label', 'Fix problem ' + f.number + ': ' + f.what);
+        tick.setAttribute('aria-label', 'Fix ' + inTry(f) + ': ' + f.what);
         tick.title = rw ? 'In wave ' + rw.number + ', being fixed now' : f.standing === 'fixed' ? 'Already fixed' : 'Tick to have it fixed: the same as Use this fix';
         tick.addEventListener('change', function () { setTick(t, stepN, f, tick.checked); });
         li.appendChild(tick);
@@ -1600,7 +1611,7 @@
       b.appendChild(ty);
       var words = el('span', 'tr-pnr-w');
       words.appendChild(el('span', 'tr-pnr-t', f.what));
-      words.appendChild(el('span', 'tr-pnr-s', '#' + f.number + ' · ' + clarify(f)));
+      words.appendChild(el('span', 'tr-pnr-s', inTry(f) + ' · ' + clarify(f)));
       b.appendChild(words);
       b.addEventListener('click', function () {
         S.pick[key] = f.number; S.cardDeciding = 0; draw();
@@ -1642,9 +1653,12 @@
     chips.appendChild(standBadge(Object.assign({}, p || {}, f, { sightings: p ? p.sightings : f.sightings, reason: '' })));
     top.appendChild(chips);
     var sub = el('p', 'tr-dim');
-    sub.appendChild(document.createTextNode('#' + f.number + (f.count > 1 ? ' · seen ' + f.count + ' times' : ' · seen once') +
+    sub.appendChild(document.createTextNode(inTry(f) + (f.count > 1 ? ' · seen ' + f.count + ' times' : ' · seen once') +
       (f.screen_name ? ' · ' + f.screen_name : '') + ' · '));
-    sub.appendChild(link('Open its own page', HOME + '/problem/' + f.number, 'tr-a'));
+    var own = link('Open its own page', HOME + '/problem/' + f.number, 'tr-a');
+    // Its page then names it by this try's number.
+    own.addEventListener('click', function () { S.ctxTrial = t.number; }, true);
+    sub.appendChild(own);
     top.appendChild(sub);
     box.appendChild(top);
     var w = waveOf(f);
@@ -1807,8 +1821,8 @@
       keepProblem(t, got.problem);
       if (S.shell) { loadShell().catch(function () {}); }
       draw();
-      var msg = v === '' ? 'Taken back: problem ' + f.number + ' is open again.' : v === 'decided' ? 'Problem ' + f.number + ' chosen to fix. It is fixed when you press Fix the ones I chose.'
-        : 'Saved for problem ' + f.number + ': ' + (VERDICT_LINE[v] || v) + (v === 'wont_fix' && reason ? ', because ' + reason : '') + '.';
+      var msg = v === '' ? 'Taken back: ' + inTry(f) + ' is open again.' : v === 'decided' ? inTry(f) + ' chosen to fix. It is fixed when you press Fix the ones I chose.'
+        : 'Saved for ' + inTry(f) + ': ' + (VERDICT_LINE[v] || v) + (v === 'wont_fix' && reason ? ', because ' + reason : '') + '.';
       toast(msg, function () { decideOn(t, Object.assign({}, f, got.problem), before.verdict, before.decision, before.reason); });
     }, fail);
   }
@@ -1854,7 +1868,7 @@
         if (f) { a.appendChild(shape(f.how_bad, 12)); }
         var ww = el('span');
         ww.appendChild(el('span', '', f ? f.what : 'Problem ' + n));
-        ww.appendChild(el('span', 'tr-dim', ' · Problem ' + n + (w.decisions && w.decisions[String(n)] ? ' · fix: ' + w.decisions[String(n)] : '')));
+        ww.appendChild(el('span', 'tr-dim', ' · ' + (f ? inTry(f) : 'Problem ' + n) + (w.decisions && w.decisions[String(n)] ? ' · fix: ' + w.decisions[String(n)] : '')));
         a.appendChild(ww);
         li2.appendChild(a);
         pl.appendChild(li2);
@@ -1948,7 +1962,7 @@
         (worst.count === 1 ? 'once' : worst.count + ' times') + (worst.screen_name ? ' on ' + worst.screen_name : '') + '.'
       : plural(d.problems.length, 'problem') + ': ' + tab[1].toLowerCase() + '.'));
     var who = foundLine(d.testers);
-    root.appendChild(el('p', 'tr-lede', 'Worst first means how bad it was first (stopped, then confused, then annoyed, then small), ' +
+    root.appendChild(el('p', 'tr-lede', 'Worst first means how bad it was first (couldn’t continue, then confused, then annoyed, then small), ' +
       'then how often it was seen.' + (who ? ' ' + who : '')));
 
     var grid = el('div', 'tr-fixgrid');
@@ -2071,6 +2085,7 @@
       var mid = el('div', 'tr-prow-mid');
       mid.appendChild(link(p.what, HOME + '/problem/' + p.number, 'tr-prow-title'));
       var meta = el('div', 'tr-prow-meta');
+      meta.appendChild(el('span', 'tr-strong', numLabel(p)));
       meta.appendChild(el('span', '', p.screen_name || 'Somewhere in Rouh'));
       meta.appendChild(el('span', '', p.count === 1 ? 'Seen once' : 'Seen ' + p.count + ' times'));
       if (p.source === 'owner') { meta.appendChild(el('span', '', 'Found by you')); }
@@ -2126,15 +2141,16 @@
       return;
     }
     var p = d.problem;
-    moved(p.what);
-    root.appendChild(crumbs([['Fix list', HOME + '/problems'], [(p.screen_name || 'Somewhere in Rouh') + ': problem ' + p.number]]));
+    moved(numLabel(p, S.ctxTrial) + ' · ' + p.what);
+    var label = numLabel(p, S.ctxTrial);
+    root.appendChild(crumbs([['Fix list', HOME + '/problems'], [(p.screen_name || 'Somewhere in Rouh') + ': ' + label]]));
     root.appendChild(el('h1', 'tr-h1 tr-ph', p.what));
     var meta = el('div', 'tr-pmeta');
     meta.appendChild(sev(p.how_bad, true));
     meta.appendChild(el('span', '', (p.count === 1 ? 'Seen once' : 'Seen ' + p.count + ' times') +
       (p.source === 'owner' ? ', found by you' : (p.personas || []).length ? ' by ' + names(p.personas, (S.shell && S.shell.testers) || []) : '')));
     meta.appendChild(standBadge(p));
-    meta.appendChild(el('span', 'tr-dim', 'Problem ' + p.number));
+    meta.appendChild(el('span', 'tr-dim', label));
     root.appendChild(meta);
     // On a phone the decisions sit here, under the title: a bar at the bottom would cover Rouh's own menu button.
     root.appendChild(decide(p, 'inline'));
@@ -2849,6 +2865,8 @@
         S.said = S.carry || ''; S.carry = ''; S.error = ''; S.confirm = ''; S.draftError = ''; S.editJob = false; S.tryBad = '';
         if (!/^problem\//.test(S.sub)) { S.deciding = false; }
         S.wontFixing = false;
+        // The try a problem's page was opened from names it, until the page is left for another.
+        if (!/^problem\//.test(S.sub)) { S.ctxTrial = 0; }
         if (!/^(testers\/new|tester\/[a-z0-9]+\/edit)$/.test(S.sub)) { S.form = null; }
         if (S.sub === 'testers/new' && S.form && S.form.key) { S.form = null; }
         if (S.sub !== 'problems') { S.probView.all = false; }

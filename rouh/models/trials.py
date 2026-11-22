@@ -285,3 +285,22 @@ class TrialWave(models.Model):
         db_table = "trial_waves"
         constraints = [models.UniqueConstraint(fields=["trial_id", "number"], name="trial_wave_number_once")]
         indexes = [models.Index(fields=["org_id", "user_id", "trial_id"], name="trial_wave_whose")]
+
+
+class TrialProblemNumber(models.Model):
+    """A problem's number within one try: 1, 2, 3 ... in the order of the steps it was met at, then the order it
+    was found (Petar, 22 November 2026: "number problems within their own trial"). Given once and kept, so it
+    never changes when problems are added or taken away; a problem met in two tries has a number in each."""
+
+    id = models.BigAutoField(primary_key=True)
+    org_id = models.TextField()
+    user_id = models.TextField()
+    trial_id = models.BigIntegerField()
+    problem_id = models.BigIntegerField()
+    n = models.IntegerField()
+
+    class Meta:
+        db_table = "trial_problem_numbers"
+        constraints = [models.UniqueConstraint(fields=["trial_id", "problem_id"], name="trial_problem_number_one"),
+                       models.UniqueConstraint(fields=["trial_id", "n"], name="trial_problem_number_n_once")]
+        indexes = [models.Index(fields=["org_id", "user_id", "problem_id"], name="trial_problem_number_whose")]

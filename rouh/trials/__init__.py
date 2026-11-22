@@ -694,7 +694,9 @@ def trial_dict(t, *, steps: bool = False, names: dict | None = None) -> dict:
         seen = list(_m().TrialSighting.objects.filter(trial_id=t.id, org_id=t.org_id, user_id=t.user_id).order_by("at"))
         probs = {p.id: p for p in rows}
         notes = _note_counts(who, list(probs))
-        out["found"] = [{**problem_brief(probs[s.problem_id], notes=notes), "step": s.step, "quote": s.quote,
+        local = local_numbers(who, t)
+        out["found"] = [{**problem_brief(probs[s.problem_id], notes=notes), "local": local.get(s.problem_id),
+                         "step": s.step, "quote": s.quote,
                          "how_bad": s.how_bad, "worst": probs[s.problem_id].how_bad}
                         for s in seen if s.problem_id in probs]
         out["found"].sort(key=lambda f: (HOW_BAD.index(f["how_bad"]) if f["how_bad"] in HOW_BAD else 9, f["step"] or 0))
@@ -737,6 +739,52 @@ def _trial(who, number):
 
 def one(who, number) -> dict:
     return trial_dict(_trial(who, number), steps=True)
+
+
+def local_numbers(who, t) -> dict:
+    """Each problem of this try and its number within it, {problem id: n}: 1, 2, 3 ... by the step it was first met
+    at (problems of no one step last), then the order it was found. A number once given is kept: a problem new to
+    the try is numbered after its last (Petar, 22 November 2026). Existing tries were numbered by migration 0271."""
+    from django.db import transaction
+
+    M = _m()
+    mine = M.TrialProblemNumber.objects.filter(trial_id=t.id, org_id=t.org_id, user_id=t.user_id)
+    have = dict(mine.values_list("problem_id", "n"))
+    first: dict = {}
+    for pid, step, at, sid in (M.TrialSighting.objects.filter(trial_id=t.id, org_id=t.org_id, user_id=t.user_id)
+                               .values_list("problem_id", "step", "at", "id")):
+        rank = (step if step else 10 ** 6, at, sid)
+        if pid not in first or rank < first[pid]:
+            first[pid] = rank
+    if all(pid in have for pid in first):
+        return have
+    with transaction.atomic():
+        # One at a time per try, so two readers never give two problems the same number.
+        M.Trial.objects.select_for_update().filter(id=t.id).first()
+        have = dict(mine.values_list("problem_id", "n"))
+        n = max(have.values(), default=0)
+        rows = []
+        for pid in sorted(first, key=first.get):
+            if pid not in have:
+                n += 1
+                have[pid] = n
+                rows.append(M.TrialProblemNumber(org_id=t.org_id, user_id=t.user_id, trial_id=t.id, problem_id=pid, n=n))
+        M.TrialProblemNumber.objects.bulk_create(rows)
+    return have
+
+
+def _numbers_of(who, ids) -> dict:
+    """For each problem id, its numbers in the tries it was met in, the first try first: [{"trial", "n"}]."""
+    M = _m()
+    rows = list(M.TrialProblemNumber.objects.filter(**_whose(who), problem_id__in=list(ids)).values_list("problem_id", "trial_id", "n"))
+    tnum = dict(M.Trial.objects.filter(**_whose(who), id__in={r[1] for r in rows}).values_list("id", "number"))
+    out: dict = {}
+    for pid, tid, n in rows:
+        if tid in tnum:
+            out.setdefault(pid, []).append({"trial": tnum[tid], "n": n})
+    for v in out.values():
+        v.sort(key=lambda x: x["trial"])
+    return out
 
 
 def shot_path(who, number, step: int) -> Path | None:
@@ -924,9 +972,12 @@ def problem_brief(p, *, notes: dict | None = None, reviewed: set | None = None) 
             "verdict_at": p.verdict_at}
 
 
-def problem_dict(p, *, sightings: bool = True, notes: bool = False, names: dict | None = None) -> dict:
+def problem_dict(p, *, sightings: bool = True, notes: bool = False, names: dict | None = None,
+                 numbers: dict | None = None) -> dict:
     who = _Whose(p.org_id, p.user_id)
-    out = {**problem_brief(p, notes=_note_counts(who, [p.id])), "gene": p.gene, "closed_at": p.closed_at,
+    nums = (numbers if numbers is not None else _numbers_of(who, [p.id])).get(p.id, [])
+    out = {**problem_brief(p, notes=_note_counts(who, [p.id])), "numbers": nums, "home": nums[0] if nums else None,
+           "gene": p.gene, "closed_at": p.closed_at,
            "closed_by": None, "closed_note": p.closed_note, "first_at": p.first_at, "last_at": p.last_at,
            "verdict_at": p.verdict_at}
     if p.closed_by:
@@ -998,7 +1049,8 @@ def problems(who, *, status: str = "", source: str = "", persona_id: str = "", s
         rows = [p for p in rows if p.last_at >= since]
     rows.sort(key=_rank)
     names = _names(who)
-    return [problem_dict(p, names=names) for p in rows]
+    numbers = _numbers_of(who, [p.id for p in rows])
+    return [problem_dict(p, names=names, numbers=numbers) for p in rows]
 
 
 def _problem(who, number):
@@ -1288,7 +1340,8 @@ def problem_line(p: dict) -> str:
     stand = {"open": "open", "decided": "decided", "fixed": "fixed", "set_aside": "set aside"}[p.get("standing") or "open"]
     if p.get("awaiting_choice"):
         stand += ", waiting on the owner's choice from a review: leave it alone"
-    return (f"Problem {p['number']} [{stand}{': ' + p['verdict_name'].lower() if p.get('verdict') else ''}] on "
+    home = p.get("home")
+    return (f"Problem {p['number']}" + (f" (try {home['trial']} #{home['n']})" if home else "") + f" [{stand}{': ' + p['verdict_name'].lower() if p.get('verdict') else ''}] on "
             f"{p['screen_name'] or 'somewhere in Rouh'}: {p['what']} "
             f"({HOW_BAD_NAMES.get(p['how_bad'], p['how_bad']).lower()}, seen {p['count']} time"
             f"{'' if p['count'] == 1 else 's'}, by {who})" + (f" - \"{quote}\"" if quote else "")

@@ -2400,6 +2400,7 @@
     "rouh/migrations/0242_trial_tester_paused.py",
     "rouh/migrations/0269_trial_step_names_waves.py",
     "rouh/migrations/0270_trial_problem_reason.py",
+    "rouh/migrations/0271_trial_problem_numbers.py",
     "bin/rouh-trial"
    ]
   },
