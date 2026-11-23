@@ -66,7 +66,6 @@ var GT = {
   //: The last list the server gave, so a redraw needs no request.
   data: null,
   //: Which feedback is opened in the list, by id.
-  opened: {},
   //: The timer that retracts the panel after Thank you.
   thanks: 0,
   //: Told once a report handed over by Rouh's own page is sent (`gtHandOver`).
@@ -631,65 +630,109 @@ function gtPill(status) {
   return el('span', 'fb-pill fb-' + (s || 'queued'), GT_STATUS[s] || 'Received');
 }
 
-function gtFileChip(f) {
-  var showable = /^image\//.test(f.media_type || '');
-  var a = el('a', 'fb-file');
-  a.href = f.url;
+//: The picture at the start of a row: the first image the feedback carried, pressed to see it
+//: whole; a file glyph with the count when its files are not pictures; nothing when it has none.
+function gtThumbCell(f) {
+  var td = el('td', 'fb-c-pic');
+  var files = f.files || [];
+  if (!files.length) return td;
+  var pic = null;
+  for (var i = 0; i < files.length; i++) {
+    if (/^image\//.test(files[i].media_type || '')) { pic = files[i]; break; }
+  }
+  if (pic) {
+    var b = el('button', 'fb-thumb');
+    b.type = 'button';
+    b.title = 'See ' + (pic.name || 'the picture') + ' whole';
+    b.setAttribute('aria-label', 'See ' + (pic.name || 'the picture') + ' whole');
+    var img = document.createElement('img');
+    img.src = pic.url;
+    img.alt = '';
+    img.loading = 'lazy';
+    img.addEventListener('error', function () {
+      b.classList.add('is-gone');
+      img.remove();
+    });
+    b.appendChild(img);
+    if (files.length > 1) b.appendChild(el('span', 'fb-thumb-n', '+' + (files.length - 1)));
+    b.addEventListener('click', function () { openImage(pic.url, pic.name || ''); });
+    td.appendChild(b);
+    return td;
+  }
+  var a = el('a', 'fb-thumb fb-thumb-file');
+  a.href = files[0].url;
   a.target = '_blank';
   a.rel = 'noopener';
-  if (showable) {
-    var img = document.createElement('img');
-    img.src = f.url;
-    img.alt = f.name || 'screenshot';
-    img.loading = 'lazy';
-    a.appendChild(img);
-    a.addEventListener('click', function (e) {
-      if (e.metaKey || e.ctrlKey || e.shiftKey) return;
-      e.preventDefault();
-      openImage(f.url, f.name || '');
-    });
-  } else {
-    a.appendChild(el('span', 'fb-file-ext', (attExt(f.name || '') || 'file').slice(0, 4).toUpperCase()));
-  }
-  a.appendChild(el('span', 'fb-file-name', f.name || 'file'));
-  return a;
+  a.setAttribute('aria-label', 'Open ' + (files[0].name || 'the file'));
+  a.innerHTML = '<svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true" fill="none" ' +
+    'stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">' +
+    '<path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/></svg>';
+  a.appendChild(el('span', 'fb-thumb-count', files.length + (files.length === 1 ? ' file' : ' files')));
+  td.appendChild(a);
+  return td;
 }
 
+//: When it was sent, as a date and a time a person reads at a glance; the whole of it on hover.
+function gtStamp(t) {
+  var d = new Date(Number(t) * 1000);
+  var tm = document.createElement('time');
+  if (isNaN(d.getTime())) { tm.textContent = 'Not known'; return tm; }
+  tm.dateTime = d.toISOString();
+  tm.title = gtWhen(t);
+  tm.appendChild(el('span', 'fb-date', d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })));
+  tm.appendChild(el('span', 'fb-time', d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', hour12: false })));
+  return tm;
+}
+
+//: One feedback, one full row, always whole: picture, words, where from, when, status last.
 function gtRow(f) {
-  var li = el('li', 'fb-row');
-  var b = el('button', 'fb-open');
-  b.type = 'button';
-  var open = !!GT.opened[f.id];
-  b.setAttribute('aria-expanded', open ? 'true' : 'false');
-  var top = el('span', 'fb-top');
-  top.appendChild(gtPill(f.status));
-  top.appendChild(el('span', 'fb-meta', gtWhen(f.created_at)));
-  b.appendChild(top);
-  b.appendChild(el('span', 'fb-words' + (open ? ' is-whole' : ''), f.body || '(files only)'));
-  var n = (f.files || []).length;
-  b.appendChild(el('span', 'fb-meta', 'Sent from ' + gtPageName(f.page) +
-    (n ? ' · ' + n + (n === 1 ? ' file' : ' files') : '')));
-  b.addEventListener('click', function () {
-    GT.opened[f.id] = !GT.opened[f.id];
-    gtRender();
-  });
-  li.appendChild(b);
-  if (open && n) {
-    var files = el('div', 'fb-files');
-    f.files.forEach(function (x) { files.appendChild(gtFileChip(x)); });
-    li.appendChild(files);
+  var tr = el('tr', 'fb-row');
+  tr.appendChild(gtThumbCell(f));
+  var words = el('td', 'fb-c-words');
+  words.appendChild(el('p', 'fb-words', f.body || '(files only)'));
+  tr.appendChild(words);
+  var from = el('td', 'fb-c-from');
+  from.appendChild(el('span', 'fb-from', 'Sent from ' + gtPageName(f.page)));
+  var files = f.files || [];
+  if (files.length) {
+    var list = el('span', 'fb-from-files');
+    list.appendChild(document.createTextNode(files.length + (files.length === 1 ? ' file: ' : ' files: ')));
+    files.forEach(function (x, i) {
+      if (i) list.appendChild(document.createTextNode(', '));
+      var a = el('a', 'fb-file-link', x.name || 'file');
+      a.href = x.url;
+      a.target = '_blank';
+      a.rel = 'noopener';
+      if (/^image\//.test(x.media_type || '')) {
+        a.addEventListener('click', function (e) {
+          if (e.metaKey || e.ctrlKey || e.shiftKey) return;
+          e.preventDefault();
+          openImage(x.url, x.name || '');
+        });
+      }
+      list.appendChild(a);
+    });
+    from.appendChild(list);
   }
-  return li;
+  tr.appendChild(from);
+  var when = el('td', 'fb-c-when');
+  when.appendChild(gtStamp(f.created_at));
+  tr.appendChild(when);
+  var st = el('td', 'fb-c-status');
+  st.appendChild(gtPill(f.status));
+  tr.appendChild(st);
+  return tr;
 }
 
 function gtRender() {
   var d = GT.data;
-  var list = $('fbList'), sub = $('gtBoardSub'), empty = $('fbEmpty');
+  var list = $('fbList'), sub = $('gtBoardSub'), empty = $('fbEmpty'), table = $('fbTable');
   if (!list) return;
   list.textContent = '';
   if (!d) {
     sub.textContent = 'Reading your feedback…';
     empty.hidden = true;
+    table.hidden = true;
     return;
   }
   var items = d.items || [];
@@ -698,6 +741,7 @@ function gtRender() {
     : 'You have sent ' + items.length + (items.length === 1 ? ' piece' : ' pieces') + ' of feedback; '
       + d.done + (d.done === 1 ? ' is' : ' are') + ' done.';
   empty.hidden = !!items.length || !!d.error;
+  table.hidden = !items.length;
   items.forEach(function (f) { list.appendChild(gtRow(f)); });
 }
 

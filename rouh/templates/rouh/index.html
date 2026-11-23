@@ -4737,7 +4737,21 @@ with {% asset %}, which gives it its hashed address.
               aria-label="Close All feedback">&times;</button>
     </div>
     <div class="fb-body">
-      <ul class="fb-list" id="fbList"></ul>
+      {% comment %} One full row a feedback, always whole, never opened or closed (Petar,
+           23 November 2026: "don't make it toggle. make a full row with an image
+           thumbnail. fully expanded. in a table with date/time and status at the very
+           end."). {% endcomment %}
+      <table class="fb-table" id="fbTable" hidden>
+        <caption class="sr-only">Your feedback, newest first</caption>
+        <thead><tr>
+          <th scope="col" class="fb-c-pic"><span class="sr-only">Picture</span></th>
+          <th scope="col" class="fb-c-words">Feedback</th>
+          <th scope="col" class="fb-c-from">From</th>
+          <th scope="col" class="fb-c-when">Date and time</th>
+          <th scope="col" class="fb-c-status">Status</th>
+        </tr></thead>
+        <tbody id="fbList"></tbody>
+      </table>
       <div class="fb-empty" id="fbEmpty" hidden>
         <p>You have not sent any feedback yet.</p>
         <button id="fbWrite" class="ctl small" type="button">Write some feedback</button>

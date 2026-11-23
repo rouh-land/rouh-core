@@ -1370,7 +1370,7 @@ async def _feedback(who, row) -> None:
     except feedback.Refused as exc:
         raise Refused(str(exc)) from None
     with contextlib.suppress(Exception):
-        await asyncio.to_thread(feedback.send_due, only=made["id"])
+        await asyncio.to_thread(feedback.send_due, only=made["id"], wait=feedback.SEND_NOW)
     await asyncio.to_thread(_finish, row, "done",
                             f"Sent as feedback, as written {_when(who, row.made_at)}.",
                             feedback=made["id"])

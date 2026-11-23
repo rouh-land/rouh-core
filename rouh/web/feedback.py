@@ -1,7 +1,8 @@
 """Feedback over the web: what the panel sends, and All feedback (`rouh/feedback.py`, `app/feedback.js`).
 
     POST /api/feedback/send     {body, page, files: [{session, id}]}: kept, and sent on to rouh.land
-                                after the answer; answered {ok, feedback, said: "Thank you ..."}
+                                before the answer (at most `feedback.SEND_NOW` s; what cannot go
+                                then is left to the beat); answered {ok, feedback, said: "Thank you ..."}
     GET  /api/feedback/mine     the signed-in person's own feedback, newest first, with each status
 
 Both answer the signed-in person only, about their own rows (`Tenancy.current`); nothing here reads
@@ -51,14 +52,14 @@ def _files(sent) -> list[dict]:
     return out
 
 
-def _send_later(fid: str) -> None:
-    async def go():
-        await asyncio.to_thread(feedback.send_due, only=fid)
-
+async def _send_now(fid: str) -> None:
+    """Send it to rouh.land now, waiting at most `feedback.SEND_NOW` seconds. What is not done by
+    then goes on in its thread, and the beat tries anything still queued again."""
     try:
-        asyncio.get_running_loop().create_task(go())
-    except RuntimeError:  # pragma: no cover - the beat sends it
-        pass
+        await asyncio.wait_for(asyncio.to_thread(feedback.send_due, only=fid, wait=feedback.SEND_NOW),
+                               timeout=feedback.SEND_NOW + 2)
+    except asyncio.TimeoutError:
+        log.info("feedback %s was not taken by rouh.land in time; the beat sends it", fid)
 
 
 async def send(request):
@@ -75,7 +76,8 @@ async def send(request):
                                                 page=str(sent.get("page") or ""), files=files, email=email)
     except feedback.Refused as exc:
         return refuse(str(exc), 400)
-    _send_later(row["id"])
+    await _send_now(row["id"])
+    row = await sync_to_async(feedback.one)(me, row["id"]) or row
     return answer({"ok": True, "feedback": row, "said": THANKS}, headers=NO_STORE)
 
 

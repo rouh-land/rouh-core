@@ -7,10 +7,12 @@ After sending, the panel simply thanks the person for their feedback ... If rouh
 reached, keep the feedback queued locally and retry on the beat, so nothing is lost." And: "the
 feedback is only for the administrators. random users can't read other's feedback."
 
-**Kept until it is there.** Send writes the feedback into this Rouh's outbox (`feedback_outbox`)
-and nothing else here changes; the sending happens after the answer, and again on the beat for
-anything not yet taken (`send_due`), so a rouh.land that cannot be reached, or does not have the
-service yet, loses nothing. The person is thanked either way.
+**Sent at once, kept until it is there.** Send writes the feedback into this Rouh's outbox
+(`feedback_outbox`), nothing else here changes, and it goes to rouh.land there and then, before the
+answer, for at most `SEND_NOW` seconds (Petar, 23 November 2026: "should be immediately sent to
+rouh.land"), so All feedback says Received the moment it is. Only what could not go then stays
+queued and is tried again on the beat (`send_due`), so a rouh.land that cannot be reached loses
+nothing. The person is thanked either way.
 
 **How it is sent.** To rouh.land's feedback service, beside the Gene Pool
 (`<pool>/../feedback/`), signed with this Rouh's own key exactly as the Pool is spoken to
@@ -46,6 +48,8 @@ MAX_FILE_BYTES = 20 * 1024 * 1024
 BACKOFF = (60, 300, 900, 3600)
 #: How old a status may be before opening All feedback asks rouh.land again.
 STATUS_FRESH = 60
+#: How long Send waits for rouh.land before it thanks the person anyway and leaves it to the beat.
+SEND_NOW = 8.0
 STATUS_NAMES = {"": "Not sent yet", "received": "Received", "looking": "Being looked at", "done": "Done"}
 
 _SENDING = threading.Lock()
@@ -115,6 +119,12 @@ def view(row) -> dict:
             "files": [{"id": f.get("id"), "session": f.get("session"), "name": f.get("name"),
                        "media_type": f.get("media_type"), "kind": f.get("kind"), "size": f.get("size"),
                        "url": f"/attachments/{f.get('session')}/{f.get('id')}"} for f in row.files or []]}
+
+
+def one(who, fid: str) -> dict | None:
+    """One of the signed-in person's own feedback, as it stands now, or None."""
+    row = _m().FeedbackOutbox.objects.filter(id=fid, org_id=str(who.org_id), user_id=str(who.user_id)).first()
+    return view(row) if row is not None else None
 
 
 def mine(who) -> dict:
@@ -201,10 +211,11 @@ def send_one(row) -> bool:
     return True
 
 
-def send_due(org: str | None = None, *, only: str = "") -> dict:
-    """Every feedback whose time to be tried has come, sent. Never raises. Counts."""
+def send_due(org: str | None = None, *, only: str = "", wait: float = 0.0) -> dict:
+    """Every feedback whose time to be tried has come, sent. Never raises. Counts. `wait` is how
+    long to wait for a sending already going (the beat's) to finish, for a Send that is to go now."""
     got = {"sent": 0, "waiting": 0}
-    if not _SENDING.acquire(blocking=False):
+    if not (_SENDING.acquire(timeout=wait) if wait > 0 else _SENDING.acquire(blocking=False)):
         return {"busy": True}
     try:
         rows = _m().FeedbackOutbox.objects.filter(state="queued", next_try_at__lte=_now())
