@@ -143,7 +143,7 @@
  "stages": [
   {
    "id": "meet",
-   "n": 0,
+   "n": 1,
    "title": "Meet Rouh",
    "why": "A few minutes: what Rouh is, how its screen is laid out, how to talk to it, and where things show up.",
    "lessons": [
@@ -620,7 +620,7 @@
   },
   {
    "id": "connect",
-   "n": 1,
+   "n": 2,
    "title": "Connect your life",
    "why": "The four connections that unlock the most. Each tip says exactly where to click.",
    "lessons": [
@@ -773,7 +773,7 @@
   },
   {
    "id": "everyday",
-   "n": 2,
+   "n": 3,
    "title": "Everyday wins",
    "why": "The small things Rouh takes off your hands every day.",
    "lessons": [
@@ -854,7 +854,7 @@
       "h": 562
      },
      "summary": [
-      "Let Rouh read the pile and tell you what matters. This needs Google connected (stage 1)."
+      "Let Rouh read the pile and tell you what matters. This needs Google connected (stage 2)."
      ],
      "how": [
       "Ask what came in and what needs an answer. Rouh sums it up and says who is waiting.",
@@ -978,7 +978,7 @@
       "h": 540
      },
      "summary": [
-      "Ask about anyone by name, or by where they are or what they do. This needs your iCloud contacts (stage 1)."
+      "Ask about anyone by name, or by where they are or what they do. This needs your iCloud contacts (stage 2)."
      ],
      "how": [
       "Ask about a person.",
@@ -1086,7 +1086,7 @@
      "how": [
       "Say look into, and the question.",
       "The answer appears in the chat, with its sources numbered under it.",
-      "For a proper comparison with a recommendation, say research instead: that comes back as a task (stage 3)."
+      "For a proper comparison with a recommendation, say research instead: that comes back as a task (stage 4)."
      ],
      "says": [
       "Look into what the weather will be like in Lisbon next weekend.",
@@ -1130,7 +1130,7 @@
   },
   {
    "id": "tasks",
-   "n": 3,
+   "n": 4,
    "title": "Work with tasks",
    "why": "Give your work a home, and Rouh keeps track of every piece of it.",
    "lessons": [
@@ -1296,7 +1296,7 @@
   },
   {
    "id": "delegate",
-   "n": 4,
+   "n": 5,
    "title": "Let Rouh work for you",
    "why": "Hand over whole pieces of work, and answer only what really needs you.",
    "lessons": [
@@ -1520,7 +1520,7 @@
   },
   {
    "id": "yours",
-   "n": 5,
+   "n": 6,
    "title": "Make it yours",
    "why": "Teach Rouh how you like things, and keep the parts of your life apart.",
    "lessons": [
@@ -1685,7 +1685,7 @@
   },
   {
    "id": "security",
-   "n": 6,
+   "n": 7,
    "title": "Security",
    "why": "What always needs your yes, what Rouh never obeys, and how to see and close what is open to others.",
    "lessons": [
@@ -1948,7 +1948,7 @@
   },
   {
    "id": "power",
-   "n": 7,
+   "n": 8,
    "title": "Power user",
    "why": "The deep end: Rouh's memory, your team's tools, and changing Rouh itself. Every connection here is optional.",
    "lessons": [
