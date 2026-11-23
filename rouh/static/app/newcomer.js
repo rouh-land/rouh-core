@@ -59,6 +59,19 @@ var CMD = MAC ? '⌘' : 'Ctrl+';
 
 /** @returns {[string, string][]} Each key, and what it does, in the order a newcomer needs them. */
 function keysRows() {
+  var rows = keysAll();
+  // Ctrl+Enter in Start a run's brief, while its switch is on (`rouh/run_desk.py`, start_keys).
+  try {
+    var desk = JSON.parse((document.getElementById('rouhRunDesk') || {}).textContent || '{}');
+    if (Array.isArray(desk.on) && desk.on.indexOf('start_keys') >= 0) {
+      rows.splice(5, 0, [CMD + 'Enter', 'In Start a run’s brief: start the run']);
+    }
+  } catch (err) {}
+  return rows;
+}
+
+/** @returns {[string, string][]} */
+function keysAll() {
   return [
     [CMD + 'K', 'Search everything: chats, tasks, pages, runs and Rouh’s own pages'],
     [CMD + 'B', 'Show or hide the navigation'],

@@ -3856,3 +3856,37 @@ print(json.dumps({"near": [m["name"] for m in newcomer.near(["calender"], genes.
 """))
     expect('"Email and calendar"' in out and '"google"' in out and '"seen": ["machine"]' in out,
            f"the newcomer's genes were not told as they should be: {out[-500:]}")
+
+
+@check("gene.run-desk")
+def run_desk(s: Stack) -> None:
+    """The page is told which of the four are on; twins are matched by agent, brief, workspace and time."""
+    out = core_py(s, _owner_py("""
+from rouh import run_desk
+a = {"id": "a", "engine": "claude", "brief": "Sort the reading list", "space": "assistant",
+     "requested_at": "2026-11-23T00:18:00Z", "state": "idle", "landed": "c821ff1aa", "deploy": "none",
+     "files": ["notes.txt"], "last_message": "Sorted."}
+b = dict(a, id="b", engine="codex", requested_at="2026-11-23T00:18:30Z")
+c = dict(a, id="c", engine="codex", space="code")
+print(json.dumps({"page": sorted(run_desk.for_page(who)["on"]), "twin": (run_desk.twin_of(a, [a, b, c]) or {}).get("id"),
+    "none": run_desk.twin_of(a, [a, c]), "report": run_desk.report(a)}))
+"""))
+    expect('"run_copy", "run_twin", "start_keys", "start_twice"' in out and '"twin": "b"' in out
+           and '"none": null' in out and "Finished its turn" in out and "nothing here deploys it" in out,
+           f"the run desk's genes were not told as they should be: {out[-500:]}")
+
+
+@check("gene.first-steps")
+def first_steps(s: Stack) -> None:
+    """A question typed whole finds its page and its setting; one with no page finds nothing."""
+    out = core_py(s, _owner_py("""
+from rouh import first_steps
+on = lambda name: True
+print(json.dumps({"pages": [m["name"] for m in first_steps.plain_find("how do i change my password".split(), on)],
+    "settings": [c["head"] for c in first_steps.settings("how do I change my password", on)],
+    "lease": [m["name"] for m in first_steps.plain_find("when does the lease on the flat end".split(), on)],
+    "page": sorted(first_steps.for_page(who)["on"])}))
+"""))
+    expect('"About You"' in out and '"settings": ["Password"]' in out and '"lease": []' in out
+           and '"search_ask"' in out, f"the first steps' genes were not told as they should be: {out[-500:]}")
+

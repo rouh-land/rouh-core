@@ -12072,3 +12072,36 @@ body.cot-open { overflow: hidden; }
 }
 .one-dialog label.one-check[hidden] { display: none; }
 .one-check input { width: 18px; height: 18px; margin: 0; accent-color: var(--accent); flex: 0 0 auto; }
+
+/* Night 52 (`rouh/run_desk.py`, run_twin): its twin on the other agent, one line under the run's
+   head, in the run's own quiet box, with Open it. */
+.run-twin {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin: 8px 0 0; padding: 8px 10px;
+  font-size: 13px; line-height: 1.45; background: var(--panel-2); border: 1px solid var(--line);
+  border-radius: var(--radius-s);
+}
+.run-twin[hidden] { display: none; }
+.run-twin p { flex: 1 1 260px; min-width: 0; margin: 0; overflow-wrap: anywhere; color: var(--text); }
+.run-twin strong {
+  display: block; margin-bottom: 2px;
+  font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--dimmer);
+}
+/* Not started twice (start_twice): the run already doing it, in Start a run, with its two ways on. */
+.one-twice-acts { display: flex; flex-wrap: wrap; gap: 8px; }
+@media (pointer: coarse) {
+  .run-twin .ctl, .one-twice-acts .ctl, #oneCopyReport { min-height: 44px; }
+  /* Ctrl+Enter is a desk's key: a touch screen has no use for the line (start_keys). */
+  #oneStartKeysHint { display: none; }
+}
+
+/* Night 52 (`rouh/first_steps.py`). Ask Rouh instead, under Search's "Nothing matches" (search_ask). */
+.find-ask { display: block; width: fit-content; margin: 0 14px 14px; max-width: calc(100% - 28px); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.find-ask[hidden] { display: none; }
+@media (pointer: coarse) { .find-ask { min-height: 44px; } }
+/* A setting Search opened (search_settings): its card lit a moment where it is. */
+.setting-card.setting-lit, .setting-lit {
+  box-shadow: 0 0 0 2px var(--accent), 0 0 0 6px var(--accent-soft);
+  transition: box-shadow 0.3s ease;
+  scroll-margin-top: 72px;
+}
+@media (prefers-reduced-motion: reduce) { .setting-lit { transition: none; } }

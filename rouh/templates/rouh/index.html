@@ -506,6 +506,8 @@ with {% asset %}, which gives it its hashed address.
         {{ RUN_HEAD|json_script:"rouhRunHead" }}
         {{ RUN_TOOLS|json_script:"rouhRunTools" }}
         {{ NEWCOMER|json_script:"rouhNewcomer" }}
+        {{ RUN_DESK|json_script:"rouhRunDesk" }}
+        {{ FIRST_STEPS|json_script:"rouhFirstSteps" }}
         {{ PLAINER|json_script:"rouhPlainer" }}
         <script>
         /* The group to show before anything is painted: the one holding the page
@@ -1913,6 +1915,11 @@ with {% asset %}, which gives it its hashed address.
           <div id="oneCodex" class="run-codex" hidden></div>
           {# The files a landing took, opened from "N files changed" (`rouh/run_head.py`, run_files). #}
           <ul id="oneFiles" class="run-files" aria-label="Files this run changed" hidden></ul>
+          {# Its twin on the other agent, the same brief, compared (`rouh/run_desk.py`, run_twin). #}
+          <div id="oneTwin" class="run-twin" hidden>
+            <p id="oneTwinSay"></p>
+            <button id="oneTwinGo" class="ctl small" type="button" title="Open its twin, the same brief on the other agent">Open it</button>
+          </div>
         </div>
         {% comment %} The shell command that takes the same run over in a real terminal,
              copied with one click. What it says is written again when a run
@@ -1933,6 +1940,9 @@ with {% asset %}, which gives it its hashed address.
         {# Start again on an ended run (`rouh/run_tools.py`, run_again). #}
         <button id="oneAgain" class="ctl small" type="button" hidden
                 title="Open Start a run with this run's brief, workspace and agent filled in">Start again</button>
+        {# Its title, state, commit, files and last words on the clipboard (`rouh/run_desk.py`, run_copy). #}
+        <button id="oneCopyReport" class="ctl small" type="button" hidden
+                title="Copy this run's title, state, commit, files and last words, as Markdown">Copy report</button>
         <button id="oneStop" class="ctl small" type="button">Stop</button>
         <button id="oneBack" class="layer-x" type="button"
                 title="Close this run (Esc)" aria-label="Close this run and go back to the canvas">&times;</button>
@@ -5094,6 +5104,8 @@ with {% asset %}, which gives it its hashed address.
     <label>What should it do?
       <textarea id="oneStartBrief" rows="6" required
                 placeholder="Write it as you would to the assistant in a terminal."></textarea>
+      {# Ctrl+Enter starts it (`rouh/run_desk.py`, start_keys). #}
+      <span class="hint" id="oneStartKeysHint" hidden></span>
     </label>
     {% comment %} The two fields that are the whole difference between one run and
          another (rouh/starting.py): where the work belongs, and under what
@@ -5138,6 +5150,14 @@ with {% asset %}, which gives it its hashed address.
       <input id="oneStartRepo" type="text" placeholder="owner/repo"
              autocomplete="off" spellcheck="false">
     </label>
+    {# The same brief already running here, and nothing started (`rouh/run_desk.py`, start_twice). #}
+    <div id="oneStartTwice" class="run-fix one-twice" role="status" hidden>
+      <p id="oneStartTwiceSay"></p>
+      <div class="one-twice-acts">
+        <button type="button" id="oneStartTwiceOpen" class="ctl small">Open it</button>
+        <button type="button" id="oneStartTwiceAnyway" class="ctl small">Start anyway</button>
+      </div>
+    </div>
     <p id="oneStartError" class="error" hidden></p>
     <div class="one-actions">
       <button type="button" id="oneStartCancel" class="ctl small">Cancel</button>
@@ -5361,6 +5381,9 @@ with {% asset %}, which gives it its hashed address.
     <p class="find-head" id="findHead" hidden>Latest chats</p>
     <div class="find-list" id="findList" role="listbox" aria-label="Results"></div>
     <p class="find-said" id="findSaid">Type to search everything you have.</p>
+    {# Nothing found: the same words asked of Rouh in the conversation (`rouh/first_steps.py`, search_ask). #}
+    <button id="findAskRouh" class="ctl small find-ask" type="button" hidden
+            title="Close Search and ask Rouh this in the conversation (Enter)"></button>
 
     <div class="find-foot">
       <span class="find-hint"><kbd class="sq">&#8593;</kbd><kbd class="sq">&#8595;</kbd> move</span>

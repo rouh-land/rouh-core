@@ -197,6 +197,9 @@ function oneHandle(m) {
         if (ONE_ENDED[m.run.state]) { ONE.termWanted = m.run.id; ONE.noTerm = true; }
         oneRenderHead();
         if (!ONE_ENDED[m.run.state]) oneWantTerm(m.run.id);
+      } else if (ONE.viewing && ONE.selected && RUN_TWIN[ONE.selected] === m.run.id) {
+        // The open run's twin moved on: its line says so (`rouh/run_desk.py`, run_twin).
+        runTwinPaint(ONE.runs[ONE.selected]);
       }
       break;
     case 'questions':
@@ -556,6 +559,174 @@ function runFixFor(reason) {
   return null;
 }
 
+/* Night 52's four run genes, each with its own switch (`rouh/run_desk.py`): its twin, compared
+   (run_twin), not started twice (start_twice), Copy report (run_copy) and Ctrl+Enter in the brief
+   (start_keys). The page is told which are on in `#rouhRunDesk`. */
+var RUN_DESK = (function () {
+  try {
+    var node = document.getElementById('rouhRunDesk');
+    var got = node ? JSON.parse(node.textContent || '{}') : {};
+    return { on: Array.isArray(got.on) ? got.on : [], within: Number(got.twin_within) || 120 };
+  } catch (err) { return { on: [], within: 120 }; }
+}());
+
+/** @param {string} name */
+function runDeskOn(name) { return RUN_DESK.on.indexOf(name) >= 0; }
+
+/** One of the four used: counted by the server. @param {string} name @param {string} event @param {string} run */
+function runDeskUsed(name, event, run) {
+  fetch('/api/run-desk', { method: 'POST', keepalive: true, credentials: 'same-origin',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ switch: name, event: event, run: String(run || '') }) }).catch(function () {});
+}
+
+/** @type {Record<string, string>} Each run's brief, once read: a list of runs leaves it out. */
+var RUN_BRIEFS = {};
+/** A run's whole brief. @param {string} id @returns {Promise<string>} */
+function runBriefOf(id) {
+  var run = ONE.runs[id];
+  if (run && run.brief) return Promise.resolve(String(run.brief));
+  if (RUN_BRIEFS[id] !== undefined) return Promise.resolve(RUN_BRIEFS[id]);
+  return oneSend('run', { run: id, entries: 0 }).then(function (d) {
+    RUN_BRIEFS[id] = String((d && d.run && d.run.brief) || '');
+    return RUN_BRIEFS[id];
+  }, function () { return ''; });
+}
+
+/** @param {any} run @returns {string} */
+function runEngine(run) { return String((run && run.engine) || 'claude'); }
+/** @param {string} engine */
+function runAgentName(engine) { return engine === 'codex' ? 'Codex' : 'Claude Code'; }
+/** @param {any} run @returns {number} */
+function runAskedAt(run) { return Date.parse(run && run.requested_at || '') || 0; }
+
+/* Its twin (run_twin): the run of the other agent with the same brief in the same workspace,
+   asked for within a couple of minutes, which Both agents at once starts. Looked for once a run,
+   by the briefs, and kept: '' is none. */
+/** @type {Record<string, string>} */
+var RUN_TWIN = {};
+/** @type {Record<string, boolean>} */
+var RUN_TWIN_LOOKING = {};
+/** @param {any} run @returns {Promise<string>} */
+function runTwinFind(run) {
+  var near = Object.keys(ONE.runs).map(function (k) { return ONE.runs[k]; }).filter(function (r) {
+    return r && r.id !== run.id && r.kind === 'agent' && runEngine(r) !== runEngine(run) && r.space === run.space
+      && Math.abs(runAskedAt(r) - runAskedAt(run)) <= RUN_DESK.within * 1000;
+  });
+  if (!near.length) return Promise.resolve('');
+  return runBriefOf(run.id).then(function (mine) {
+    mine = mine.trim();
+    if (!mine) return '';
+    return Promise.all(near.map(function (r) { return runBriefOf(r.id); })).then(function (theirs) {
+      var best = '', gap = Infinity;
+      near.forEach(function (r, i) {
+        var g = Math.abs(runAskedAt(r) - runAskedAt(run));
+        var t = theirs[i].trim();
+        // The same words, or one inside the other where Rouh wrapped a brief it started.
+        var same = t === mine || (Math.min(t.length, mine.length) >= 12
+          && (t.indexOf(mine) >= 0 || mine.indexOf(t) >= 0));
+        if (same && g < gap) { best = r.id; gap = g; }
+      });
+      return best;
+    });
+  });
+}
+
+/** Ended, or at its prompt with its turn finished. @param {any} run */
+function runDone(run) { return !!ONE_ENDED[run.state] || run.state === 'idle'; }
+
+/** How long a run took, or has been going. @param {any} run @returns {string} */
+function runTook(run) {
+  var from = Date.parse(run.started_at || run.requested_at || '') || 0;
+  var to = runDone(run) ? (Date.parse(run.ended_at || '') || 0) : Date.now();
+  if (!from || !to || to < from) return '';
+  var min = Math.round((to - from) / 60000);
+  return min < 1 ? 'under a minute' : min < 90 ? min + ' min' : (Math.round(min / 6) / 10) + ' h';
+}
+
+/** Where a run's work stands, in a few words. @param {any} run @returns {string} */
+function runWhere(run) {
+  if (run.landed) {
+    var at = String(run.landed).slice(0, 7);
+    if (run.deploy_reason && !run.deployed && run.deploy !== 'none') return 'landed at ' + at + ', NOT live';
+    return 'landed at ' + at + (run.deployed ? ', live' : '');
+  }
+  if (run.land_reason) return 'its landing was refused';
+  return (ONE_WORDS[run.state] || run.state || '').toLowerCase();
+}
+
+/** Which of the two is ahead, in one sentence. @param {any} mine @param {any} twin @returns {string} */
+function runTwinVerdict(mine, twin) {
+  var a = !!mine.landed, b = !!twin.landed;
+  var aEnd = runDone(mine), bEnd = runDone(twin);
+  if (a && !b) return bEnd ? 'Only this one landed.' : 'This one landed first.';
+  if (b && !a) return aEnd ? 'Only the twin landed.' : 'The twin landed first.';
+  if (a && b) {
+    var fa = (mine.files || []).length, fb = (twin.files || []).length;
+    var la = Date.parse(mine.ended_at || '') || 0, lb = Date.parse(twin.ended_at || '') || 0;
+    var first = la && lb ? (la <= lb ? 'this one first' : 'the twin first') : '';
+    return 'Both landed' + (first ? ', ' + first : '') + '; ' + fa + (fa === 1 ? ' file' : ' files') + ' here, '
+      + fb + ' there.';
+  }
+  if (aEnd && bEnd) return 'Neither landed.';
+  if (aEnd) return 'The twin is still going.';
+  if (bEnd) return 'The twin has ended; this one is still going.';
+  return 'Both are still going.';
+}
+
+/** @type {Record<string, boolean>} The runs whose twin was shown, once a page. */
+var RUN_TWIN_SEEN = {};
+/** The line under a run's head about its twin. @param {any} run */
+function runTwinPaint(run) {
+  var box = $('oneTwin');
+  if (!box) return;
+  box.hidden = true;
+  if (!runDeskOn('run_twin') || !run || run.kind !== 'agent') return;
+  var twinId = RUN_TWIN[run.id];
+  if (twinId === undefined) {
+    if (RUN_TWIN_LOOKING[run.id]) return;
+    RUN_TWIN_LOOKING[run.id] = true;
+    runTwinFind(run).then(function (found) {
+      RUN_TWIN[run.id] = found;
+      if (found) RUN_TWIN[found] = run.id;
+      delete RUN_TWIN_LOOKING[run.id];
+      if (ONE.selected === run.id) runTwinPaint(ONE.runs[run.id]);
+    }, function () { delete RUN_TWIN_LOOKING[run.id]; });
+    return;
+  }
+  var twin = twinId ? ONE.runs[twinId] : null;
+  if (!twin) return;
+  var said = $('oneTwinSay');
+  said.textContent = '';
+  said.appendChild(el('strong', null, 'Its twin on ' + runAgentName(runEngine(twin))));
+  var took = runTook(twin);
+  said.appendChild(document.createTextNode('Run ' + twin.id + ', ' + runWhere(twin)
+    + ((twin.files || []).length ? ', ' + twin.files.length + ((twin.files.length === 1) ? ' file' : ' files') : '')
+    + (took ? ', ' + (runDone(twin) ? 'took ' : 'going for ') + took : '') + '. '
+    + runTwinVerdict(run, twin)));
+  $('oneTwinGo').dataset.run = String(twin.id);
+  box.hidden = false;
+  if (!RUN_TWIN_SEEN[run.id]) { RUN_TWIN_SEEN[run.id] = true; runDeskUsed('run_twin', 'seen', run.id); }
+}
+
+/* Copy report (run_copy): a run's title, state, commit, files and last words, as Markdown, the same
+   lines as `run_desk.report`. @param {any} run @returns {string} */
+function runReport(run) {
+  var lines = ['**' + (run.title || 'A run') + '** (run ' + run.id + ')', '- State: ' + (ONE_WORDS[run.state] || run.state)];
+  if (run.landed) {
+    var live = run.deployed ? 'live' : run.deploy === 'none' ? 'nothing here deploys it'
+      : run.deploy_reason ? 'NOT live: ' + run.deploy_reason : '';
+    lines.push('- Landed on ' + (run.target || 'main') + ' at ' + String(run.landed).slice(0, 7) + (live ? ', ' + live : ''));
+  }
+  var files = Array.isArray(run.files) ? run.files : [];
+  if (files.length) {
+    lines.push('- Files changed (' + files.length + '): ' + files.slice(0, 30).join(', ') + (files.length > 30 ? ', ...' : ''));
+  }
+  var said = String(run.land_reason && !run.landed ? run.land_reason : run.last_message || '');
+  if (said.trim()) lines.push('- It said: ' + said.split(/\s+/).join(' ').trim().slice(0, 1500));
+  return lines.join('\n');
+}
+
 /** @type {Record<string, boolean>} The runs whose live or not live was seen, once a page. */
 var RUN_LIVE_SEEN = {};
 
@@ -692,6 +863,9 @@ function oneRenderHead() {
   }
   // Start again, on an ended run (run_again).
   $('oneAgain').hidden = !(runToolOn('run_again') && run.kind === 'agent' && ended);
+  // Copy report (run_copy), and its twin on the other agent (run_twin).
+  $('oneCopyReport').hidden = !(runDeskOn('run_copy') && run.kind === 'agent');
+  runTwinPaint(run);
   $('oneStop').hidden = ended;
   // Finish it, on a run that ended with work left or landed and is not live (run_carry).
   $('oneFinish').hidden = !(runHeadOn('run_carry') && RUN_HEAD.finish && run.kind === 'agent' &&
@@ -2136,6 +2310,23 @@ $('oneFixGo').addEventListener('click', function () {
 });
 
 // Start again (run_again): the Start dialog, with this run's brief, workspace and agent.
+/* Its twin's Open it (run_twin), and Copy report (run_copy). */
+$('oneTwinGo').addEventListener('click', function () {
+  var id = $('oneTwinGo').dataset.run || '', from = ONE.selected;
+  if (!id || !ONE.runs[id]) return;
+  runDeskUsed('run_twin', 'opened', from);
+  oneOpen(id);
+});
+$('oneCopyReport').addEventListener('click', function () {
+  var run = ONE.runs[ONE.selected], btn = $('oneCopyReport');
+  if (!run || !navigator.clipboard) return;
+  navigator.clipboard.writeText(runReport(run)).then(function () {
+    btn.textContent = 'Copied';
+    setTimeout(function () { btn.textContent = 'Copy report'; }, 1600);
+    runDeskUsed('run_copy', 'copied', run.id);
+  }, function () { notify('The report could not be copied here.', { tone: 'warning' }); });
+});
+
 var RUN_AGAIN = { run: '' };
 $('oneAgain').addEventListener('click', function () {
   var id = ONE.selected, run = ONE.runs[id];
@@ -2349,12 +2540,101 @@ $('oneStartBrief').addEventListener('input', function () {
   startKeptWrite({ brief: /** @type {HTMLTextAreaElement} */ ($('oneStartBrief')).value });
 });
 $('oneStartCancel').addEventListener('click', function () { $('oneStartDialog').close(); });
+/* Not started twice (start_twice): before a brief starts, a run of the same brief still going in the
+   same workspace on the same agent is looked for; Start anyway and Open it are the way on. And
+   Ctrl+Enter, Cmd+Enter on a Mac, in the brief starts it (start_keys). */
+var START_TWICE = { anyway: false, run: '' };
+var START_KEYS = { pressed: false };
+function startTwiceHide() {
+  $('oneStartTwice').hidden = true;
+  START_TWICE.run = '';
+}
+$('oneStartBrief').addEventListener('input', startTwiceHide);
+$('oneStartSpace').addEventListener('change', startTwiceHide);
+$('oneStartAgent').addEventListener('change', startTwiceHide);
+$('oneStartDialog').addEventListener('close', function () { startTwiceHide(); START_TWICE.anyway = false; });
+/** The run already doing this brief, or ''. @param {string} brief @param {string} space @param {string} engine
+    @returns {Promise<string>} */
+function startTwiceFind(brief, space, engine) {
+  var first = (brief.split(/\n/)[0] || '').trim().slice(0, 120);
+  var going = Object.keys(ONE.runs).map(function (k) { return ONE.runs[k]; }).filter(function (r) {
+    return r && r.kind === 'agent' && !ONE_ENDED[r.state] && r.space === space && runEngine(r) === engine
+      && String(r.title || '').trim() === first;
+  });
+  if (!going.length) return Promise.resolve('');
+  return Promise.all(going.map(function (r) { return runBriefOf(r.id); })).then(function (theirs) {
+    // Rouh may wrap a brief it starts (the assistant's own preamble), so the brief typed, whole,
+    // inside the run's is the same brief.
+    for (var i = 0; i < going.length; i++) {
+      var t = theirs[i].trim();
+      if (t === brief || (brief.length >= 12 && t.indexOf(brief) >= 0)) return going[i].id;
+    }
+    return '';
+  });
+}
+$('oneStartTwiceOpen').addEventListener('click', function () {
+  var id = START_TWICE.run;
+  if (!id) return;
+  runDeskUsed('start_twice', 'opened', id);
+  $('oneStartDialog').close();
+  oneOpen(id);
+});
+$('oneStartTwiceAnyway').addEventListener('click', function () {
+  START_TWICE.anyway = true;
+  startTwiceHide();
+  /** @type {HTMLFormElement} */ ($('oneStartForm')).requestSubmit();
+});
+(function () {
+  var mac = /Mac|iPhone|iPad|iPod/.test(navigator.platform || navigator.userAgent || '');
+  var hint = $('oneStartKeysHint');
+  if (hint && runDeskOn('start_keys')) {
+    hint.textContent = (mac ? '\u2318' : 'Ctrl+') + 'Enter starts it.';
+    hint.hidden = false;
+  }
+  $('oneStartBrief').addEventListener('keydown', function (e) {
+    if (e.key !== 'Enter' || e.shiftKey || e.altKey || !(e.ctrlKey || e.metaKey) || e.isComposing) return;
+    if (!runDeskOn('start_keys')) return;
+    e.preventDefault();
+    START_KEYS.pressed = true;
+    /** @type {HTMLFormElement} */ ($('oneStartForm')).requestSubmit();
+  });
+}());
 $('oneStartForm').addEventListener('submit', function (e) {
   e.preventDefault();
   var brief = $('oneStartBrief').value.trim();
-  if (!brief) return;
+  if (!brief) { START_KEYS.pressed = false; return; }
   var button = $('oneStartGo'), error = $('oneStartError');
   var space = $('oneStartSpace').value;
+  // Not started twice (start_twice): looked for once, then this submit is made again.
+  var engine = $('oneStartPolicy').value === 'one' && $('oneStartAgent').value === 'codex' ? 'codex' : 'claude';
+  if (runDeskOn('start_twice') && !START_TWICE.anyway && space !== '+folder' && space !== '+repo') {
+    button.disabled = true;
+    startTwiceFind(brief, space, engine).then(function (id) {
+      button.disabled = false;
+      if (id) {
+        var run = ONE.runs[id];
+        START_TWICE.run = id;
+        $('oneStartTwiceSay').textContent = 'This brief is already running as run ' + id + ' ('
+          + (ONE_WORDS[run.state] || run.state) + (run.started_at || run.requested_at
+            ? ', started ' + ago(run.started_at || run.requested_at) : '')
+          + '), in the same workspace on ' + runAgentName(engine) + '. Nothing was started.';
+        $('oneStartTwice').hidden = false;
+        START_KEYS.pressed = false;
+        runDeskUsed('start_twice', 'caught', id);
+        return;
+      }
+      START_TWICE.anyway = true;
+      /** @type {HTMLFormElement} */ ($('oneStartForm')).requestSubmit();
+    }, function () {
+      button.disabled = false;
+      START_TWICE.anyway = true;
+      /** @type {HTMLFormElement} */ ($('oneStartForm')).requestSubmit();
+    });
+    return;
+  }
+  START_TWICE.anyway = false;
+  var byKeys = START_KEYS.pressed;
+  START_KEYS.pressed = false;
   var chain = Promise.resolve(space);
   error.hidden = true;
   if (space === '+folder' || space === '+repo') {
@@ -2414,6 +2694,8 @@ $('oneStartForm').addEventListener('submit', function (e) {
     }
     RUN_AGAIN.run = '';
     if (runToolOn('start_kept')) startKeptWrite({ brief: '', space: String(sp || '') });
+    // Started from the keys (start_keys).
+    if (byKeys && runDeskOn('start_keys')) runDeskUsed('start_keys', 'started', '');
   }).catch(function (err) {
     error.textContent = err.message;
     error.hidden = false;

@@ -874,6 +874,28 @@ def _run_tools(request: HttpRequest) -> dict:
         return {"on": [], "fixes": [], "say": ""}
 
 
+def _run_desk(request: HttpRequest) -> dict:
+    """Which of night 52's four run genes are on here (`rouh/run_desk.py`)."""
+    from rouh import run_desk
+
+    try:
+        return run_desk.for_page(who(request))
+    except Exception:
+        log.warning("run_desk: not read for the page", exc_info=True)
+        return {"on": []}
+
+
+def _first_steps(request: HttpRequest) -> dict:
+    """Which of night 52's four genes for a first-time user are on here (`rouh/first_steps.py`)."""
+    from rouh import first_steps
+
+    try:
+        return first_steps.for_page(who(request))
+    except Exception:
+        log.warning("first_steps: not read for the page", exc_info=True)
+        return {"on": []}
+
+
 def _newcomer(request: HttpRequest) -> dict:
     """Which of night 51's four genes for a newcomer are on here, and what they need (`rouh/newcomer.py`)."""
     from rouh import newcomer
@@ -945,6 +967,10 @@ def _page_for(request: HttpRequest) -> HttpResponse:
         "RUN_TOOLS": _run_tools(request),
         # A newcomer's plain lines, the keys and Search's two (`rouh/newcomer.py`).
         "NEWCOMER": _newcomer(request),
+        # A run's twin, not started twice, Copy report, Ctrl+Enter starts (`rouh/run_desk.py`).
+        "RUN_DESK": _run_desk(request),
+        # Search reads a question, Ask Rouh instead, a setting found, type anywhere (`rouh/first_steps.py`).
+        "FIRST_STEPS": _first_steps(request),
         # Say it more simply, under an answer (`rouh/say_plainer.py`).
         "PLAINER": _plainer(request),
         # The open orb's music: Rouh's own, or the Cornfield Chase arrangement where its switch is on.

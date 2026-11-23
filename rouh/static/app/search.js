@@ -17,6 +17,7 @@ import { chatIsWanted, sidebarDone } from 'app/controls.js';
 import { geneGo, geneIcon } from 'app/navgroups.js';
 import { openImage } from 'app/attachments.js';
 import { newcomerUsed } from 'app/newcomer.js';
+import { askRouh, firstStepOn, firstStepUsed, settingOpen } from 'app/first_steps.js';
 
 /* ---------------------------------------------------------------- 10d */
 
@@ -98,7 +99,9 @@ var FIND_ICON = {
   fork: ['M7 3v18', 'M7 15c0-5 4-8 11-8', 'm15 4 3 3-3 3'],
   // A Guide lesson Search found for what was typed (`rouh/newcomer.py`, search_lessons): an open book.
   lesson: ['M3 5.5c3-1.3 6-1.3 9 .5v13c-3-1.8-6-1.8-9-.5z', 'M21 5.5c-3-1.3-6-1.3-9 .5v13c3-1.8 6-1.8 9-.5z'],
-  file: ['M21 11.5l-8.6 8.6a5.5 5.5 0 0 1-7.8-7.8l8.6-8.6a3.7 3.7 0 0 1 5.2 5.2l-8.6 8.6a1.8 1.8 0 0 1-2.6-2.6l7.9-7.9']
+  file: ['M21 11.5l-8.6 8.6a5.5 5.5 0 0 1-7.8-7.8l8.6-8.6a3.7 3.7 0 0 1 5.2 5.2l-8.6 8.6a1.8 1.8 0 0 1-2.6-2.6l7.9-7.9'],
+  // A card of one of Anatomy's sections (`rouh/first_steps.py`, search_settings): three sliders.
+  setting: ['M4 6h9M17 6h3', 'M4 12h3M11 12h9', 'M4 18h11M19 18h1', 'M15 4v4', 'M9 10v4', 'M17 16v4']
 };
 
 // What the pill says, for the sentence under an empty list.
@@ -353,8 +356,30 @@ function findDraw() {
   var head = $('findHead');
   if (head) head.hidden = !!FIND.q || !FIND.rows.length;
   findSaid(findEmptyWords(), false);
+  findAskPaint();
   findKeepOnScreen();
 }
+
+/* Ask Rouh instead, under "Nothing matches", once the server has answered and found nothing on
+   All (`rouh/first_steps.py`, search_ask): the same words, asked in the conversation. */
+function findAskPaint() {
+  var b = $('findAskRouh');
+  if (!b) return;
+  var want = firstStepOn('search_ask') && !!FIND.q.trim() && !FIND.rows.length && FIND.kind === 'all'
+    && !!FIND.counts && !FIND.counts.all;
+  b.hidden = !want;
+  if (want) b.textContent = 'Ask Rouh: \u201c' + FIND.q.trim() + '\u201d';
+}
+(function () {
+  var b = $('findAskRouh');
+  if (!b) return;
+  b.addEventListener('click', function () {
+    var q = FIND.q.trim();
+    if (!q) return;
+    findShow(false);
+    askRouh(q);
+  });
+}());
 
 /* The pill that is on is always one you can see. On a phone the pills are a
    row that scrolls sideways, and it kept wherever it was last left: every
@@ -444,6 +469,8 @@ function findSaid(words, bad) {
 }
 
 function findRow(row, i, words) {
+  // A row found from the words that mattered of a question lights only those (`rouh/first_steps.py`).
+  if (Array.isArray(row.words) && row.words.length) words = row.words;
   // A link to what it opens, the same address Open in new tab in its menu
   // opens, so Cmd-click and the browser's own menu take it to a tab too
   // (`linkTo`). Still an option of the list to the keys and a screen reader.
@@ -697,9 +724,12 @@ function findGo(row) {
   if (how === 'file') { findGoFile(row.open, row.title); return; }
   if (how === 'gene') {
     if (row.open.near) newcomerUsed('search_typos', row.open.id);
+    if (row.open.plain) firstStepUsed('search_words', row.open.id);
     geneGo(row.open.id);
     return;
   }
+  // A card of one of Anatomy's sections, at its section (`rouh/first_steps.py`, search_settings).
+  if (how === 'setting') { settingOpen(row.open.route, row.open.card); return; }
   // A Guide lesson, at its own page (`rouh/newcomer.py`, search_lessons).
   if (how === 'lesson') {
     newcomerUsed('search_lessons', row.open.id);

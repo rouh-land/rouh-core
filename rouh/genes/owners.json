@@ -3841,6 +3841,107 @@
    },
    "files": []
   },
+  "n52-run-twin": {
+   "name": "Its twin, compared",
+   "what": "A run started on both agents at once shows on its head how its twin on the other agent stands (working, ended, landed and live or not, its files, how long it took) and which of the two is ahead, with Open it.",
+   "switch": "run_twin",
+   "signals": {
+    "events": {
+     "opened": "You opened a run's twin on the other agent from the line on its head"
+    },
+    "runs": {
+     "seen": "A run's head showed how its twin on the other agent stands"
+    }
+   },
+   "files": [
+    "rouh/run_desk.py",
+    "rouh/web/run_desk.py"
+   ]
+  },
+  "n52-start-twice": {
+   "name": "Not started twice",
+   "what": "Start a run does not start a brief that is already running in the same workspace on the same agent: it says which run is doing it, with Open it and Start anyway.",
+   "switch": "start_twice",
+   "signals": {
+    "events": {
+     "opened": "Start a run caught a brief already running, and you opened the run doing it"
+    },
+    "runs": {
+     "caught": "Start a run found the brief already running and started nothing"
+    }
+   },
+   "files": []
+  },
+  "n52-run-copy": {
+   "name": "Copy its report",
+   "what": "A run's head has Copy report, which puts its title, state, commit, whether it is live, its files and its last words on the clipboard as Markdown, to hand to another run, a task or a message.",
+   "switch": "run_copy",
+   "signals": {
+    "events": {
+     "copied": "You pressed Copy report on a run's head"
+    }
+   },
+   "files": []
+  },
+  "n52-start-keys": {
+   "name": "Start with the keyboard",
+   "what": "Ctrl+Enter, Cmd+Enter on a Mac, in Start a run's brief starts the run; the box says so under it, and ? lists the key.",
+   "switch": "start_keys",
+   "signals": {
+    "events": {
+     "started": "You started a run with Ctrl+Enter in its brief"
+    }
+   },
+   "files": []
+  },
+  "n52-search-words": {
+   "name": "Search reads a question",
+   "what": "When nothing matches what was typed word for word, Search leaves out the words that only carry the question (how do I, change, my, where) and reads words from other apps as Rouh's (billing, logout, todo), so how do I change my password finds About You.",
+   "switch": "search_words",
+   "signals": {
+    "events": {
+     "opened": "You opened a page Search found from a question typed whole"
+    }
+   },
+   "files": [
+    "rouh/first_steps.py",
+    "rouh/web/first_steps.py",
+    "rouh/static/app/first_steps.js"
+   ]
+  },
+  "n52-search-ask": {
+   "name": "Ask Rouh instead",
+   "what": "When Search finds nothing, Ask Rouh under Nothing matches carries the same words to the conversation and sends them.",
+   "switch": "search_ask",
+   "signals": {
+    "events": {
+     "asked": "You pressed Ask Rouh under Search's Nothing matches"
+    }
+   },
+   "files": []
+  },
+  "n52-search-settings": {
+   "name": "Search finds a setting",
+   "what": "Search lists the card of an Anatomy section whose heading or first line holds what was typed (Password, Email signatures, Location, Voice detection), and opens its section scrolled to the card, lit a moment.",
+   "switch": "search_settings",
+   "signals": {
+    "events": {
+     "opened": "You opened a setting Search found, at its card"
+    }
+   },
+   "files": []
+  },
+  "n52-type-anywhere": {
+   "name": "Type anywhere",
+   "what": "A letter typed while nothing has the cursor, no dialog is open and the conversation is on the screen goes into the conversation's box, with the letter.",
+   "switch": "type_anywhere",
+   "signals": {
+    "events": {
+     "typed": "You started typing with nothing focused, and it went into the conversation's box"
+    }
+   },
+   "files": []
+  },
   "n50-say-plainer": {
    "name": "Say it more simply",
    "what": "Every answer has a Say it more simply button beside Read this aloud, which asks for that answer again, shorter and in plain words, as a message of your own.",

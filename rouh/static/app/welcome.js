@@ -130,6 +130,8 @@ function tryThis(say) {
     if (e.key === 'Enter') {
       e.preventDefault();
       if (FIND.at >= 0) findAct('open', FIND.at);
+      // Nothing found, and Ask Rouh offered under it: Enter asks (`rouh/first_steps.py`, search_ask).
+      else if (!FIND.rows.length && $('findAskRouh') && !$('findAskRouh').hidden) $('findAskRouh').click();
       return;
     }
     // The five numbers, live while a menu is open and only then: the squares

@@ -251,7 +251,7 @@ def gene_lines(query: str, switch_on, shared=()) -> list[dict]:
     navigation would (`geneGo` in app/navgroups.js), and a gene with an address
     of its own can open in a tab of its own too."""
     asked = re.findall(r"[a-z0-9]+", str(query or "").lower())
-    near = False
+    near = plain = False
     try:
         found = genes.find(asked, switch_on, extra=shared)
         # Nothing by its exact words: a page a letter or two from them, while its switch is on
@@ -261,6 +261,13 @@ def gene_lines(query: str, switch_on, shared=()) -> list[dict]:
 
             found = newcomer.near(asked, (*genes.GENES, *shared), switch_on)
             near = bool(found)
+        # Nothing yet: the words that matter of a question typed whole, while its switch is on
+        # (`rouh/first_steps.py`, search_words).
+        if not found and switch_on("search_words"):
+            from . import first_steps
+
+            found = first_steps.plain_find(asked, switch_on, extra=shared)
+            plain = bool(found)
     except Exception:
         log.exception("the genes could not be searched for %r", query)
         return []
@@ -274,11 +281,38 @@ def gene_lines(query: str, switch_on, shared=()) -> list[dict]:
         out.append({
             "type": "gene", "id": m["id"], "title": m["name"], "label": "",
             "snippet": f"{group} - {what}" if what != m["name"] else group,
-            "at": 0, "open": {"how": "gene", "id": m["id"], **({"near": True} if near else {})},
+            "at": 0, "open": {"how": "gene", "id": m["id"], **({"near": True} if near else {}),
+                              **({"plain": True} if plain else {})},
             "url": m["route"] or "", "actions": ["open", "tab"] if m["route"] else ["open"],
             **({"near": True} if near else {}),
+            # Only the words that mattered are lit (`first_steps.what_matters`), not "my" in Anatomy.
+            **({"words": first_steps.what_matters(asked)} if plain else {}),
         })
-    return out + lesson_lines(query, switch_on)
+    settings = setting_lines(query, switch_on)
+    # A setting whose heading holds every word that mattered ("password") is the answer itself,
+    # and goes first; the rest after the pages and lessons (`rouh/first_steps.py`, search_settings).
+    first = [row for row in settings if row.pop("whole", False)]
+    return first + out + lesson_lines(query, switch_on) + [row for row in settings if row not in first]
+
+
+def setting_lines(query: str, switch_on) -> list[dict]:
+    """The cards of Anatomy's sections a search names, as rows, while their switch is on
+    (`rouh/first_steps.py`, search_settings): "password" finds the Password card of Your account."""
+    try:
+        from . import first_steps
+
+        found = first_steps.settings(query, switch_on)
+    except Exception:
+        log.exception("Anatomy's cards could not be searched for %r", query)
+        return []
+    return [{
+        "type": "setting", "id": f"{c['section']}#{c['card']}", "title": c["head"], "label": "",
+        "snippet": f"Setting, in {c['page']}" + (f" - {c['help']}" if c["help"] else ""),
+        "at": 0, "open": {"how": "setting", "route": c["route"], "card": c["card"]},
+        "url": c["route"], "actions": ["open", "tab"],
+        "words": first_steps.what_matters(re.findall(r"[a-z0-9]+", str(query or "").lower())),
+        "whole": bool(c.get("whole")),
+    } for c in found]
 
 
 def lesson_lines(query: str, switch_on) -> list[dict]:
