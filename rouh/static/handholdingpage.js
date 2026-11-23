@@ -510,7 +510,9 @@
       var hay = [l.title, l.tag || '', l.outcome, (l.summary || []).join(' '), x.stage.title, x.stage.topics || '',
                  (l.says || []).join(' '), (l.parts || []).map(function (p) { return p.name + ' ' + p.text; }).join(' '),
                  howSteps(l).map(function (h) { return typeof h === 'string' ? h : h.text; }).join(' '),
-                 (l.keys || []).map(function (r) { return r.join(' '); }).join(' ')].join(' ').toLowerCase();
+                 (l.keys || []).map(function (r) { return r.join(' '); }).join(' '),
+                 (l.points || []).map(function (p) { return p.text; }).join(' '), (l.closing || []).join(' '),
+                 (l.sections || []).map(function (c) { return [c.title].concat(c.text || [], c.after || [], (c.swatches || []).map(function (w) { return w.words; })).join(' '); }).join(' ')].join(' ').toLowerCase();
       return words.every(function (w) { return hay.indexOf(w) >= 0; });
     }).sort(function (a, b) {
       // A tip whose own title has the words comes before one that only mentions them.
@@ -803,6 +805,57 @@
     return li;
   }
 
+  /** A tip's numbered points, each in its own words; a point another tip covers in detail links its phrase there. */
+  function pointsList(l) {
+    var ol = el('ol', 'hh-points');
+    l.points.forEach(function (pt, i) {
+      var li = k(el('li'), 'point-' + i);
+      var to = pt.see ? find(pt.see) : null;
+      var at = to && pt.phrase ? pt.text.indexOf(pt.phrase) : -1;
+      if (at < 0) {
+        li.appendChild(document.createTextNode(pt.text));
+      } else {
+        li.appendChild(document.createTextNode(pt.text.slice(0, at)));
+        li.appendChild(link(lessonHref(to.lesson.id, 'lesson-' + l.id), pt.phrase, 'hh-link', true));
+        li.appendChild(document.createTextNode(pt.text.slice(at + pt.phrase.length)));
+      }
+      ol.appendChild(li);
+    });
+    return ol;
+  }
+
+  /** The marks of the orb's twigs, drawn, never a character a font may not have. */
+  var SHAPES = {
+    chevron: '<path d="M9 6l6 6-6 6"/>',
+    square: '<rect x="6" y="6" width="12" height="12"/>',
+    triangle: '<path d="M12 5l7 13H5z" fill="currentColor"/>',
+    bars: '<path d="M9 5v14M15 5v14"/>',
+    cross: '<path d="M6 6l12 12M18 6L6 18"/>',
+    dot: '<circle cx="12" cy="12" r="3" fill="currentColor"/>',
+    diamond: '<path d="M12 4l8 8-8 8-8-8z"/>',
+    ring: '<circle cx="12" cy="12" r="6"/>',
+    filled: '<rect x="6" y="6" width="12" height="12" fill="currentColor"/>'
+  };
+  /** A legend: each colour as a short line with its mark, and what it stands for. */
+  function swatchList(rows, label) {
+    var ul = el('ul', 'hh-swatches');
+    if (label) { ul.setAttribute('aria-label', label); }
+    rows.forEach(function (r) {
+      var li = el('li');
+      var sw = el('span', 'hh-swatch' + (r.dashed ? ' dashed' : ''));
+      sw.setAttribute('aria-hidden', 'true');
+      sw.style.setProperty('--sw', r.color);
+      var mk = el('span', 'hh-swatch-mark');
+      mk.style.color = r.color;
+      if (SHAPES[r.mark]) { mk.appendChild(glyph(SHAPES[r.mark], 14)); }
+      sw.appendChild(mk);
+      li.appendChild(sw);
+      li.appendChild(el('span', 'hh-swatch-t', r.words));
+      ul.appendChild(li);
+    });
+    return ul;
+  }
+
   /** A tip's table of keys: what to press, and what it does. */
   function keysTable(rows) {
     var box = el('div', 'hh-keys-box');
@@ -986,6 +1039,17 @@
     wrap.appendChild(head);
     var used = {};
     (l.summary || []).forEach(function (s) { wrap.appendChild(rich('p', 'hh-para', s, l.id, used)); });
+    if (l.points && l.points.length) { wrap.appendChild(pointsList(l)); }
+    // A tip in sections, each a heading, its words, a picture and a legend of colours and marks.
+    (l.sections || []).forEach(function (sc, i) {
+      var h = k(el('h4', 'hh-h2', sc.title), 'section-' + i);
+      wrap.appendChild(h);
+      (sc.text || []).forEach(function (t) { wrap.appendChild(rich('p', 'hh-para', t, l.id, used)); });
+      if (sc.image) { wrap.appendChild(picture(sc.image, 'hh-secfig', true)); }
+      if (sc.swatches && sc.swatches.length) { wrap.appendChild(swatchList(sc.swatches, sc.swatches_label)); }
+      (sc.after || []).forEach(function (t) { wrap.appendChild(rich('p', 'hh-para', t, l.id, used)); });
+    });
+    (l.closing || []).forEach(function (c) { wrap.appendChild(el('p', 'hh-para', c)); });
     if (l.keys && l.keys.length) { wrap.appendChild(keysTable(l.keys)); }
     var feat = l.feature ? (content().features || []).filter(function (f) { return f.id === l.feature; })[0] : null;
     if (feat) { wrap.appendChild(featurePanel(feat)); }

@@ -41,7 +41,8 @@
   "stripe": "payments",
   "conn-cloudflare": "cloudflare",
   "cloudflare-use": "cloudflare",
-  "pro-stop": "stop"
+  "pro-stop": "stop",
+  "pro-orb": "orb"
  },
  "old_lessons": {
   "talking": "talk",
@@ -82,7 +83,7 @@
    "lesson": "silos"
   },
   "orb": {
-   "means": "The orb is the round button in the bottom-left corner: the live picture of what Rouh is doing, and on a phone the button that opens the menu.",
+   "means": "The orb is the round button in the bottom-left corner: the live picture of what Rouh is doing, and the button that opens the menu.",
    "lesson": "orb"
   },
   "canvas": {
@@ -132,7 +133,7 @@
     {
      "id": "what-is-rouh",
      "title": "What Rouh is",
-     "outcome": "After this you know the parts of Rouh and what each does for you.",
+     "outcome": "After this you know what Rouh is and why it is different from every other assistant.",
      "minutes": 3,
      "cover": {
       "src": "handholding/orb-tentacles.webp",
@@ -141,193 +142,333 @@
       "h": 828
      },
      "summary": [
-      "Rouh is one assistant you talk to the way you would talk to a person. The same Rouh reads your mail, keeps your calendar, runs work in the background and remembers what you teach it.",
-      "The picture is Rouh's orb: the white core is this machine, and each tentacle is work running right now. Below are the eight parts Rouh works with. You do not need to learn them first: each tip on your path shows one when you need it."
+      "Rouh is a cutting edge experimental AI that has all the standard capabilities of AI assistants, but is much more than that - it feels and behaves like a living thing and acts like your avatar to augment your capabilities and reach.",
+      "The major difference between Rouh and everything else is that rouh's code is not fixed. You can ask it to change in any way and acquire any capability and it will. By observing your actions and data, Rouh also self-evolves on its own with new features and modifications to support you in your goals.",
+      "So Rouh evolves constantly, you evolve because you become more capable thanks to its help and therefore you are in a continuous co-evolution setup together. This setup where the software you use is not fixed but continuously evolves may be a bit awkward at first but once you use it, you will find there is no other way forwards - both personally and in an organization.",
+      "A couple more things are worth mentioning now, and will be explained in detail in other tips:"
+     ],
+     "how": [],
+     "glyph": "spark",
+     "points": [
+      {
+       "text": "Rouh has a very special memory setup (The Synapse), where it remembers everything and everything is connected. As a result, after a while it feels like a person and the answers are astonishingly relevant. To make this work, you need a special service that costs you about $1-5/mo depending on the usage.",
+       "phrase": "The Synapse",
+       "see": "synapse"
+      },
+      {
+       "text": "Rouh.land is the motherland. While your Rouh can be fully independent and disconnected, it is much better if it connects with the rouh.land service. It is free and has a number of benefits such as extra security, updates, sharing securely your collaborative work, shared pool of features to steal functionalities (known as Gene Pool), cost optimization updates. A connected rouh is a much more powerful and capable rouh."
+      },
+      {
+       "text": "Rouhs can collaborate on tasks live. And you can be part of that or watch them."
+      },
+      {
+       "text": "Rouh has a special Task system where your work is organized. You will see how this is much more useful than scattered documents and chats to which you are used.",
+       "phrase": "Task system",
+       "see": "task"
+      }
+     ],
+     "closing": [
+      "There are plenty of innovations and things you haven't seen, each making you more powerful and more capable in completing whatever tasks you decide.",
+      "Remember - the current Rouh is just your starting blank canvas. Everybody's Rouh is different and it starts evolving the moment it is born. There is no limit."
+     ]
+    },
+    {
+     "id": "machine",
+     "title": "Rouh lives on its own machine",
+     "outcome": "After this you know why Rouh runs on a computer of its own, and what that computer needs.",
+     "minutes": 2,
+     "summary": [
+      "Rouh runs on one computer of its own, not inside your browser. The browser, on a desk or a phone, is a window onto it."
+     ],
+     "how": [
+      "It stays on. The heartbeat, Clockwork and the night jobs run on that machine while you are away. Work that falls due while it is off or asleep waits until it is back.",
+      "It keeps its own data there: the database, your workspace (a private git repository of its own), its own code, and nightly copies of the database.",
+      "It changes its own code there. Every change goes through its protected core, which Rouh itself cannot change, and can be undone.",
+      "It is not an administrator of that machine. Its parts run in locked-down containers, and its work reaches the rest of the machine only when you allow it on Permissions.",
+      "It installs on Linux (Ubuntu and Debian are tested): a server you reach over SSH, a desktop, or a virtual machine, on Intel or Arm. Rouh for Mac runs it on a Mac.",
+      "The installer asks for at least 2 cores, 4 GB of memory and 15 GB of free disk, and 4 cores, 8 GB and 64 GB to run well.",
+      "The rings round the orb show that machine: its storage, its CPU and its memory."
+     ],
+     "see": "restricted",
+     "glyph": "server"
+    },
+    {
+     "id": "relay",
+     "title": "Reach your Rouh from anywhere",
+     "outcome": "After this you can open your Rouh on any computer or phone, and know what is open to the internet.",
+     "minutes": 2,
+     "summary": [
+      "Your Rouh's machine can sit behind a home router with nothing opened to the internet. A Rouh connected to rouh.land gets its own address, https://its-name.rouh.page, through rouh.land's relay, from the moment it is born."
+     ],
+     "how": [
+      "The machine dials out to the relay and keeps that line open, so no port, domain or router setting is needed.",
+      "Find the address in the menu: Anatomy, Your Rouh, under Your Rouh's URL. The first start shows it too.",
+      "Open it on any computer or phone and sign in: type your email and press Continue with email. Rouh then offers your passkey, or emails you a link and a six-digit code, or asks for your password.",
+      "On a phone the quickest way is the code: on your computer press Show sign-in code under Your Rouh's URL, and scan it with the phone's camera. It works once, for ten minutes.",
+      "The connection stays locked from your browser to your machine: the relay passes it on by its name and cannot read it. Only the web app is reachable that way, and every page needs a sign-in.",
+      "To take access away: Turn off, under Your Rouh's URL, stops phones reaching it. Sign out, under Anatomy, You, Your account, ends this browser, and changing your password signs out every browser.",
+      "Nobody else has an account on your Rouh: you share single tasks instead. A Rouh not connected to rouh.land has no address and opens nothing to the internet."
+     ],
+     "see": "shared",
+     "open": {
+      "label": "Your Rouh",
+      "href": "/anatomy/your-rouh"
+     },
+     "glyph": "network"
+    },
+    {
+     "id": "orb",
+     "title": "The Orb: The most important button",
+     "outcome": "After this you can open the menu with the orb, read how busy this machine is, and see every piece of work Rouh is doing.",
+     "minutes": 3,
+     "summary": [
+      "The orb is the round button in the bottom-left corner. It is the menu button, a gauge of the machine Rouh runs on, and a live picture of everything Rouh is doing."
+     ],
+     "sections": [
+      {
+       "title": "The orb as a button",
+       "text": [
+        "Press it once: the menu opens from the left, with every part of Rouh. The orb becomes a row at the foot of the menu: a cross, Close menu, and beside it a slim view of the orb, Open the orb.",
+        "Press and hold it for half a second to open the orb over the whole screen straight away.",
+        "While Rouh is at rest, with nothing running, it shows three lines, the sign of a menu, with its rings still round it. The moment Rouh answers or starts work, the live picture comes back.",
+        "Drag it, or flick it. While you hold it, it follows your finger or mouse anywhere; let go and it settles at the bottom left or the bottom right. It stays on that side in this browser until you drag it back. With the orb in focus, the left and right arrow keys move it too.",
+        "It works the same at every width. On a phone it sits a little higher, above the message box. The menu always opens from the left, whichever side the orb is on."
+       ],
+       "image": {
+        "src": "handholding/orb-menu.webp",
+        "alt": "The foot of the open menu: the orb has become a row, with the cross that closes the menu and a slim view of the orb beside it.",
+        "w": 680,
+        "h": 420,
+        "cut": true,
+        "marks": [
+         {
+          "n": 1,
+          "x": 12.9,
+          "y": 28.6,
+          "label": "Close menu"
+         },
+         {
+          "n": 2,
+          "x": 48.2,
+          "y": 28.6,
+          "label": "Open the orb over the whole screen"
+         }
+        ]
+       }
+      },
+      {
+       "title": "The rings: this machine",
+       "text": [
+        "The coloured rings round the small orb show the machine Rouh runs on, read every three seconds. Each is an arc from twelve o'clock, as long as its share. From the outside in:",
+        "Storage: light grey, amber from 65% used, red above 80%.",
+        "CPU: green, amber from 50% busy, red above 70%.",
+        "Memory: baby blue, purple from half used, red from three quarters.",
+        "When something is waiting on you, the faint edge round them turns red. Point at a ring with the mouse to read it, such as CPU of this machine: 12% busy. Over the whole screen the same numbers sit in the bottom-right corner: cpu, proc, ram and disk."
+       ],
+       "image": {
+        "src": "handholding/orb-rings.webp",
+        "alt": "The small orb with work running: the storage, CPU and memory rings on its right, and its edge red because something waits on you.",
+        "w": 360,
+        "h": 376,
+        "cut": true,
+        "marks": [
+         {
+          "n": 1,
+          "x": 81.2,
+          "y": 55.6,
+          "label": "Storage"
+         },
+         {
+          "n": 2,
+          "x": 73.5,
+          "y": 34.6,
+          "label": "CPU"
+         },
+         {
+          "n": 3,
+          "x": 59.1,
+          "y": 26.8,
+          "label": "Memory"
+         },
+         {
+          "n": 4,
+          "x": 13.8,
+          "y": 50.0,
+          "label": "The edge: red while something waits on you"
+         }
+        ]
+       },
+       "after": [
+        "The core in the middle is this machine too. Drawn in 3D it is a white light with a halo: turquoise-white while work runs, red while something waits on you. Where a browser cannot draw in 3D, a flat orb is drawn instead; its three thin crossing rings and the slow breathing ring round the core say only whether Rouh is idle, working or waiting on you, not the machine's numbers."
+       ]
+      },
+      {
+       "title": "The tentacles: work running now",
+       "text": [
+        "Every piece of work Rouh is doing grows out of the core. Here is the orb over the whole screen while work runs."
+       ],
+       "image": {
+        "src": "handholding/orb-work.webp",
+        "alt": "The orb over the whole screen while work runs: turquoise branches out of the core with coloured twigs, Rouh's own pale branch, a red dashed branch marked NEEDS YOU, and a finished branch fading.",
+        "w": 900,
+        "h": 1188,
+        "marks": [
+         {
+          "n": 1,
+          "x": 42.1,
+          "y": 43.3,
+          "label": "A background job: a turquoise branch out of the core"
+         },
+         {
+          "n": 2,
+          "x": 36.8,
+          "y": 18.3,
+          "label": "A helper inside the job: a thinner turquoise branch off it"
+         },
+         {
+          "n": 3,
+          "x": 41.2,
+          "y": 23.3,
+          "label": "A tool call: a short coloured twig, longer the longer it ran"
+         },
+         {
+          "n": 4,
+          "x": 27.9,
+          "y": 75.9,
+          "label": "Rouh's own answer: a branch in the core's pale colour"
+         },
+         {
+          "n": 5,
+          "x": 68.3,
+          "y": 79.3,
+          "label": "Waiting on you: red and dashed, with a square and NEEDS YOU"
+         },
+         {
+          "n": 6,
+          "x": 63.8,
+          "y": 53.4,
+          "label": "Finished work: fades, holds at half, turns to a grey trace, then goes"
+         }
+        ]
+       },
+       "swatches_label": "What each twig colour means",
+       "swatches": [
+        {
+         "color": "#ffd064",
+         "mark": "chevron",
+         "words": "Web search"
+        },
+        {
+         "color": "#ff994d",
+         "mark": "square",
+         "words": "Reading a web page"
+        },
+        {
+         "color": "#69dfa1",
+         "mark": "triangle",
+         "words": "Running code"
+        },
+        {
+         "color": "#aa8aff",
+         "mark": "bars",
+         "words": "A shell command"
+        },
+        {
+         "color": "#f875d5",
+         "mark": "cross",
+         "words": "Editing a file"
+        },
+        {
+         "color": "#bac5d8",
+         "mark": "dot",
+         "words": "Reading a file"
+        },
+        {
+         "color": "#729dff",
+         "mark": "diamond",
+         "words": "A connector or service, such as mail or the calendar"
+        },
+        {
+         "color": "#8993a7",
+         "mark": "ring",
+         "words": "Anything else"
+        },
+        {
+         "color": "#ff3655",
+         "mark": "filled",
+         "words": "Waiting on you: NEEDS YOU",
+         "dashed": true
+        }
+       ],
+       "after": [
+        "In 3D the marks show in the tip that appears when you point at a twig, and on its card; the flat orb draws them at the twig's tip.",
+        "No lines means nothing is running: only the core is there."
+       ]
+      },
+      {
+       "title": "Opening the orb over the whole screen",
+       "text": [
+        "Open it three ways: press and hold the small orb; press the orb and then Open the orb in the menu; or ask Rouh, Show me the orb.",
+        "Over the whole screen, point at any part, the core included, to see what it is, and press it to open its card: This machine, A background job, A helper inside a job, A tool call, or Rouh itself. Drag to turn it; R brings it back to the whole view.",
+        "At the top right are What the models cost, Sound, Orb settings and the cross, which puts the orb back in its corner. Escape does the same, one step at a time, and so does any new card arriving on the canvas. Or ask Rouh, Put the orb away."
+       ]
+      }
+     ],
+     "how": [],
+     "glyph": "orb",
+     "talk": true
+    },
+    {
+     "id": "layout",
+     "title": "Find your way round the screen",
+     "outcome": "After this you know the four parts of Rouh's screen, and what each word for them means.",
+     "minutes": 2,
+     "cover": {
+      "src": "handholding/canvas.webp",
+      "alt": "Rouh's screen at a desk: the conversation on the left and the content space, the canvas, on the right.",
+      "w": 1000,
+      "h": 625
+     },
+     "summary": [
+      "Rouh's screen has four parts, and every tip after this one names them. Here is what each is called and what it is for."
      ],
      "how": [],
      "parts": [
       {
-       "name": "Your screen",
-       "text": "The chat is where you and Rouh talk. The canvas beside it is where Rouh puts pages, tables and pictures. The orb, the small circle in the bottom-left corner, is a live picture of what Rouh is doing.",
+       "name": "The conversation",
+       "text": "Where you and Rouh talk, with the message box at the bottom. Type or speak there; Rouh answers there.",
        "open": {
         "label": "Talk to Rouh",
         "lesson": "talk"
        }
       },
       {
-       "name": "Your workspace",
-       "text": "Everything you work on is a task with steps inside it. Every task has a number, like 58, and its steps 58‑01, 58‑02. The number is why it matters: it is the short name you and Rouh both use, so “open 58” or “carry on with 58‑02” finds exactly that one, even among hundreds, and you never have to describe it again. 58‑02 means task 58, step 2.",
+       "name": "The canvas, Rouh's content space",
+       "text": "The wide space beside the conversation, where Rouh shows what is easier to see than to read: a page, a table, a plan, a picture. When a tip says the canvas, it means this space.",
        "open": {
-        "label": "Task browser",
-        "href": "/tasks"
+        "label": "Use the canvas",
+        "lesson": "canvas"
        }
       },
       {
-       "name": "Background work",
-       "text": "When something takes real work, Rouh hands it to an assistant that works in the background while you carry on. Metabolism lists every piece of it.",
+       "name": "The orb, which is also the menu button",
+       "text": "The round button in the bottom-left corner: press it for the menu with every part of Rouh. When a tip says open the menu, press the orb.",
        "open": {
-        "label": "Metabolism",
-        "href": "/metabolism"
+        "label": "The Orb",
+        "lesson": "orb"
        }
       },
       {
-       "name": "Memory",
-       "text": "Rules say how Rouh must always or never act, Vocabulary holds your own words, Thoughts keeps your ideas, and Boxes hold secrets the AI never sees.",
-       "open": {
-        "label": "Rules",
-        "href": "/rules"
-       }
-      },
-      {
-       "name": "Time",
-       "text": "Clockwork holds everything Rouh will say or do at a time, once or on repeat. Goals are things you want to reach, with a plan Rouh writes.",
-       "open": {
-        "label": "Clockwork",
-        "href": "/clockwork"
-       }
-      },
-      {
-       "name": "Decisions",
-       "text": "Whenever Rouh needs your answer, the question lands in one list, Decisions, with the answer Rouh recommends.",
-       "open": {
-        "label": "Decisions",
-        "href": "/decisions"
-       }
-      },
-      {
-       "name": "Trusted people",
-       "text": "The people Rouh may answer and act for when they write to it, each with what they may ask.",
-       "open": {
-        "label": "Trusted contacts",
-        "href": "/anatomy/behaviour/trusted-contacts"
-       }
-      },
-      {
-       "name": "Safety",
-       "text": "Anything that sends, shares, publishes, pays or deletes stops and asks you first. Text from outside, such as an email, is read as information and never obeyed. The Security topic shows all of it.",
-       "open": {
-        "label": "Security tips",
-        "lesson": "gates"
-       }
+       "name": "The buttons at the top",
+       "text": "Small round buttons at the top of each page, such as a plus to add something, a magnifying glass to search, and a speech bubble that brings the conversation back. Point at one, or hold it, to see its name."
       }
      ],
-     "glyph": "spark"
-    },
-    {
-     "id": "orb",
-     "title": "The orb: your menu button",
-     "outcome": "After this you know what the round button in the corner is, how it opens the menu, and how to read it.",
-     "minutes": 2,
-     "cover": {
-      "src": "handholding/orb-corner.webp",
-      "alt": "The bottom-left corner of the screen, with the orb: a small round circle with rings round it.",
-      "w": 640,
-      "h": 380
-     },
-     "summary": [
-      "The orb is the small circle in the bottom-left corner of the screen. It sits over the menu when the menu is open, and over the page beside it when the menu is closed. It is a live picture of everything Rouh is doing, and it is also the button that opens the menu. On a phone, while Rouh is at rest, it shows three lines, the sign of a menu; the moment Rouh answers or starts work, the live picture comes back."
-     ],
-     "how": [
-      {
-       "text": "Find the orb: the small round circle in the bottom-left corner. The rings round it are how busy the machine is.",
-       "image": {
-        "src": "handholding/orb-corner.webp",
-        "alt": "The bottom-left corner of the screen, numbered: the orb, and the message box beside it.",
-        "w": 640,
-        "h": 380,
-        "marks": [
-         {
-          "n": 1,
-          "x": 6.7,
-          "y": 60.8,
-          "label": "The orb"
-         }
-        ]
-       }
-      },
-      {
-       "text": "Press the orb once: the menu opens from the left, with every part of Rouh. The orb turns into a cross; press it again to close the menu.",
-       "image": {
-        "src": "handholding/orb-menu.webp",
-        "alt": "The menu open, numbered: the cross that closes it, the dark bar that opens the orb, and the groups of the menu.",
-        "w": 640,
-        "h": 620,
-        "marks": [
-         {
-          "n": 1,
-          "x": 6.7,
-          "y": 76.0,
-          "label": "Close the menu"
-         },
-         {
-          "n": 2,
-          "x": 26.6,
-          "y": 76.0,
-          "label": "Open the orb over the whole screen"
-         },
-         {
-          "n": 3,
-          "x": 5.3,
-          "y": 10.2,
-          "label": "The groups of the menu"
-         }
-        ]
-       }
-      },
-      "To open the orb over the whole screen, press and hold the circle, or open the menu and press the dark bar beside the cross.",
-      {
-       "text": "Over the whole screen, each branch is a piece of work going on, and a branch marked Needs you is waiting on you: press it to see why. With nothing running, it is a single calm light.",
-       "image": {
-        "src": "handholding/orb-open.webp",
-        "alt": "The orb open over the whole screen, with nothing running: one light in the middle, and its controls at the top right.",
-        "w": 1000,
-        "h": 625,
-        "marks": [
-         {
-          "n": 1,
-          "x": 97,
-          "y": 4,
-          "label": "Put the orb back in its corner"
-         }
-        ]
-       }
-      },
-      "Press the cross at the top right, or Escape, to put it back in its corner.",
-      "If the orb covers words you want to read, drag it to the right side of the screen, or flick it there. It stays on that side until you drag it back."
-     ],
      "says": [
-      "What are you working on right now?",
-      "Is anything waiting on me?"
+      "What is on my screen right now?",
+      "Open the menu for me."
      ],
      "talk": true,
-     "glyph": "orb"
-    },
-    {
-     "id": "pro-orb",
-     "title": "Read the orb's colours",
-     "outcome": "After this you can read at a glance what Rouh is doing and how busy the machine is.",
-     "minutes": 1,
-     "tag": "Pro tip",
-     "cover": {
-      "src": "handholding/orb-corner.webp",
-      "alt": "The bottom-left corner of the screen, with the orb: a small round circle with rings round it.",
-      "w": 640,
-      "h": 380
-     },
-     "summary": [
-      "A branch marked NEEDS YOU is waiting on you. The rings round the orb are the machine: storage, then CPU, then memory, each green or grey while there is room, amber when busy, red when too busy."
-     ],
-     "how": [
-      "Look for a branch marked NEEDS YOU: that work is waiting on you.",
-      "Read the rings round the orb from the outside in: storage, then CPU, then memory.",
-      "Green or grey means there is room, amber busy, red too busy."
-     ],
-     "says": [
-      "What are you working on right now?"
-     ],
-     "see": "orb",
-     "talk": true,
-     "glyph": "orb"
+     "glyph": "layout"
     }
    ],
    "topics": "What Rouh is, and the orb: your menu and what Rouh is doing"
@@ -368,7 +509,7 @@
      ],
      "how": [
       {
-       "text": "At the top of an answer, the closed line names the model and ends with the time it took and its cost. Press the line to open it: each step has its own time and cost.",
+       "text": "At the top of an answer, a small grey line ends with the time it took and its cost. The tip Read the line above an answer says what opening it shows.",
        "image": {
         "src": "handholding/cost-answer.webp",
         "alt": "One answer in the chat, numbered: its time and cost at the top, the Cheaper and Smart buttons, and the tokens and cost under it.",
@@ -398,12 +539,12 @@
        }
       },
       "Under the answer, a small grey line counts the tokens in and out, how many requests it took, how much came from the cache, and the cost. Under a cent it shows cents, such as 0.42c.",
-      "Cheaper and Smart, at the right of the top line, answer the same again on the other tier.",
       "In Chat Options, Last message says how many tokens the last turn sent, and how many came from the cache."
      ],
      "talk": true,
      "glyph": "reply",
-     "id": "cost-answer"
+     "id": "cost-answer",
+     "see": "answer-line"
     },
     {
      "title": "Open What the models cost",
@@ -973,58 +1114,6 @@
      "glyph": "send"
     },
     {
-     "id": "layout",
-     "title": "Find your way round the screen",
-     "outcome": "After this you know the four parts of Rouh's screen, and what each word for them means.",
-     "minutes": 2,
-     "cover": {
-      "src": "handholding/canvas.webp",
-      "alt": "Rouh's screen at a desk: the conversation on the left and the content space, the canvas, on the right.",
-      "w": 1000,
-      "h": 625
-     },
-     "summary": [
-      "Rouh's screen has four parts, and every tip after this one names them. Here is what each is called and what it is for."
-     ],
-     "how": [],
-     "parts": [
-      {
-       "name": "The conversation",
-       "text": "Where you and Rouh talk, with the message box at the bottom. Type or speak there; Rouh answers there.",
-       "open": {
-        "label": "Talk to Rouh",
-        "lesson": "talk"
-       }
-      },
-      {
-       "name": "The canvas, Rouh's content space",
-       "text": "The wide space beside the conversation, where Rouh shows what is easier to see than to read: a page, a table, a plan, a picture. When a tip says the canvas, it means this space.",
-       "open": {
-        "label": "Use the canvas",
-        "lesson": "canvas"
-       }
-      },
-      {
-       "name": "The orb, which is also the menu button",
-       "text": "The round button in the bottom-left corner. It is a live picture of what Rouh is doing, and pressing it opens the menu with every part of Rouh. When a tip says open the menu, press the orb.",
-       "open": {
-        "label": "The orb",
-        "lesson": "orb"
-       }
-      },
-      {
-       "name": "The buttons at the top",
-       "text": "Small round buttons at the top of each page, such as a plus to add something, a magnifying glass to search, and a speech bubble that brings the conversation back. Point at one, or hold it, to see its name."
-      }
-     ],
-     "says": [
-      "What is on my screen right now?",
-      "Open the menu for me."
-     ],
-     "talk": true,
-     "glyph": "layout"
-    },
-    {
      "id": "canvas",
      "title": "Use the canvas, the space where pages appear",
      "outcome": "After this you know where pages, tables and pictures appear, and how to change them.",
@@ -1081,7 +1170,8 @@
      ],
      "detect": "artifact",
      "talk": true,
-     "glyph": "canvas"
+     "glyph": "canvas",
+     "see": "layout"
     },
     {
      "id": "pro-revise",
@@ -1629,8 +1719,8 @@
      ],
      "how": [
       "Open the menu, then Anatomy, then Your Rouh.",
-      "Under Your Rouh's URL, press Get its URL, then Turn on URL.",
-      "Press Show sign-in code, open the address on your phone and sign in. Add it to your home screen if you like.",
+      "Your Rouh's URL is on from birth. If it says Off, press Turn on URL.",
+      "Press Show sign-in code and scan it with your phone's camera: it signs you in once, for ten minutes. Then use Share, Add to Home Screen, to keep it like an app.",
       "On the phone, the chat and the canvas take turns, and the orb in the bottom-left corner opens the menu, as on a desk."
      ],
      "says": [
@@ -1646,7 +1736,8 @@
      },
      "talk": true,
      "glyph": "phone",
-     "tag": "Setup"
+     "tag": "Setup",
+     "see": "relay"
     },
     {
      "id": "telegram",
@@ -2436,7 +2527,7 @@
       "Two places say what Rouh is busy with: the orb, which draws each piece of work as a branch, and Metabolism, which lists every run."
      ],
      "how": [
-      "Open the orb over the whole screen (see Read the orb): each branch is work going on.",
+      "Open the orb over the whole screen (see The Orb: The most important button): each branch is work going on.",
       "Or open Metabolism (menu, Evolution) for the list of runs, newest first.",
       "Or just ask."
      ],
@@ -3531,12 +3622,6 @@
      "outcome": "After this you know how to ask Rouh for an ability it does not have yet.",
      "minutes": 1,
      "tag": "Pro tip",
-     "cover": {
-      "src": "handholding/gene-therapy.webp",
-      "alt": "Gene therapy open beside the chat: How would you like to mutate me?, with a box and Mutate.",
-      "w": 1000,
-      "h": 562
-     },
      "summary": [
       "If Rouh cannot do something you want, say improve yourself so, and it grows the ability as a gene."
      ],
@@ -3706,7 +3791,8 @@
   "keys": "<rect x=\"2.5\" y=\"6\" width=\"19\" height=\"12\" rx=\"2\"/><path d=\"M6 10h1M9.5 10h1M13 10h1M16.5 10h1M7.5 14h9\"/>",
   "incognito": "<path d=\"M3 11h18M6 11l1.5-5h9L18 11\"/><circle cx=\"7.5\" cy=\"16\" r=\"2.5\"/><circle cx=\"16.5\" cy=\"16\" r=\"2.5\"/><path d=\"M10 16h4\"/>",
   "coins": "<ellipse cx=\"12\" cy=\"7\" rx=\"7\" ry=\"3\"/><path d=\"M5 7v5c0 1.7 3.1 3 7 3s7-1.3 7-3V7\"/><path d=\"M5 12v5c0 1.7 3.1 3 7 3s7-1.3 7-3v-5\"/>",
-  "chart": "<path d=\"M4 20V4M4 20h16\"/><path d=\"M8 16v-4M12 16V8M16 16v-6\"/>"
+  "chart": "<path d=\"M4 20V4M4 20h16\"/><path d=\"M8 16v-4M12 16V8M16 16v-6\"/>",
+  "server": "<rect x=\"4\" y=\"4\" width=\"16\" height=\"7\" rx=\"1.5\"/><rect x=\"4\" y=\"13\" width=\"16\" height=\"7\" rx=\"1.5\"/><path d=\"M8 7.5h.01M8 16.5h.01M12 7.5h5M12 16.5h5\"/>"
  },
  "without_chat_note": "A lesson whose things to say need the chat says so while the chat cannot answer (review 51, problem 372): its own `without_chat` words when it has them, else the way to its own page (`open`), else that it waits for the chat."
 }
