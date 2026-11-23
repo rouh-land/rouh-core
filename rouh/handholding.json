@@ -19,8 +19,8 @@
   "done": "You have done every tip on the path."
  },
  "talk_note": {
-  "lesson": "talk",
-  "text": "Say it in the message box at the bottom of the chat, typed or with the microphone. The answer appears in the chat; pages and tables appear on the canvas."
+  "text": "Say it in the message box at the bottom of the chat, typed or with the microphone. The answer appears in the chat; pages and tables appear on the canvas.",
+  "not_on": "talk"
  },
  "renamed": {
   "say-typed": "talk",
@@ -79,48 +79,37 @@
  "terms_note": "Words of Rouh's own, explained where they stand (review 49, problem 433). Petar, 22 November 2026: as a rule, a card's title and outcome never use a word a later tip teaches; say it in plain words. On a tip's page, the first time one of these words stands in a tip other than the one that teaches it, it can be pressed for what it means, and for the tip that teaches it.",
  "terms": {
   "silo": {
-   "means": "A silo is one part of your life, such as Work or Personal, kept apart from the others.",
-   "lesson": "silos"
+   "means": "A silo is one part of your life, such as Work or Personal, kept apart from the others."
   },
   "orb": {
-   "means": "The orb is the round button in the bottom-left corner: the live picture of what Rouh is doing, and the button that opens the menu.",
-   "lesson": "orb"
+   "means": "The orb is the round button in the bottom-left corner: the live picture of what Rouh is doing, and the button that opens the menu."
   },
   "canvas": {
-   "means": "The canvas is the space beside the chat where pages, tables and pictures appear.",
-   "lesson": "canvas"
+   "means": "The canvas is the space beside the chat where pages, tables and pictures appear."
   },
   "Clockwork": {
-   "means": "Clockwork is where Rouh keeps your reminders and the work it does on repeat.",
-   "lesson": "reminder"
+   "means": "Clockwork is where Rouh keeps your reminders and the work it does on repeat."
   },
   "heartbeat": {
-   "means": "The heartbeat is the work Rouh does by itself, on a schedule, without being asked.",
-   "lesson": "heartbeat"
+   "means": "The heartbeat is the work Rouh does by itself, on a schedule, without being asked."
   },
   "Synapse": {
-   "means": "Synapse is Rouh's memory: what it knows about people, places and your work, and where it learned it.",
-   "lesson": "synapse"
+   "means": "Synapse is Rouh's memory: what it knows about people, places and your work, and where it learned it."
   },
   "Anatomy": {
-   "means": "Anatomy is the group of the menu with Rouh's own settings: what it is made of and how it behaves.",
-   "lesson": ""
+   "means": "Anatomy is the group of the menu with Rouh's own settings: what it is made of and how it behaves."
   },
   "Evolution": {
-   "means": "Evolution is where Rouh tries out new abilities, and you keep or reject them.",
-   "lesson": "evolution"
+   "means": "Evolution is where Rouh tries out new abilities, and you keep or reject them."
   },
   "Vocabulary": {
-   "means": "Vocabulary is where Rouh keeps your own words and nicknames, and what you mean by them.",
-   "lesson": "vocab"
+   "means": "Vocabulary is where Rouh keeps your own words and nicknames, and what you mean by them."
   },
   "Metabolism": {
-   "means": "Metabolism is the page that lists every piece of work Rouh is doing in the background, and what each one is doing now.",
-   "lesson": "running"
+   "means": "Metabolism is the page that lists every piece of work Rouh is doing in the background, and what each one is doing now."
   },
   "Boxes": {
    "means": "A box is a safe for a secret, such as a password: what you put in it is sealed, and the AI never sees it.",
-   "lesson": "box",
    "case": true
   }
  },
@@ -133,7 +122,6 @@
     {
      "id": "what-is-rouh",
      "title": "What Rouh is",
-     "outcome": "After this you know what Rouh is and why it is different from every other assistant.",
      "minutes": 3,
      "cover": {
       "src": "handholding/orb-tentacles.webp",
@@ -151,9 +139,7 @@
      "glyph": "spark",
      "points": [
       {
-       "text": "Rouh has a very special memory setup (The Synapse), where it remembers everything and everything is connected. As a result, after a while it feels like a person and the answers are astonishingly relevant. To make this work, you need a special service that costs you about $1-5/mo depending on the usage.",
-       "phrase": "The Synapse",
-       "see": "synapse"
+       "text": "Rouh has a very special memory setup (The Synapse), where it remembers everything and everything is connected. As a result, after a while it feels like a person and the answers are astonishingly relevant. To make this work, you need a special service that costs you about $1-5/mo depending on the usage."
       },
       {
        "text": "Rouh.land is the motherland. While your Rouh can be fully independent and disconnected, it is much better if it connects with the rouh.land service. It is free and has a number of benefits such as extra security, updates, sharing securely your collaborative work, shared pool of features to steal functionalities (known as Gene Pool), cost optimization updates. A connected rouh is a much more powerful and capable rouh."
@@ -162,9 +148,7 @@
        "text": "Rouhs can collaborate on tasks live. And you can be part of that or watch them."
       },
       {
-       "text": "Rouh has a special Task system where your work is organized. You will see how this is much more useful than scattered documents and chats to which you are used.",
-       "phrase": "Task system",
-       "see": "task"
+       "text": "Rouh has a special Task system where your work is organized. You will see how this is much more useful than scattered documents and chats to which you are used."
       }
      ],
      "closing": [
@@ -175,7 +159,6 @@
     {
      "id": "machine",
      "title": "Rouh lives on its own machine",
-     "outcome": "After this you know why Rouh runs on a computer of its own, and what that computer needs.",
      "minutes": 2,
      "summary": [
       "Rouh runs on one computer of its own, not inside your browser. The browser, on a desk or a phone, is a window onto it."
@@ -189,13 +172,11 @@
       "The installer asks for at least 2 cores, 4 GB of memory and 15 GB of free disk, and 4 cores, 8 GB and 64 GB to run well.",
       "The rings round the orb show that machine: its storage, its CPU and its memory."
      ],
-     "see": "restricted",
      "glyph": "server"
     },
     {
      "id": "relay",
      "title": "Reach your Rouh from anywhere",
-     "outcome": "After this you can open your Rouh on any computer or phone, and know what is open to the internet.",
      "minutes": 2,
      "summary": [
       "Your Rouh's machine can sit behind a home router with nothing opened to the internet. A Rouh connected to rouh.land gets its own address, https://its-name.rouh.page, through rouh.land's relay, from the moment it is born."
@@ -209,7 +190,6 @@
       "To take access away: Turn off, under Your Rouh's URL, stops phones reaching it. Sign out, under Anatomy, You, Your account, ends this browser, and changing your password signs out every browser.",
       "Nobody else has an account on your Rouh: you share single tasks instead. A Rouh not connected to rouh.land has no address and opens nothing to the internet."
      ],
-     "see": "shared",
      "open": {
       "label": "Your Rouh",
       "href": "/anatomy/your-rouh"
@@ -219,7 +199,6 @@
     {
      "id": "orb",
      "title": "The Orb: The most important button",
-     "outcome": "After this you can open the menu with the orb, read how busy this machine is, and see every piece of work Rouh is doing.",
      "minutes": 3,
      "summary": [
       "The orb is the round button in the bottom-left corner. It is the menu button, a gauge of the machine Rouh runs on, and a live picture of everything Rouh is doing."
@@ -421,7 +400,6 @@
     {
      "id": "layout",
      "title": "Find your way round the screen",
-     "outcome": "After this you know the four parts of Rouh's screen, and what each word for them means.",
      "minutes": 2,
      "cover": {
       "src": "handholding/canvas.webp",
@@ -436,27 +414,15 @@
      "parts": [
       {
        "name": "The conversation",
-       "text": "Where you and Rouh talk, with the message box at the bottom. Type or speak there; Rouh answers there.",
-       "open": {
-        "label": "Talk to Rouh",
-        "lesson": "talk"
-       }
+       "text": "Where you and Rouh talk, with the message box at the bottom. Type or speak there; Rouh answers there."
       },
       {
        "name": "The canvas, Rouh's content space",
-       "text": "The wide space beside the conversation, where Rouh shows what is easier to see than to read: a page, a table, a plan, a picture. When a tip says the canvas, it means this space.",
-       "open": {
-        "label": "Use the canvas",
-        "lesson": "canvas"
-       }
+       "text": "The wide space beside the conversation, where Rouh shows what is easier to see than to read: a page, a table, a plan, a picture. When a tip says the canvas, it means this space."
       },
       {
        "name": "The orb, which is also the menu button",
-       "text": "The round button in the bottom-left corner: press it for the menu with every part of Rouh. When a tip says open the menu, press the orb.",
-       "open": {
-        "label": "The Orb",
-        "lesson": "orb"
-       }
+       "text": "The round button in the bottom-left corner: press it for the menu with every part of Rouh. When a tip says open the menu, press the orb."
       },
       {
        "name": "The buttons at the top",
@@ -471,7 +437,7 @@
      "glyph": "layout"
     }
    ],
-   "topics": "What Rouh is, and the orb: your menu and what Rouh is doing"
+   "topics": "What Rouh is, its own machine, reaching it from anywhere, the orb, the screen"
   },
   {
    "id": "costs",
@@ -481,7 +447,6 @@
    "lessons": [
     {
      "title": "Who you pay, and for what",
-     "outcome": "After this you know the two ways Rouh is paid for: your API keys, and your plans.",
      "minutes": 2,
      "summary": [
       "Rouh never sends you a bill. You pay the AI companies directly, in two ways.",
@@ -496,20 +461,18 @@
      "says": [
       "Which of my keys are set up?"
      ],
-     "see": "cost-plans",
      "glyph": "coins",
      "id": "cost-who"
     },
     {
      "title": "See what one answer cost",
-     "outcome": "After this you can read the cost of every answer in the chat.",
      "minutes": 1,
      "summary": [
       "Every answer says what it cost, at its top and under it."
      ],
      "how": [
       {
-       "text": "At the top of an answer, a small grey line ends with the time it took and its cost. The tip Read the line above an answer says what opening it shows.",
+       "text": "At the top of an answer, a small grey line ends with the time it took and its cost.",
        "image": {
         "src": "handholding/cost-answer.webp",
         "alt": "One answer in the chat, numbered: its time and cost at the top, the Cheaper and Smart buttons, and the tokens and cost under it.",
@@ -543,12 +506,10 @@
      ],
      "talk": true,
      "glyph": "reply",
-     "id": "cost-answer",
-     "see": "answer-line"
+     "id": "cost-answer"
     },
     {
      "title": "Open What the models cost",
-     "outcome": "After this you can see what Rouh spent, on what, day by day.",
      "minutes": 2,
      "cover": {
       "src": "handholding/cost-screen.webp",
@@ -573,7 +534,6 @@
     {
      "id": "models",
      "title": "Choose which AI answers",
-     "outcome": "After this you know which model answers, and how to trade quality for cost.",
      "minutes": 2,
      "cover": {
       "src": "handholding/models.webp",
@@ -605,7 +565,6 @@
     {
      "id": "pro-switch-model",
      "title": "Trade quality for cost in a sentence",
-     "outcome": "After this you trade quality for cost with one sentence.",
      "minutes": 1,
      "tag": "Pro tip",
      "cover": {
@@ -624,13 +583,11 @@
      "says": [
       "Switch to Saver."
      ],
-     "see": "models",
      "talk": true,
      "glyph": "chip"
     },
     {
      "title": "Why models cost different amounts",
-     "outcome": "After this you know what makes one model dearer than another, and where to see it.",
      "minutes": 2,
      "summary": [
       "A model is priced per million tokens, words in and words out. A smarter model costs many times more for the same words. Rouh keeps two tiers: Cheaper, for easy work, and Smart, for the rest."
@@ -641,13 +598,11 @@
       "Words Rouh has read recently come from the cache, far cheaper than fresh ones. Rouh caches by itself; nothing to switch.",
       "Each use of a model in Rouh is on one of the tiers. They are listed on the Models page under Customise, Each use, each with why it starts where it does."
      ],
-     "see": "cost-screen",
      "glyph": "chip",
      "id": "cost-models"
     },
     {
      "title": "Run long work on your plans",
-     "outcome": "After this background work runs on your Claude or ChatGPT plan, not per use.",
      "minutes": 3,
      "tag": "Setup",
      "summary": [
@@ -665,7 +620,6 @@
     },
     {
      "title": "What background work costs",
-     "outcome": "After this you know what drives the cost of jobs, the heartbeat, quests and night work.",
      "minutes": 2,
      "summary": [
       "Work Rouh does while you are away uses model time too. What it costs depends on how often it runs, and whether it runs on a plan or a key."
@@ -681,13 +635,11 @@
       "What is running right now?",
       "What did the heartbeat spend today?"
      ],
-     "see": "heartbeat",
      "glyph": "activity",
      "id": "cost-background"
     },
     {
      "title": "What memory and long chats cost",
-     "outcome": "After this you know what remembering, searching and long chats cost.",
      "minutes": 2,
      "summary": [
       "Memory makes every answer a little dearer, because Rouh looks things up and sends what it found with your message. Long chats cost more for the same reason: the model reads them again each time."
@@ -698,13 +650,11 @@
       "At night, dreaming tidies memory with model calls, up to a spend cap. Synapse, Dreams shows each night's cost; Tune sets the cap.",
       "General sends only its newest messages and a short summary of the rest. Every other chat is sent whole each time, so a long chat costs more for every message. A new chat starts cheap again."
      ],
-     "see": "chat-options",
      "glyph": "words",
      "id": "cost-memory"
     },
     {
      "title": "Spend less",
-     "outcome": "After this you know the ways Rouh offers to spend less.",
      "minutes": 2,
      "summary": [
       "Every saving here is a setting Rouh really has. Pick the ones that fit how you work."
@@ -727,7 +677,6 @@
     },
     {
      "title": "Set a spending limit",
-     "outcome": "After this a runaway month cannot cost more than you set.",
      "minutes": 2,
      "summary": [
       "Rouh has caps for its own background work, but no cap on everything at once. The limit that holds for everything is the one you set with the AI company."
@@ -738,13 +687,11 @@
       "Inside Rouh: the heartbeat's daily cap, each quest's budget, and dreaming's cap a night.",
       "A card's caps on Anatomy, Money, Payments are for real purchases, which always wait for your yes. They are not model costs."
      ],
-     "see": "cost-background",
      "glyph": "shield",
      "id": "cost-limits"
     },
     {
      "title": "Bills Rouh does not show",
-     "outcome": "After this you know which costs you will only see on another company's bill.",
      "minutes": 1,
      "summary": [
       "Some services Rouh uses bill you on their own accounts, and Rouh does not count them."
@@ -770,7 +717,6 @@
      "id": "chat-setup",
      "title": "Set up the chat",
      "tag": "Setup",
-     "outcome": "After this the chat can answer you.",
      "minutes": 2,
      "summary": [
       "Rouh needs an AI service to answer in the chat. Until one is connected, the chat says Chat is not set up yet. Everything else in Rouh still works."
@@ -780,13 +726,11 @@
       "Follow what the Models page says for the AI company you choose. Each answer costs a little, usually a few cents.",
       "If someone else set up Rouh for you, ask them to do this."
      ],
-     "see": "models",
      "glyph": "plug"
     },
     {
      "id": "talk",
      "title": "Talk to Rouh",
-     "outcome": "After this you know where to type to Rouh, and where its answers appear.",
      "minutes": 2,
      "summary": [
       "Everything starts with a sentence. You type it in the message box at the bottom of the chat, or say it out loud. This is the one place you talk to Rouh: every tip after this one says what to say, and you say it here."
@@ -969,7 +913,6 @@
     {
      "id": "pro-one-breath",
      "title": "Ask for several things in one breath",
-     "outcome": "After this you can ask for several things in one message.",
      "minutes": 1,
      "tag": "Pro tip",
      "summary": [
@@ -988,7 +931,6 @@
     {
      "id": "voice",
      "title": "Talk by voice",
-     "outcome": "After this you can talk to Rouh with your hands free, and hear it answer.",
      "minutes": 2,
      "cover": {
       "src": "handholding/voice.webp",
@@ -1053,7 +995,6 @@
     {
      "id": "stop",
      "title": "Stop a turn",
-     "outcome": "After this you can stop Rouh in the middle of an answer, and you know what keeps going.",
      "minutes": 1,
      "cover": {
       "src": "handholding/talk.webp",
@@ -1096,7 +1037,6 @@
     {
      "id": "chat-steer",
      "title": "Add to your message while Rouh answers",
-     "outcome": "After this you can correct or add to a request without stopping Rouh.",
      "minutes": 1,
      "summary": [
       "You do not have to wait for an answer to finish. A message you send while Rouh is answering does not stop it: Rouh reads it at its next step and takes it into account."
@@ -1116,7 +1056,6 @@
     {
      "id": "canvas",
      "title": "Use the canvas, the space where pages appear",
-     "outcome": "After this you know where pages, tables and pictures appear, and how to change them.",
      "minutes": 2,
      "cover": {
       "src": "handholding/canvas.webp",
@@ -1170,13 +1109,11 @@
      ],
      "detect": "artifact",
      "talk": true,
-     "glyph": "canvas",
-     "see": "layout"
+     "glyph": "canvas"
     },
     {
      "id": "pro-revise",
      "title": "Change a card, do not ask for a new one",
-     "outcome": "After this you change a card in place instead of starting again.",
      "minutes": 1,
      "tag": "Pro tip",
      "cover": {
@@ -1202,7 +1139,6 @@
     {
      "id": "chat-cards",
      "title": "Bring back an earlier card",
-     "outcome": "After this you can find any card Rouh showed you and put it on the canvas again.",
      "minutes": 1,
      "summary": [
       "Every card Rouh shows is kept and numbered: its head shows #4, for example. Where the card was in the conversation, a line stays behind with its number and title."
@@ -1223,7 +1159,6 @@
     {
      "id": "chat-phone",
      "title": "Use the chat on a phone",
-     "outcome": "After this you can move between the chat and the canvas on a phone.",
      "minutes": 1,
      "cover": {
       "src": "handholding/chat-phone.webp",
@@ -1269,7 +1204,6 @@
     {
      "id": "chat-actions",
      "title": "Copy, ask again or change a message",
-     "outcome": "After this you know the small buttons under every message.",
      "minutes": 1,
      "summary": [
       "Under every message there is a row of small buttons. Point at one, or hold it, to see its name."
@@ -1312,7 +1246,6 @@
     {
      "id": "chat-files",
      "title": "Attach a file or a screenshot",
-     "outcome": "After this you can give Rouh a picture, a PDF or a document to read.",
      "minutes": 1,
      "summary": [
       "Rouh reads what you give it: pictures, PDFs, documents, spreadsheets, slides, text and code."
@@ -1333,7 +1266,6 @@
     {
      "id": "chat-pictures",
      "title": "Make or change a picture",
-     "outcome": "After this you can have Rouh draw a picture, and change part of one.",
      "minutes": 2,
      "summary": [
       "Rouh can draw a picture from a description, and change part of a picture you already have."
@@ -1355,7 +1287,6 @@
     {
      "id": "chat-threads",
      "title": "Find a chat, start one, rename it",
-     "outcome": "After this you know General, a task's chats, and how to find an old chat.",
      "minutes": 2,
      "summary": [
       "General is the one chat that is always there. Every task has chats of its own, and old chats are found with Search."
@@ -1378,7 +1309,6 @@
     {
      "id": "chat-model",
      "title": "Choose the model for one chat",
-     "outcome": "After this you can choose which model answers in a chat.",
      "minutes": 1,
      "cover": {
       "src": "handholding/chat-model.webp",
@@ -1396,13 +1326,11 @@
       "Your pick holds for this chat, on every device, and your new chats start on it. Pick Auto to go back.",
       "The line at the top of each answer says its time and cost. Press it to see which model answered; Cheaper or Smart there has that answer again on the other."
      ],
-     "see": "models",
      "glyph": "chip"
     },
     {
      "id": "answer-line",
      "title": "Read the line above an answer",
-     "outcome": "After this you know what the small grey line above each of Rouh's answers says, and what opening it shows.",
      "minutes": 1,
      "optional": true,
      "summary": [
@@ -1415,13 +1343,11 @@
       "Under the title line, each step of the answer is a bar on one clock: reading your message, looking things up, the model writing, each tool it used. Press a bar for its details.",
       "Details opens everything kept about the answer, on one page. Press the line again to close it."
      ],
-     "see": "chat-model",
      "glyph": "chip"
     },
     {
      "id": "chat-work",
      "title": "Where your request goes",
-     "outcome": "After this you know when Rouh answers in the chat, hands work on, or uses the live browser.",
      "minutes": 2,
      "summary": [
       "Rouh decides how to do what you ask. You never have to choose, but it helps to know what you will see."
@@ -1436,14 +1362,12 @@
       "Find a free hour with Lena next week.",
       "Plan the offsite, and book nothing yet."
      ],
-     "see": "job",
      "talk": true,
      "glyph": "network"
     },
     {
      "id": "chat-options",
      "title": "Choose what a chat knows",
-     "outcome": "After this you can set how much of Rouh a chat uses, and you know how long a chat can get.",
      "minutes": 2,
      "cover": {
       "src": "handholding/chat-options.webp",
@@ -1467,7 +1391,6 @@
     {
      "id": "chat-incognito",
      "title": "Talk in incognito",
-     "outcome": "After this you can talk to Rouh without anything being kept.",
      "minutes": 1,
      "cover": {
       "src": "handholding/chat-incognito.webp",
@@ -1489,7 +1412,6 @@
     {
      "id": "chat-fork",
      "title": "Ask on the side with a fork",
-     "outcome": "After this you can ask a side question without changing the main chat.",
      "minutes": 2,
      "cover": {
       "src": "handholding/chat-fork.webp",
@@ -1533,7 +1455,6 @@
     {
      "id": "chat-point",
      "title": "Point at part of a page",
-     "outcome": "After this you can show Rouh exactly which part of a page you mean.",
      "minutes": 1,
      "summary": [
       "When a page from your workspace is open beside the chat, you can show Rouh the part you mean instead of describing it."
@@ -1554,7 +1475,6 @@
     {
      "id": "chat-keys",
      "title": "Keyboard shortcuts",
-     "outcome": "After this you know every key the chat answers to.",
      "minutes": 1,
      "cover": {
       "src": "handholding/chat-keys.webp",
@@ -1635,7 +1555,6 @@
     {
      "id": "google",
      "title": "Connect Google: Gmail, Calendar and Drive",
-     "outcome": "After this Rouh can read and answer your mail, keep your calendar and find your files.",
      "minutes": 4,
      "cover": {
       "src": "handholding/google.webp",
@@ -1674,7 +1593,6 @@
     {
      "id": "switch-mail-alerts",
      "title": "Hear about new mail as it arrives",
-     "outcome": "After this Rouh can tell you about mail that matters the moment it lands, or wait until you ask.",
      "minutes": 1,
      "tag": "Setup",
      "cover": {
@@ -1688,7 +1606,7 @@
      ],
      "feature": "mail-alerts",
      "how": [
-      "Connect Google first: the switch needs Gmail (the tip Connect Google: Gmail, Calendar and Drive).",
+      "Connect Google first: the switch needs Gmail.",
       "Flip the switch above to On. Gmail then tells Rouh the moment a new email lands.",
       "Rouh sorts it and tells you about what matters. Flip it Off and Rouh reads your mail only when you ask."
      ],
@@ -1706,7 +1624,6 @@
     {
      "id": "phone",
      "title": "Reach Rouh from your phone",
-     "outcome": "After this you can open Rouh in your phone's browser, wherever you are.",
      "minutes": 3,
      "cover": {
       "src": "handholding/phone.webp",
@@ -1736,13 +1653,11 @@
      },
      "talk": true,
      "glyph": "phone",
-     "tag": "Setup",
-     "see": "relay"
+     "tag": "Setup"
     },
     {
      "id": "telegram",
      "title": "Talk to Rouh on Telegram",
-     "outcome": "After this Rouh can message you, and you can answer it, from Telegram.",
      "minutes": 4,
      "cover": {
       "src": "handholding/telegram.webp",
@@ -1779,7 +1694,6 @@
     {
      "id": "icloud-contacts",
      "title": "Bring in your iCloud contacts",
-     "outcome": "After this Rouh knows the people you know: their numbers, addresses and companies.",
      "minutes": 4,
      "cover": {
       "src": "handholding/icloud.webp",
@@ -1824,7 +1738,6 @@
     {
      "id": "reminder",
      "title": "Set a reminder",
-     "outcome": "After this Rouh reminds you of anything, at the time you say.",
      "minutes": 2,
      "cover": {
       "src": "handholding/clockwork.webp",
@@ -1857,7 +1770,6 @@
     {
      "id": "repeat",
      "title": "Have Rouh do something on repeat",
-     "outcome": "After this Rouh does a piece of work for you every day or week, by itself.",
      "minutes": 2,
      "cover": {
       "src": "handholding/clockwork.webp",
@@ -1889,7 +1801,6 @@
     {
      "id": "inbox",
      "title": "Go through your inbox",
-     "outcome": "After this you know what came in and what needs an answer, without opening your mail.",
      "minutes": 2,
      "cover": {
       "src": "handholding/approvals.webp",
@@ -1903,7 +1814,7 @@
      "how": [
       "Ask what came in and what needs an answer. Rouh sums it up and says who is waiting.",
       "Ask about any one email in more detail, or to find an old one.",
-      "When Gmail tells Rouh about new mail as it arrives (the tip Hear about new mail as it arrives has its switch), Rouh tells you about what matters without being asked."
+      "When Gmail tells Rouh about new mail as it arrives, Rouh tells you about what matters without being asked."
      ],
      "says": [
       "What came into my inbox today that needs an answer?",
@@ -1920,7 +1831,6 @@
     {
      "id": "reply",
      "title": "Answer an email with Rouh",
-     "outcome": "After this Rouh writes your replies, and you only read and agree.",
      "minutes": 2,
      "cover": {
       "src": "handholding/approvals.webp",
@@ -1951,7 +1861,6 @@
     {
      "id": "calendar",
      "title": "Plan your day with the calendar",
-     "outcome": "After this you can check and change your calendar by asking.",
      "minutes": 2,
      "cover": {
       "src": "handholding/brief.webp",
@@ -1983,7 +1892,6 @@
     {
      "id": "brief",
      "title": "Read your morning brief",
-     "outcome": "After this your day starts on one page: weather, calendar, news and mail.",
      "minutes": 2,
      "cover": {
       "src": "handholding/brief-settings.webp",
@@ -1996,8 +1904,7 @@
      ],
      "how": [
       "Open it from the menu: Now, then Morning brief.",
-      "Choose when it is made and what is in it in Morning brief settings (menu, Anatomy, Behaviour).",
-      "Its switch is in the next tip, Switch the morning brief on or off."
+      "Choose when it is made and what is in it in Morning brief settings (menu, Anatomy, Behaviour)."
      ],
      "says": [
       "Open my morning brief.",
@@ -2013,7 +1920,6 @@
     {
      "id": "switch-brief",
      "title": "Switch the morning brief on or off",
-     "outcome": "After this you choose whether Rouh makes your morning brief each day.",
      "minutes": 1,
      "tag": "Setup",
      "cover": {
@@ -2045,7 +1951,6 @@
     {
      "id": "contacts",
      "title": "Find someone in your contacts",
-     "outcome": "After this a person's card, with Call, Text and Directions, is one question away.",
      "minutes": 2,
      "cover": {
       "src": "handholding/contacts.svg",
@@ -2072,7 +1977,6 @@
     {
      "id": "lights",
      "title": "Connect and control your lights",
-     "outcome": "After this you can set the lights in any room by saying so.",
      "minutes": 3,
      "cover": {
       "src": "handholding/lights.webp",
@@ -2111,7 +2015,6 @@
     {
      "id": "vacuum",
      "title": "Connect and run your robot vacuum",
-     "outcome": "After this you can start, pause and dock the vacuum by saying so.",
      "minutes": 3,
      "cover": {
       "src": "handholding/vacuum.webp",
@@ -2150,7 +2053,6 @@
     {
      "id": "lookup",
      "title": "Look something up",
-     "outcome": "After this you get a quick, sourced answer without leaving the chat.",
      "minutes": 2,
      "cover": {
       "src": "handholding/lookup.svg",
@@ -2176,7 +2078,6 @@
     {
      "id": "browser",
      "title": "Have Rouh use a website while you watch",
-     "outcome": "After this Rouh does errands on websites, and you step in when it needs you.",
      "minutes": 3,
      "cover": {
       "src": "handholding/browser.webp",
@@ -2214,7 +2115,6 @@
     {
      "id": "task",
      "title": "Make a task",
-     "outcome": "After this your work has a home, a number and a conversation of its own.",
      "minutes": 2,
      "cover": {
       "src": "handholding/tasks.webp",
@@ -2246,7 +2146,6 @@
     {
      "id": "steps",
      "title": "Add a step and use its number",
-     "outcome": "After this you can point Rouh at any piece of work by its number.",
      "minutes": 2,
      "cover": {
       "src": "handholding/task.webp",
@@ -2277,7 +2176,6 @@
     {
      "id": "pro-numbers",
      "title": "Numbers are addresses",
-     "outcome": "After this you reach any task or step by saying its number.",
      "minutes": 1,
      "tag": "Pro tip",
      "cover": {
@@ -2296,14 +2194,12 @@
      "says": [
       "What is happening with 58-02?"
      ],
-     "see": "steps",
      "talk": true,
      "glyph": "steps"
     },
     {
      "id": "pro-file-card",
      "title": "Keep a card with its work",
-     "outcome": "After this a card worth keeping is kept with the work it belongs to.",
      "minutes": 1,
      "tag": "Pro tip",
      "cover": {
@@ -2322,14 +2218,12 @@
      "says": [
       "File that card as a step of the offsite task."
      ],
-     "see": "canvas",
      "talk": true,
      "glyph": "folder"
     },
     {
      "id": "pin",
      "title": "Pin what you are working on",
-     "outcome": "After this the Control room shows where you left off and what is next.",
      "minutes": 2,
      "cover": {
       "src": "handholding/control.webp",
@@ -2360,7 +2254,6 @@
     {
      "id": "pro-pins",
      "title": "Pin this week's work",
-     "outcome": "After this the Control room shows only this week's work.",
      "minutes": 1,
      "tag": "Pro tip",
      "cover": {
@@ -2379,14 +2272,12 @@
      "says": [
       "Pin 58 and unpin 19."
      ],
-     "see": "pin",
      "talk": true,
      "glyph": "pin"
     },
     {
      "id": "research",
      "title": "Ask for research",
-     "outcome": "After this you get research back as a task, with its sources and a recommendation.",
      "minutes": 3,
      "cover": {
       "src": "handholding/task.webp",
@@ -2417,7 +2308,6 @@
     {
      "id": "pro-research",
      "title": "Research comes back as a task",
-     "outcome": "After this you know when to say research and when to say look into.",
      "minutes": 1,
      "tag": "Pro tip",
      "cover": {
@@ -2436,14 +2326,12 @@
      "says": [
       "Look into what time the Lisbon Oceanarium opens on Sunday."
      ],
-     "see": "research",
      "talk": true,
      "glyph": "book"
     },
     {
      "id": "share",
      "title": "Share or publish a task",
-     "outcome": "After this you can show your work to anyone, by email or by link.",
      "minutes": 2,
      "cover": {
       "src": "handholding/task.webp",
@@ -2483,7 +2371,6 @@
     {
      "id": "job",
      "title": "Hand Rouh a real piece of work",
-     "outcome": "After this Rouh works in the background while you carry on.",
      "minutes": 3,
      "cover": {
       "src": "handholding/metabolism.webp",
@@ -2515,7 +2402,6 @@
     {
      "id": "running",
      "title": "Check what is running",
-     "outcome": "After this you always know what Rouh is busy with.",
      "minutes": 2,
      "cover": {
       "src": "handholding/orb-open.webp",
@@ -2527,7 +2413,7 @@
       "Two places say what Rouh is busy with: the orb, which draws each piece of work as a branch, and Metabolism, which lists every run."
      ],
      "how": [
-      "Open the orb over the whole screen (see The Orb: The most important button): each branch is work going on.",
+      "Open the orb over the whole screen: each branch is work going on.",
       "Or open Metabolism (menu, Evolution) for the list of runs, newest first.",
       "Or just ask."
      ],
@@ -2545,7 +2431,6 @@
     {
      "id": "pro-tell-run",
      "title": "Change course while it works",
-     "outcome": "After this you can steer work that is already running.",
      "minutes": 1,
      "tag": "Pro tip",
      "cover": {
@@ -2570,7 +2455,6 @@
     {
      "id": "pro-drive",
      "title": "Take a run over, then hand it back",
-     "outcome": "After this you can take a run over for a while and give it back.",
      "minutes": 1,
      "tag": "Pro tip",
      "cover": {
@@ -2596,7 +2480,6 @@
     {
      "id": "decision",
      "title": "Answer a decision",
-     "outcome": "After this you clear what waits on you, usually with one press.",
      "minutes": 2,
      "cover": {
       "src": "handholding/decisions.webp",
@@ -2628,7 +2511,6 @@
     {
      "id": "pro-waiting",
      "title": "One question clears the queue",
-     "outcome": "After this you clear everything waiting on you in one go.",
      "minutes": 1,
      "tag": "Pro tip",
      "cover": {
@@ -2647,14 +2529,12 @@
      "says": [
       "What is waiting on me?"
      ],
-     "see": "decision",
      "talk": true,
      "glyph": "decision"
     },
     {
      "id": "yourpart",
      "title": "Do your part",
-     "outcome": "After this you know the few hands-on things only you can do.",
      "minutes": 2,
      "cover": {
       "src": "handholding/actions.webp",
@@ -2683,7 +2563,6 @@
     {
      "id": "goal",
      "title": "Set a goal",
-     "outcome": "After this Rouh plans the steps to something you want, and says who does each.",
      "minutes": 3,
      "cover": {
       "src": "handholding/goals.webp",
@@ -2715,7 +2594,6 @@
     {
      "id": "quest",
      "title": "Start a quest",
-     "outcome": "After this Rouh carries a long-running question forward on its own.",
      "minutes": 2,
      "cover": {
       "src": "handholding/quests.webp",
@@ -2745,7 +2623,6 @@
     {
      "id": "heartbeat",
      "title": "Meet the heartbeat",
-     "outcome": "After this you know what Rouh does by itself, and how to pause it.",
      "minutes": 2,
      "cover": {
       "src": "handholding/heartbeat.webp",
@@ -2758,8 +2635,7 @@
      ],
      "how": [
       "Open Heartbeat (menu, Work) to see what it did today, beat by beat.",
-      "Pause it there with Pause, or change its rhythm under its Settings tab.",
-      "Its switch is in the next tip, Switch the heartbeat on or off."
+      "Pause it there with Pause, or change its rhythm under its Settings tab."
      ],
      "says": [
       "Is the heartbeat on, and what did it do today?",
@@ -2775,7 +2651,6 @@
     {
      "id": "switch-heartbeat",
      "title": "Switch the heartbeat on or off",
-     "outcome": "After this you choose whether Rouh takes its own turn every half hour.",
      "minutes": 1,
      "tag": "Setup",
      "cover": {
@@ -2815,7 +2690,6 @@
     {
      "id": "rule",
      "title": "Give Rouh a rule",
-     "outcome": "After this Rouh always, or never, does something the way you said.",
      "minutes": 2,
      "cover": {
       "src": "handholding/rules.webp",
@@ -2849,7 +2723,6 @@
     {
      "id": "pro-rules",
      "title": "Say it once, as a rule",
-     "outcome": "After this a correction you make twice becomes a rule Rouh keeps.",
      "minutes": 1,
      "tag": "Pro tip",
      "cover": {
@@ -2868,14 +2741,12 @@
      "says": [
       "From now on, never book anything before nine in the morning."
      ],
-     "see": "rule",
      "talk": true,
      "glyph": "rule"
     },
     {
      "id": "vocab",
      "title": "Teach Rouh one of your words",
-     "outcome": "After this Rouh understands your nicknames and shorthand.",
      "minutes": 2,
      "cover": {
       "src": "handholding/vocabulary.webp",
@@ -2906,7 +2777,6 @@
     {
      "id": "pro-vocab",
      "title": "Teach it your nicknames",
-     "outcome": "After this Rouh understands your own nicknames, by voice too.",
      "minutes": 1,
      "tag": "Pro tip",
      "cover": {
@@ -2925,14 +2795,12 @@
      "says": [
       "Remember that Bo means my brother Bob."
      ],
-     "see": "vocab",
      "talk": true,
      "glyph": "words"
     },
     {
      "id": "thought",
      "title": "Keep a thought",
-     "outcome": "After this your ideas are kept in your words, and Rouh fills them out.",
      "minutes": 2,
      "cover": {
       "src": "handholding/thoughts.webp",
@@ -2962,7 +2830,6 @@
     {
      "id": "pro-thought",
      "title": "Start with Thought:",
-     "outcome": "After this an idea you say is kept in your own words.",
      "minutes": 1,
      "tag": "Pro tip",
      "cover": {
@@ -2981,14 +2848,12 @@
      "says": [
       "Thought: a monthly dinner with the old team."
      ],
-     "see": "thought",
      "talk": true,
      "glyph": "bulb"
     },
     {
      "id": "silos",
      "title": "Keep parts of your life apart",
-     "outcome": "After this work and family stay apart, kept in separate groups.",
      "minutes": 2,
      "cover": {
       "src": "handholding/silos.webp",
@@ -3026,7 +2891,6 @@
     {
      "id": "gates",
      "title": "Choose what needs your yes",
-     "outcome": "After this the tools you pick always ask you before they act.",
      "minutes": 2,
      "cover": {
       "src": "handholding/gates.webp",
@@ -3056,7 +2920,6 @@
     {
      "id": "restricted",
      "title": "Restricted or Unrestricted",
-     "outcome": "After this you know how much Rouh may do without asking, and how to switch it back.",
      "minutes": 2,
      "cover": {
       "src": "handholding/permissions.webp",
@@ -3089,7 +2952,6 @@
     {
      "id": "untrusted",
      "title": "Know what Rouh never obeys",
-     "outcome": "After this you know why an email or a web page cannot give Rouh orders.",
      "minutes": 1,
      "cover": {
       "src": "handholding/untrusted.svg",
@@ -3120,7 +2982,6 @@
     {
      "id": "box",
      "title": "Keep a secret in a box",
-     "outcome": "After this you can hand Rouh a password that the AI never sees.",
      "minutes": 2,
      "cover": {
       "src": "handholding/box.webp",
@@ -3152,7 +3013,6 @@
     {
      "id": "pro-boxes",
      "title": "Secrets go in a box",
-     "outcome": "After this you never type a password into the chat.",
      "minutes": 1,
      "tag": "Pro tip",
      "cover": {
@@ -3171,14 +3031,12 @@
      "says": [
       "Give me a box for my Wi-Fi password."
      ],
-     "see": "box",
      "talk": true,
      "glyph": "box"
     },
     {
      "id": "trusted",
      "title": "Add a trusted contact",
-     "outcome": "After this Rouh can help someone you trust when they write to it.",
      "minutes": 3,
      "cover": {
       "src": "handholding/trusted.webp",
@@ -3212,7 +3070,6 @@
     {
      "id": "pro-delegate",
      "title": "Let someone decide for you",
-     "outcome": "After this someone you trust can answer for you on one goal or task.",
      "minutes": 1,
      "tag": "Pro tip",
      "cover": {
@@ -3231,14 +3088,12 @@
      "says": [
       "Let Sam decide for the offsite task."
      ],
-     "see": "trusted",
      "talk": true,
      "glyph": "person"
     },
     {
      "id": "shared",
      "title": "See what you have shared, and take it back",
-     "outcome": "After this you can check who sees a task, and close it in one sentence.",
      "minutes": 2,
      "cover": {
       "src": "handholding/shared.svg",
@@ -3271,7 +3126,6 @@
     {
      "id": "drive-open",
      "title": "Find the Drive files open beyond your company",
-     "outcome": "After this you know which of your Drive files outsiders can open, and how to close them.",
      "minutes": 2,
      "cover": {
       "src": "handholding/drive-open.svg",
@@ -3283,7 +3137,7 @@
       "Over months files get shared with clients and opened by link, and nobody closes them. Rouh reads your own Drive in one go and lists what is open beyond your company, widest first."
      ],
      "how": [
-      "Connect Google first (the tip Connect Google shows how).",
+      "Connect Google first.",
       "Ask Rouh which of your files are open. It lists the files anyone with the link can open, then those shared with people or companies outside, each with what they may do.",
       "Name one company or address to see only what they have.",
       "To close a link, or take a person or a whole company off one file or all of them, say so. Drive does not email them when access is taken away.",
@@ -3301,7 +3155,6 @@
     {
      "id": "pro-whats-open",
      "title": "Ask what is open, once a month",
-     "outcome": "After this nothing of yours stays open to outsiders by accident.",
      "minutes": 1,
      "tag": "Pro tip",
      "cover": {
@@ -3321,14 +3174,12 @@
      "says": [
       "What of mine is open to people outside the company?"
      ],
-     "see": "drive-open",
      "talk": true,
      "glyph": "shield"
     },
     {
      "id": "connections",
      "title": "Check your connections, and disconnect one",
-     "outcome": "After this you know what Rouh can reach, and how to cut one off.",
      "minutes": 2,
      "cover": {
       "src": "handholding/google.webp",
@@ -3367,7 +3218,6 @@
     {
      "id": "synapse",
      "title": "Look inside Rouh's memory",
-     "outcome": "After this you can see what Rouh knows, and where it learned it.",
      "minutes": 3,
      "cover": {
       "src": "handholding/synapse.webp",
@@ -3397,7 +3247,6 @@
     {
      "id": "meetings",
      "title": "Connect your meeting library",
-     "outcome": "After this any recorded meeting is a question away.",
      "minutes": 3,
      "cover": {
       "src": "handholding/meetings.webp",
@@ -3435,7 +3284,6 @@
     {
      "id": "slack",
      "title": "Connect Slack and use it",
-     "outcome": "After this Rouh can read, search and write in your Slack channels.",
      "minutes": 5,
      "cover": {
       "src": "handholding/slack.webp",
@@ -3476,7 +3324,6 @@
     {
      "id": "payments",
      "title": "Set up payments and Stripe",
-     "outcome": "After this Rouh can pay within limits you set, and take payments through Stripe.",
      "minutes": 4,
      "cover": {
       "src": "handholding/payments.webp",
@@ -3514,7 +3361,6 @@
     {
      "id": "mcp",
      "title": "Add an MCP server and use its tools",
-     "outcome": "After this another service's tools work from your conversation.",
      "minutes": 3,
      "cover": {
       "src": "handholding/mcp.webp",
@@ -3552,7 +3398,6 @@
     {
      "id": "cloudflare",
      "title": "Connect a domain on Cloudflare",
-     "outcome": "After this your domain's records change when you say so.",
      "minutes": 3,
      "cover": {
       "src": "handholding/cloudflare.webp",
@@ -3590,7 +3435,6 @@
     {
      "id": "gene-therapy",
      "title": "Ask Rouh to change itself",
-     "outcome": "After this Rouh grows a new ability because you asked for it.",
      "minutes": 3,
      "cover": {
       "src": "handholding/every-change.webp",
@@ -3619,7 +3463,6 @@
     {
      "id": "pro-gene",
      "title": "Grow a new ability in one sentence",
-     "outcome": "After this you know how to ask Rouh for an ability it does not have yet.",
      "minutes": 1,
      "tag": "Pro tip",
      "summary": [
@@ -3632,14 +3475,12 @@
      "says": [
       "Improve yourself so the morning brief also lists my birthdays this week."
      ],
-     "see": "gene-therapy",
      "talk": true,
      "glyph": "dna"
     },
     {
      "id": "evolution",
      "title": "See how Rouh evolves",
-     "outcome": "After this you can keep or reject the new abilities Rouh tries out.",
      "minutes": 2,
      "cover": {
       "src": "handholding/mutations.webp",
@@ -3668,7 +3509,6 @@
     {
      "id": "incubator",
      "title": "Add an idea to the incubator",
-     "outcome": "After this your idea waits, scored, until it is built.",
      "minutes": 2,
      "cover": {
       "src": "handholding/incubator.webp",

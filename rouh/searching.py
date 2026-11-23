@@ -329,7 +329,7 @@ def lesson_lines(query: str, switch_on) -> list[dict]:
         return []
     return [{
         "type": "lesson", "id": les["id"], "title": les["title"], "label": "",
-        "snippet": f"Guide lesson - {les['outcome']}" if les["outcome"] else "Guide lesson",
+        "snippet": "Guide lesson",
         "at": 0, "open": {"how": "lesson", "id": les["id"], "route": les["route"]},
         "url": les["route"], "actions": ["open", "tab"],
     } for les in found]

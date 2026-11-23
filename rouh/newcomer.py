@@ -12,7 +12,7 @@ makes Rouh easier for a first-time user, technical or not. Each has its own swit
   "calender" or "setings" found nothing. Now, when nothing matches that way, a page whose words
   are one or two letters from what was typed is offered (`near`).
 - **Search finds the lesson that teaches it** (`search_lessons`, you ask for it). "How do I connect
-  my calendar" found no page. Now Search also lists the Guide's lessons whose title, outcome or
+  my calendar" found no page. Now Search also lists the Guide's lessons whose title or
   first lines hold every word that matters in what was typed (`lessons`), and opens the lesson.
 - **? lists Rouh's keys** (`keys_list`, changes how you work). Rouh answers to keys (Ctrl+B for the
   navigation, Escape to stop a turn, Ctrl+Shift+Space for dictation, 1 to 4 on a conflict) that
@@ -196,8 +196,9 @@ def near(words: Iterable[str], genes: Iterable[dict], switch_on: Callable[[str],
 
 
 def lessons(query: str, limit: int = 3) -> list[dict]:
-    """The Guide's lessons that hold every word that matters in `query`, in their title, outcome or
-    first lines, best first (the most words in the title), as {id, title, outcome, route}."""
+    """The Guide's lessons that hold every word that matters in `query`, in their title or first lines,
+    best first (the most words in the title), as {id, title, route}. A tip has no line of what it
+    teaches since 23 November 2026 (Petar)."""
     from . import handholding
 
     asked = [w for w in _words(query) if w not in STOP and len(w) >= 3]
@@ -206,11 +207,11 @@ def lessons(query: str, limit: int = 3) -> list[dict]:
     found = []
     for at, les in enumerate(handholding.lessons()):
         title = _words(les.get("title", ""))
-        rest = title + _words(les.get("outcome", "")) + _words(" ".join(les.get("summary") or []))
+        rest = title + _words(" ".join(les.get("summary") or []))
         if not all(any(w.startswith(a) for w in rest) for a in asked):
             continue
         in_title = sum(1 for a in asked if any(w.startswith(a) for w in title))
         found.append((-in_title, at, les))
     found.sort(key=lambda row: row[:2])
-    return [{"id": les["id"], "title": les.get("title", ""), "outcome": les.get("outcome", ""),
+    return [{"id": les["id"], "title": les.get("title", ""),
              "route": handholding.lesson_route(les["id"])} for _, _, les in found[:limit]]

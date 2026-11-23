@@ -471,7 +471,7 @@
     var isNext = !isDone(l) && nx && nx.lesson.id === l.id;
     var a = k(link(lessonHref(l.id, from), '', 'hh-card' + (isDone(l) ? ' done' : '') + (isNext ? ' next' : ''), true), 'card-' + l.id);
     var seen = already(l.id);
-    a.setAttribute('aria-label', (isDone(l) ? 'Done. ' : isNext ? 'Your next tip. ' : '') + l.title + '. ' + l.outcome +
+    a.setAttribute('aria-label', (isDone(l) ? 'Done. ' : isNext ? 'Your next tip. ' : '') + l.title + '.' +
                    (seen ? ' Already there: ' + seen : ''));
     var tile = art(l);
     // A finished tip carries a green tick on its symbol too, so a glance down the list shows it (problem 398).
@@ -487,7 +487,6 @@
     meta.appendChild(el('span', 'hh-min', l.minutes + ' min'));
     w.appendChild(meta);
     w.appendChild(el('span', 'hh-card-t', l.title));
-    w.appendChild(el('span', 'hh-card-o', l.outcome));
     if (detected(l.id)) {
       // Done because Rouh saw it, said in words: what it saw.
       w.appendChild(el('span', 'hh-card-why', 'Done: ' + H.data.detected[l.id]));
@@ -507,7 +506,7 @@
     var words = q.toLowerCase().split(/\s+/).filter(Boolean);
     return all().filter(function (x) {
       var l = x.lesson;
-      var hay = [l.title, l.tag || '', l.outcome, (l.summary || []).join(' '), x.stage.title, x.stage.topics || '',
+      var hay = [l.title, l.tag || '', (l.summary || []).join(' '), x.stage.title, x.stage.topics || '',
                  (l.says || []).join(' '), (l.parts || []).map(function (p) { return p.name + ' ' + p.text; }).join(' '),
                  howSteps(l).map(function (h) { return typeof h === 'string' ? h : h.text; }).join(' '),
                  (l.keys || []).map(function (r) { return r.join(' '); }).join(' '),
@@ -805,20 +804,12 @@
     return li;
   }
 
-  /** A tip's numbered points, each in its own words; a point another tip covers in detail links its phrase there. */
+  /** A tip's numbered points, each in its own words. */
   function pointsList(l) {
     var ol = el('ol', 'hh-points');
     l.points.forEach(function (pt, i) {
       var li = k(el('li'), 'point-' + i);
-      var to = pt.see ? find(pt.see) : null;
-      var at = to && pt.phrase ? pt.text.indexOf(pt.phrase) : -1;
-      if (at < 0) {
-        li.appendChild(document.createTextNode(pt.text));
-      } else {
-        li.appendChild(document.createTextNode(pt.text.slice(0, at)));
-        li.appendChild(link(lessonHref(to.lesson.id, 'lesson-' + l.id), pt.phrase, 'hh-link', true));
-        li.appendChild(document.createTextNode(pt.text.slice(at + pt.phrase.length)));
-      }
+      li.appendChild(document.createTextNode(pt.text));
       ol.appendChild(li);
     });
     return ol;
@@ -967,8 +958,6 @@
     means.id = id;
     means.hidden = true;
     means.appendChild(el('span', '', def.means + ' '));
-    var to = def.lesson ? find(def.lesson) : null;
-    if (to) { means.appendChild(k(link(lessonHref(to.lesson.id, 'lesson-' + H.lesson), 'Tip: ' + to.lesson.title, 'hh-link', true), 'termtip-' + key.toLowerCase())); }
     return { button: b, means: means };
   }
 
@@ -1030,12 +1019,13 @@
     meta.appendChild(el('span', '', 'About ' + l.minutes + ' ' + plural(l.minutes, 'minute', 'minutes')));
     if (l.optional) { meta.appendChild(el('span', '', 'Optional')); }
     if (l.tag) { meta.appendChild(el('span', 'hh-tag', l.tag)); }
-    head.appendChild(meta);
     var h = k(el('h3', 'hh-h1', l.title), 'h-lesson');
     h.setAttribute('tabindex', '-1');
     h.id = 'hh-lesson-h';
     head.appendChild(h);
-    head.appendChild(el('p', 'hh-outcome', l.outcome));
+    // Under the title, quiet. A tip has no line of what it teaches, and links to no other tip: only
+    // Back and the breadcrumbs above, and Previous and Done, next below, move between tips (Petar, 23 November 2026).
+    head.appendChild(meta);
     wrap.appendChild(head);
     var used = {};
     (l.summary || []).forEach(function (s) { wrap.appendChild(rich('p', 'hh-para', s, l.id, used)); });
@@ -1053,12 +1043,6 @@
     if (l.keys && l.keys.length) { wrap.appendChild(keysTable(l.keys)); }
     var feat = l.feature ? (content().features || []).filter(function (f) { return f.id === l.feature; })[0] : null;
     if (feat) { wrap.appendChild(featurePanel(feat)); }
-    var see = l.see ? find(l.see) : null;
-    if (see) {
-      var sp = el('p', 'hh-see');
-      sp.appendChild(k(link(lessonHref(see.lesson.id, 'lesson-' + l.id), 'Tip: ' + see.lesson.title, 'hh-link', true), 'see'));
-      wrap.appendChild(sp);
-    }
     if (l.remembers) { wrap.appendChild(remembers()); }
     if (l.connection) { wrap.appendChild(connectionFacts(l)); }
     if (l.parts && l.parts.length) { wrap.appendChild(partsList(l, used)); }
@@ -1075,13 +1059,8 @@
       wrap.appendChild(sh);
       if (H.data && H.data.chat) { wrap.appendChild(noChat(l, H.data.chat)); }
       var note = content().talk_note;
-      if (l.talk && note && note.lesson !== l.id) {
-        var tn = el('p', 'hh-talknote');
-        tn.appendChild(el('span', '', note.text + ' '));
-        var tl = find(note.lesson);
-        if (tl) { tn.appendChild(k(link(lessonHref(tl.lesson.id, 'lesson-' + l.id), 'How: ' + tl.lesson.title, 'hh-link', true), 'talknote')); }
-        wrap.appendChild(tn);
-      }
+      // Where to say it, on every tip but the one that teaches it (`not_on`).
+      if (l.talk && note && note.not_on !== l.id) { wrap.appendChild(el('p', 'hh-talknote', note.text)); }
       // Samples, said to be samples (review 49, problem 436): never somebody else's work seen as one's own.
       wrap.appendChild(el('p', 'hh-talknote', 'Examples only: say them with your own names, tasks and times.'));
       wrap.appendChild(says(l.says));
@@ -1269,9 +1248,7 @@
       // Rouh's own words in a part are explained where they stand, as in the tip's other words (problem 348).
       li.appendChild(rich('p', 'hh-part-t', p.text, l.id, used));
       if (p.open) {
-        var to = p.open.lesson ? find(p.open.lesson) : null;
-        var a = to ? link(lessonHref(to.lesson.id, 'lesson-' + l.id), 'Tip: ' + to.lesson.title, 'hh-away hh-away-tip', true)
-          : p.open.href ? away(p.open.href, 'Open ' + p.open.label) : null;
+        var a = p.open.href ? away(p.open.href, 'Open ' + p.open.label) : null;
         if (a) { li.appendChild(k(a, 'part-' + i)); }
       }
       ul.appendChild(li);
