@@ -55,8 +55,8 @@
   var BAD_ORDER = ['blocked', 'confused', 'annoyed', 'minor'];
   var BAD_TONE = { blocked: 'rose', confused: 'amber', annoyed: 'violet', minor: 'slate' };
   var STAND = {
-    open: ['Not fixed yet', 'amber'], decided: ['Chosen to fix', 'blue'], fixed: ['Fixed', 'green'],
-    set_aside: ['Set aside', 'slate']
+    open: ['Not fixed yet', 'slate'], decided: ['Chosen to fix', 'blue'], fixed: ['Fixed', 'green'],
+    set_aside: ['Set aside', 'amber']
   };
   var VERDICT_LINE = { not_a_problem: 'Not a problem', wont_fix: 'Won’t fix', decided: 'Decided how to fix it',
                        sent: 'Sent as feedback' };
@@ -244,7 +244,7 @@
     var s = el('span', 'tr-state');
     if (p.awaiting_choice) { return withIcon(s, 'ask', 'Waiting for your choice'); }
     if (p.standing === 'fixed') { s.classList.add('is-fixed'); return withIcon(s, 'check', fixedWords(p)); }
-    if (p.standing === 'set_aside') { return withIcon(s, 'x', 'Set aside: ' + (VERDICT_LINE[p.verdict] || 'set aside') + (p.verdict === 'wont_fix' && p.reason ? ': ' + p.reason : '')); }
+    if (p.standing === 'set_aside') { s.classList.add('is-aside'); return withIcon(s, 'x', 'Set aside: ' + (VERDICT_LINE[p.verdict] || 'set aside') + (p.verdict === 'wont_fix' && p.reason ? ': ' + p.reason : '')); }
     var again = seenAgain(p);
     if (again) { s.classList.add('is-again'); return withIcon(s, 'up', (p.verdict === 'sent' ? 'Sent' : 'Decided') + ', but seen again' + (again.trial ? ' in test run ' + again.trial : '')); }
     if (p.standing === 'decided' && p.verdict === 'sent') { return withIcon(s, 'wait', 'Sent as feedback'); }
@@ -716,7 +716,7 @@
     var ag = againN();
     if (by.decided - ag > 0) { rest.appendChild(withIcon(el('span'), 'thumb', (by.decided - ag) + ' chosen to fix')); }
     if (ag) { rest.appendChild(withIcon(el('span', 'is-again'), 'up', ag + ' sent, but seen again')); }
-    if (by.set_aside) { rest.appendChild(withIcon(el('span'), 'x', by.set_aside + ' set aside')); }
+    if (by.set_aside) { rest.appendChild(withIcon(el('span', 'is-aside'), 'x', by.set_aside + ' set aside')); }
     if (by.fixed) { rest.appendChild(withIcon(el('span', 'is-fixed'), 'check', by.fixed + ' fixed')); }
     t1.appendChild(rest);
     tiles.appendChild(t1);
@@ -869,10 +869,10 @@
     return m ? m[1] : '';
   }
 
-  /* The ring: of the problems testers found, fixed (green), set aside (grey) and still open (yellow, the colour of
-     the Open number beside it; Petar, 23 November 2026), round a track that shows only when nothing was found.
-     Its words say the same, so colour is never the only sign. The same colours in every ring: a job's, a journey's
-     and the small one on each test run's row. */
+  /* The ring: of the problems testers found, fixed (green) and set aside (yellow), drawn round a grey track, and what
+     is still open is the track left showing (Petar, 23 November 2026, seventh round): green and yellow together fill
+     the ring to how much is resolved, so 100% resolved is a full ring. Its words say the same, so colour is never the
+     only sign. The same colours in every ring: a job's, a journey's and the small one on each test run's row. */
   function ringTitle(s) {
     return !s.found ? 'No problems found' : s.found + ' found · ' + s.fixed + ' fixed · ' + s.set_aside + ' set aside · ' + s.open + ' open';
   }
@@ -889,8 +889,7 @@
     }
     // Only these fixed shapes and numbers go through innerHTML: nothing a person or a tester wrote.
     return '<svg viewBox="0 0 100 100" aria-hidden="true"><circle class="tr-ring-track" cx="50" cy="50" r="' + R +
-      '" fill="none" stroke-width="' + sw + '"/>' + arc('tr-ring-fixed', 0, fx) + arc('tr-ring-aside', fx, sa) +
-      arc('tr-ring-open', fx + sa, op) + '</svg>';
+      '" fill="none" stroke-width="' + sw + '"/>' + arc('tr-ring-fixed', 0, fx) + arc('tr-ring-aside', fx, sa) + '</svg>';
   }
   /* The small ring on a test run's row: no words inside, its numbers on hover and for a screen reader. */
   function miniRing(s) {
@@ -933,7 +932,7 @@
     function key(cls) { var k = el('i', 'tr-jc-key ' + cls); k.setAttribute('aria-hidden', 'true'); return k; }
     row('Found', String(s.found), 'is-found');
     row('Fixed', String(s.fixed), s.fixed ? 'is-fixed' : '', key('is-fixed'));
-    row('Set aside', String(s.set_aside), 'is-aside', key('is-aside'));
+    row('Set aside', String(s.set_aside), s.set_aside ? 'is-aside' : '', key('is-aside'));
     row('Open', String(s.open), s.open ? 'is-open' : '', key('is-open'));
     return g;
   }
@@ -1590,7 +1589,7 @@
     return rw ? 'Open, being fixed in Wave ' + rw.number : chosenNext(f) ? 'Open, chosen for the next wave' : 'Open, not decided yet';
   }
   /* A problem's type icon, coloured by where it stands: its type's own colour while open, green once fixed,
-     dimmed grey when settled without a fix. The shape stays, so what went wrong is still there to read. */
+     the set-aside yellow when settled without a fix. The shape stays, so what went wrong is still there to read. */
   function stateShape(f, size) {
     var st = probState(f);
     var s = shape(f.how_bad, size);
