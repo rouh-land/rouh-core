@@ -139,6 +139,13 @@ def queue_rebuild(ds: dict, layer_id: str, why: str) -> dict:
     meta = layer.get("meta") or {}
     payload = {"layer": meta.get("layer"), "key": layer["source_key"], "subject": meta.get("subject"),
                "thread": meta.get("thread"), "person": meta.get("person"), "topic": meta.get("topic"), "why": why}
+    # A rebuild of the same layer already waiting, not started, is this one: many items of one thread
+    # edited or deleted together (a sync leaving files out, 23 November 2026) rebuild it once, not once each.
+    waiting = db.value("SELECT id FROM synapse.job WHERE dataset_id = %s AND kind = 'layer' AND done_at IS NULL "
+                       "AND locked_by IS NULL AND payload->>'key' = %s ORDER BY id LIMIT 1",
+                       (ds["id"], layer["source_key"]))
+    if waiting:
+        return {"layer": layer["title"], "job": waiting, "why": why, "same_as_waiting": True}
     job = ingest.enqueue(ds["id"], "layer", priority=3, payload=payload)
     return {"layer": layer["title"], "job": job, "why": why}
 
@@ -185,11 +192,29 @@ def _sources(ds: dict, payload: dict) -> list[dict]:
 
 def build(ds: dict, payload: dict, *, by: str = "worker") -> dict:
     """Build or update one layer by diff (D54)."""
+    from . import feeds
+
+    sources = _sources(ds, payload)
+    if payload.get("layer") == "thread":
+        # A thread's summary is said to be for the source most of its items came from (`feeds.py`), and
+        # keyed by the thread: a task's thread is mostly its files, a mail thread its mails.
+        counts: dict[str, int] = {}
+        for r in sources:
+            counts[str(r.get("source") or "")] = counts.get(str(r.get("source") or ""), 0) + 1
+        top = max(counts, key=counts.get) if counts else ""
+        told = feeds.about_item(top, payload.get("key") or "") if top else feeds.about_item(
+            feed="memory", source_key=payload.get("key") or "")
+    else:
+        told = feeds.about_item(feed="profiles", source_key=payload.get("key") or "")
+    with told:
+        return _build(ds, payload, sources, by=by)
+
+
+def _build(ds: dict, payload: dict, sources: list[dict], *, by: str) -> dict:
     s = datasets.settings(ds)
     owner = datasets.owner_of(ds)
     kind = payload.get("layer")
     key = payload.get("key")
-    sources = _sources(ds, payload)
     layer = _existing(ds["id"], key)
     subject = ingest.get_in_scope(ds, payload.get("subject")) if payload.get("subject") else None
     if kind == "thread":

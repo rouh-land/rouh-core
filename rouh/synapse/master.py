@@ -11,8 +11,9 @@ use it." So:
 - **Every task in it.** `sync_tasks` stores each of Rouh's tasks (the `task` rows, archived and done
   ones too) as one item of kind task: its number, title, status, project, its summary (both the
   row's, which is the only place they are kept, and what `_tasks.md` is generated from), the
-  step's ask and outcome from its meta, and its notes (`AGENTS.md`, then every other .md in its folder), keyed by the
-  task's id, readable by its owner.
+  step's ask and outcome from its meta, keyed by the task's id, readable by its owner. Its notes are not in it:
+  they are the task's own files, each an item attached to it (Petar, 23 November 2026, step 182-15: a task's
+  item held all its notes again, so every change to a note was read twice).
   A task whose text has not changed is left alone; one that changed is stored again, which is an
   edit (its old version is kept and its links checked again). The worker runs it every ten minutes
   (`worker`), so new tasks and new notes reach Master by themselves.
@@ -20,10 +21,13 @@ use it." So:
   html files and whatever is inside"). `sync_files` stores every file in the workspace as an item of
   its own, attached to the task whose folder holds it (the deepest task folder): text
   files as they are, pages, PDFs and office files read by Rouh's own extractor, pictures and other
-  binaries as a file described by its name, type and size. `sync_chats` stores every chat, the whole
-  conversation, attached to the task that owns it (or the one the chat it was forked from belongs to),
-  and `sync_cards` every card a task or a chat owns. A file is read again only when its size or time
-  changed; one that is gone is deleted from Master.
+  binaries as a file described by its name, type and size, filed by that name and path with no model call
+  (`ingest.filed_by_name`). Logs, data files, the nightly runs' ledgers and `_tasks.md` are left out
+  (`left_out`): they change every night and say nothing a task, its notes or its pages do not. `sync_chats`
+  stores every chat attached to the task that owns it (or the one the chat it was forked from belongs to),
+  and only its new part as it grows (`_chat_new_part`), and `sync_cards` every card a task or a chat owns.
+  A file is read again only when its size or time changed; one that is gone, or left out, is deleted from
+  Master.
 - **And every chat that is in no task** (Petar, 5 October 2026: "Include chats that don't belong to
   tasks please"): General, each email's chat, a chat started on its own, and their cards. A chat longer
   than `SPLIT_AT` is kept one item a day (the installation's own day), so General's thousands of messages are each found
@@ -51,8 +55,6 @@ NAME = "Synapse Master"
 SOURCE = "rouh-task"
 #: How often the worker brings tasks in again (seconds).
 SYNC_EVERY = 600.0
-#: A task's notes, at most this many characters (the biggest task's notes are about 60,000).
-NOTES_MAX = 120_000
 
 
 class NotOwner(ValueError):
@@ -163,28 +165,6 @@ def _when(ts) -> str | None:
         return None
 
 
-def _notes(path: str) -> str:
-    """A task's own words: its AGENTS.md, then every other .md directly in its folder (a step's notes
-    and reports), by name, each under its name, to `NOTES_MAX` characters in all, cut said so."""
-    try:
-        names = sorted(n for n in os.listdir(path) if n.endswith(".md") and n != "AGENTS.md")
-    except OSError:
-        return ""
-    parts, used = [], 0
-    for name in ["AGENTS.md", *names]:
-        text = _read(os.path.join(path, name), NOTES_MAX + 1).strip()
-        if not text:
-            continue
-        room = NOTES_MAX - used
-        if room <= 0:
-            parts.append(f"({name} and what follows are not included: the task's notes are over {NOTES_MAX:,} characters)")
-            break
-        piece = text if len(text) <= room else text[:room] + f"\n(cut at {NOTES_MAX:,} characters of notes)"
-        parts.append((piece if name == "AGENTS.md" else f"== {name} ==\n{piece}"))
-        used += len(piece)
-    return "\n\n".join(parts)
-
-
 def _is_task(path: str) -> bool:
     """Whether the folder is a task's, as its `.object.json` says."""
     try:
@@ -202,7 +182,6 @@ def task_payload(row: dict, root: str, me: str = "the owner") -> dict:
     from .. import taskmeta
 
     info: dict = taskmeta.of(str(row.get("id") or "")) or {}
-    notes = _notes(path) if path else ""
     parts = folder.split("/")
     project = " / ".join(parts[:-1]) if len(parts) > 1 else ""
     # The row's own five words, never the file's: a task's status and summary are kept
@@ -226,7 +205,9 @@ def task_payload(row: dict, root: str, me: str = "the owner") -> dict:
             head.append(f"{label}: {str(step[key]).strip()}")
     if str(info.get("question") or "").strip():
         head.append(f"Waiting on: {str(info['question']).strip()}")
-    text = "\n".join(head) + ("\n\nNotes:\n" + notes.strip() if notes.strip() else "")
+    # Its notes are its own files, each stored and attached to it (`sync_files`), so they are not stored
+    # again here (Petar, 23 November 2026, step 182-15).
+    text = "\n".join(head)
     meta = {"status": str(row.get("state") or ""), "task": str(row["id"])}
     if project:
         meta["project"] = project
@@ -247,6 +228,33 @@ TEXT_EXT = {".md", ".markdown", ".txt", ".json", ".jsonl", ".csv", ".tsv", ".py"
 SKIP_NAMES = {".gitkeep", ".gitignore", ".DS_Store", "_migration-map.json"}
 SKIP_EXT = {".ttf", ".otf", ".woff", ".woff2", ".db", ".sqlite", ".pyc", ".lock"}
 SKIP_DIRS = {".git", "node_modules", "__pycache__", ".venv", ".claude"}
+#: Left out of Master, and taken out of it if they are in (Petar, 23 November 2026, task 182, step 182-15: "Leave
+#: out nightly run logs and data files"). Each changes every night or every few minutes, and is read again whole
+#: each time, while saying nothing the task's notes and pages do not: logs and data files, the nightly runs'
+#: ledgers (`ledger.md`, `ledgers.html` of tasks 94 and 118, 300 KB and more), folders of logs and a step's
+#: throwaway `temp/`, and `_tasks.md`, the list of every task made from the tasks themselves.
+LEFT_OUT_EXT = {".log", ".jsonl", ".ndjson", ".json"}
+LEFT_OUT_STEMS = {"ledger", "ledgers"}
+LEFT_OUT_DIRS = {"logs", "log", "run-logs", "run-log", "temp", "tmp"}
+LEFT_OUT_PATHS = {"_tasks.md"}
+
+
+def left_out(rel: str) -> str:
+    """Why a workspace file is left out of Master, in a few words, or "" when it is stored."""
+    parts = rel.split("/")
+    name = parts[-1]
+    stem, ext = os.path.splitext(name)
+    if rel in LEFT_OUT_PATHS:
+        return "the list of every task"
+    if ext.lower() in LEFT_OUT_EXT:
+        return "a log or data file"
+    if stem.lower() in LEFT_OUT_STEMS:
+        return "a nightly run's ledger"
+    if any(p.lower() in LEFT_OUT_DIRS for p in parts[:-1]):
+        return "in a folder of logs or throwaway files"
+    return ""
+
+
 #: One file's words, at most this many characters (the extractor stops at 2,000,000 itself).
 FILE_MAX = 300_000
 FILE_SOURCE = "rouh-file"
@@ -301,7 +309,8 @@ def _file_words(path: str, name: str) -> tuple[str, str]:
 
 def _gone(ds: dict, source: str, keep: set[str], by: str, moved: set[str] | None = None) -> int:
     """Items of a source whose thing is gone, deleted from Master (with all derived from them). One whose key is
-    in `moved` is still in Master under another key, so its words are not scrubbed (`ingest.delete`)."""
+    in `moved` is still in Master under another key, or still in the workspace and only left out (`left_out`),
+    so its words are not scrubbed out of the logs (`ingest.delete`)."""
     from . import ingest
 
     n = 0
@@ -365,7 +374,8 @@ def _walk(root: str):
 def sync_files(ds: dict, *, by: str = "worker", lane: str = "backfill", limit: int | None = None) -> dict:
     """Every file of the workspace, each attached to its task; read again only when it changed."""
     root = _workspace()
-    out = {"files": 0, "stored": 0, "changed": 0, "same": 0, "failed": 0, "deleted_kept_out": 0, "gone": 0}
+    out = {"files": 0, "stored": 0, "changed": 0, "same": 0, "failed": 0, "deleted_kept_out": 0, "gone": 0,
+           "left_out": 0, "by_name": 0}
     if not root or not os.path.isdir(root):
         return out
     folders = _task_folders()
@@ -374,6 +384,7 @@ def sync_files(ds: dict, *, by: str = "worker", lane: str = "backfill", limit: i
         "WHERE dataset_id = %s AND source = %s", (ds["id"], FILE_SOURCE))}
     seen: set[str] = set()
     here: set[tuple[str, int]] = set()  # (file name, size) of every file there now, to tell a move from a deletion
+    still_here: set[str] = set()  # left out, and still in the workspace: deleted from Master, its words kept
     done = 0
     for top, dirs, files in _walk(root):
         for name in sorted(files):
@@ -382,6 +393,10 @@ def sync_files(ds: dict, *, by: str = "worker", lane: str = "backfill", limit: i
             path = os.path.join(top, name)
             rel = os.path.relpath(path, root).replace(os.sep, "/")
             key = f"file:{rel}"
+            if left_out(rel):
+                out["left_out"] += 1
+                still_here.add(key)
+                continue
             seen.add(key)
             out["files"] += 1
             try:
@@ -405,6 +420,11 @@ def sync_files(ds: dict, *, by: str = "worker", lane: str = "backfill", limit: i
                        "source_key": key, "said_at": _when(st.st_mtime), "file_name": name,
                        "file_size": st.st_size, "file_type": os.path.splitext(name)[1].lower().lstrip("."),
                        "file_mtime": str(int(st.st_mtime))}
+            if kind == "file":
+                # A picture or a file no model can read: filed by its name and path, with no model call
+                # (Petar, 23 November 2026, step 182-15; `ingest.filed_by_name`).
+                payload["by_name"] = True
+                out["by_name"] += 1
             if task:
                 payload.update({"attached_to": [task["key"]], "task": task["id"],
                                 "thread": "task:" + folder, "project": " / ".join(folder.split("/")[:-1])})
@@ -414,7 +434,7 @@ def sync_files(ds: dict, *, by: str = "worker", lane: str = "backfill", limit: i
         # 98 moved project, 874 files), and its words are already stored again under the new key.
         moved = {k for k, r in have.items() if k not in seen and r.get("deleted_at") is None
                  and (k.removeprefix("file:").rsplit("/", 1)[-1], int(r.get("size") or -1)) in here}
-        out["gone"] = _gone(ds, FILE_SOURCE, seen, by, moved)
+        out["gone"] = _gone(ds, FILE_SOURCE, seen, by, moved | still_here)
     return out
 
 
@@ -488,9 +508,8 @@ def _chat_text(msgs: list[dict], me: str = "the owner") -> str:
     return text
 
 
-def _chat_parts(c: dict, msgs: list[dict], me: str = "the owner") -> list[dict]:
-    """The items a chat is stored as: the whole of it, or one a day when it is long. `me` is what the
-    owner is called in it."""
+def _chat_units(c: dict, msgs: list[dict]) -> list[tuple[dict, list[dict]]]:
+    """What a chat is kept as, each with its messages: the whole of it, or one a day when it is long."""
     from datetime import datetime
 
     from .. import clock
@@ -505,26 +524,60 @@ def _chat_parts(c: dict, msgs: list[dict], me: str = "the owner") -> list[dict]:
     elif c["src_type"] == "project":
         base["project"] = str(c["src_id"])
     if sum(len(str(m["body"] or "")) for m in msgs) <= SPLIT_AT:
-        return [{**base, "title": f"Chat: {name}"[:300], "text": _chat_text(msgs, me), "source_key": f"chat:{c['id']}",
-                 "said_at": _when(c.get("created_at")), "messages": str(len(msgs))}]
+        return [({**base, "title": f"Chat: {name}"[:300], "source_key": f"chat:{c['id']}",
+                  "said_at": _when(c.get("created_at"))}, msgs)]
     # The installation's own day (`clock.DEFAULT`), never a person's clock of the moment, so a chat's
     # days do not move when they travel.
     zone = clock.DEFAULT
     days: dict[str, list] = {}
     for m, t in zip(msgs, _times(c["id"], msgs, c.get("created_at") or 0)):
         days.setdefault(datetime.fromtimestamp(t, zone).date().isoformat() if t else "undated", []).append((m, t))
-    return [{**base, "title": f"Chat: {name}, {day}"[:300], "text": _chat_text([m for m, _ in got], me),
-             "source_key": f"chat:{c['id']}:{day}", "said_at": _when(got[0][1] or c.get("created_at")),
-             "messages": str(len(got)), "chat_day": day} for day, got in sorted(days.items())]
+    return [({**base, "title": f"Chat: {name}, {day}"[:300], "source_key": f"chat:{c['id']}:{day}",
+              "said_at": _when(got[0][1] or c.get("created_at")), "chat_day": day}, [m for m, _ in got])
+            for day, got in sorted(days.items())]
+
+
+def _chat_parts(c: dict, msgs: list[dict], me: str = "the owner") -> list[dict]:
+    """The items a chat is stored as the first time: the whole of it, or one a day when it is long. `me` is
+    what the owner is called in it."""
+    return [{**unit, "text": _chat_text(got, me), "messages": str(len(got))} for unit, got in _chat_units(c, msgs)]
+
+
+#: A chat's new part is keyed by its first message's number after the item it grew from: `chat:<id>:part:<n>`.
+PART = ":part:"
+
+
+def _chat_new_part(unit: dict, got: list[dict], covered: int, me: str) -> dict:
+    """The messages a chat gained since it was stored, as an item of their own beside the earlier ones (Petar,
+    23 November 2026, step 182-15: "store only the new part as it grows, not the whole chat again"): attached to
+    the same task, so the chat is found and linked as before, and what was read before is not read again."""
+    new = got[covered:]
+    first, last = covered + 1, len(got)
+    said = f"messages {first} to {last}" if last > first else f"message {first}"
+    return {**unit, "title": f"{unit['title']}, from message {first}"[:300],
+            "text": f"(The same chat, continued: {said}. The earlier messages are kept as items of their own.)\n\n"
+                    + _chat_text(new, me),
+            "source_key": f"{unit['source_key']}{PART}{first}", "messages": str(len(new))}
 
 
 def sync_chats(ds: dict, *, by: str = "worker", lane: str = "backfill", limit: int | None = None) -> dict:
-    """Every chat, the whole conversation (a day at a time when it is long), stored again when it grew; a
-    chat gone from Rouh is deleted from Master."""
-    out = {"chats": 0, "stored": 0, "changed": 0, "same": 0, "failed": 0, "deleted_kept_out": 0, "gone": 0}
+    """Every chat, the conversation (a day at a time when it is long), and only its new part as it grows; a chat
+    gone from Rouh is deleted from Master.
+
+    A chat (or a day of a long one) is stored whole the first time. Each time it has grown since, the messages
+    it gained are stored as an item of their own, `<its key>:part:<first message>`, so what was read before
+    is never read again (until 23 November 2026 the whole chat was stored again and read again, every ten
+    minutes while it was going on). A chat that lost messages (cut short, its messages taken back) is stored
+    whole again, and its parts go."""
+    out = {"chats": 0, "stored": 0, "changed": 0, "same": 0, "failed": 0, "deleted_kept_out": 0, "gone": 0,
+           "parts": 0}
     have = {r["source_key"]: r for r in db.rows(
         "SELECT id, source_key, deleted_at, meta->>'messages' AS n FROM synapse.item WHERE dataset_id = %s AND source = %s",
         (ds["id"], CHAT_SOURCE))}
+    parts_of: dict[str, list[str]] = {}
+    for k in have:
+        if PART in k and "#gone-" not in k:
+            parts_of.setdefault(k.split(PART, 1)[0], []).append(k)
     keep: set[str] = set()
     done, cut_short = 0, False
     me = people.owner_name_of(ds) or "the owner"
@@ -533,18 +586,34 @@ def sync_chats(ds: dict, *, by: str = "worker", lane: str = "backfill", limit: i
         msgs = db.rows("SELECT seq, role, body FROM message WHERE chat_id = %s ORDER BY seq", (c["id"],))
         if not msgs:
             continue
-        for payload in _chat_parts(c, msgs, me):
-            key = payload["source_key"]
+        for unit, got in _chat_units(c, msgs):
+            key = unit["source_key"]
             keep.add(key)
             old = have.get(key)
-            if old and old.get("deleted_at") is None and old.get("n") == payload["messages"]:
+            parts = parts_of.get(key, [])
+            # What is stored already: the item and every part after it (one deleted on purpose counts, so it is
+            # never stored again, D60).
+            covered = (int(old.get("n") or 0) if old else 0) + sum(int(have[k].get("n") or 0) for k in parts)
+            live = bool(old) and old.get("deleted_at") is None
+            if live and covered == len(got):
+                keep.update(parts)
                 out["same"] += 1
                 continue
             if limit and done >= limit:
+                keep.update(parts)
                 cut_short = True
                 continue
             done += 1
-            _put(ds, payload, old, out, by, lane)
+            if live and covered < len(got):
+                keep.update(parts)
+                payload = _chat_new_part(unit, got, covered, me)
+                keep.add(payload["source_key"])
+                out["parts"] += 1
+                _put(ds, payload, have.get(payload["source_key"]), out, by, lane)
+                continue
+            # The first time, deleted on purpose (kept out by `_put`), or fewer messages than were stored: the
+            # whole of it again, and its parts go.
+            _put(ds, {**unit, "text": _chat_text(got, me), "messages": str(len(got))}, old, out, by, lane)
     if not cut_short:
         # A chat deleted from Rouh, and a long chat's whole item once it is kept a day at a time.
         out["gone"] = _gone(ds, CHAT_SOURCE, keep | {k for k, r in have.items() if r.get("deleted_at") is not None}, by)

@@ -151,7 +151,7 @@ async def machine_load_now(request: HttpRequest):
 
 
 #: What the drill-down may be asked, beside the period: the choices made on the way down.
-_DRILL_ASKS = ("provider", "model", "purpose", "day", "hour", "origin", "why")
+_DRILL_ASKS = ("provider", "model", "purpose", "day", "hour", "origin", "why", "source", "item")
 
 
 def _drill_args(request: HttpRequest) -> dict:

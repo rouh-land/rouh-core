@@ -122,7 +122,10 @@ _ABOUT: contextvars.ContextVar[dict | None] = contextvars.ContextVar(
     "rouh_llm_about", default=None)
 
 #: What `about` may say.
-FIELDS = ("purpose", "subject", "session_id", "turn_id", "user_id", "org_id", "attempt", "asked")
+FIELDS = ("purpose", "subject", "session_id", "turn_id", "user_id", "org_id", "attempt", "asked",
+          # Which source fed a memory call, and the item's own key (`rouh/synapse/feeds.py`, since
+          # 23 November 2026).
+          "source", "source_key")
 
 #: How much of what was asked and of what came back each row keeps for the cost page's "What was asked
 #: and what came back" (`asked_of`, `answered_of`), kept whatever the words' own setting says, as the
@@ -732,6 +735,8 @@ class Entry:
             turn_id=str(self.about.get("turn_id") or ""),
             purpose=purpose,
             subject=str(self.about.get("subject") or ""),
+            source=str(self.about.get("source") or "")[:80],
+            source_key=str(self.about.get("source_key") or "")[:300],
             caller=self.caller,
             provider=self.provider,
             endpoint=self.endpoint,

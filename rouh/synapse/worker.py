@@ -368,6 +368,14 @@ def drain(ds_id: str, concurrency: int, *, stop=None, on_batch=None) -> dict:
 
 
 def run_job(job: dict) -> None:
+    """One job, every model call in it said to be for its item's source (`feeds.py`)."""
+    from . import feeds
+
+    with feeds.about_job(job):
+        _run_job(job)
+
+
+def _run_job(job: dict) -> None:
     from . import datasets, evaluate, ingest, layers, mapping, seeds, vectors
 
     ds = datasets.by_id(job["dataset_id"])

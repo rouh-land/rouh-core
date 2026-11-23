@@ -267,7 +267,7 @@ def store(ds: dict, payload: dict, *, by: str = "page", wait: bool = False, lane
                                     "file_name", "language", "status", "known", "start", "end", "place", "attendees",
                                     "name", "address", "coordinates", "file_type", "file_size", "sha256",
                                     "file_read", "file_mtime", "messages", "card_version", "gmail", "gcal",
-                                    "meeting", "slack")
+                                    "meeting", "slack", "by_name")
             if payload.get(k) not in (None, "", [])}
     for field in ("to", "cc", "rule_for", "attached_to"):
         if field in meta:
@@ -287,9 +287,13 @@ def store(ds: dict, payload: dict, *, by: str = "page", wait: bool = False, lane
     if not owner or owner == people.EVERYONE:
         owner = datasets.me(ds)
     trace = Trace(ds["id"], "store", f"Store: {title}", by=by)
+    from . import feeds
+
     try:
-        return _store_code_part(ds, s, trace, payload, kind=kind, raw=raw, title=title, source=source, key=key,
-                                said_at=said_at, meta=meta, owner=owner, by=by, wait=wait, lane=lane, hold=hold)
+        # Every model call of storing it, here or waited for, said to be for its source (`feeds.py`).
+        with feeds.about_item(source, key):
+            return _store_code_part(ds, s, trace, payload, kind=kind, raw=raw, title=title, source=source, key=key,
+                                    said_at=said_at, meta=meta, owner=owner, by=by, wait=wait, lane=lane, hold=hold)
     except Exception as exc:
         # Said on the run, not left running: an import tries the item again (`batch`).
         trace.finish("failed", error=f"{type(exc).__name__}: {exc}"[:500])
@@ -1324,6 +1328,8 @@ def model_part(ds: dict, item_id: str, trace_id: str | None, *, editing: dict | 
         return {"ok": False, "why": "the item is gone"}
     trace = Trace(ds["id"], "store", "", trace_id=trace_id) if trace_id else Trace(
         ds["id"], "store", f"Store: {item['title']}", item_id=item_id, by="worker")
+    if (item.get("meta") or {}).get("by_name"):
+        return filed_by_name(ds, item, trace)
     me = datasets.me(ds)
     body = item.get("body") or ""
     n_words = tx.words(body)
@@ -1543,6 +1549,29 @@ def model_part(ds: dict, item_id: str, trace_id: str | None, *, editing: dict | 
         db.run("UPDATE synapse.item SET status = 'failed' WHERE id = %s", (item_id,))
         trace.finish("failed", error=f"{type(exc).__name__}: {exc}")
         return {"ok": False, "why": str(exc)}
+
+
+def filed_by_name(ds: dict, item: dict, trace) -> dict:
+    """A picture or a file no model can read, filed by its name and path, with no model call (Petar, 23 November
+    2026, task 182, step 182-15: "file them by name and path without a model call"). Its words, which are its
+    path, name, type and size, were made searchable by code's part, and its link to its task by code's links;
+    here it is given tier 1 and a gist by code, and is ready. No vectors are made, no X-ray, no layer or map is
+    touched: until then each such file cost a tier call, its vectors, link candidates and its thread's summary
+    again, for a line that says what the file is called."""
+    item_id = item["id"]
+    with trace.step("by_name", "Filed by its name and path, with no model call (step 182-15)") as st:
+        gist = (item.get("title") or "").strip() or tx.first_sentence(item.get("body") or "", 40)
+        xray = {"x": 1, "gist": gist, "claims": [], "by": "code"}
+        db.run("UPDATE synapse.passage SET vec = NULL, embed_model = '' WHERE dataset_id = %s AND item_id = %s "
+               "AND vec IS NOT NULL", (ds["id"], item_id))
+        db.run("UPDATE synapse.item SET tier = 1, tier_by = 'code', tier_why = %s, xray = %s::jsonb, "
+               "xray_by = %s::jsonb, mentions = NULL, status = 'ready', updated_at = now() WHERE id = %s",
+               ("a picture or a file no model can read, filed by its name and path", Json(xray),
+                Json({"by": "code", "at": _now().isoformat()}), item_id))
+        st.data.update({"tier": 1, "gist": gist, "model_calls": 0,
+                        "note": "Found by its name, path and type in a word search, and linked to its task by code."})
+    trace.finish("done", tier=1, by_name=True)
+    return {"ok": True, "tier": 1, "by_name": True}
 
 
 def older_claims_wanted(s) -> bool:
@@ -2350,6 +2379,14 @@ def edit(ds: dict, item_id: str, changes: dict, *, by: str = "page", hold: bool 
     item = get_item(ds["id"], item_id)
     if item is None or item.get("deleted_at") is not None:
         return {"ok": False, "why": "There is no such item in this dataset."}
+    from . import feeds
+
+    # Every model call of the edit said to be for the item's source (`feeds.py`).
+    with feeds.about_item(item.get("source") or "", item.get("source_key") or ""):
+        return _edit(ds, item, item_id, changes, by=by, hold=hold)
+
+
+def _edit(ds: dict, item: dict, item_id: str, changes: dict, *, by: str, hold: bool) -> dict:
     if item["kind"] == "person":
         return edit_person(ds, item, changes, by=by)
     s = datasets.settings(ds)
@@ -2364,7 +2401,9 @@ def edit(ds: dict, item_id: str, changes: dict, *, by: str = "page", hold: bool 
               # A meeting's own facts from the library (`meetings.py`).
               "meeting",
               # A Slack conversation's day: where, whose, and what it was when kept (`rouh/slack.py`).
-              "slack"):
+              "slack",
+              # A picture or file filed by its name, with no model call (`filed_by_name`).
+              "by_name"):
         if k in changes and changes[k] not in (None,):
             meta[k] = _list(changes[k]) if k in ("to", "cc", "rule_for") else changes[k]
     if changes.get("area") is not None:

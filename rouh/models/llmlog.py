@@ -44,6 +44,10 @@ class LLMRequest(models.Model):
     purpose = models.TextField(blank=True, default="")
     #: What it was about, beyond the chat: a page, a task, a feedback.
     subject = models.TextField(blank=True, default="")
+    #: Which source fed it, for a memory call: "mail", "files", "chats", "dreaming" ... and the item's
+    #: own key where there is one (`rouh/synapse/feeds.py`, since 23 November 2026). Empty before.
+    source = models.TextField(blank=True, default="", db_default="")
+    source_key = models.TextField(blank=True, default="", db_default="")
     #: The function in Rouh that sent it, `rouh/brain.py:pump`.
     caller = models.TextField(blank=True, default="")
 

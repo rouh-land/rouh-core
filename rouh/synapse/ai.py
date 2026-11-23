@@ -211,10 +211,18 @@ def price(usage: dict, model: str) -> float:
 
 
 def _about(trace, purpose: str, owner: dict | None):
+    """What a memory call is for and whose it is, said on its row. The source that fed it (`feeds.py`) is
+    read here, on the thread that asks: the call itself is sent from Synapse's own event loop, on another
+    thread, which does not see what this one was told."""
+    from . import feeds
+
     owner = owner or {}
+    here = llmlog.current()
     return llmlog.about(purpose=f"synapse_{purpose}",
                         subject=f"synapse/{trace.dataset_id}/{trace.id}" if trace else "synapse",
-                        user_id=owner.get("user_id") or None, org_id=owner.get("org_id") or None)
+                        user_id=owner.get("user_id") or None, org_id=owner.get("org_id") or None,
+                        source=here.get("source") or feeds.of_purpose(purpose) or None,
+                        source_key=here.get("source_key") or None)
 
 
 # --- embeddings ------------------------------------------------------------------------
@@ -890,8 +898,13 @@ def decide_many(purpose: str, state: str, questions: list[dict], *, per_call: in
     chunks = [questions[i:i + per_call] for i in range(0, len(questions), per_call)]
     import concurrent.futures
 
+    import contextvars
+
+    # Each batch on a thread of its own, told what this one was (`_about` reads the source that fed it): a
+    # copy of this thread's context for each, made here, since one context is never entered twice at once.
+    told = [contextvars.copy_context() for _ in chunks]
     with concurrent.futures.ThreadPoolExecutor(max_workers=min(6, len(chunks))) as pool:
-        parts = list(pool.map(lambda c: _decide_in_thread(purpose, state, c, kw), chunks))
+        parts = list(pool.map(lambda ct: ct[0].run(_decide_in_thread, purpose, state, ct[1], kw), zip(told, chunks)))
     merged = dict(parts[0])
     merged["answers"] = {}
     merged["calls"] = len(parts)

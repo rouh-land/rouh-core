@@ -49,7 +49,18 @@ ORDER = ("purpose", "provider", "model", "day", "origin")
 
 #: Every one of them as the screen says it.
 DIMS = {"provider": "Company", "model": "Model", "purpose": "Use", "day": "Day",
-        "origin": "Chat, job or page", "hour": "Hour", "why": "Why no price"}
+        "origin": "Chat, job or page", "hour": "Hour", "why": "Why no price",
+        "source": "Memory source", "item": "Item"}
+
+#: Which source fed a memory call (Petar, 23 November 2026, task 182, step 182-15: "can we split it by source
+#: so we can make that analysis at a later time?"), from the two columns `rouh/synapse/feeds.py` fills. A
+#: memory call from before has none ("~none", "Source not recorded"); a call that is not Memory's is "~not".
+SOURCE_SQL = r"""(CASE WHEN source <> '' THEN source
+  WHEN purpose LIKE 'synapse%%' THEN '~none' ELSE '~not' END)"""
+#: And the item it was working on, by its own key: a file's path, a task, a chat, a thread; "~" for none.
+ITEM_SQL = "(CASE WHEN source_key <> '' THEN source_key ELSE '~' END)"
+#: What a split by item says of a call that worked on no one item.
+NO_ITEM = "No one item (a question, a night's dreaming, the map)"
 
 #: Why a call has no price, as the log lets it be worked out (`llmlog`, `costs.request_cost`):
 #: a call that failed, was stopped, was lost in a restart or is still waiting has no usage to
@@ -465,6 +476,10 @@ def _expr(dim: str, zone_name: str) -> tuple[str, list]:
         return ORIGIN_SQL, []
     if dim == "why":
         return WHY_SQL, []
+    if dim == "source":
+        return SOURCE_SQL, []
+    if dim == "item":
+        return ITEM_SQL, []
     raise Refused(f"a level is split by one of {', '.join(ORDER)}")
 
 
@@ -497,11 +512,23 @@ def _filters_of(asked: dict) -> dict:
     # In the order they were made, which is the order of the trail.
     out = {}
     for dim, value in asked.items():
-        if dim in (*ORDER, "hour", "why") and value is not None and value != "":
+        if dim in (*ORDER, "hour", "why", "source", "item") and value is not None and value != "":
             out[dim] = str(value)
     if "hour" in out and "day" not in out:
         raise Refused("an hour is always of a day")
+    if "item" in out and "source" not in out:
+        raise Refused("an item is always of a memory source")
     return out
+
+
+def _default_by(filters: dict, left: list[str]) -> str:
+    """The split a level gets when none is asked for: inside Memory, its source and then its items; otherwise
+    the next in `ORDER` (`orb_costs.js`, `ouNext`, says the same)."""
+    if "source" in left and str(filters.get("purpose") or "").startswith("synapse"):
+        return "source"
+    if "item" in left and filters.get("source") not in (None, "~not"):
+        return "item"
+    return next((d for d in left if d in ORDER), left[0] if left else "")
 
 
 def _zone_name(zone) -> str:
@@ -575,10 +602,11 @@ def level(who, *, period: str = "days30", at: str | None = None, start: str | No
     else:
         span = period_of(period, at, start, end, zone)
     chosen = set(filters)
-    left = [d for d in ORDER + (("why",) if unpriced else ()) if d not in chosen
+    left = [d for d in ORDER + (("why",) if unpriced else ()) + ("source",)
+            + (("item",) if "source" in filters else ()) if d not in chosen
             and not (d == "day" and span["days"] == 1)]
     if by is None or by == "":
-        by = left[0] if left else ""
+        by = _default_by(filters, left)
     if by and by not in left:
         raise Refused(f"this level cannot be split by {by}")
 
@@ -618,7 +646,7 @@ def level(who, *, period: str = "days30", at: str | None = None, start: str | No
         else:
             got.sort(key=lambda g: (-_sum(g[1]), -g[2], str(g[0])))
         keys = [g[0] for g in got[:ROWS]]
-        known = _titles(keys, who.org_id) if by == "origin" else {}
+        known = _titles(keys, who.org_id) if by == "origin" else _item_titles(keys, who) if by == "item" else {}
         for k, cost, calls, nopay, bcost, bcalls, tokens in got[:ROWS]:
             k = k or ""
             cost, bcost = _sum(cost), _sum(bcost)
@@ -660,7 +688,7 @@ def level(who, *, period: str = "days30", at: str | None = None, start: str | No
                             "calls": int(n)} for m, n in missing]}
 
     series = _series(who, span, filters, by, rows, zone, zone_name, unpriced)
-    plans = _plans(who, lo, hi) if not ({"model", "purpose", "origin", "hour"} & chosen) else None
+    plans = _plans(who, lo, hi) if not ({"model", "purpose", "origin", "hour", "source", "item"} & chosen) else None
     if plans is not None and filters.get("provider") not in (None, "anthropic", "openai"):
         plans = None
     if plans is not None and filters.get("provider") == "anthropic":
@@ -668,11 +696,7 @@ def level(who, *, period: str = "days30", at: str | None = None, start: str | No
     elif plans is not None and filters.get("provider") == "openai":
         plans = {"claude": 0, "codex": plans["codex"], "codex_on_key": plans["codex_on_key"]}
 
-    trail = []
-    for dim, value in filters.items():
-        named_ = _row_name(dim, value, _titles([value], who.org_id) if dim == "origin" else {})
-        trail.append({"dim": dim, "value": value, "name": named_["name"], "what": DIMS[dim],
-                      "link": named_.get("link", "")})
+    trail = _trail(who, filters)
 
     if unpriced:
         total_said, before_said = _calls_said(total_calls), _calls_said(before_calls)
@@ -735,6 +759,62 @@ def not_counted(who, where: str, args: list, lo: float, hi: float, zone_name: st
             "most_said": _money(most)}
 
 
+def _trail(who, filters: dict) -> list[dict]:
+    """The choices made on the way down, each as the screen says it."""
+    out = []
+    for dim, value in filters.items():
+        known = _titles([value], who.org_id) if dim == "origin" else _item_titles([value], who) if dim == "item" else {}
+        named_ = _row_name(dim, value, known)
+        out.append({"dim": dim, "value": value, "name": named_["name"], "what": DIMS[dim],
+                    "link": named_.get("link", "")})
+    return out
+
+
+def source_named(key: str) -> str:
+    """A memory source as the screen says it (`rouh/synapse/feeds.py`)."""
+    from .synapse import feeds
+
+    if key == "~not":
+        return "Not a memory call"
+    if key in ("", "~none"):
+        return feeds.NOT_RECORDED
+    return feeds.named(key)
+
+
+def _item_titles(keys, who) -> dict:
+    """The titles of the memory items among these keys, by key: the newest item kept under each, in the
+    person's own memories (an administrator's, the organisation's)."""
+    keys = [k for k in keys if k]
+    if not keys:
+        return {}
+    sql = ("SELECT DISTINCT ON (i.source_key) i.source_key, i.title FROM synapse.item i"
+           " JOIN synapse.dataset d ON d.id = i.dataset_id WHERE d.org_id = %s AND i.source_key = ANY(%s)"
+           " AND i.title <> ''")
+    args: list = [who.org_id, keys]
+    if not who.is_admin:
+        sql += " AND d.user_id = %s"
+        args.append(who.user_id)
+    try:
+        return {k: t for k, t in _rows(sql + " ORDER BY i.source_key, i.updated_at DESC NULLS LAST", args)}
+    except Exception:  # noqa: BLE001 - no memory on this Rouh: the keys say what they are
+        return {}
+
+
+def item_named(key: str, known: dict) -> str:
+    """A memory item as the screen says it: its title, else what its key says."""
+    if not key or key == "~":
+        return NO_ITEM
+    if known.get(key):
+        return known[key]
+    m = re.match(r"^task:task-(\d+)$", key)
+    if m:
+        return f"Task {m.group(1)}"
+    for prefix, said in (("file:", "File "), ("chat:", "Chat "), ("card:", "Card "), ("thread:", "Thread ")):
+        if key.startswith(prefix):
+            return said + key[len(prefix):][:120]
+    return key[:120]
+
+
 def _per_call(cost: float, priced: int) -> dict:
     if not priced:
         return {"per_call": None, "per_call_said": "not priced"}
@@ -758,6 +838,10 @@ def _row_name(dim: str, key: str, known: dict) -> dict:
         return {"name": got["name"], "link": got["link"], "kind": got["kind"]}
     if dim == "why":
         return {"name": WHY.get(key, key), "link": ""}
+    if dim == "source":
+        return {"name": source_named(key), "link": ""}
+    if dim == "item":
+        return {"name": item_named(key, known), "link": ""}
     return {"name": key, "link": ""}
 
 
@@ -817,7 +901,7 @@ def _series(who, span: dict, filters: dict, by: str, rows: list[dict], zone, zon
 _CALL_FIELDS = ("id", "started_at", "provider", "model", "served_model", "purpose", "session_id",
                 "subject", "status", "input_tokens", "output_tokens", "cache_read_tokens",
                 "cache_write_tokens", "web_searches", "cost_usd", "duration_ms", "attempt",
-                "turn_id", "stop_reason")
+                "turn_id", "stop_reason", "source", "source_key")
 
 
 def calls(who, *, period: str = "days30", at: str | None = None, start: str | None = None,
@@ -849,11 +933,7 @@ def calls(who, *, period: str = "days30", at: str | None = None, start: str | No
     count = _rows(f"SELECT COUNT(*) FROM llm_requests WHERE {where}", args)[0][0]
     known = _titles([g[-1] for g in got], who.org_id)
     out = [_call_row(dict(zip(_CALL_FIELDS + ("origin",), g)), zone, known) for g in got[:CALLS]]
-    trail = []
-    for dim, value in filters.items():
-        named_ = _row_name(dim, value, _titles([value], who.org_id) if dim == "origin" else {})
-        trail.append({"dim": dim, "value": value, "name": named_["name"], "what": DIMS[dim],
-                      "link": named_.get("link", "")})
+    trail = _trail(who, filters)
     return {"period": span, "trail": trail, "calls": out, "count": count, "offset": offset,
             "more": len(got) > CALLS, "order": order, "unpriced": unpriced}
 
@@ -879,7 +959,18 @@ def _call_row(r: dict, zone, known: dict) -> dict:
         "attempt": r["attempt"],
         "origin": origin,
         "why_unpriced": why_unpriced(r) if cost is None else "",
+        # Which source fed it, for a memory call (step 182-15), and the item's own key.
+        "source": (source_named(r.get("source") or "") if r.get("source")
+                   else feeds_not_recorded(r.get("purpose") or "")),
+        "source_key": r.get("source_key") or "",
     }
+
+
+def feeds_not_recorded(purpose: str) -> str:
+    """What a call with no source says of it: "Source not recorded" for a memory call, nothing for any other."""
+    from .synapse import feeds
+
+    return feeds.NOT_RECORDED if str(purpose).startswith("synapse") else ""
 
 
 def why_unpriced(r: dict) -> str:

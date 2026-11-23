@@ -103,6 +103,12 @@ function ouHas(dim) {
 // use (Petar, 18 November 2026: "Default split should be by USE").
 function ouNext() {
   var oneDay = ouHas('day') || OU.period.kind === 'day';
+  // Inside Memory, its source and then its items first (task 182, step 182-15), as the server has it
+  // (`usage_drill._default_by`).
+  var use = OU.filters.filter(function (f) { return f[0] === 'purpose'; })[0];
+  if (use && /^synapse/.test(use[1]) && !ouHas('source')) return 'source';
+  var src = OU.filters.filter(function (f) { return f[0] === 'source'; })[0];
+  if (src && src[1] !== '~not' && !ouHas('item')) return 'item';
   for (var i = 0; i < OU_ORDER.length; i++) {
     // One day is not split by day.
     if (OU_ORDER[i] === 'day' && oneDay) continue;
@@ -831,8 +837,9 @@ function ouPaintSplit(body, u, paint) {
   [[u.by_said, 'ou-rname'], ['', 'ou-rbar ou-rbarhead'], [counting ? 'Calls' : 'Cost', 'ou-rfig'], [counting ? 'Tokens' : 'Calls', 'ou-rfig'], ['Against before', 'ou-rfig']]
     .forEach(function (t) { labels.appendChild(el('span', t[1], t[0])); });
   list.appendChild(labels);
-  var next = ouNextAfter(u.by);
   rows.forEach(function (r) {
+    // Each row says where it opens: a memory use opens split by its source (`ouNext`).
+    var next = ouNextAfter(u.by, r.key);
     var li = el('li');
     var b = el('button', 'ou-row');
     b.type = 'button';
@@ -876,12 +883,13 @@ function ouPaintSplit(body, u, paint) {
   body.appendChild(part);
 }
 
-function ouNextAfter(dim) {
+function ouNextAfter(dim, value) {
   var keep = OU.filters;
-  OU.filters = keep.concat([[dim, '_']]);
+  OU.filters = keep.concat([[dim, value == null ? '_' : String(value)]]);
   var n = ouNext();
   OU.filters = keep;
-  return ({ provider: 'company', model: 'model', purpose: 'use', day: 'day', origin: 'chat, job or page', why: 'why no price' })[n] || '';
+  return ({ provider: 'company', model: 'model', purpose: 'use', day: 'day', origin: 'chat, job or page', why: 'why no price',
+    source: 'memory source', item: 'item' })[n] || '';
 }
 
 /* ---- the calls ---------------------------------------------------------- */
@@ -936,7 +944,7 @@ function ouPaintCalls(u) {
     var when = el('span', 'ou-cw ou-cwhen', c.when);
     var what = el('span', 'ou-cw ou-cwhat');
     what.appendChild(el('b', '', c.use));
-    what.appendChild(el('small', '', c.model + ' – ' + c.origin.name + (c.status !== 'ok' ? ' – ' + c.status_said : '')));
+    what.appendChild(el('small', '', c.model + ' – ' + (c.source ? c.source + ' – ' : '') + c.origin.name + (c.status !== 'ok' ? ' – ' + c.status_said : '')));
     // Why it has no price, when Rouh can tell (`usage_drill.why_unpriced`).
     if (c.why_unpriced) what.appendChild(el('small', 'ou-why', 'No price: ' + c.why_unpriced.charAt(0).toLowerCase() + c.why_unpriced.slice(1)));
     b.appendChild(when);
@@ -1086,6 +1094,9 @@ function ouPaintCall(c) {
     started.addEventListener('click', ouLeave);
   }
   fact('What started it', started ? '' : (c.origin && c.origin.name), started);
+  // Which source fed it, for a memory call, and the item it was working on (task 182, step 182-15).
+  fact('Memory source', c.source);
+  fact('Item', c.source_key);
   fact('Paid', 'Per use, through Rouh\'s own ' + c.company + ' key');
   fact('No price because', c.why_unpriced);
   fact('Thinking', [c.thinking, c.effort ? 'effort ' + c.effort : ''].filter(Boolean).join(', '));
