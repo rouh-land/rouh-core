@@ -189,8 +189,9 @@ def _rules(grant: Grant) -> str:
 #: A page whose source is longer than this is not sent whole: its words are, and the model reads the pieces of its
 #: source it needs (`read_page_source`). 120,000 characters is about 30,000 tokens.
 SOURCE_WHOLE = 120_000
-#: The most of a page's words sent in place of its source.
-WORDS_MAX = 120_000
+#: The most of a page's words sent in place of its source: all of them on any real page (task 61's 613 KB site is
+#: 272,000 characters of words, about 70,000 tokens), cached, so only a change to the page pays for them again.
+WORDS_MAX = 600_000
 
 
 def page_material(grant: Grant) -> tuple[str, list[str]]:
