@@ -268,6 +268,26 @@ def is_unbound_thinking(exc) -> bool:
             and "bound to a different conversation" in str(exc))
 
 
+def is_system_message_refused(exc) -> bool:
+    """A `{"role": "system"}` message inside `messages` refused by the model.
+
+    A turn's own context goes there on the models that take one
+    (`config.takes_system_messages`); a model that does not says "role 'system'
+    is not supported on this model". Asked again with the same words as a note
+    in a user message (`brain.turn_context`), once.
+    """
+    said = str(exc).lower()
+    return status_of(exc) == 400 and "system" in said and "not supported" in said
+
+
+def is_cache_mark_refused(exc) -> bool:
+    """The request's breakpoints refused: more than four, or an hour-long one
+    after a five-minute one (`rouh/promptcache.py`). Asked again with the
+    conversation's marks at five minutes and the one for the turn before left
+    off, which is how every request was marked until 23 November 2026, once."""
+    return status_of(exc) == 400 and "cache_control" in str(exc)
+
+
 # A request past the model's context window. The API says it in one of three
 # ways, and each is read here:
 #

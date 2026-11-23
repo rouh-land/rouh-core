@@ -190,6 +190,29 @@ def takes_effort(model: str) -> bool:
 _EFFORT_4 = ("claude-opus-4-7", "claude-opus-4-8")
 
 
+def takes_system_messages(model: str) -> bool:
+    """Whether this model takes a `{"role": "system"}` message inside `messages`.
+
+    Anthropic's own list (the Claude API skill's "Mid-conversation system
+    messages", read 23 November 2026): Opus 5.5, Opus 5, Opus 4.8, Fable 5 and
+    5.1, Sonnet 5.5 and Haiku 5.5, with no beta header; not Sonnet 5, Haiku
+    4.5, Opus 4.7 or Sonnet 4.6, which refuse one with a 400. A turn's own
+    context goes there (`brain.turn_context`); a model not on the list is
+    handed the same words as a note in a user message instead. Unknown names
+    are the note, the safe way round: the worst of a note is the same words
+    with less weight, and the worst of a system message refused is no answer.
+    """
+    # A Bedrock id puts the vendor in front ("anthropic.") and a Vertex id a version after ("@").
+    name = (model or "").lower().rsplit(".", 1)[-1].split("@", 1)[0]
+    return name in _SYSTEM_MESSAGES
+
+
+#: The models on the list (`MODEL_CHOICES`), and those to come, that take a
+#: system message inside `messages` (`takes_system_messages`).
+_SYSTEM_MESSAGES = ("claude-opus-5-5", "claude-opus-5", "claude-opus-4-8", "claude-fable-5-1",
+                    "claude-fable-5", "claude-sonnet-5-5", "claude-haiku-5-5")
+
+
 def thinking_for(model: str, display: str = "summarized") -> dict | None:
     """The thinking to ask this model for, or nothing to send.
 

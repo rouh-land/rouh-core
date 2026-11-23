@@ -37,7 +37,7 @@ from . import (attachments, chatkinds, citing, clock, context_editing, costs, de
                worklabel)
 from . import memory as memory_mod
 from .config import (GOOGLE, PROVIDER_NAMES, XAI, effort_for, is_openai, luna_ready, model_name,
-                     provider_of, thinking_for)
+                     provider_of, takes_system_messages, thinking_for)
 from .stopping import STOP_NOTE
 from .version import get_version
 
@@ -1466,6 +1466,11 @@ class Brain:
         if plain:
             again = (again + "\n\n" + plain) if again else plain
         system = await asyncio.to_thread(self._system, plan, seeds=found, recall=remembered, asked=again)
+        # The system prompt is only the part that is the same from one turn to the next. What is
+        # true of this turn alone goes after the conversation, into the turn's first request
+        # (`turn_context`), so nothing in front of the conversation changes between two messages.
+        said_now = "\n\n".join(b.get("text") or "" for b in system[1:] if b.get("text"))
+        system = system[:1]
         spoken_buffer = ""
         full_text: list[str] = []
         # The words of the response being streamed right now. Everything a
@@ -1506,6 +1511,17 @@ class Brain:
         # next turn reads everything up to it out of the cache instead; the
         # note is still marked on the first request as its newest message.
         anchor = len(messages) - (2 if noted else 1)
+        # The same point of the turn before, marked too, and both kept an hour
+        # (`promptcache.marked`). `held` and `system_messages` fall back once each if the
+        # API refuses them (`retrying.is_cache_mark_refused`, `is_system_message_refused`).
+        earlier = _turn_before(messages, anchor)
+        held = promptcache.LONG
+        system_messages = True
+
+        def on_wire(window: list, to: str) -> list:
+            return promptcache.marked(_context_on_wire(window, to, system_messages), anchor,
+                                      earlier if held is promptcache.LONG else None, held=held)
+
         restarts = 0
         stopped = False
         # Only the first reply of a turn judges the question: by the time a
@@ -1545,6 +1561,9 @@ class Brain:
                 if taken:
                     messages[anchor + 1:anchor + 1] = taken
                     anchor += len(taken)
+            if first and said_now:
+                # After everything the first request carries, and there for every round trip.
+                messages.append(turn_context(said_now))
             first = False
             # Every call of Anthropic's own with its result where the API looks
             # for it, or not sent at all: one that lost its result is a 400 on
@@ -1561,7 +1580,7 @@ class Brain:
                 # round of tool results, which the next request reads back.
                 # A tool a search loaded is in that conversation, where the
                 # search happened, so it is read back with the rest of it.
-                messages=promptcache.marked(messages, anchor),
+                messages=on_wire(messages, asked),
                 tools=plan.tools,
             )
             # Tools turned off for this chat in Chat Options: still declared, because the history may
@@ -1830,7 +1849,7 @@ class Brain:
                 if other.mode != plan.mode:
                     request["tools"] = other.tools
                     request["system"] = self._system(other, seeds=found, recall=remembered,
-                                                     asked=again)
+                                                     asked=again)[:1]
                 else:
                     request["tools"] = plan.tools
                     request["system"] = system
@@ -1867,9 +1886,21 @@ class Brain:
                         # is not this, and is left to the rest of this handler.
                         unthought = True
                         messages = _unthought(messages)
-                        request["messages"] = promptcache.marked(messages, anchor)
+                        request["messages"] = on_wire(messages, asked)
                         log.warning("%s: its thinking was bound to an earlier window; "
                                     "asking again without it", asked)
+                        continue
+                    if system_messages and retrying.is_system_message_refused(exc):
+                        # This model takes no system message inside `messages` after all: the
+                        # turn's context goes as the note it is held as, for the rest of the turn.
+                        system_messages = False
+                        request["messages"] = on_wire(messages, asked)
+                        log.warning("%s: %s; its context goes as a note", asked, exc)
+                        continue
+                    if held is promptcache.LONG and retrying.is_cache_mark_refused(exc):
+                        held = promptcache.BRIEF
+                        request["messages"] = on_wire(messages, asked)
+                        log.warning("%s: %s; the conversation's marks go at five minutes", asked, exc)
                         continue
                     if retrying.is_wrong_model(exc) and which + 1 < len(chain):
                         which += 1
@@ -2408,6 +2439,89 @@ def _without_thinking(blocks: list[dict]) -> list[dict]:
     """
     return [b for b in blocks
             if not (isinstance(b, dict) and b.get("type") in THINKING_BLOCKS)]
+
+
+#: How a turn's own context starts when it is a note in a user message: on a model that
+#: takes no system message inside `messages` (`config.takes_system_messages`), and in the
+#: window this process holds, which is never stored.
+TURN_NOTE = (turnmarks.NOTE + " what is true as this turn begins. It is the end of the system prompt, "
+             "read as that, and never the person's words.]\n\n")
+
+
+def turn_context(said: str) -> dict:
+    """The message that carries what is true only of this turn, after the conversation.
+
+    The clock, the permissions mode, what the chat is reading, the page beside it, what
+    memory recalled and the rules for this reply were the second block of the system
+    prompt until 23 November 2026 (Petar, task 182, step 182-12): in front of the whole
+    conversation, and different on 95 messages in 100, so every new message wrote the
+    conversation to the prompt cache again and almost never read it back. After the
+    conversation they change nothing in front of it. The words are the very ones
+    `Brain._system` made, untrusted boxes and all.
+
+    Put after the newest message of the turn's first request and kept there, byte for
+    byte, by every round trip of the turn, because Opus 5.5 binds its thinking to all in
+    front of it. Never stored: the next turn's history is the conversation alone, so it
+    reads everything up to its own new message out of the cache. On the wire it is a
+    system message where the model takes one (`_context_on_wire`).
+    """
+    return {"role": "user", "content": [{"type": "text", "text": TURN_NOTE + said}]}
+
+
+def _is_turn_context(message) -> bool:
+    if not isinstance(message, dict) or message.get("role") != "user":
+        return False
+    content = message.get("content")
+    return (isinstance(content, list) and len(content) == 1 and isinstance(content[0], dict)
+            and str(content[0].get("text") or "").startswith(TURN_NOTE))
+
+
+def _context_on_wire(messages: list, model: str, system_messages: bool = True) -> list:
+    """The window as this request sends it: the turn's context a system message, which is the
+    operator's own channel and cannot be forged by anything a page or a mail says, on a model
+    that takes one; otherwise the note it is held as."""
+    if not system_messages or not takes_system_messages(model):
+        return messages
+    return [{"role": "system", "content": m["content"][0]["text"][len(TURN_NOTE):]}
+            if _is_turn_context(m) else m for m in messages]
+
+
+def _turn_before(messages: list, anchor: int) -> int | None:
+    """Where the turn before this one was anchored, or None.
+
+    A turn is anchored on the last block of the person's words it began with (and of any
+    they added before its first request), which come straight after a reply of the
+    model's, or first. Words added while tools ran follow their results, and are not a
+    turn's start. That turn wrote the conversation up to there to the cache, and nothing
+    after: its replies went out with their thinking, which is never stored, so the history
+    is different from that point on. Marked again here, the next turn reads it back however
+    many rounds of tools that turn took (the API looks back only 20 blocks from a mark).
+    """
+    def person(message) -> bool:
+        if not isinstance(message, dict) or message.get("role") != "user" or turnmarks.is_note(message):
+            return False
+        content = message.get("content")
+        if isinstance(content, list) and content and all(
+                isinstance(b, dict) and b.get("type") == "tool_result" for b in content):
+            return False
+        return bool(content)
+
+    ends: list[int] = []
+    open_run = False
+    for i, message in enumerate(messages[:anchor + 1]):
+        before = messages[i - 1] if i else None
+        if person(message) and (open_run or i == 0 or (isinstance(before, dict)
+                                                       and before.get("role") == "assistant")):
+            if open_run:
+                ends[-1] = i
+            else:
+                ends.append(i)
+                open_run = True
+        else:
+            open_run = False
+    if len(ends) >= 2 and ends[-1] == anchor:
+        return ends[-2]
+    return None
 
 
 def _unthought(messages: list) -> list:

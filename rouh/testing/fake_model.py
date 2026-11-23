@@ -865,6 +865,44 @@ def server_call_refusal(body: dict) -> str:
     return ""
 
 
+def as_read(body: dict) -> dict:
+    """The request the way the model reads it: each `{"role": "system"}` message inside
+    `messages` (a turn's own context, `brain.turn_context`) is more of the system prompt,
+    after what the top-level `system` says, and is not in the conversation."""
+    messages = body.get("messages") or []
+    told = [m for m in messages if isinstance(m, dict) and m.get("role") == "system"]
+    if not told:
+        return body
+    system = body.get("system")
+    if isinstance(system, str):
+        system = [{"type": "text", "text": system}] if system else []
+    more = [{"type": "text", "text": m["content"] if isinstance(m.get("content"), str)
+             else _flat(m.get("content"))} for m in told]
+    return {**body, "system": list(system or []) + more,
+            "messages": [m for m in messages if not (isinstance(m, dict) and m.get("role") == "system")]}
+
+
+#: The models of the list that refuse a system message inside `messages`, in the real
+#: API's words (`config.takes_system_messages`).
+NO_SYSTEM_MESSAGES = ("claude-sonnet-5", "claude-haiku-4-5", "claude-opus-4-7", "claude-sonnet-4-6")
+
+
+def system_message_refusal(body: dict) -> str:
+    """The real API's 400 about a system message inside `messages`, or "": refused by a
+    model that takes none, first in the list, and wherever it does not follow a user
+    message or is followed by something other than the model's reply."""
+    messages = body.get("messages") or []
+    for n, message in enumerate(messages):
+        if not isinstance(message, dict) or message.get("role") != "system":
+            continue
+        if str(body.get("model") or "") in NO_SYSTEM_MESSAGES:
+            return "role 'system' is not supported on this model"
+        after = messages[n + 1].get("role") if n + 1 < len(messages) else None
+        if n == 0 or messages[n - 1].get("role") != "user" or after not in (None, "assistant"):
+            return f"messages.{n}: a system message must follow a user message and be last or before an assistant turn"
+    return ""
+
+
 def cache_refusal(body: dict) -> str:
     """The real API's 400 about this request's breakpoints, or "".
 
@@ -3169,6 +3207,10 @@ def build_app(record_dir: str) -> FastAPI:
             body = json.loads(raw)
         except ValueError:
             body = {}
+        # The request as it went, for its cache and its refusals, and as the model reads it,
+        # for the answer: a system message inside `messages` is read as more system prompt.
+        wire = body
+        body = as_read(body)
         refused = _refused_key(request, asking=True)
         if refused is not None:
             return refused
@@ -3287,8 +3329,8 @@ def build_app(record_dir: str) -> FastAPI:
         # Written down first and refused second, on purpose: the request that
         # was refused is the one somebody will have to read. That is true of
         # both kinds of refusal below.
-        why = (refuses(body) or too_long(raw, body) or cache_refusal(body)
-               or server_call_refusal(body) or citation_refusal(body))
+        why = (refuses(body) or too_long(raw, body) or cache_refusal(wire)
+               or system_message_refusal(wire) or server_call_refusal(body) or citation_refusal(body))
         if why:
             return JSONResponse(status_code=400, content={
                 "type": "error",
@@ -3307,11 +3349,11 @@ def build_app(record_dir: str) -> FastAPI:
         # What this request reads out of the cache and writes to it, worked
         # out once it is certain to be answered, because a refused request
         # caches nothing. Written down a line each, beside the requests.
-        cached = cache_usage(body)
+        cached = cache_usage(wire)
         with open(usage_file(record_dir), "a", encoding="utf-8") as fh:
             fh.write(json.dumps({
                 "file": name, "model": body.get("model") or "",
-                "breakpoints": sum(1 for _d, _s, ttl in _positions(body) if ttl),
+                "breakpoints": sum(1 for _d, _s, ttl in _positions(wire) if ttl),
                 **cached}) + "\n")
         # Worked out before the stream opens, because by the time it is open
         # the status has already gone out as 200 and cannot be taken back -

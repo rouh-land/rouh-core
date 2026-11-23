@@ -10,17 +10,29 @@ it is billed in full.
 Caching is a prefix match, and only at the blocks marked with `cache_control`
 (a breakpoint). So the whole of this is two rules.
 
-- Mark the right blocks. Three places at most, one fewer than the four the API
-  allows: the end of the system prompt (which caches the tools with it), the
-  end of the conversation as it stood when the turn began, and the newest
-  message of each request. The first is shared by every turn and every chat;
-  the second is written once a turn and read by each of its round trips; the
-  third moves along with the round trips, so each one reads what the one
+- Mark the right blocks. Four places at most, the most the API allows: the
+  end of the system prompt (which caches the tools with it), the end of the
+  conversation as it stood when the turn began, the same point of the turn
+  before, and the newest message of each request. The first is shared by
+  every turn and every chat; the second is written once a turn and read by
+  each of its round trips and by the next turn; the third is where the next
+  turn finds it, because the API looks back only 20 blocks from a mark for an
+  entry written earlier, and a turn of many tool rounds is longer than that;
+  the fourth moves along with the round trips, so each one reads what the one
   before it sent.
+- Keep a turn's conversation an hour (Petar, 23 November 2026). The first two
+  marks of the conversation are `LONG`, the newest `BRIEF`: the person's gaps
+  between messages are mostly five minutes to an hour, and a five-minute mark
+  had always gone cold by the next one.
+- What is true only of this turn - the clock, the page beside the chat, what
+  memory recalled - goes after the conversation, never in front of it
+  (`brain.turn_context`). Until 23 November 2026 it was the second block of
+  the system prompt, in front of the whole conversation, so every new message
+  wrote the conversation to the cache again and almost never read it back.
 - Never change what is in front of a mark. One byte different anywhere before
   a breakpoint and the cache misses from that byte on, silently: the turn
   still works, it just costs what it did before. That is why the clock is not
-  in the cached part of the system prompt, and why old tool results are only
+  in the system prompt at all, and why old tool results are only
   trimmed where a turn begins (`rouh/context_editing.py`).
 
 Nothing here changes a message the caller holds. The marks are on copies,
@@ -50,13 +62,21 @@ LONG = {"type": "ephemeral", "ttl": "1h"}
 MOST = 4
 
 
-def marked(messages: list, anchor: int | None = None) -> list:
+def marked(messages: list, anchor: int | None = None, earlier: int | None = None,
+           held: dict = BRIEF) -> list:
     """The conversation as one request carries it, with its breakpoints.
 
     `anchor` is the index of the last message the turn began with: the
     person's words, or the note after them. Its last block is marked, and so
     is the last block of the newest message when that is one of ours. On the
     first request of a turn they are the same block, and that is one mark.
+
+    `earlier` is the same point of the turn before, marked so the next turn's
+    request finds what that turn wrote however long it went on (the API looks
+    back at most 20 blocks from a mark). `held` is how long the anchor and
+    `earlier` are kept: a chat passes `LONG`, so the next message, minutes
+    later, still reads the conversation back. The newest message is always
+    `BRIEF`, and comes after them, as a shorter mark must.
 
     The newest message is only marked when it is a user message, which is a
     list of plain blocks this process built: the person's words or a round of
@@ -67,13 +87,15 @@ def marked(messages: list, anchor: int | None = None) -> list:
     other message is the very object it was.
     """
     out = list(messages)
-    wanted = set()
+    wanted: dict[int, dict] = {}
+    if earlier is not None and anchor is not None and 0 <= earlier < anchor:
+        wanted[earlier] = held
     if anchor is not None and 0 <= anchor < len(out):
-        wanted.add(anchor)
+        wanted[anchor] = held
     if out and _role(out[-1]) == "user":
-        wanted.add(len(out) - 1)
-    for index in wanted:
-        out[index] = _with_mark(out[index])
+        wanted.setdefault(len(out) - 1, BRIEF)
+    for index, mark in wanted.items():
+        out[index] = _with_mark(out[index], mark)
     return out
 
 
