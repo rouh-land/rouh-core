@@ -1511,11 +1511,11 @@ class Brain:
         # next turn reads everything up to it out of the cache instead; the
         # note is still marked on the first request as its newest message.
         anchor = len(messages) - (2 if noted else 1)
-        # The same point of the turn before, marked too, and both kept an hour
-        # (`promptcache.marked`). `held` and `system_messages` fall back once each if the
+        # The same point of the turn before, marked too, and both kept an hour while the chat is
+        # in use (`promptcache.marked`, `_cache_hold`). `held` and `system_messages` fall back once each if the
         # API refuses them (`retrying.is_cache_mark_refused`, `is_system_message_refused`).
         earlier = _turn_before(messages, anchor)
-        held = promptcache.LONG
+        held = await asyncio.to_thread(_cache_hold, session_id)
         system_messages = True
 
         def on_wire(window: list, to: str) -> list:
@@ -2484,6 +2484,38 @@ def _context_on_wire(messages: list, model: str, system_messages: bool = True) -
         return messages
     return [{"role": "system", "content": m["content"][0]["text"][len(TURN_NOTE):]}
             if _is_turn_context(m) else m for m in messages]
+
+
+#: How recently a chat's last turn must have begun for this one's conversation to be kept an
+#: hour rather than five minutes (`_cache_hold`).
+IN_USE_SECONDS = 3600
+
+
+def _cache_hold(session_id: str) -> dict:
+    """How long this turn's conversation is kept in the prompt cache: an hour while the chat is
+    in use, five minutes when it is not.
+
+    Petar asked for the hour on 23 November 2026, because his messages are often five minutes
+    to an hour apart. Written for an hour costs twice the input price rather than 1.25 times, so
+    it pays only when the next message comes inside the hour. Replayed on the 1,466 Opus chat
+    turns of the 30 days to 23 November (step 182-12): always an hour saves about $81 a month,
+    always five minutes about $155, and an hour only when the chat's turn before began less
+    than an hour ago about $174, because a chat in use is usually answered again soon and a
+    new or a long-quiet one usually is not. Read from the log of requests, so a restart forgets
+    nothing; anything that goes wrong is five minutes.
+    """
+    try:
+        from .models import LLMRequest
+        from .modeldefaults import org_now
+
+        last = (LLMRequest.objects.filter(org_id=str(org_now()), session_id=session_id, purpose="turn")
+                .order_by("-started_at").values_list("started_at", flat=True).first())
+    except Exception:  # noqa: BLE001 - the turn still goes, cached five minutes
+        log.exception("when %s was last used could not be read", session_id)
+        return promptcache.BRIEF
+    if last is not None and time.time() - float(last) < IN_USE_SECONDS:
+        return promptcache.LONG
+    return promptcache.BRIEF
 
 
 def _turn_before(messages: list, anchor: int) -> int | None:

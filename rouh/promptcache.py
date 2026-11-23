@@ -20,10 +20,11 @@ Caching is a prefix match, and only at the blocks marked with `cache_control`
   entry written earlier, and a turn of many tool rounds is longer than that;
   the fourth moves along with the round trips, so each one reads what the one
   before it sent.
-- Keep a turn's conversation an hour (Petar, 23 November 2026). The first two
-  marks of the conversation are `LONG`, the newest `BRIEF`: the person's gaps
-  between messages are mostly five minutes to an hour, and a five-minute mark
-  had always gone cold by the next one.
+- Keep a chat's conversation an hour while it is in use (Petar, 23 November
+  2026). The first two marks of the conversation are `LONG` when the chat's
+  turn before began less than an hour ago, `BRIEF` otherwise; the newest is
+  always `BRIEF`. An hour's write costs twice the input price, so it is
+  bought only where the next message is likely inside it (`brain._cache_hold`).
 - What is true only of this turn - the clock, the page beside the chat, what
   memory recalled - goes after the conversation, never in front of it
   (`brain.turn_context`). Until 23 November 2026 it was the second block of
