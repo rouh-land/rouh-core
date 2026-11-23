@@ -782,7 +782,6 @@ a.tr-stat:hover { border-color: var(--ink-2); }
 .tr-jr2:focus { outline: none; }
 .tr-jr2-acts { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; }
 .tr-jr2-acts .tr-btn { min-height: 44px; }
-.tr-jr2-a { display: inline-flex; align-items: center; min-height: 44px; padding: 0 8px; font-size: 14px; }
 .tr-jr2 .tr-again { margin-top: 4px; }
 .tr-jr2 .tr-form { margin-top: 4px; }
 .tr .tr-jr2 a.tr-att-r { background: var(--bg); }

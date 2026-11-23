@@ -1148,19 +1148,15 @@
       });
       if (!(j.attempts || []).length) { ul.appendChild(el('li', 'tr-dim', 'Nobody has gone through it yet.')); }
       li.appendChild(ul);
-      // What a journey's own page had until 22 November 2026: another test run, and its problems. Its name and
-      // goal are changed by the pencils beside them since 23 November 2026.
+      // What a journey's own page had until 22 November 2026: another test run. Its name and goal are changed by the
+      // pencils beside them since 23 November 2026; the link to its problems in the Fix list went the same day (Petar:
+      // it meant nothing without more context).
       var acts = el('div', 'tr-jr2-acts');
       var open = S.jOpen[j.number] || '';
       var again = button('tr-btn tr-btn-s tr-quiet', 'Have a tester go through it again');
       again.setAttribute('aria-expanded', open === 'run' ? 'true' : 'false');
       again.addEventListener('click', function () { S.jOpen[j.number] = open === 'run' ? '' : 'run'; draw(); });
       acts.appendChild(again);
-      if (j.found) {
-        var pl = link('Its ' + plural(j.found, 'problem') + ' in the Fix list', HOME + '/problems', 'tr-a tr-jr2-a');
-        pl.addEventListener('click', function () { S.probFilter = { status: 'all', who: '', job: String(j.number) }; S.probView = { screen: null, bad: '', group: false, all: false }; }, true);
-        acts.appendChild(pl);
-      }
       li.appendChild(acts);
       if (open === 'run') {
         li.appendChild(runAgain((S.shell && S.shell.personas) || [], S.shell && S.shell['default'], function (persona) {
