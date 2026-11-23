@@ -74,7 +74,7 @@ On 14 October 2026 Petar made the Gene Pool a third link of its own and renamed 
 | Group | What is in it | Its links today |
 |---|---|---|
 | `now` | What needs the owner now | Decisions, Morning brief, Live browser (while a browser is open) |
-| `handholding` | The guided way into Rouh, for someone who has never seen it (`rouh/handholding.py`) | Its sub-pages, from `pages` in `rouh/handholding.json`: Your path, Enabling Rouh, Pro tips |
+| `handholding` | The guided way into Rouh, for someone who has never seen it (`rouh/handholding.py`) | Its one page, from `pages` in `rouh/handholding.json`: Your path (Enabling Rouh and Pro tips were folded into it as Setup and Pro tip tips on 23 November 2026) |
 | `work` | The work | Task browser (with New task), Control room, Goals, Quests |
 | `time` | What happens at a time | Clockwork |
 | `memory` | What is kept | Thoughts, Rules, Trusted contacts, Synapse (lab), Receipts (lab, behind its switch), Boxes (lab) |

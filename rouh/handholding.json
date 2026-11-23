@@ -1,6 +1,6 @@
 {
  "version": 3,
- "pages_note": "The sub-pages of the Guide, in the order the navigation lists them. Each draws the views it names: continue, path, connections, features, tips. The first is where the section opens. Every tip has its own address, /guide/tip/<id>.",
+ "pages_note": "The Guide's one page, Your path: every tip in its stage, the Setup and Pro tip ones among them. The pages it had before (old_pages, Enabling Rouh and Pro tips since 23 November 2026) are sent on to it. Every tip has its own address, /guide/lesson/<id>.",
  "pages": [
   {
    "id": "path",
@@ -8,35 +8,15 @@
    "views": [
     "path"
    ],
-   "title": "Your path",
-   "icon": "<path d=\"M5 19c3-1 3-5 7-6s4-5 7-6\"/><circle cx=\"5\" cy=\"19\" r=\"1.8\"/><circle cx=\"19\" cy=\"7\" r=\"1.8\"/>"
-  },
-  {
-   "id": "enable",
-   "name": "Enabling Rouh",
-   "views": [
-    "connections",
-    "features"
-   ],
-   "title": "Enabling Rouh",
-   "lede": "Each connection unlocks a part of Rouh, and Rouh ticks its tip when it sees it connected. Start with Google and your phone.",
-   "icon": "<rect x=\"3\" y=\"8\" width=\"18\" height=\"8\" rx=\"4\"/><circle cx=\"16\" cy=\"12\" r=\"2.4\"/>"
-  },
-  {
-   "id": "tips",
-   "name": "Pro tips",
-   "views": [
-    "tips"
-   ],
-   "title": "Pro tips",
-   "lede": "For when you already use Rouh: small habits that make it much faster.",
-   "icon": "<path d=\"M9 18h6M10 21h4\"/><path d=\"M12 3a6 6 0 0 0-3.6 10.8c.8.6 1.1 1.4 1.1 2.2h5c0-.8.4-1.6 1.1-2.2A6 6 0 0 0 12 3z\"/>"
+   "title": "Learning and Understanding Rouh",
+   "icon": "<path d=\"M5 19c3-1 3-5 7-6s4-5 7-6\"/><circle cx=\"5\" cy=\"19\" r=\"1.8\"/><circle cx=\"19\" cy=\"7\" r=\"1.8\"/>",
+   "intro": "Rouh is currently the most powerful assistant, beyond Claude, Muse, OpenClaw, Hermes and others. To wield that power, you need to understand what Rouh is, how it operates and why it is different than anything else. So it made that guide to itself."
   }
  ],
  "hero": {
   "title": "Your path to everything Rouh can do",
   "fresh": "Start with the first tip. Each takes a minute or two, and Rouh ticks most of them by itself when it sees you do them.",
-  "done": "You have done every tip on the path. Pro tips has the small habits that make Rouh faster."
+  "done": "You have done every tip on the path."
  },
  "talk_note": {
   "lesson": "talk",
@@ -60,7 +40,8 @@
   "conn-payments": "payments",
   "stripe": "payments",
   "conn-cloudflare": "cloudflare",
-  "cloudflare-use": "cloudflare"
+  "cloudflare-use": "cloudflare",
+  "pro-stop": "stop"
  },
  "old_lessons": {
   "talking": "talk",
@@ -90,7 +71,9 @@
  },
  "old_pages": {
   "next": "path",
-  "learn": "path"
+  "learn": "path",
+  "enable": "path",
+  "tips": "path"
  },
  "terms_note": "Words of Rouh's own, explained where they stand (review 49, problem 433). Petar, 22 November 2026: as a rule, a card's title and outcome never use a word a later tip teaches; say it in plain words. On a tip's page, the first time one of these words stands in a tip other than the one that teaches it, it can be pressed for what it means, and for the tip that teaches it.",
  "terms": {
@@ -145,7 +128,6 @@
    "id": "meet",
    "n": 1,
    "title": "Meet Rouh",
-   "why": "A few minutes: what Rouh is, how its screen is laid out, how to talk to it, and where things show up.",
    "lessons": [
     {
      "id": "what-is-rouh",
@@ -222,7 +204,7 @@
       },
       {
        "name": "Safety",
-       "text": "Anything that sends, shares, publishes, pays or deletes stops and asks you first. Text from outside, such as an email, is read as information and never obeyed. The Security stage shows all of it.",
+       "text": "Anything that sends, shares, publishes, pays or deletes stops and asks you first. Text from outside, such as an email, is read as information and never obeyed. The Security topic shows all of it.",
        "open": {
         "label": "Security tips",
         "lesson": "gates"
@@ -230,58 +212,6 @@
       }
      ],
      "glyph": "spark"
-    },
-    {
-     "id": "layout",
-     "title": "Find your way round the screen",
-     "outcome": "After this you know the four parts of Rouh's screen, and what each word for them means.",
-     "minutes": 2,
-     "cover": {
-      "src": "handholding/canvas.webp",
-      "alt": "Rouh's screen at a desk: the conversation on the left and the content space, the canvas, on the right.",
-      "w": 1000,
-      "h": 625
-     },
-     "summary": [
-      "Rouh's screen has four parts, and every tip after this one names them. Here is what each is called and what it is for."
-     ],
-     "how": [],
-     "parts": [
-      {
-       "name": "The conversation",
-       "text": "Where you and Rouh talk, with the message box at the bottom. Type or speak there; Rouh answers there.",
-       "open": {
-        "label": "Talk to Rouh",
-        "lesson": "talk"
-       }
-      },
-      {
-       "name": "The canvas, Rouh's content space",
-       "text": "The wide space beside the conversation, where Rouh shows what is easier to see than to read: a page, a table, a plan, a picture. When a tip says the canvas, it means this space.",
-       "open": {
-        "label": "Use the canvas",
-        "lesson": "canvas"
-       }
-      },
-      {
-       "name": "The orb, which is also the menu button",
-       "text": "The round button in the bottom-left corner. It is a live picture of what Rouh is doing, and pressing it opens the menu with every part of Rouh. When a tip says open the menu, press the orb.",
-       "open": {
-        "label": "The orb",
-        "lesson": "orb"
-       }
-      },
-      {
-       "name": "The buttons at the top",
-       "text": "Small round buttons at the top of each page, such as a plus to add something, a magnifying glass to search, and a speech bubble that brings the conversation back. Point at one, or hold it, to see its name."
-      }
-     ],
-     "says": [
-      "What is on my screen right now?",
-      "Open the menu for me."
-     ],
-     "talk": true,
-     "glyph": "layout"
     },
     {
      "id": "orb",
@@ -373,6 +303,59 @@
      "glyph": "orb"
     },
     {
+     "id": "pro-orb",
+     "title": "Read the orb's colours",
+     "outcome": "After this you can read at a glance what Rouh is doing and how busy the machine is.",
+     "minutes": 1,
+     "tag": "Pro tip",
+     "cover": {
+      "src": "handholding/orb-corner.webp",
+      "alt": "The bottom-left corner of the screen, with the orb: a small round circle with rings round it.",
+      "w": 640,
+      "h": 380
+     },
+     "summary": [
+      "A branch marked NEEDS YOU is waiting on you. The rings round the orb are the machine: storage, then CPU, then memory, each green or grey while there is room, amber when busy, red when too busy."
+     ],
+     "how": [
+      "Look for a branch marked NEEDS YOU: that work is waiting on you.",
+      "Read the rings round the orb from the outside in: storage, then CPU, then memory.",
+      "Green or grey means there is room, amber busy, red too busy."
+     ],
+     "says": [
+      "What are you working on right now?"
+     ],
+     "see": "orb",
+     "talk": true,
+     "glyph": "orb"
+    }
+   ],
+   "topics": "What Rouh is, and the orb: your menu and what Rouh is doing"
+  },
+  {
+   "id": "chat",
+   "n": 2,
+   "title": "Mastering the Rouh Chat",
+   "topics": "Typing and talking, the screen and its cards, files and pictures, chats and forks, what a chat knows, incognito, keys",
+   "lessons": [
+    {
+     "id": "chat-setup",
+     "title": "Set up the chat",
+     "tag": "Setup",
+     "outcome": "After this the chat can answer you.",
+     "minutes": 2,
+     "summary": [
+      "Rouh needs an AI service to answer in the chat. Until one is connected, the chat says Chat is not set up yet. Everything else in Rouh still works."
+     ],
+     "how": [
+      "Press Set up chat in that message. It opens the Models page.",
+      "Follow what the Models page says for the AI company you choose. Each answer costs a little, usually a few cents.",
+      "If someone else set up Rouh for you, ask them to do this."
+     ],
+     "see": "models",
+     "glyph": "plug"
+    },
+    {
      "id": "talk",
      "title": "Talk to Rouh",
      "outcome": "After this you know where to type to Rouh, and where its answers appear.",
@@ -450,6 +433,25 @@
      "glyph": "chat"
     },
     {
+     "id": "pro-one-breath",
+     "title": "Ask for several things in one breath",
+     "outcome": "After this you can ask for several things in one message.",
+     "minutes": 1,
+     "tag": "Pro tip",
+     "summary": [
+      "You do not have to wait between requests. Say them together and Rouh does each one."
+     ],
+     "how": [
+      "Say or type everything you want in one message, joined with and.",
+      "Rouh does each one and says what it did for each."
+     ],
+     "says": [
+      "Remind me on Friday at nine to call Sam, and put lunch with Lena on Thursday at one."
+     ],
+     "talk": true,
+     "glyph": "chat"
+    },
+    {
      "id": "voice",
      "title": "Talk by voice",
      "outcome": "After this you can talk to Rouh with your hands free, and hear it answer.",
@@ -465,7 +467,7 @@
      ],
      "how": [
       {
-       "text": "Press the Voice button: the small person with sound waves, first on the left under the message box. A panel opens above it.",
+       "text": "Press the Voice button: the small person with sound waves, first on the left under the message box. A panel opens above it. On a narrow phone it is inside the paperclip's menu, under Voice.",
        "image": {
         "src": "handholding/voice.webp",
         "alt": "The Voice button and its panel, numbered: the button, the microphone, voice replies and dictate.",
@@ -513,6 +515,121 @@
      "detect": "said_voice",
      "talk": true,
      "glyph": "mic"
+    },
+    {
+     "id": "stop",
+     "title": "Stop a turn",
+     "outcome": "After this you can stop Rouh in the middle of an answer, and you know what keeps going.",
+     "minutes": 1,
+     "cover": {
+      "src": "handholding/talk.webp",
+      "alt": "The chat, with the message box at the bottom and its blue Send button at the right end.",
+      "w": 1000,
+      "h": 625
+     },
+     "summary": [
+      "Sometimes you have heard enough. Stop, or Escape, ends Rouh's answer where it is: its words, its thinking and its voice. Background jobs, tasks and runs it already started carry on."
+     ],
+     "how": [
+      {
+       "text": "While Rouh is answering and the message box is empty, the blue Send button at the right end of the box turns into Stop.",
+       "image": {
+        "src": "handholding/stop.webp",
+        "alt": "The right end of the message box, numbered: Send, which becomes Stop while Rouh answers.",
+        "w": 740,
+        "h": 140,
+        "marks": [
+         {
+          "n": 1,
+          "x": 87.3,
+          "y": 74.3,
+          "label": "Send, and Stop while Rouh answers"
+         }
+        ]
+       }
+      },
+      "Press Stop, or press Escape. The answer ends where it was, and a line under it says that background work carries on.",
+      "To see what is still going, ask what is running. To stop a run too, say so, or press Stop on the run's own view on the canvas."
+     ],
+     "says": [
+      "Tell me a long story about the sea.",
+      "What is running right now?",
+      "Stop that run."
+     ],
+     "talk": true,
+     "glyph": "stop"
+    },
+    {
+     "id": "chat-steer",
+     "title": "Add to your message while Rouh answers",
+     "outcome": "After this you can correct or add to a request without stopping Rouh.",
+     "minutes": 1,
+     "summary": [
+      "You do not have to wait for an answer to finish. A message you send while Rouh is answering does not stop it: Rouh reads it at its next step and takes it into account."
+     ],
+     "how": [
+      "While Rouh is answering, type in the message box. Send comes back in place of Stop.",
+      "Press Send. Your message shows as waiting until Rouh has read it.",
+      "To end the answer instead, empty the box and press Stop, or press Escape."
+     ],
+     "says": [
+      "Actually, make it for four people.",
+      "And add the train times."
+     ],
+     "talk": true,
+     "glyph": "send"
+    },
+    {
+     "id": "layout",
+     "title": "Find your way round the screen",
+     "outcome": "After this you know the four parts of Rouh's screen, and what each word for them means.",
+     "minutes": 2,
+     "cover": {
+      "src": "handholding/canvas.webp",
+      "alt": "Rouh's screen at a desk: the conversation on the left and the content space, the canvas, on the right.",
+      "w": 1000,
+      "h": 625
+     },
+     "summary": [
+      "Rouh's screen has four parts, and every tip after this one names them. Here is what each is called and what it is for."
+     ],
+     "how": [],
+     "parts": [
+      {
+       "name": "The conversation",
+       "text": "Where you and Rouh talk, with the message box at the bottom. Type or speak there; Rouh answers there.",
+       "open": {
+        "label": "Talk to Rouh",
+        "lesson": "talk"
+       }
+      },
+      {
+       "name": "The canvas, Rouh's content space",
+       "text": "The wide space beside the conversation, where Rouh shows what is easier to see than to read: a page, a table, a plan, a picture. When a tip says the canvas, it means this space.",
+       "open": {
+        "label": "Use the canvas",
+        "lesson": "canvas"
+       }
+      },
+      {
+       "name": "The orb, which is also the menu button",
+       "text": "The round button in the bottom-left corner. It is a live picture of what Rouh is doing, and pressing it opens the menu with every part of Rouh. When a tip says open the menu, press the orb.",
+       "open": {
+        "label": "The orb",
+        "lesson": "orb"
+       }
+      },
+      {
+       "name": "The buttons at the top",
+       "text": "Small round buttons at the top of each page, such as a plus to add something, a magnifying glass to search, and a speech bubble that brings the conversation back. Point at one, or hold it, to see its name."
+      }
+     ],
+     "says": [
+      "What is on my screen right now?",
+      "Open the menu for me."
+     ],
+     "talk": true,
+     "glyph": "layout"
     },
     {
      "id": "canvas",
@@ -574,55 +691,443 @@
      "glyph": "canvas"
     },
     {
-     "id": "stop",
-     "title": "Stop a turn",
-     "outcome": "After this you can stop Rouh in the middle of an answer.",
+     "id": "pro-revise",
+     "title": "Change a card, do not ask for a new one",
+     "outcome": "After this you change a card in place instead of starting again.",
      "minutes": 1,
+     "tag": "Pro tip",
      "cover": {
-      "src": "handholding/talk.webp",
-      "alt": "The chat, with the message box at the bottom and its blue Send button at the right end.",
+      "src": "handholding/canvas.webp",
+      "alt": "The screen at a desk: the chat on the left and the canvas on the right, holding a page.",
       "w": 1000,
       "h": 625
      },
      "summary": [
-      "Sometimes you have heard enough. You can stop Rouh mid-answer without losing anything it already started in the background."
+      "Ask for a change to the card on the screen and Rouh revises it in place. Every version is kept, so you can go back."
+     ],
+     "how": [
+      "With a card on the canvas, say what to change in it.",
+      "Rouh revises that card in place and keeps every version.",
+      "Ask what it said before to go back to an earlier version."
+     ],
+     "says": [
+      "What did that table say before you changed it?"
+     ],
+     "talk": true,
+     "glyph": "canvas"
+    },
+    {
+     "id": "chat-cards",
+     "title": "Bring back an earlier card",
+     "outcome": "After this you can find any card Rouh showed you and put it on the canvas again.",
+     "minutes": 1,
+     "summary": [
+      "Every card Rouh shows is kept and numbered: its head shows #4, for example. Where the card was in the conversation, a line stays behind with its number and title."
+     ],
+     "how": [
+      "Scroll up the conversation to the card's line, such as #4 and its title.",
+      "While the card is out on the canvas, the line says On the canvas, with Bring it back here. Once the canvas has moved on, it says Open on the canvas.",
+      "Press it, or just ask for the card by its number.",
+      "To keep a card with your work for good, ask Rouh to file it into a task."
+     ],
+     "says": [
+      "Show card 4 again.",
+      "File card 4 in the Lisbon task."
+     ],
+     "talk": true,
+     "glyph": "canvas"
+    },
+    {
+     "id": "chat-phone",
+     "title": "Use the chat on a phone",
+     "outcome": "After this you can move between the chat and the canvas on a phone.",
+     "minutes": 1,
+     "cover": {
+      "src": "handholding/chat-phone.webp",
+      "alt": "A phone showing the chat: a question, Rouh's answer, the small buttons under each, a fork's mark, and the message box.",
+      "w": 390,
+      "h": 844,
+      "cut": true
+     },
+     "summary": [
+      "On a phone the chat and the canvas take turns on the screen. One button, at the top right, switches between them."
      ],
      "how": [
       {
-       "text": "While Rouh is answering, the blue Send button at the right end of the message box turns into Stop.",
+       "text": "In the chat, the button at the top right is a square: Open the canvas. When the canvas has something new, its lines turn orange.",
        "image": {
-        "src": "handholding/stop.webp",
-        "alt": "The right end of the message box, numbered: Send, which becomes Stop while Rouh answers.",
-        "w": 740,
-        "h": 140,
+        "src": "handholding/chat-phone.webp",
+        "alt": "A phone showing the chat: a question, Rouh's answer, the small buttons under each, a fork's mark, and the message box.",
+        "w": 390,
+        "h": 844,
+        "cut": true,
         "marks": [
          {
           "n": 1,
-          "x": 87.3,
-          "y": 74.3,
-          "label": "Send, and Stop while Rouh answers"
+          "x": 92.3,
+          "y": 3.2,
+          "label": "Open the canvas"
+         },
+         {
+          "n": 2,
+          "x": 90.3,
+          "y": 96.3,
+          "label": "Send: the blue arrow"
          }
         ]
        }
       },
-      "Press Stop, or press Escape. The answer ends where it was.",
-      "Work Rouh already started in the background carries on. To stop that too, say so."
+      "On the canvas the same button is a speech bubble, Show the conversation. Press it to go back.",
+      "On a phone, cards stay in the conversation and open full screen when pressed. Cards open in Chat or Canvas, over the canvas, changes that: Canvas sends every new card out to the canvas as it is drawn.",
+      "The return key starts a new line; send with the blue arrow. When the line is too narrow, Voice and Make a picture are inside the paperclip."
+     ],
+     "glyph": "phone"
+    },
+    {
+     "id": "chat-actions",
+     "title": "Copy, ask again or change a message",
+     "outcome": "After this you know the small buttons under every message.",
+     "minutes": 1,
+     "summary": [
+      "Under every message there is a row of small buttons. Point at one, or hold it, to see its name."
+     ],
+     "how": [
+      {
+       "text": "Under your own message: Ask this again, Copy this message, Edit this message and ask again, and When this was sent.",
+       "image": {
+        "src": "handholding/chat-phone.webp",
+        "alt": "A phone showing the chat: a question, Rouh's answer, the small buttons under each, a fork's mark, and the message box.",
+        "w": 390,
+        "h": 844,
+        "cut": true,
+        "marks": [
+         {
+          "n": 1,
+          "x": 72.0,
+          "y": 16.2,
+          "label": "Under your message"
+         },
+         {
+          "n": 2,
+          "x": 28.0,
+          "y": 35.2,
+          "label": "Under an answer"
+         }
+        ]
+       }
+      },
+      "Under an answer: Answer this again, Copy this answer, Read this aloud, Say it more simply, and When this was written.",
+      "Edit opens your words in place with Cancel, Fork and Send. Send asks again with the new words.",
+      "Once an answer has been asked again, arrows and a count such as 2 of 3 move between its versions."
      ],
      "says": [
-      "Tell me a long story about the sea.",
-      "Stop that run."
+      "Answer that again, more briefly."
      ],
      "talk": true,
-     "glyph": "stop"
+     "glyph": "reply"
+    },
+    {
+     "id": "chat-files",
+     "title": "Attach a file or a screenshot",
+     "outcome": "After this you can give Rouh a picture, a PDF or a document to read.",
+     "minutes": 1,
+     "summary": [
+      "Rouh reads what you give it: pictures, PDFs, documents, spreadsheets, slides, text and code."
+     ],
+     "how": [
+      "Press the paperclip, Attach files, under the message box, and pick one file or several.",
+      "Or drop files anywhere on the conversation, or paste a screenshot straight into the message box.",
+      "Each file shows as a chip above the box and uploads at once. Type your question, or send the file alone.",
+      "Almost any file up to 512 MB works; programs cannot be attached. A zip or a video reaches Rouh by name, for background work to open."
+     ],
+     "says": [
+      "What does this error mean?",
+      "Sum up this PDF in five lines."
+     ],
+     "talk": true,
+     "glyph": "clip"
+    },
+    {
+     "id": "chat-pictures",
+     "title": "Make or change a picture",
+     "outcome": "After this you can have Rouh draw a picture, and change part of one.",
+     "minutes": 2,
+     "summary": [
+      "Rouh can draw a picture from a description, and change part of a picture you already have."
+     ],
+     "how": [
+      "Press Make a picture under the message box. The box now asks for a picture, and a Picture bar lets you choose the model, the shape, the quality, how many and the background.",
+      "Describe the picture and send it. The x on the Picture bar, Stop making a picture, goes back to talking.",
+      "Or just ask for a picture in words, typed or spoken.",
+      "To change part of one, open the picture full size and press Change an area. Paint over the part, say what should be there instead, and press Change it. The original is kept.",
+      "If no picture service is set up, Make a picture is greyed out and says why."
+     ],
+     "says": [
+      "Draw a watercolour of a lighthouse at dusk.",
+      "Make the sky in that picture stormy."
+     ],
+     "talk": true,
+     "glyph": "picture"
+    },
+    {
+     "id": "chat-threads",
+     "title": "Find a chat, start one, rename it",
+     "outcome": "After this you know General, a task's chats, and how to find an old chat.",
+     "minutes": 2,
+     "summary": [
+      "General is the one chat that is always there. Every task has chats of its own, and old chats are found with Search."
+     ],
+     "how": [
+      "The Rouh row in the menu always takes you back to General.",
+      "To start a chat about a task, open the task's page and press Start chat at the bottom right. The task's chats are listed on its page under Chats.",
+      "There is no New chat button in the conversation: a new chat comes from a task, a fork, incognito, or asking Rouh to make a task.",
+      "To find an old chat, open Search: the magnifying glass at the foot of the menu, or Ctrl+K. Before you type, it shows Latest chats.",
+      "The three dots at the top of a chat rename it, move it to a project or task, make it a task, pin it or delete it. General can never be deleted."
+     ],
+     "says": [
+      "Call this chat Holiday plans.",
+      "What did I ask you yesterday?",
+      "Make this chat a task."
+     ],
+     "talk": true,
+     "glyph": "search"
+    },
+    {
+     "id": "chat-model",
+     "title": "Choose the model for one chat",
+     "outcome": "After this you can choose which model answers in a chat.",
+     "minutes": 1,
+     "cover": {
+      "src": "handholding/chat-model.webp",
+      "alt": "The model button under the message box, open: Which model answers in this chat, with Cheap, Smart and Auto.",
+      "w": 1000,
+      "h": 625
+     },
+     "summary": [
+      "The button under the message box that says Auto, Smart or Cheap chooses which model answers in this chat."
+     ],
+     "how": [
+      "Press it. Which model answers in this chat lists the three, each with the model it uses.",
+      "Auto picks for each message: Cheap for clearly easy ones, Smart otherwise. Smart always uses the strongest model; Cheap always the quickest.",
+      "The choice holds for this chat only, on every device. Follow the Models page puts it back.",
+      "At the top of each answer a line names the model, the time and the cost. Press Cheaper or Smart there to have that answer again on the other."
+     ],
+     "see": "models",
+     "glyph": "chip"
+    },
+    {
+     "id": "chat-work",
+     "title": "Where your request goes",
+     "outcome": "After this you know when Rouh answers in the chat, hands work on, or uses the live browser.",
+     "minutes": 2,
+     "summary": [
+      "Rouh decides how to do what you ask. You never have to choose, but it helps to know what you will see."
+     ],
+     "how": [
+      "Most requests are answered in the chat, with Rouh's own tools for mail, calendar, Drive, tasks and the rest, and the model's own web search. Each tool it uses shows as a small line in the answer.",
+      "If a step needs your yes, the answer asks with Allow and Not now. Bigger questions go to Decisions.",
+      "Bigger work is handed to background work: the answer says so, a branch grows on the orb, and the run is listed in Metabolism. It carries on after you leave the chat.",
+      "For a website errand, Rouh opens the Live browser on the canvas. Press Take control to use it yourself, and Hand back when you are done."
+     ],
+     "says": [
+      "Find a free hour with Lena next week.",
+      "Plan the offsite, and book nothing yet."
+     ],
+     "see": "job",
+     "talk": true,
+     "glyph": "network"
+    },
+    {
+     "id": "chat-options",
+     "title": "Choose what a chat knows",
+     "outcome": "After this you can set how much of Rouh a chat uses, and you know how long a chat can get.",
+     "minutes": 2,
+     "cover": {
+      "src": "handholding/chat-options.webp",
+      "alt": "Chat Options open above the message box: Full Rouh Capabilities, Simple chat and Custom.",
+      "w": 1000,
+      "h": 625
+     },
+     "summary": [
+      "Each chat uses as much of Rouh as you let it. The Chat Options button under the message box, which says Full, Simple or Custom, sets that for this chat.",
+      "General keeps its newest 40 messages, with a running summary of what came before. Every other chat is read whole each time; if one grows longer than its model can read, Rouh says so and asks you to carry on in a new chat."
+     ],
+     "how": [
+      "Press Full. Chat Options opens.",
+      "Full Rouh Capabilities uses everything: what Rouh remembers, your rules, Rouh Tools and LLM Tools. Simple chat is plain talk with the model, with web search.",
+      "Custom has four switches: Memory, Your rules, Rouh Tools and LLM Tools. See everything this chat is told lists every rule and piece of context, each with a switch.",
+      "Permission, privacy and safety stay on whatever you choose. Reset to defaults goes back to Full.",
+      "In a task's chat or a fork, the line under the title, Included content, says what else the chat reads, such as the task's pages. Press it to choose."
+     ],
+     "glyph": "gear"
+    },
+    {
+     "id": "chat-incognito",
+     "title": "Talk in incognito",
+     "outcome": "After this you can talk to Rouh without anything being kept.",
+     "minutes": 1,
+     "cover": {
+      "src": "handholding/chat-incognito.webp",
+      "alt": "An incognito chat, edged in orange, with Chat Options open on Simple chat and the Incognito switch on.",
+      "w": 1000,
+      "h": 625
+     },
+     "summary": [
+      "An incognito chat is a new chat where nothing is kept. It is deleted when you leave it."
+     ],
+     "how": [
+      "Press Incognito, the hat and glasses under the message box. A new chat opens, edged in orange, on Simple chat.",
+      "While it is open its messages are kept so it works. Nothing is written to your memory, nothing is searchable, and a reminder set in it is deleted with it.",
+      "Leave by pressing Incognito again, or the cross at the top right. If it has messages, Rouh asks first: Keep chatting or Delete and close.",
+      "Opening another chat, or closing the tab, deletes it too."
+     ],
+     "glyph": "incognito"
+    },
+    {
+     "id": "chat-fork",
+     "title": "Ask on the side with a fork",
+     "outcome": "After this you can ask a side question without changing the main chat.",
+     "minutes": 2,
+     "cover": {
+      "src": "handholding/chat-fork.webp",
+      "alt": "A fork open beside the chat it came off: 2 / 2 at the top, Forked from Hello Rouh, and its own question and answer.",
+      "w": 1000,
+      "h": 625
+     },
+     "summary": [
+      "A fork is a side chat that comes off the conversation where it is now. It has read everything above it, and nothing said in it comes back, so the main chat stays as it was. Use it when something was not clear, or to try an idea on the side."
+     ],
+     "how": [
+      "Type the side question, then press Fork, the branch arrow just left of Send. Or press Ctrl+Enter, Cmd+Enter on a Mac.",
+      "The fork opens to the right, and the chat it came from narrows to a strip on the left. The arrows and the count at the top, such as 2 / 2, move along the path of forks.",
+      {
+       "text": "The chat it came from keeps a mark where the fork came off. Press it to open the fork again.",
+       "image": {
+        "src": "handholding/chat-phone.webp",
+        "alt": "A phone showing the chat: a question, Rouh's answer, the small buttons under each, a fork's mark, and the message box.",
+        "w": 390,
+        "h": 844,
+        "cut": true,
+        "marks": [
+         {
+          "n": 1,
+          "x": 89.2,
+          "y": 40.3,
+          "label": "The fork's mark: Open it"
+         }
+        ]
+       }
+      },
+      "To fork from an earlier message, press Edit this message and ask again under it, then Fork.",
+      "The three dots, then Unlink, turn a fork into a chat of a task you pick."
+     ],
+     "says": [
+      "What does that mean for me?"
+     ],
+     "talk": true,
+     "glyph": "branch"
+    },
+    {
+     "id": "chat-point",
+     "title": "Point at part of a page",
+     "outcome": "After this you can show Rouh exactly which part of a page you mean.",
+     "minutes": 1,
+     "summary": [
+      "When a page from your workspace is open beside the chat, you can show Rouh the part you mean instead of describing it."
+     ],
+     "how": [
+      "With a workspace page open on the canvas, press Point.",
+      "Click the part of the page to change, then say what should change.",
+      "Or select a passage on the page: it goes with your next message.",
+      "Above the box it shows as Passage, or the part you chose. Its x lets it go, so you ask about the whole page."
+     ],
+     "says": [
+      "Make this shorter.",
+      "Turn this into a table."
+     ],
+     "talk": true,
+     "glyph": "flag"
+    },
+    {
+     "id": "chat-keys",
+     "title": "Keyboard shortcuts",
+     "outcome": "After this you know every key the chat answers to.",
+     "minutes": 1,
+     "cover": {
+      "src": "handholding/chat-keys.webp",
+      "alt": "Keys Rouh answers to: the list that opens when you press the question mark.",
+      "w": 1000,
+      "h": 625
+     },
+     "summary": [
+      "At a computer, most things in the chat have a key. Press ? anywhere outside a text box for the list, Keys Rouh answers to. On a Mac, Cmd takes the place of Ctrl."
+     ],
+     "keys": [
+      [
+       "Enter",
+       "Send what you typed"
+      ],
+      [
+       "Shift+Enter",
+       "A new line"
+      ],
+      [
+       "Ctrl+Enter",
+       "Fork: send it as a side chat of its own"
+      ],
+      [
+       "Escape",
+       "While Rouh answers, stop the answer; otherwise close what is open, one step at a time"
+      ],
+      [
+       "Ctrl+Shift+Space",
+       "Start or finish dictation"
+      ],
+      [
+       "Ctrl+K",
+       "Search chats, tasks, pages, runs and Rouh's own pages"
+      ],
+      [
+       "Ctrl+B",
+       "Show or hide the navigation"
+      ],
+      [
+       "?",
+       "The list of keys"
+      ],
+      [
+       "1 to 4",
+       "Answer a conflict card with the choice of that number"
+      ],
+      [
+       "Arrow keys",
+       "Move through the navigation's groups, and Search's rows"
+      ],
+      [
+       "Any letter",
+       "When nothing has the cursor, starts typing in the message box"
+      ],
+      [
+       "Left or Right",
+       "On the orb, when it has the focus: send it to that side of the screen"
+      ],
+      [
+       "B, R, E, Ctrl+Z",
+       "In the picture editor: Brush, Box, Eraser, Undo"
+      ]
+     ],
+     "how": [
+      "Press ? to open the list. Escape or Close shuts it.",
+      "On a phone each of these is a button instead."
+     ],
+     "glyph": "keys"
     }
-   ],
-   "topics": "What Rouh is, the screen and the orb, talking and voice"
+   ]
   },
   {
    "id": "connect",
-   "n": 2,
+   "n": 3,
    "title": "Connect your life",
-   "why": "The four connections that unlock the most. Each tip says exactly where to click.",
    "lessons": [
     {
      "id": "google",
@@ -660,7 +1165,40 @@
      },
      "detect": "connection:google",
      "talk": true,
-     "glyph": "mail"
+     "glyph": "mail",
+     "tag": "Setup"
+    },
+    {
+     "id": "switch-mail-alerts",
+     "title": "Hear about new mail as it arrives",
+     "outcome": "After this Rouh can tell you about mail that matters the moment it lands, or wait until you ask.",
+     "minutes": 1,
+     "tag": "Setup",
+     "cover": {
+      "src": "handholding/google.webp",
+      "alt": "The Email and calendar page under Connections, with the Google app's settings and Connect Google.",
+      "w": 1000,
+      "h": 562
+     },
+     "summary": [
+      "Gmail tells Rouh the moment a new email lands, so Rouh can sort it and tell you about what matters, instead of waiting for you to ask."
+     ],
+     "feature": "mail-alerts",
+     "how": [
+      "Connect Google first: the switch needs Gmail (the tip Connect Google: Gmail, Calendar and Drive).",
+      "Flip the switch above to On. Gmail then tells Rouh the moment a new email lands.",
+      "Rouh sorts it and tells you about what matters. Flip it Off and Rouh reads your mail only when you ask."
+     ],
+     "says": [
+      "Tell me when something important lands in my inbox.",
+      "What came in since this morning?"
+     ],
+     "open": {
+      "label": "Email and calendar",
+      "href": "/anatomy/connections/email"
+     },
+     "talk": true,
+     "glyph": "inbox"
     },
     {
      "id": "phone",
@@ -694,7 +1232,8 @@
       "href": "/anatomy/your-rouh"
      },
      "talk": true,
-     "glyph": "phone"
+     "glyph": "phone",
+     "tag": "Setup"
     },
     {
      "id": "telegram",
@@ -730,7 +1269,8 @@
      },
      "detect": "connection:telegram",
      "talk": true,
-     "glyph": "send"
+     "glyph": "send",
+     "tag": "Setup"
     },
     {
      "id": "icloud-contacts",
@@ -766,16 +1306,16 @@
      },
      "detect": "connection:apple_contacts",
      "talk": true,
-     "glyph": "contacts"
+     "glyph": "contacts",
+     "tag": "Setup"
     }
    ],
-   "topics": "Google mail and calendar, your phone, Telegram, iCloud contacts"
+   "topics": "Google mail and calendar, new mail alerts, your phone, Telegram, iCloud contacts"
   },
   {
    "id": "everyday",
-   "n": 3,
+   "n": 4,
    "title": "Everyday wins",
-   "why": "The small things Rouh takes off your hands every day.",
    "lessons": [
     {
      "id": "reminder",
@@ -854,12 +1394,12 @@
       "h": 562
      },
      "summary": [
-      "Let Rouh read the pile and tell you what matters. This needs Google connected (stage 2)."
+      "Let Rouh read the pile and tell you what matters. This needs Google connected (topic 3)."
      ],
      "how": [
       "Ask what came in and what needs an answer. Rouh sums it up and says who is waiting.",
       "Ask about any one email in more detail, or to find an old one.",
-      "When Gmail tells Rouh about new mail as it arrives (a switch on Enabling Rouh), Rouh tells you about what matters without being asked."
+      "When Gmail tells Rouh about new mail as it arrives (the tip Hear about new mail as it arrives has its switch), Rouh tells you about what matters without being asked."
      ],
      "says": [
       "What came into my inbox today that needs an answer?",
@@ -953,7 +1493,7 @@
      "how": [
       "Open it from the menu: Now, then Morning brief.",
       "Choose when it is made and what is in it in Morning brief settings (menu, Anatomy, Behaviour).",
-      "It can be switched on and off on Enabling Rouh, too."
+      "Its switch is in the next tip, Switch the morning brief on or off."
      ],
      "says": [
       "Open my morning brief.",
@@ -962,6 +1502,38 @@
      "open": {
       "label": "Morning brief",
       "href": "/brief"
+     },
+     "talk": true,
+     "glyph": "sun"
+    },
+    {
+     "id": "switch-brief",
+     "title": "Switch the morning brief on or off",
+     "outcome": "After this you choose whether Rouh makes your morning brief each day.",
+     "minutes": 1,
+     "tag": "Setup",
+     "cover": {
+      "src": "handholding/brief-settings.webp",
+      "alt": "Morning brief settings, with its switch, the time it is made and its sections.",
+      "w": 1000,
+      "h": 562
+     },
+     "summary": [
+      "One page every morning: the weather, your calendar, a few world stories, AI news from your YouTube channels, unread mail and reminders."
+     ],
+     "feature": "brief",
+     "how": [
+      "Flip the switch above. On, a brief is made every morning; Off, none is made.",
+      "Off, you can still ask for a brief whenever you want one.",
+      "Choose when it is made and what is in it in Morning brief settings."
+     ],
+     "says": [
+      "Make me a brief now.",
+      "Turn the morning brief off."
+     ],
+     "open": {
+      "label": "Morning brief settings",
+      "href": "/anatomy/behaviour/brief"
      },
      "talk": true,
      "glyph": "sun"
@@ -978,7 +1550,7 @@
       "h": 540
      },
      "summary": [
-      "Ask about anyone by name, or by where they are or what they do. This needs your iCloud contacts (stage 2)."
+      "Ask about anyone by name, or by where they are or what they do. This needs your iCloud contacts (topic 3)."
      ],
      "how": [
       "Ask about a person.",
@@ -1029,7 +1601,8 @@
      "detect": "connection:hue",
      "optional": true,
      "talk": true,
-     "glyph": "bulb"
+     "glyph": "bulb",
+     "tag": "Setup"
     },
     {
      "id": "vacuum",
@@ -1067,7 +1640,8 @@
      "detect": "connection:dreame",
      "optional": true,
      "talk": true,
-     "glyph": "vacuum"
+     "glyph": "vacuum",
+     "tag": "Setup"
     },
     {
      "id": "lookup",
@@ -1086,7 +1660,7 @@
      "how": [
       "Say look into, and the question.",
       "The answer appears in the chat, with its sources numbered under it.",
-      "For a proper comparison with a recommendation, say research instead: that comes back as a task (stage 4)."
+      "For a proper comparison with a recommendation, say research instead: that comes back as a task (topic 5)."
      ],
      "says": [
       "Look into what the weather will be like in Lisbon next weekend.",
@@ -1130,9 +1704,8 @@
   },
   {
    "id": "tasks",
-   "n": 4,
+   "n": 5,
    "title": "Work with tasks",
-   "why": "Give your work a home, and Rouh keeps track of every piece of it.",
    "lessons": [
     {
      "id": "task",
@@ -1198,6 +1771,58 @@
      "glyph": "steps"
     },
     {
+     "id": "pro-numbers",
+     "title": "Numbers are addresses",
+     "outcome": "After this you reach any task or step by saying its number.",
+     "minutes": 1,
+     "tag": "Pro tip",
+     "cover": {
+      "src": "handholding/task.webp",
+      "alt": "A task's page: its title, its number and its first step.",
+      "w": 1000,
+      "h": 562
+     },
+     "summary": [
+      "Every task and step has a number. Say it, and Rouh goes straight there: 58 is a task, 58-02 its second step."
+     ],
+     "how": [
+      "Find the number of a task or step: 58 is a task, 58-02 its second step.",
+      "Say the number in a sentence, and Rouh goes straight there."
+     ],
+     "says": [
+      "What is happening with 58-02?"
+     ],
+     "see": "steps",
+     "talk": true,
+     "glyph": "steps"
+    },
+    {
+     "id": "pro-file-card",
+     "title": "Keep a card with its work",
+     "outcome": "After this a card worth keeping is kept with the work it belongs to.",
+     "minutes": 1,
+     "tag": "Pro tip",
+     "cover": {
+      "src": "handholding/canvas.webp",
+      "alt": "The screen at a desk: the chat on the left and the canvas on the right, holding a page.",
+      "w": 1000,
+      "h": 625
+     },
+     "summary": [
+      "A card worth keeping can become a step of a task, so it is found with everything else about it."
+     ],
+     "how": [
+      "With the card on the canvas, say which task to file it in.",
+      "It becomes a numbered step of that task, found with everything else about it."
+     ],
+     "says": [
+      "File that card as a step of the offsite task."
+     ],
+     "see": "canvas",
+     "talk": true,
+     "glyph": "folder"
+    },
+    {
      "id": "pin",
      "title": "Pin what you are working on",
      "outcome": "After this the Control room shows where you left off and what is next.",
@@ -1229,6 +1854,32 @@
      "glyph": "pin"
     },
     {
+     "id": "pro-pins",
+     "title": "Pin this week's work",
+     "outcome": "After this the Control room shows only this week's work.",
+     "minutes": 1,
+     "tag": "Pro tip",
+     "cover": {
+      "src": "handholding/control.webp",
+      "alt": "The Control room: what you pinned, where you left off and what is next.",
+      "w": 1000,
+      "h": 562
+     },
+     "summary": [
+      "Pin the few tasks you are on. The Control room then shows each one, where you left off and what is next."
+     ],
+     "how": [
+      "Say which tasks to pin and which to unpin, by number.",
+      "Open the Control room to see each one, where you left off and what is next."
+     ],
+     "says": [
+      "Pin 58 and unpin 19."
+     ],
+     "see": "pin",
+     "talk": true,
+     "glyph": "pin"
+    },
+    {
      "id": "research",
      "title": "Ask for research",
      "outcome": "After this you get research back as a task, with its sources and a recommendation.",
@@ -1256,6 +1907,32 @@
       "label": "Task browser",
       "href": "/tasks"
      },
+     "talk": true,
+     "glyph": "book"
+    },
+    {
+     "id": "pro-research",
+     "title": "Research comes back as a task",
+     "outcome": "After this you know when to say research and when to say look into.",
+     "minutes": 1,
+     "tag": "Pro tip",
+     "cover": {
+      "src": "handholding/task.webp",
+      "alt": "A task's page, where research comes back as a step with its findings.",
+      "w": 1000,
+      "h": 562
+     },
+     "summary": [
+      "Say research or compare and you get a task with sources and a recommendation, not a quick answer. For a quick answer, say look into."
+     ],
+     "how": [
+      "Say research or compare for a task with sources and a recommendation.",
+      "Say look into for a quick answer in the chat."
+     ],
+     "says": [
+      "Look into what time the Lisbon Oceanarium opens on Sunday."
+     ],
+     "see": "research",
      "talk": true,
      "glyph": "book"
     },
@@ -1296,9 +1973,8 @@
   },
   {
    "id": "delegate",
-   "n": 5,
+   "n": 6,
    "title": "Let Rouh work for you",
-   "why": "Hand over whole pieces of work, and answer only what really needs you.",
    "lessons": [
     {
      "id": "job",
@@ -1363,6 +2039,57 @@
      "glyph": "activity"
     },
     {
+     "id": "pro-tell-run",
+     "title": "Change course while it works",
+     "outcome": "After this you can steer work that is already running.",
+     "minutes": 1,
+     "tag": "Pro tip",
+     "cover": {
+      "src": "handholding/orb-open.webp",
+      "alt": "The orb open over the whole screen: with nothing running, one calm light.",
+      "w": 1000,
+      "h": 625
+     },
+     "summary": [
+      "You can talk to work that is already running, to steer it or answer what it is stuck on."
+     ],
+     "how": [
+      "Ask what is running, to find the run.",
+      "Tell that run what to change, or answer what it is stuck on."
+     ],
+     "says": [
+      "Tell that run to use the shorter opening."
+     ],
+     "talk": true,
+     "glyph": "activity"
+    },
+    {
+     "id": "pro-drive",
+     "title": "Take a run over, then hand it back",
+     "outcome": "After this you can take a run over for a while and give it back.",
+     "minutes": 1,
+     "tag": "Pro tip",
+     "cover": {
+      "src": "handholding/orb-open.webp",
+      "alt": "The orb open over the whole screen: with nothing running, one calm light.",
+      "w": 1000,
+      "h": 625
+     },
+     "summary": [
+      "A run of the one program can be yours for a while: say let me drive to take its terminal, and carry on to give it back."
+     ],
+     "how": [
+      "Say let me drive and name the run: its terminal is yours.",
+      "Work in it as long as you need.",
+      "Say carry on to give it back to Rouh."
+     ],
+     "says": [
+      "Let me drive that run."
+     ],
+     "talk": true,
+     "glyph": "activity"
+    },
+    {
      "id": "decision",
      "title": "Answer a decision",
      "outcome": "After this you clear what waits on you, usually with one press.",
@@ -1391,6 +2118,32 @@
       "href": "/decisions"
      },
      "detect": "decision",
+     "talk": true,
+     "glyph": "decision"
+    },
+    {
+     "id": "pro-waiting",
+     "title": "One question clears the queue",
+     "outcome": "After this you clear everything waiting on you in one go.",
+     "minutes": 1,
+     "tag": "Pro tip",
+     "cover": {
+      "src": "handholding/decisions.webp",
+      "alt": "Decisions: everything waiting on your answer; here, nothing waits.",
+      "w": 1000,
+      "h": 562
+     },
+     "summary": [
+      "Ask what is waiting on you, and answer each by its number, in the same sentence if you like."
+     ],
+     "how": [
+      "Ask what is waiting on you. Each question comes back with a number.",
+      "Answer each by its number, several in one sentence if you like."
+     ],
+     "says": [
+      "What is waiting on me?"
+     ],
+     "see": "decision",
      "talk": true,
      "glyph": "decision"
     },
@@ -1502,10 +2255,42 @@
      "how": [
       "Open Heartbeat (menu, Work) to see what it did today, beat by beat.",
       "Pause it there with Pause, or change its rhythm under its Settings tab.",
-      "Its switch is also on Enabling Rouh."
+      "Its switch is in the next tip, Switch the heartbeat on or off."
      ],
      "says": [
       "Is the heartbeat on, and what did it do today?",
+      "Pause the heartbeat."
+     ],
+     "open": {
+      "label": "Heartbeat",
+      "href": "/anatomy/behaviour/heartbeat"
+     },
+     "talk": true,
+     "glyph": "pulse"
+    },
+    {
+     "id": "switch-heartbeat",
+     "title": "Switch the heartbeat on or off",
+     "outcome": "After this you choose whether Rouh takes its own turn every half hour.",
+     "minutes": 1,
+     "tag": "Setup",
+     "cover": {
+      "src": "handholding/heartbeat.webp",
+      "alt": "The Heartbeat page: today, beat by beat, what Rouh did by itself.",
+      "w": 1000,
+      "h": 562
+     },
+     "summary": [
+      "Rouh's own turn, every half hour in working hours: it checks its duties, carries your quests forward and starts work nobody had to ask for. It only does safe things by itself; anything else comes to you as a decision."
+     ],
+     "feature": "heartbeat",
+     "how": [
+      "Flip the switch above. On, the heartbeat beats every half hour in working hours.",
+      "Off, nothing beats by itself and quests wait; a yes you give in Decisions still runs.",
+      "See what it did, beat by beat, on the Heartbeat page."
+     ],
+     "says": [
+      "Is the heartbeat on?",
       "Pause the heartbeat."
      ],
      "open": {
@@ -1520,9 +2305,8 @@
   },
   {
    "id": "yours",
-   "n": 6,
+   "n": 7,
    "title": "Make it yours",
-   "why": "Teach Rouh how you like things, and keep the parts of your life apart.",
    "lessons": [
     {
      "id": "rule",
@@ -1559,6 +2343,32 @@
      "remembers": true
     },
     {
+     "id": "pro-rules",
+     "title": "Say it once, as a rule",
+     "outcome": "After this a correction you make twice becomes a rule Rouh keeps.",
+     "minutes": 1,
+     "tag": "Pro tip",
+     "cover": {
+      "src": "handholding/rules.webp",
+      "alt": "Rules: what Rouh keeps to, grouped, each with its switch.",
+      "w": 1000,
+      "h": 562
+     },
+     "summary": [
+      "When you correct Rouh twice about the same thing, make it a rule. Say always or never and it sticks."
+     ],
+     "how": [
+      "When you correct Rouh twice about the same thing, say it as a rule.",
+      "Start it with always or never, and it sticks from then on."
+     ],
+     "says": [
+      "From now on, never book anything before nine in the morning."
+     ],
+     "see": "rule",
+     "talk": true,
+     "glyph": "rule"
+    },
+    {
      "id": "vocab",
      "title": "Teach Rouh one of your words",
      "outcome": "After this Rouh understands your nicknames and shorthand.",
@@ -1586,6 +2396,32 @@
       "href": "/synapse/vocabulary"
      },
      "detect": "vocabulary",
+     "talk": true,
+     "glyph": "words"
+    },
+    {
+     "id": "pro-vocab",
+     "title": "Teach it your nicknames",
+     "outcome": "After this Rouh understands your own nicknames, by voice too.",
+     "minutes": 1,
+     "tag": "Pro tip",
+     "cover": {
+      "src": "handholding/vocabulary.webp",
+      "alt": "Vocabulary: your own words, and what you mean by them.",
+      "w": 1000,
+      "h": 562
+     },
+     "summary": [
+      "Say once what a word of yours means, and Rouh understands it from then on, by voice too."
+     ],
+     "how": [
+      "Say once what a word of yours means.",
+      "From then on Rouh understands it, typed or spoken."
+     ],
+     "says": [
+      "Remember that Bo means my brother Bob."
+     ],
+     "see": "vocab",
      "talk": true,
      "glyph": "words"
     },
@@ -1618,6 +2454,32 @@
      "detect": "thought",
      "talk": true,
      "glyph": "cloud"
+    },
+    {
+     "id": "pro-thought",
+     "title": "Start with Thought:",
+     "outcome": "After this an idea you say is kept in your own words.",
+     "minutes": 1,
+     "tag": "Pro tip",
+     "cover": {
+      "src": "handholding/thoughts.webp",
+      "alt": "Thoughts: your own thoughts, kept in your words.",
+      "w": 1000,
+      "h": 562
+     },
+     "summary": [
+      "A sentence that starts with Thought: is kept in your own words, and Rouh fills it out later."
+     ],
+     "how": [
+      "Start a sentence with Thought: and say the idea.",
+      "Rouh keeps it in your words and fills it out later."
+     ],
+     "says": [
+      "Thought: a monthly dinner with the old team."
+     ],
+     "see": "thought",
+     "talk": true,
+     "glyph": "bulb"
     },
     {
      "id": "silos",
@@ -1679,15 +2541,40 @@
      },
      "talk": true,
      "glyph": "chip"
+    },
+    {
+     "id": "pro-switch-model",
+     "title": "Trade quality for cost in a sentence",
+     "outcome": "After this you trade quality for cost with one sentence.",
+     "minutes": 1,
+     "tag": "Pro tip",
+     "cover": {
+      "src": "handholding/models.webp",
+      "alt": "Models: the mode, Best, Balanced or Saver, and the providers.",
+      "w": 1000,
+      "h": 562
+     },
+     "summary": [
+      "Pick Best, Balanced or Saver by asking, without opening Settings."
+     ],
+     "how": [
+      "Say which mode you want: Best, Balanced or Saver.",
+      "Rouh switches without you opening Settings."
+     ],
+     "says": [
+      "Switch to Saver."
+     ],
+     "see": "models",
+     "talk": true,
+     "glyph": "chip"
     }
    ],
    "topics": "Memory, rules, your own words, thoughts, privacy between parts of your life, AI models"
   },
   {
    "id": "security",
-   "n": 7,
+   "n": 8,
    "title": "Security",
-   "why": "What always needs your yes, what Rouh never obeys, and how to see and close what is open to others.",
    "lessons": [
     {
      "id": "gates",
@@ -1816,6 +2703,32 @@
      "glyph": "box"
     },
     {
+     "id": "pro-boxes",
+     "title": "Secrets go in a box",
+     "outcome": "After this you never type a password into the chat.",
+     "minutes": 1,
+     "tag": "Pro tip",
+     "cover": {
+      "src": "handholding/box.webp",
+      "alt": "Boxes: a new box, with a name and the secret to keep.",
+      "w": 1000,
+      "h": 562
+     },
+     "summary": [
+      "Never type a password into the chat. Ask for a box: what you put in it goes straight into the database and never reaches the AI."
+     ],
+     "how": [
+      "Ask for a box instead of typing the secret into the chat.",
+      "Type it into the box: it goes straight into the database and never reaches the AI."
+     ],
+     "says": [
+      "Give me a box for my Wi-Fi password."
+     ],
+     "see": "box",
+     "talk": true,
+     "glyph": "box"
+    },
+    {
      "id": "trusted",
      "title": "Add a trusted contact",
      "outcome": "After this Rouh can help someone you trust when they write to it.",
@@ -1846,6 +2759,32 @@
       "href": "/anatomy/behaviour/trusted-contacts"
      },
      "detect": "trusted",
+     "talk": true,
+     "glyph": "person"
+    },
+    {
+     "id": "pro-delegate",
+     "title": "Let someone decide for you",
+     "outcome": "After this someone you trust can answer for you on one goal or task.",
+     "minutes": 1,
+     "tag": "Pro tip",
+     "cover": {
+      "src": "handholding/trusted.webp",
+      "alt": "Trusted contacts: the people Rouh may act for and answer, and what each may ask.",
+      "w": 1000,
+      "h": 562
+     },
+     "summary": [
+      "For one goal or task, a person you trust can answer in your place. Their answers count there and nowhere else."
+     ],
+     "how": [
+      "Name the person and the goal or task they may decide.",
+      "Their answers count there and nowhere else."
+     ],
+     "says": [
+      "Let Sam decide for the offsite task."
+     ],
+     "see": "trusted",
      "talk": true,
      "glyph": "person"
     },
@@ -1913,6 +2852,33 @@
      "glyph": "folder"
     },
     {
+     "id": "pro-whats-open",
+     "title": "Ask what is open, once a month",
+     "outcome": "After this nothing of yours stays open to outsiders by accident.",
+     "minutes": 1,
+     "tag": "Pro tip",
+     "cover": {
+      "src": "handholding/drive-open.svg",
+      "alt": "Rouh's answer listing Drive files: two anyone with the link can open, and three shared with people outside the company.",
+      "w": 960,
+      "h": 540
+     },
+     "summary": [
+      "Shares outlive the meeting they were for. Once a month ask what of yours is open to people outside: tasks you published or shared, and Drive files open with a link."
+     ],
+     "how": [
+      "Once a month, ask what of yours is open to people outside.",
+      "The answer lists tasks you published or shared, and Drive files open with a link.",
+      "Close what no longer needs to be open."
+     ],
+     "says": [
+      "What of mine is open to people outside the company?"
+     ],
+     "see": "drive-open",
+     "talk": true,
+     "glyph": "shield"
+    },
+    {
      "id": "connections",
      "title": "Check your connections, and disconnect one",
      "outcome": "After this you know what Rouh can reach, and how to cut one off.",
@@ -1944,13 +2910,12 @@
      "glyph": "plug"
     }
    ],
-   "topics": "Privacy and safety, what needs your yes, secrets, trusted people, what you share"
+   "topics": "Privacy and safety, what needs your yes, what Rouh never obeys, secrets, trusted people, what you share"
   },
   {
    "id": "power",
-   "n": 8,
+   "n": 9,
    "title": "Power user",
-   "why": "The deep end: Rouh's memory, your team's tools, and changing Rouh itself. Every connection here is optional.",
    "lessons": [
     {
      "id": "synapse",
@@ -2017,7 +2982,8 @@
      "detect": "connection:meetings",
      "optional": true,
      "talk": true,
-     "glyph": "video"
+     "glyph": "video",
+     "tag": "Setup"
     },
     {
      "id": "slack",
@@ -2057,7 +3023,8 @@
      "detect": "connection:slack",
      "optional": true,
      "talk": true,
-     "glyph": "hash"
+     "glyph": "hash",
+     "tag": "Setup"
     },
     {
      "id": "payments",
@@ -2094,7 +3061,8 @@
      "detect": "connection:payments",
      "optional": true,
      "talk": true,
-     "glyph": "card"
+     "glyph": "card",
+     "tag": "Setup"
     },
     {
      "id": "mcp",
@@ -2131,7 +3099,8 @@
      "detect": "connection:mcp",
      "optional": true,
      "talk": true,
-     "glyph": "plug"
+     "glyph": "plug",
+     "tag": "Setup"
     },
     {
      "id": "cloudflare",
@@ -2168,7 +3137,8 @@
      "detect": "connection:cloudflare",
      "optional": true,
      "talk": true,
-     "glyph": "cloud"
+     "glyph": "cloud",
+     "tag": "Setup"
     },
     {
      "id": "gene-therapy",
@@ -2196,6 +3166,32 @@
       "label": "Gene therapy",
       "href": "/gene-therapy"
      },
+     "talk": true,
+     "glyph": "dna"
+    },
+    {
+     "id": "pro-gene",
+     "title": "Grow a new ability in one sentence",
+     "outcome": "After this you know how to ask Rouh for an ability it does not have yet.",
+     "minutes": 1,
+     "tag": "Pro tip",
+     "cover": {
+      "src": "handholding/gene-therapy.webp",
+      "alt": "Gene therapy open beside the chat: How would you like to mutate me?, with a box and Mutate.",
+      "w": 1000,
+      "h": 562
+     },
+     "summary": [
+      "If Rouh cannot do something you want, say improve yourself so, and it grows the ability as a gene."
+     ],
+     "how": [
+      "Say improve yourself so, and what you want it to do.",
+      "Rouh grows the ability as a gene."
+     ],
+     "says": [
+      "Improve yourself so the morning brief also lists my birthdays this week."
+     ],
+     "see": "gene-therapy",
      "talk": true,
      "glyph": "dna"
     },
@@ -2257,7 +3253,7 @@
      "glyph": "egg"
     }
    ],
-   "topics": "Rouh's memory up close, meetings, Slack, payments, domains, changing Rouh itself"
+   "topics": "Rouh's memory up close, your team's tools: meetings and Slack, payments, domains, changing Rouh itself; all optional"
   }
  ],
  "features": [
@@ -2293,242 +3289,6 @@
     "label": "Email and calendar",
     "href": "/anatomy/connections/email"
    }
-  }
- ],
- "sections": {
-  "features": {
-   "title": "Features you can switch on and off",
-   "lede": "The same switches as on their Settings pages: flip one here and it is flipped there."
-  }
- },
- "areas": [
-  {
-   "id": "talking",
-   "name": "Talking"
-  },
-  {
-   "id": "connections",
-   "name": "Connections"
-  },
-  {
-   "id": "mail",
-   "name": "Mail and calendar"
-  },
-  {
-   "id": "home",
-   "name": "Home and errands"
-  },
-  {
-   "id": "tasks",
-   "name": "Tasks"
-  },
-  {
-   "id": "background",
-   "name": "Background work"
-  },
-  {
-   "id": "memory",
-   "name": "Memory"
-  },
-  {
-   "id": "settings",
-   "name": "Settings"
-  },
-  {
-   "id": "security",
-   "name": "Security"
-  },
-  {
-   "id": "evolution",
-   "name": "Evolution"
-  }
- ],
- "tips": [
-  {
-   "id": "numbers",
-   "area": "tasks",
-   "title": "Numbers are addresses",
-   "body": "Every task and step has a number. Say it, and Rouh goes straight there: 58 is a task, 58-02 its second step.",
-   "says": [
-    "What is happening with 58-02?"
-   ],
-   "lesson": "steps"
-  },
-  {
-   "id": "one-breath",
-   "area": "talking",
-   "title": "Ask for several things in one breath",
-   "body": "You do not have to wait between requests. Say them together and Rouh does each one.",
-   "says": [
-    "Remind me on Friday at nine to call Sam, and put lunch with Lena on Thursday at one."
-   ]
-  },
-  {
-   "id": "drive",
-   "area": "background",
-   "title": "Take a run over, then hand it back",
-   "body": "A run of the one program can be yours for a while: say let me drive to take its terminal, and carry on to give it back.",
-   "says": [
-    "Let me drive that run."
-   ]
-  },
-  {
-   "id": "tell-run",
-   "area": "background",
-   "title": "Change course while it works",
-   "body": "You can talk to work that is already running, to steer it or answer what it is stuck on.",
-   "says": [
-    "Tell that run to use the shorter opening."
-   ]
-  },
-  {
-   "id": "boxes",
-   "area": "security",
-   "title": "Secrets go in a box",
-   "body": "Never type a password into the chat. Ask for a box: what you put in it goes straight into the database and never reaches the AI.",
-   "says": [
-    "Give me a box for my Wi-Fi password."
-   ],
-   "lesson": "box"
-  },
-  {
-   "id": "vocab",
-   "area": "memory",
-   "title": "Teach it your nicknames",
-   "body": "Say once what a word of yours means, and Rouh understands it from then on, by voice too.",
-   "says": [
-    "Remember that Bo means my brother Bob."
-   ],
-   "lesson": "vocab"
-  },
-  {
-   "id": "thought",
-   "area": "memory",
-   "title": "Start with Thought:",
-   "body": "A sentence that starts with Thought: is kept in your own words, and Rouh fills it out later.",
-   "says": [
-    "Thought: a monthly dinner with the old team."
-   ],
-   "lesson": "thought"
-  },
-  {
-   "id": "rules",
-   "area": "memory",
-   "title": "Say it once, as a rule",
-   "body": "When you correct Rouh twice about the same thing, make it a rule. Say always or never and it sticks.",
-   "says": [
-    "From now on, never book anything before nine in the morning."
-   ],
-   "lesson": "rule"
-  },
-  {
-   "id": "pins",
-   "area": "tasks",
-   "title": "Pin this week's work",
-   "body": "Pin the few tasks you are on. The Control room then shows each one, where you left off and what is next.",
-   "says": [
-    "Pin 58 and unpin 19."
-   ],
-   "lesson": "pin"
-  },
-  {
-   "id": "revise",
-   "area": "talking",
-   "title": "Change a card, do not ask for a new one",
-   "body": "Ask for a change to the card on the screen and Rouh revises it in place. Every version is kept, so you can go back.",
-   "says": [
-    "What did that table say before you changed it?"
-   ]
-  },
-  {
-   "id": "file-card",
-   "area": "tasks",
-   "title": "Keep a card with its work",
-   "body": "A card worth keeping can become a step of a task, so it is found with everything else about it.",
-   "says": [
-    "File that card as a step of the offsite task."
-   ],
-   "lesson": "canvas"
-  },
-  {
-   "id": "delegate",
-   "area": "settings",
-   "title": "Let someone decide for you",
-   "body": "For one goal or task, a person you trust can answer in your place. Their answers count there and nowhere else.",
-   "says": [
-    "Let Sam decide for the offsite task."
-   ],
-   "lesson": "trusted"
-  },
-  {
-   "id": "waiting",
-   "area": "background",
-   "title": "One question clears the queue",
-   "body": "Ask what is waiting on you, and answer each by its number, in the same sentence if you like.",
-   "says": [
-    "What is waiting on me?"
-   ],
-   "lesson": "decision"
-  },
-  {
-   "id": "orb",
-   "area": "talking",
-   "title": "Read the orb's colours",
-   "body": "A branch marked NEEDS YOU is waiting on you. The rings round the orb are the machine: storage, then CPU, then memory, each green or grey while there is room, amber when busy, red when too busy.",
-   "says": [
-    "What are you working on right now?"
-   ],
-   "lesson": "orb"
-  },
-  {
-   "id": "stop",
-   "area": "talking",
-   "title": "Escape stops the answer, not the work",
-   "body": "Press Escape to stop Rouh mid-answer. Anything it already started in the background carries on.",
-   "says": [
-    "What is running right now?"
-   ],
-   "lesson": "stop"
-  },
-  {
-   "id": "switch-model",
-   "area": "settings",
-   "title": "Trade quality for cost in a sentence",
-   "body": "Pick Best, Balanced or Saver by asking, without opening Settings.",
-   "says": [
-    "Switch to Saver."
-   ],
-   "lesson": "models"
-  },
-  {
-   "id": "research",
-   "area": "tasks",
-   "title": "Research comes back as a task",
-   "body": "Say research or compare and you get a task with sources and a recommendation, not a quick answer. For a quick answer, say look into.",
-   "says": [
-    "Look into what time the Lisbon Oceanarium opens on Sunday."
-   ],
-   "lesson": "research"
-  },
-  {
-   "id": "gene",
-   "area": "evolution",
-   "title": "Ask Rouh to change itself",
-   "body": "If Rouh cannot do something you want, say improve yourself so, and it grows the ability as a gene.",
-   "says": [
-    "Improve yourself so the morning brief also lists my birthdays this week."
-   ],
-   "lesson": "gene-therapy"
-  },
-  {
-   "id": "whats-open",
-   "area": "security",
-   "title": "Ask what is open, once a month",
-   "body": "Shares outlive the meeting they were for. Once a month ask what of yours is open to people outside: tasks you published or shared, and Drive files open with a link.",
-   "says": [
-    "What of mine is open to people outside the company?"
-   ],
-   "lesson": "drive-open"
   }
  ],
  "glyphs_note": "Each tip's card shows a symbol, not a screenshot (review 49, problem 325): `glyph` names one of these 24 by 24 line drawings. The screenshots are inside the tip.",
@@ -2584,7 +3344,11 @@
   "card": "<rect x=\"3\" y=\"5.5\" width=\"18\" height=\"13\" rx=\"2\"/><path d=\"M3 10h18M7 15h4\"/>",
   "dna": "<path d=\"M7 3c0 6 10 6 10 12s-10 6-10 6M17 3c0 6-10 6-10 12M8 7h8M8 17h8\"/>",
   "branch": "<circle cx=\"6\" cy=\"5\" r=\"2\"/><circle cx=\"6\" cy=\"19\" r=\"2\"/><circle cx=\"18\" cy=\"9\" r=\"2\"/><path d=\"M6 7v10M18 11c0 4-6 3-11.5 6.5\"/>",
-  "egg": "<path d=\"M12 3c-3.9 0-7 6-7 10.5A7 7 0 0 0 19 13.5C19 9 15.9 3 12 3z\"/>"
+  "egg": "<path d=\"M12 3c-3.9 0-7 6-7 10.5A7 7 0 0 0 19 13.5C19 9 15.9 3 12 3z\"/>",
+  "clip": "<path d=\"M8.5 12.5l6-6a3 3 0 0 1 4.2 4.2l-7.6 7.6a5 5 0 0 1-7-7L11.5 4\"/>",
+  "picture": "<rect x=\"3.5\" y=\"5\" width=\"17\" height=\"14\" rx=\"2\"/><circle cx=\"9\" cy=\"10\" r=\"1.6\"/><path d=\"M3.5 16.5l5-4.5 4 3.5 3-2.5 5 4\"/>",
+  "keys": "<rect x=\"2.5\" y=\"6\" width=\"19\" height=\"12\" rx=\"2\"/><path d=\"M6 10h1M9.5 10h1M13 10h1M16.5 10h1M7.5 14h9\"/>",
+  "incognito": "<path d=\"M3 11h18M6 11l1.5-5h9L18 11\"/><circle cx=\"7.5\" cy=\"16\" r=\"2.5\"/><circle cx=\"16.5\" cy=\"16\" r=\"2.5\"/><path d=\"M10 16h4\"/>"
  },
  "without_chat_note": "A lesson whose things to say need the chat says so while the chat cannot answer (review 51, problem 372): its own `without_chat` words when it has them, else the way to its own page (`open`), else that it waits for the chat."
 }

@@ -20,11 +20,11 @@
 .hh-h2 { margin: 0; font-size: 20px; line-height: 1.25; font-weight: 700; }
 .hh-h3 { margin: 0; font-size: 16px; line-height: 1.3; font-weight: 680; }
 .hh-h1:focus, .hh-h2:focus, .hh-h3:focus { outline: none; }
-.hh-lede { margin: 0; font-size: 15.5px; line-height: 1.5; color: var(--dim); max-width: 60ch; text-wrap: pretty; }
+
 .hh-sub { margin: 4px 0 0; font-size: 14.5px; line-height: 1.5; color: var(--dim); max-width: 62ch; text-wrap: pretty; }
 
 /* ---- buttons and links ---- */
-.hh-main, .hh-quiet, .hh-stage-t, .hh-chip, .hh-back, .hh-markdone {
+.hh-main, .hh-quiet, .hh-stage-t, .hh-back {
   font: inherit; color: var(--text); cursor: pointer; -webkit-tap-highlight-color: transparent;
 }
 .hh-main {
@@ -33,8 +33,6 @@
   color: var(--accent-ink); transition: filter .15s ease, transform .1s ease;
 }
 .hh-main:not(:has(.hh-main-k)) { align-content: center; font-size: 16px; font-weight: 720; }
-.hh-main-k { font-size: 12.5px; font-weight: 650; opacity: .8; }
-.hh-main-t { font-size: 16px; font-weight: 720; line-height: 1.25; overflow-wrap: anywhere; }
 .hh-main:hover { filter: brightness(1.07); }
 .hh-main:active { transform: translateY(1px); }
 .hh-quiet {
@@ -51,12 +49,12 @@
 }
 .hh-link:hover { text-decoration: underline; text-underline-offset: 3px; }
 a.hh-quiet, a.hh-main { text-decoration: none; }
-:is(.hh-main, .hh-quiet, .hh-stage-t, .hh-chip, .hh-back, .hh-markdone, .hh-link, .hh-crumb,
-    .hh-card, .hh-nextcard):focus-visible {
+:is(.hh-main, .hh-quiet, .hh-stage-t, .hh-back, .hh-link, .hh-crumb,
+    .hh-card):focus-visible {
   outline: 2px solid var(--accent); outline-offset: 2px;
 }
 @media (prefers-reduced-motion: reduce) {
-  .hh-main, .hh-quiet, .hh-bar-fill, .hh-stage-t svg, .hh-card, .hh-nextcard, .hh-markdone { transition: none !important; }
+  .hh-main, .hh-quiet, .hh-bar-fill, .hh-stage-t svg, .hh-card { transition: none !important; }
 }
 
 /* ---- sections ---- */
@@ -94,7 +92,6 @@ a.hh-quiet, a.hh-main { text-decoration: none; }
 .hh-stage-n { font-size: 12.5px; font-weight: 650; color: var(--dim); }
 .hh-stage-name { font-size: 16.5px; font-weight: 700; line-height: 1.3; }
 .hh-stage-topics { font-size: 13.5px; line-height: 1.45; color: var(--dim); margin-top: 2px; }
-.hh-stage-why { margin: 0; padding: 12px 16px 0; font-size: 14px; line-height: 1.5; color: var(--text); max-width: 64ch; }
 .hh-stage-body { border-top: 1px solid var(--line-soft); }
 .hh-stage-body .hh-cards { border-top: 0; }
 /* The search over every tip (review 49, problem 366). */
@@ -139,16 +136,6 @@ a.hh-quiet, a.hh-main { text-decoration: none; }
 .hh-fact dt { font-size: 12.5px; font-weight: 650; color: var(--dim); margin-bottom: 2px; }
 .hh-fact dd { margin: 0; font-size: 14px; line-height: 1.5; }
 .hh-k { margin: 0; font-size: 12.5px; font-weight: 650; color: var(--dim); }
-.hh-clicks, .hh-lsteps { margin: 0; padding: 0; list-style: none; counter-reset: hhn; display: grid; gap: 8px; }
-.hh-clicks li, .hh-lsteps li {
-  counter-increment: hhn; position: relative; padding-left: 34px; font-size: 14px; line-height: 1.5; min-height: 24px;
-}
-.hh-clicks li::before, .hh-lsteps li::before {
-  content: counter(hhn); position: absolute; left: 0; top: 0; width: 24px; height: 24px; border-radius: 50%;
-  display: grid; place-items: center; font-size: 12px; font-weight: 720; background: var(--panel-2);
-  border: 1px solid var(--line); color: var(--text);
-}
-.hh-more { margin: 0; font-size: 14px; line-height: 1.5; max-width: 66ch; }
 
 /* ---- empty and failing ---- */
 .hh-empty { display: grid; gap: 8px; padding: 22px 20px; border: 1px dashed var(--line); border-radius: 16px; }
@@ -156,11 +143,11 @@ a.hh-quiet, a.hh-main { text-decoration: none; }
 .hh-empty-small { margin: 0; font-size: 14px; color: var(--dim); line-height: 1.5; }
 
 /* ---- features that switch on and off ---- */
-.hh-featlist { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+
 .hh-feat { display: grid; gap: 12px; padding: 16px 18px; border-radius: 16px; border: 1px solid var(--line); background: var(--panel); }
 .hh-feat-top { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 16px; align-items: start; }
 .hh-feat-words { display: grid; gap: 4px; min-width: 0; }
-.hh-feat-what { margin: 0; font-size: 14px; line-height: 1.5; color: var(--dim); max-width: 64ch; }
+
 .hh-feat-ctl { display: flex; align-items: center; gap: 10px; min-height: 44px; }
 .hh-feat-state { font-size: 13.5px; font-weight: 650; color: var(--dim); min-width: 3.4em; }
 .hh-feat-note { margin: 0; font-size: 13.5px; line-height: 1.45; color: var(--dim); }
@@ -182,18 +169,13 @@ a.hh-quiet, a.hh-main { text-decoration: none; }
 @media (prefers-reduced-motion: reduce) { .hh-switch, .hh-switch-knob { transition: none; } }
 
 /* ---- pro tips ---- */
-.hh-tiplist { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(min(320px, 100%), 1fr)); gap: 10px; }
-.hh-tip { display: grid; gap: 8px; align-content: start; padding: 16px 18px; border-radius: 16px; border: 1px solid var(--line); background: var(--panel); }
-.hh-tip .hh-tag { justify-self: start; }
-.hh-tip-body { margin: 0; font-size: 14px; line-height: 1.5; color: var(--text); }
-
 
 .hh-badge-count { color: var(--text); padding-left: 9px; }
-.hh-sum { display: flex; flex-wrap: wrap; gap: 6px; }
+
 .hh-count { margin: 0; font-size: 13px; color: var(--dim); }
 .hh-k { margin: 0; font-size: 12.5px; font-weight: 650; color: var(--dim); }
 .hh-failed { margin: 0; font-size: 13.5px; color: var(--bad); flex-basis: 100%; }
-.hh-foot { display: flex; flex-wrap: wrap; gap: 4px 18px; }
+
 .hh-said { margin: 0; font-size: 14px; line-height: 1.45; }
 .hh-said-attention { color: var(--warn); }
 
@@ -231,7 +213,7 @@ a.hh-quiet, a.hh-main { text-decoration: none; }
   grid-template-columns: repeat(auto-fill, minmax(min(250px, 100%), 1fr)); border-top: 1px solid var(--line-soft);
 }
 .hh-cards[hidden] { display: none; }
-.hh-conns .hh-cards { padding: 0; border-top: 0; }
+
 .hh-cards > li { display: grid; min-width: 0; }
 .hh-card {
   display: grid; grid-template-columns: 64px minmax(0, 1fr); gap: 0 12px; align-items: start; min-width: 0;
@@ -317,52 +299,16 @@ a.hh-quiet, a.hh-main { text-decoration: none; }
   border: 1px dashed var(--line);
 }
 .hh-says li { font-size: 14.5px; line-height: 1.5; color: var(--dim); overflow-wrap: anywhere; }
-.hh-says-one { grid-template-columns: minmax(0, 1fr); padding: 10px 14px; }
+
 @container hhbody (max-width: 560px) { .hh-says { grid-template-columns: minmax(0, 1fr); } }
 .hh-open { margin: 0; }
 /* Mark done, on the page itself. */
-.hh-done {
-  display: flex; flex-wrap: wrap; align-items: center; gap: 10px 16px; padding: 16px 18px;
-  border-radius: 14px; border: 1px solid var(--line); background: var(--panel);
-}
-.hh-done.is-done { border-color: color-mix(in srgb, var(--accent) 45%, var(--line)); }
-.hh-done-words { margin: 0; display: flex; align-items: center; gap: 8px; font-size: 14.5px; line-height: 1.45; }
-.hh-done-words svg { flex: none; color: var(--accent); }
+
 .hh-done-hint { font-size: 13px; color: var(--dim); }
-.hh-markdone {
-  display: inline-flex; align-items: center; gap: 10px; min-height: 48px; padding: 8px 18px 8px 12px; border-radius: 12px;
-  border: 1px solid var(--line); background: var(--bg-2); font-size: 15px; font-weight: 700;
-  transition: border-color .15s ease, background-color .15s ease;
-}
-.hh-markdone:hover { border-color: var(--dim); }
-.hh-markdone-box {
-  width: 24px; height: 24px; border-radius: 7px; border: 2px solid var(--dim); display: grid; place-items: center; color: transparent;
-}
-.hh-markdone.on { border-color: var(--accent); }
-.hh-markdone.on .hh-markdone-box { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+
 .hh-quiet.hh-small { min-height: 44px; padding: 6px 12px; font-size: 13.5px; }
 /* The foot of every tip: the tip before it on the left, the tip after it on the right (review 49,
    problems 429 and 430), each with where it is in one small line and its title, nothing more. */
-.hh-nextstep { margin-top: 8px; padding-top: 20px; border-top: 1px solid var(--line); }
-.hh-steps { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
-.hh-stepbtn {
-  display: flex; align-items: center; gap: 10px; min-height: 64px; padding: 10px 14px;
-  border-radius: 14px; border: 1px solid var(--line); background: var(--panel);
-  color: var(--text); text-decoration: none; transition: border-color .15s ease;
-}
-.hh-stepbtn:hover { border-color: var(--dim); }
-.hh-stepbtn > svg { flex: none; color: var(--dim); }
-.hh-stepbtn-next { justify-content: flex-end; text-align: right; border-color: color-mix(in srgb, var(--accent) 45%, var(--line)); }
-.hh-stepbtn-next:hover { border-color: var(--accent); }
-.hh-stepbtn-next > svg { color: var(--accent); }
-.hh-stepbtn-words { display: grid; gap: 2px; min-width: 0; }
-.hh-stepbtn-k { font-size: 12.5px; font-weight: 650; color: var(--dim); }
-.hh-stepbtn-t { font-size: 15px; font-weight: 700; line-height: 1.3; overflow-wrap: anywhere; }
-.hh-stepbtn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
-@media (prefers-reduced-motion: reduce) { .hh-stepbtn { transition: none !important; } }
-.hh-markdone.fixed { cursor: default; }
-.hh-markdone.fixed:hover { border-color: var(--accent); }
-.hh-markdone.fixed:not(.on):hover { border-color: var(--line); }
 
 /* A word of Rouh's own, explained where it stands (review 49, problem 433): a dotted underline, and
    pressed, its meaning in plain words just after it. */
@@ -384,18 +330,13 @@ a.hh-quiet, a.hh-main { text-decoration: none; }
 .hh-remembers .hh-link { min-height: 44px; display: inline-flex; }
 
 /* ---- pro tips ---- */
-.hh-tiplist { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(min(320px, 100%), 1fr)); gap: 10px; }
-.hh-tip { display: grid; gap: 8px; align-content: start; padding: 16px 18px; border-radius: 16px; border: 1px solid var(--line); background: var(--panel); }
-.hh-tip .hh-tag { justify-self: start; }
-.hh-tip-body { margin: 0; font-size: 14px; line-height: 1.5; color: var(--text); }
-
 
 .hh-badge-count { color: var(--text); padding-left: 9px; }
-.hh-sum { display: flex; flex-wrap: wrap; gap: 6px; }
+
 .hh-count { margin: 0; font-size: 13px; color: var(--dim); }
 .hh-k { margin: 0; font-size: 12.5px; font-weight: 650; color: var(--dim); }
 .hh-failed { margin: 0; font-size: 13.5px; color: var(--bad); flex-basis: 100%; }
-.hh-foot { display: flex; flex-wrap: wrap; gap: 4px 18px; }
+
 .hh-said { margin: 0; font-size: 14px; line-height: 1.45; }
 .hh-said-attention { color: var(--warn); }
 
@@ -433,7 +374,7 @@ a.hh-quiet, a.hh-main { text-decoration: none; }
   grid-template-columns: repeat(auto-fill, minmax(min(250px, 100%), 1fr)); border-top: 1px solid var(--line-soft);
 }
 .hh-cards[hidden] { display: none; }
-.hh-conns .hh-cards { padding: 0; border-top: 0; }
+
 .hh-cards > li { display: grid; min-width: 0; }
 .hh-card {
   display: grid; grid-template-columns: 64px minmax(0, 1fr); gap: 0 12px; align-items: start; min-width: 0;
@@ -519,66 +460,25 @@ a.hh-quiet, a.hh-main { text-decoration: none; }
   border: 1px dashed var(--line);
 }
 .hh-says li { font-size: 14.5px; line-height: 1.5; color: var(--dim); overflow-wrap: anywhere; }
-.hh-says-one { grid-template-columns: minmax(0, 1fr); padding: 10px 14px; }
+
 @container hhbody (max-width: 560px) { .hh-says { grid-template-columns: minmax(0, 1fr); } }
 .hh-open { margin: 0; }
 /* Mark done, on the page itself. */
-.hh-done {
-  display: flex; flex-wrap: wrap; align-items: center; gap: 10px 16px; padding: 16px 18px;
-  border-radius: 14px; border: 1px solid var(--line); background: var(--panel);
-}
-.hh-done.is-done { border-color: color-mix(in srgb, var(--accent) 45%, var(--line)); }
-.hh-done-words { margin: 0; display: flex; align-items: center; gap: 8px; font-size: 14.5px; line-height: 1.45; }
-.hh-done-words svg { flex: none; color: var(--accent); }
+
 .hh-done-hint { font-size: 13px; color: var(--dim); }
-.hh-markdone {
-  display: inline-flex; align-items: center; gap: 10px; min-height: 48px; padding: 8px 18px 8px 12px; border-radius: 12px;
-  border: 1px solid var(--line); background: var(--bg-2); font-size: 15px; font-weight: 700;
-  transition: border-color .15s ease, background-color .15s ease;
-}
-.hh-markdone:hover { border-color: var(--dim); }
-.hh-markdone-box {
-  width: 24px; height: 24px; border-radius: 7px; border: 2px solid var(--dim); display: grid; place-items: center; color: transparent;
-}
-.hh-markdone.on { border-color: var(--accent); }
-.hh-markdone.on .hh-markdone-box { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+
 .hh-quiet.hh-small { min-height: 44px; padding: 6px 12px; font-size: 13.5px; }
 /* Next step: the rubric at the foot of every lesson, naming and linking the next one. */
-.hh-nextstep { display: grid; gap: 10px; margin-top: 8px; padding-top: 20px; border-top: 1px solid var(--line); }
-.hh-rubric { margin: 0; font-size: 13px; font-weight: 760; letter-spacing: .08em; text-transform: uppercase; color: var(--accent); }
-.hh-nextcard {
-  display: grid; grid-template-columns: 64px minmax(0, 1fr) auto; gap: 14px; align-items: center; padding: 12px 16px 12px 12px;
-  border-radius: 16px; border: 1px solid color-mix(in srgb, var(--accent) 45%, var(--line)); background: var(--panel);
-  color: var(--text); text-decoration: none; transition: border-color .15s ease;
-}
-.hh-nextcard:hover { border-color: var(--accent); }
-.hh-nextcard > svg { color: var(--accent); }
-.hh-nextcard .hh-card-words { padding: 0; }
-.hh-prev { margin: 0; display: flex; flex-wrap: wrap; align-items: center; gap: 0 6px; font-size: 14px; color: var(--dim); }
 
 /* ---- pro tips ---- */
-.hh-tip-from { margin: 0; display: flex; flex-wrap: wrap; align-items: center; gap: 0 4px; font-size: 13.5px; color: var(--dim); }
+
 .hh-tag { font-size: 12px; font-weight: 600; padding: 2px 9px; border-radius: 999px; background: var(--panel-2); color: var(--dim); }
-.hh-chips { display: flex; flex-wrap: wrap; gap: 6px; }
-.hh-chip {
-  min-height: 44px; padding: 4px 14px; border-radius: 999px; border: 1px solid var(--line); background: transparent;
-  font-size: 13.5px; font-weight: 600; color: var(--dim);
-}
-.hh-chip:hover { color: var(--text); border-color: var(--dim); }
-.hh-chip.on { color: var(--text); background: var(--panel-2); border-color: var(--dim); }
 
 /* The section's pages, as a row of links at the top of each. */
-.hh-tabs { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: -20px; }
-.hh-tab {
-  display: inline-flex; align-items: center; min-height: 44px; padding: 6px 16px; border-radius: 999px;
-  border: 1px solid var(--line); color: var(--dim); text-decoration: none; font-size: 14px; font-weight: 650;
-}
-.hh-tab:hover { color: var(--text); border-color: var(--dim); }
-.hh-tab.on { color: var(--text); background: var(--panel-2); border-color: var(--dim); }
-.hh-tab:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
 /* Where the lesson to carry on with stands on the path: a marker, its card being at the top. */
-.hh-out { gap: 4px; }
-.hh-quiet svg, .hh-out svg { flex: none; }
+
+.hh-quiet svg { flex: none; }
 /* A drawn cover is shown whole on the big card. */
 .hh-switch:not(.on) { border-color: var(--dim); }
 /* Room under the last line for the orb, which sits in the bottom-left corner on a phone. */
@@ -633,12 +533,11 @@ a.hh-quiet, a.hh-main { text-decoration: none; }
   .hh-ov-bar { max-width: none; }
 }
 
-
 /* One mark per tip in a stage's row: a green tick for each done, a ring for the next, a hollow dot for the rest. */
 .hh-pips { display: flex; flex-wrap: wrap; gap: 4px; justify-content: flex-end; max-width: 220px; }
 .hh-pip {
   width: 14px; height: 14px; border-radius: 50%; display: grid; place-items: center; flex: none;
-  border: 1.5px solid var(--line); background: transparent;
+  border: 1.5px solid color-mix(in srgb, var(--dim) 70%, var(--line)); background: transparent;
 }
 .hh-pip.done { background: var(--good); border-color: var(--good); color: var(--bg); }
 .hh-pip.done svg { stroke-width: 3; }
@@ -651,41 +550,86 @@ a.hh-quiet, a.hh-main { text-decoration: none; }
   .hh-pips { justify-content: flex-start; max-width: none; }
 }
 
-/* Mark done, pressed: Done, in green; the button is its own message (problem 405). */
-.hh-markdone.on { border-color: var(--good); color: var(--good); }
-.hh-markdone.on .hh-markdone-box { background: var(--good); border-color: var(--good); color: var(--bg); }
-.hh-done.is-done { border-color: color-mix(in srgb, var(--good) 45%, var(--line)); }
-
-/* The reading line, held at the top of a tip's page (problems 404 and 405). */
-.hh-read {
-  position: sticky; top: 0; z-index: 3; height: 0; margin-bottom: -18px;
+/* The bar held at the foot of a tip (Petar, 23 November 2026): the reading line along its top edge, Previous on
+   the left, Done and the one main button on the right. It sits in the scrolling body, so it is as wide as the
+   Guide's panel wherever the panel is, and the tip's last words always end above it. */
+.hh-body.hh-body-tip { padding-bottom: 0; display: flex; flex-direction: column; }
+.hh-body.hh-body-tip > .hh-page { flex: none; padding-bottom: 28px; }
+.hh-tipbar {
+  width: 100%; max-width: 780px; position: sticky; bottom: 0; z-index: 3; margin-top: auto; display: grid; flex: none;
+  background: var(--void, var(--bg)); padding: 0 0 max(10px, env(safe-area-inset-bottom));
 }
-.hh-read-track {
-  position: absolute; left: 0; right: 0; top: 3px; height: 4px; border-radius: 999px; overflow: hidden;
-  background: var(--line);
-  /* The page's own ground round the line, so words scrolling under it never touch it. */
-  box-shadow: 0 0 0 5px var(--bg);
+.hh-tipbar-row { display: flex; align-items: center; gap: 10px; padding-top: 10px; min-width: 0; }
+.hh-tipbar-prev {
+  display: inline-flex; align-items: center; gap: 4px; min-height: 48px; padding: 6px 14px 6px 8px; border-radius: 12px;
+  border: 1px solid var(--line); color: var(--text); text-decoration: none; font-size: 14.5px; font-weight: 650; flex: none;
 }
+.hh-tipbar-prev:hover { border-color: var(--dim); }
+.hh-tipbar-prev svg { flex: none; color: var(--dim); }
+.hh-tipbar-end { margin-left: auto; display: flex; align-items: center; gap: 10px; min-width: 0; }
+.hh-tipbar-done {
+  display: inline-flex; align-items: center; gap: 5px; min-height: 44px; padding: 4px 12px; border-radius: 999px; flex: none;
+  border: 1px solid color-mix(in srgb, var(--good) 55%, var(--line)); background: transparent; color: var(--good);
+  font: inherit; font-size: 13.5px; font-weight: 680; cursor: pointer;
+}
+.hh-tipbar-done svg { flex: none; }
+.hh-tipbar-done:hover { border-color: var(--good); }
+.hh-tipbar-done[aria-disabled="true"] { cursor: default; }
+.hh-tipbar-next {
+  display: inline-flex; align-items: center; gap: 10px; min-height: 52px; min-width: 0; max-width: 420px; padding: 6px 12px 6px 18px;
+  border-radius: 12px; border: 1px solid var(--accent); background: var(--accent); color: var(--accent-ink);
+  font: inherit; text-align: left; cursor: pointer; transition: filter .15s ease, transform .1s ease;
+}
+.hh-tipbar-next:hover { filter: brightness(1.07); }
+.hh-tipbar-next:active { transform: translateY(1px); }
+.hh-tipbar-next svg { flex: none; }
+.hh-tipbar-words { display: grid; gap: 1px; min-width: 0; }
+.hh-tipbar-k { font-size: 15px; font-weight: 740; line-height: 1.25; }
+.hh-tipbar-t { font-size: 12.5px; font-weight: 600; line-height: 1.3; opacity: .85; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+:is(.hh-tipbar-prev, .hh-tipbar-done, .hh-tipbar-next):focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+@media (prefers-reduced-motion: reduce) { .hh-tipbar-next { transition: none !important; } }
+@container hhbody (max-width: 420px) {
+  .hh-tipbar-prev { padding: 6px 12px 6px 6px; }
+  .hh-tipbar-next { padding-left: 14px; }
+  .hh-tipbar-end { gap: 8px; }
+}
+/* Back and the breadcrumbs held at the top of the panel while the tip scrolls under them (23 November 2026),
+   on the panel's own ground. On a phone the crumbs drop the tip's own title, which is just below. */
+.hh-lesson > .hh-ltop {
+  position: sticky; top: -2px; z-index: 3; margin-top: -2px; padding: 10px 0 10px;
+  background: var(--void, var(--bg)); flex-wrap: nowrap; min-width: 0;
+}
+.hh-lesson > .hh-ltop .hh-crumbs { min-width: 0; }
+@container hhbody (max-width: 560px) {
+  .hh-lesson > .hh-ltop .hh-crumbs li:last-child { display: none; }
+}
+/* A tip's table of keys. */
+.hh-keys-box { border: 1px solid var(--line); border-radius: 14px; background: var(--panel); overflow: hidden; }
+.hh-keys { width: 100%; border-collapse: collapse; font-size: 14.5px; line-height: 1.45; }
+.hh-keys th { text-align: left; font-size: 12.5px; font-weight: 650; color: var(--dim); padding: 10px 14px; border-bottom: 1px solid var(--line); }
+.hh-keys td { padding: 9px 14px; vertical-align: top; border-top: 1px solid var(--line-soft, var(--line)); }
+.hh-keys tbody tr:first-child td { border-top: 0; }
+.hh-keys td:first-child { width: 1%; }
+.hh-kbd {
+  display: inline-block; font: inherit; font-size: 13px; font-weight: 650; padding: 2px 8px; border-radius: 7px;
+  border: 1px solid var(--line); background: var(--panel-2); color: var(--text); overflow-wrap: normal; min-width: max-content;
+}
+/* The intro under the main page's title. */
+.hh-intro { margin: 0; font-size: 18px; line-height: 1.55; color: var(--text); max-width: 64ch; text-wrap: pretty; }
+/* The reading line, along the bar's top edge (problems 404 and 405). */
+.hh-read { height: 4px; }
+.hh-read-track { height: 4px; border-radius: 999px; overflow: hidden; background: var(--line); }
 .hh-read-fill {
   height: 100%; width: 0; border-radius: inherit; background: var(--accent); transition: width .12s linear, background-color .3s ease;
 }
 .hh-read.is-done .hh-read-fill { background: var(--good); width: 100%; }
-.hh-read-done {
-  position: absolute; right: 0; top: 10px; display: inline-flex; align-items: center; gap: 6px; min-height: 44px;
-  padding: 6px 16px 6px 12px; border-radius: 999px; border: 1px solid var(--accent); background: var(--accent);
-  color: var(--accent-ink); font: inherit; font-size: 14.5px; font-weight: 720; cursor: pointer; box-shadow: var(--shadow);
-  opacity: 0; transform: translateY(-6px) scale(.96); pointer-events: none; visibility: hidden;
-  transition: opacity .2s ease, transform .2s ease, visibility 0s linear .2s;
-}
-.hh-read-done svg { flex: none; }
-.hh-read.at-end .hh-read-done, .hh-read.is-done .hh-read-done {
-  opacity: 1; transform: none; pointer-events: auto; visibility: visible; transition: opacity .2s ease, transform .2s ease;
-}
-.hh-read-done.on { background: var(--panel); border-color: var(--good); color: var(--good); }
-.hh-read-done:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
-@media (prefers-reduced-motion: reduce) { .hh-read-fill, .hh-read-done { transition: none !important; } }
-/* Room under the line for the page's first row, which is Back. */
-.hh-lesson > .hh-read + .hh-ltop { padding-top: 12px; }
+@media (prefers-reduced-motion: reduce) { .hh-read-fill { transition: none !important; } }
+/* What the bar cannot say in two words, under the tip's words: never a card. */
+.hh-tipnote { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; }
+.hh-tipnote .hh-done-hint { margin: 0; }
+.hh-see { margin: 0; font-size: 14.5px; }
+.hh-end { height: 0; }
+.hh-lmeta .hh-tag { align-self: center; }
 
 /* A link from a tip to another part of Rouh: quieter than the tip's words, and its glyph says it opens a new tab
    (problem 401). A link to another tip stays in the Guide, and has no glyph. */
