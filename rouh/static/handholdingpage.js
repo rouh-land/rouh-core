@@ -346,7 +346,7 @@
     // A cut-out of the screen (`cut`) is shown at its own size at most (review 50, problems 407 and 410).
     var fig = el('figure', 'hh-fig' + (cls ? ' ' + cls : '') + (p.cut ? ' hh-cut' : ''));
     var frame = el('div', 'hh-shot');
-    if (p.w && p.h) { frame.style.aspectRatio = p.w + ' / ' + p.h; }
+    if (p.w && p.h) { frame.style.aspectRatio = p.w + ' / ' + p.h; frame.style.setProperty('--hh-ar', String(p.w / p.h)); }
     var im = el('img');
     im.src = src(p.src);
     im.alt = p.alt || '';
