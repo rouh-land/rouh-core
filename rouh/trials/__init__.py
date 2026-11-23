@@ -411,10 +411,10 @@ def _refuse_if_paused(who, pid: str) -> None:
     row = M.TrialTester.objects.filter(**_whose(who), key=pid).first()
     first = (row.name.split() or [pid])[0] if row else pid
     if everyone:
-        said = (f"All testing is paused, so {first} did not start an attempt. Nothing failed: the trial was skipped. "
+        said = (f"All testing is paused, so {first} did not start a test run. Nothing failed: the trial was skipped. "
                 "Turn automatic testing on at the top of Evolution, Testing.")
     else:
-        said = (f"{first} is paused, so no attempt was started. Nothing failed: the trial was skipped. "
+        said = (f"{first} is paused, so no test run was started. Nothing failed: the trial was skipped. "
                 f"Tick {first} beside Automatic testing at the top of Evolution, Testing.")
     raise Paused(said, tester=pid, everyone=everyone)
 
@@ -1034,7 +1034,10 @@ def _request_summaries(who, rows: list, *, attempts: bool = False) -> dict:
             jd["attempts"] = [{"number": t.number, "persona": t.persona,
                                "persona_name": names.get(t.persona) or t.persona.title(), "state": t.state,
                                "managed": t.managed, "mode": t.mode or "auto", "created_at": t.created_at,
-                               "started_at": t.started_at, "found_n": len(per_try.get(t.id, ()))}
+                               "started_at": t.started_at, "found_n": len(per_try.get(t.id, ())),
+                               # Its own problems where they stand now, for the small ring on its row.
+                               "tally": tally({"found": 0, "fixed": 0, "set_aside": 0, "resolved": 0, "decided": 0,
+                                               "open": 0}, per_try.get(t.id, ()))}
                               for t in reversed(mine)]
         s["journeys"].append(jd)
     return out
@@ -1094,7 +1097,7 @@ def edit_job(who, number, *, name=None, goal=None, covers=None) -> dict:
     j = _job(who, number)
     if name is not None:
         if not _cut(name, 160):
-            raise Refused("A job needs a name, such as: Sign up and sign in for the first time.")
+            raise Refused("A journey needs a name, such as: Sign up and sign in for the first time.")
         j.name = _cut(name, 160)
     if goal is not None:
         j.goal = _cut(goal, 400)
@@ -2126,7 +2129,7 @@ def _close_by_wave(w) -> int:
     rows = _m().TrialProblem.objects.filter(org_id=w.org_id, user_id=w.user_id, number__in=numbers, status="open",
                                             verdict="decided", verdict_at__lte=w.started_at)
     return rows.update(status="closed", closed_at=w.ended_at or _now(), closed_by=None, closed_wave=w.id,
-                       closed_note=f"Wave {w.number}" + (f" of attempt {t}" if t else "") + " fixed this.")
+                       closed_note=f"Wave {w.number}" + (f" of test run {t}" if t else "") + " fixed this.")
 
 
 def settle_waves(who) -> None:
@@ -2448,7 +2451,7 @@ async def run_by_hand(who, *, persona_id: str = "", goal: str = "", page: str = 
         raise Refused(f"The trial could not be started ({str(exc).strip().rstrip('.') or type(exc).__name__}).") from None
     run = str(got.get("id") or "")
     await asyncio.to_thread(lambda: _m().Trial.objects.filter(**_whose(who), number=t["number"]).update(run_id=run))
-    return {**t, "run_id": run, "said": f"Attempt {t['number']} is starting: {name} will go through {t['job_name'] or t['subject'] or 'it'}. "
+    return {**t, "run_id": run, "said": f"Test run {t['number']} is starting: {name} will go through {t['job_name'] or t['subject'] or 'it'}. "
                                          f"It takes a few minutes. Nothing is fixed from it until you choose what."}
 
 

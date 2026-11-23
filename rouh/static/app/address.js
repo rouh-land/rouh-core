@@ -146,9 +146,9 @@ function trialsTitle(sub, title) {
     : sub === 'how' ? 'How testing works' : /^jobs?\//.test(sub) ? 'Job ' + sub.replace(/^\w+\//, '')
     : /^journey\//.test(sub) ? 'Journey ' + sub.slice(8)
     : /^problem\//.test(sub) ? 'Problem ' + sub.slice(8) : /^tester\//.test(sub) ? 'Tester'
-    : /^\d+$/.test(sub) ? 'Attempt ' + sub : '';
+    : /^\d+$/.test(sub) ? 'Test run ' + sub : '';
   if (!where) return 'Testing';
-  // A problem's page says its number in its attempt, "Attempt 49 · #12 · <what>", which its own title carries.
+  // A problem's page says its number in its test run, "Test run 49 · #12 · <what>", which its own title carries.
   if (/^problem\//.test(sub) && title) return title + ' - Testing';
   return (title ? title + ' - ' : '') + where + ' - Testing';
 }
