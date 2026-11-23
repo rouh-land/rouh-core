@@ -125,7 +125,7 @@ class TrialProblem(models.Model):
     fix = models.TextField(blank=True, default="")
     #: open or closed (fixed: the wave of fixes that worked on it finished, or a passing trial got past it).
     status = models.TextField(default="open")
-    #: What the owner made of it, from its discussion: "" (not looked at), not_a_problem, wont_fix,
+    #: What the owner made of it, from its discussion: "" (not looked at), wont_fix (with `reason`),
     #: decided (with `decision`, "fix it like this", which the builder of the next round reads), or sent
     #: (to Gene therapy as feedback, `feedback_id`). Kept apart from `status`, which only a trial changes.
     verdict = models.TextField(blank=True, default="")
@@ -133,6 +133,9 @@ class TrialProblem(models.Model):
     # Why it won't be fixed, as the owner wrote it with Won't fix (22 November 2026); "" for any other choice.
     reason = models.TextField(blank=True, default="")
     verdict_at = models.FloatField(null=True, blank=True)
+    #: The verdict before 23 November 2026's change, when it was one that is no longer offered (not_a_problem,
+    #: now wont_fix with the reason "Not a problem"), so migration 0276 can be undone; "" otherwise.
+    verdict_was = models.TextField(blank=True, default="")
     feedback_id = models.TextField(blank=True, default="")
     closed_at = models.FloatField(null=True, blank=True)
     #: The trial that got past it, or "" when it was closed by hand, with the words why.

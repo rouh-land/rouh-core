@@ -56,9 +56,11 @@
   var BAD_TONE = { blocked: 'rose', confused: 'amber', annoyed: 'violet', minor: 'slate' };
   var STAND = {
     open: ['Not fixed yet', 'slate'], decided: ['Chosen to fix', 'blue'], fixed: ['Fixed', 'green'],
-    set_aside: ['Set aside', 'amber']
+    set_aside: ['Won’t fix', 'amber']
   };
-  var VERDICT_LINE = { not_a_problem: 'Not a problem', wont_fix: 'Won’t fix', decided: 'Decided how to fix it',
+  // Not a problem is no longer a choice (Petar, 23 November 2026): Won't fix, with why, is the one way to set a
+  // problem aside, so "set aside" reads Won't fix everywhere. The server gives an old one as wont_fix.
+  var VERDICT_LINE = { wont_fix: 'Won’t fix', decided: 'Decided how to fix it',
                        sent: 'Sent as feedback' };
   // Petar, 22 November 2026: fixed as soon as its wave of fixes has finished, with no second test to prove it.
   var RULE = 'Fixed as soon as the wave of fixes it was chosen for has finished. A later test run that meets it again opens it again. Sent is never shown as fixed.';
@@ -244,7 +246,7 @@
     var s = el('span', 'tr-state');
     if (p.awaiting_choice) { return withIcon(s, 'ask', 'Waiting for your choice'); }
     if (p.standing === 'fixed') { s.classList.add('is-fixed'); return withIcon(s, 'check', fixedWords(p)); }
-    if (p.standing === 'set_aside') { s.classList.add('is-aside'); return withIcon(s, 'x', 'Set aside: ' + (VERDICT_LINE[p.verdict] || 'set aside') + (p.verdict === 'wont_fix' && p.reason ? ': ' + p.reason : '')); }
+    if (p.standing === 'set_aside') { s.classList.add('is-aside'); return withIcon(s, 'x', 'Won’t fix' + (p.reason ? ': ' + p.reason : '')); }
     var again = seenAgain(p);
     if (again) { s.classList.add('is-again'); return withIcon(s, 'up', (p.verdict === 'sent' ? 'Sent' : 'Decided') + ', but seen again' + (again.trial ? ' in test run ' + again.trial : '')); }
     if (p.standing === 'decided' && p.verdict === 'sent') { return withIcon(s, 'wait', 'Sent as feedback'); }
@@ -267,7 +269,7 @@
       n('done', 'check', p.verdict ? (VERDICT_LINE[p.verdict] || 'Decided') : 'Found'); ln();
       n('ok', 'check', p.fixed_by_wave ? 'Wave ' + p.fixed_by_wave.number + ' finished ' + dayShort(p.fixed_by_wave.at) : p.closed_by ? 'Test run ' + p.closed_by + ' got past it' : 'A later test run got past it'); ln(); n('ok', 'check', 'Fixed');
     } else if (p.standing === 'set_aside') {
-      n('done', 'x', VERDICT_LINE[p.verdict] || 'Set aside'); ln(); n('', '', 'No longer counted');
+      n('done', 'x', 'Won’t fix'); ln(); n('', '', 'No longer counted');
     } else if (seenAgain(p)) {
       var ag = seenAgain(p);
       n('done', 'check', (p.verdict === 'sent' ? 'Sent ' : 'Decided ') + dayShort(p.verdict_at)); ln();
@@ -716,7 +718,7 @@
     var ag = againN();
     if (by.decided - ag > 0) { rest.appendChild(withIcon(el('span'), 'thumb', (by.decided - ag) + ' chosen to fix')); }
     if (ag) { rest.appendChild(withIcon(el('span', 'is-again'), 'up', ag + ' sent, but seen again')); }
-    if (by.set_aside) { rest.appendChild(withIcon(el('span', 'is-aside'), 'x', by.set_aside + ' set aside')); }
+    if (by.set_aside) { rest.appendChild(withIcon(el('span', 'is-aside'), 'x', by.set_aside + ' won’t fix')); }
     if (by.fixed) { rest.appendChild(withIcon(el('span', 'is-fixed'), 'check', by.fixed + ' fixed')); }
     t1.appendChild(rest);
     tiles.appendChild(t1);
@@ -851,7 +853,7 @@
   /* The jobs (Petar, 22 November 2026, fifth round): one card for each job, the whole card a link to its own page,
      which lists its journeys and their attempts. A card holds what the person asked (clamped), when it was made,
      whether they started it (Manual) or Rouh did (Automatic), its counts, and one ring of how much of what its
-     testers found is resolved: fixed in green, set aside (Won't fix, Not a problem) in grey. No pass or did not pass anywhere. Under All the
+     testers found is resolved: fixed in green, Won't fix in yellow. No pass or did not pass anywhere. Under All the
      cards are in two groups, the person's first; the filter is kept in the address (?kind=). */
   var KIND = {
     manual: { word: 'Manual', icon: 'person', group: 'You started', note: 'Tests you asked for, from the start form or in a chat.' },
@@ -869,12 +871,12 @@
     return m ? m[1] : '';
   }
 
-  /* The ring: of the problems testers found, fixed (green) and set aside (yellow), drawn round a grey track, and what
+  /* The ring: of the problems testers found, fixed (green) and Won't fix (yellow), drawn round a grey track, and what
      is still open is the track left showing (Petar, 23 November 2026, seventh round): green and yellow together fill
      the ring to how much is resolved, so 100% resolved is a full ring. Its words say the same, so colour is never the
      only sign. The same colours in every ring: a job's, a journey's and the small one on each test run's row. */
   function ringTitle(s) {
-    return !s.found ? 'No problems found' : s.found + ' found · ' + s.fixed + ' fixed · ' + s.set_aside + ' set aside · ' + s.open + ' open';
+    return !s.found ? 'No problems found' : s.found + ' found · ' + s.fixed + ' fixed · ' + s.set_aside + ' won’t fix · ' + s.open + ' open';
   }
   function ringSvg(s, sw) {
     var n = s.found || 0, R = 42, C = 2 * Math.PI * R;
@@ -913,7 +915,7 @@
     w.appendChild(mid);
     w.setAttribute('role', 'img');
     w.setAttribute('aria-label', !n ? 'No problems found yet' : s.resolved + ' of ' + plural(n, 'problem') + ' resolved: ' +
-      s.fixed + ' fixed, ' + s.set_aside + ' set aside, ' + s.open + ' still open');
+      s.fixed + ' fixed, ' + s.set_aside + ' won’t fix, ' + s.open + ' still open');
     w.title = ringTitle(s);
     return w;
   }
@@ -932,7 +934,7 @@
     function key(cls) { var k = el('i', 'tr-jc-key ' + cls); k.setAttribute('aria-hidden', 'true'); return k; }
     row('Found', String(s.found), 'is-found');
     row('Fixed', String(s.fixed), s.fixed ? 'is-fixed' : '', key('is-fixed'));
-    row('Set aside', String(s.set_aside), s.set_aside ? 'is-aside' : '', key('is-aside'));
+    row('Won’t fix', String(s.set_aside), s.set_aside ? 'is-aside' : '', key('is-aside'));
     row('Open', String(s.open), s.open ? 'is-open' : '', key('is-open'));
     return g;
   }
@@ -990,7 +992,7 @@
     all.forEach(function (r) { var x = r.summary || {}; tot.found += x.found || 0; tot.resolved += x.resolved || 0; tot.open += x.open || 0; tot.decided += x.decided || 0; });
     hw.appendChild(el('p', 'tr-lede', !all.length ? 'A job is one request for testing, yours or Rouh’s.'
       : plural(all.length, 'job') + ': ' + n.manual + ' you started, ' + n.automatic + ' Rouh started. ' +
-        (tot.found ? tot.resolved + ' of the ' + plural(tot.found, 'problem') + ' they found are resolved: fixed or set aside.' +
+        (tot.found ? tot.resolved + ' of the ' + plural(tot.found, 'problem') + ' they found are resolved: fixed or won’t fix.' +
           (tot.open ? ' ' + tot.open + ' still open' + (tot.decided ? ', ' + tot.decided + ' of them chosen to fix.' : '.') : '') : 'No problems found yet.')));
     head.appendChild(hw);
     var seg = el('div', 'tr-seg');
@@ -1566,17 +1568,17 @@
   function stepTitle(s) { return s.name || s.title || 'Step ' + s.n; }
 
   /* ---- where each problem stands, and the try page's filter (Petar, 22 November 2026, fourth round) ----
-     Four states: open (not decided, or chosen for the next wave, or being fixed in one), fixed, Won't fix and
-     Not a problem. The filter is the status (none pressed is All) and the types hidden; it is kept in the
+     Three states: open (not decided, or chosen for the next wave, or being fixed in one), fixed and Won't fix
+     (Not a problem went on 23 November 2026; an old ?status=not is ignored). The filter is the status (none
+     pressed is All) and the types hidden; it is kept in the
      address, ?status=open,fixed&hide=minor, so a reload or a shared link opens on the same view. */
-  var TF_STATUS = [['open', 'Open'], ['fixed', 'Fixed'], ['wont', 'Won’t fix'], ['not', 'Not a problem']];
+  var TF_STATUS = [['open', 'Open'], ['fixed', 'Fixed'], ['wont', 'Won’t fix']];
   function probState(f) {
-    return f.verdict === 'wont_fix' ? 'wont' : f.verdict === 'not_a_problem' ? 'not' : f.standing === 'fixed' ? 'fixed' : 'open';
+    return f.verdict === 'wont_fix' ? 'wont' : f.standing === 'fixed' ? 'fixed' : 'open';
   }
   function stateWords(f) {
     var st = probState(f);
     if (st === 'wont') { return 'Won’t fix'; }
-    if (st === 'not') { return 'Not a problem'; }
     if (st === 'fixed') {
       var w = f.fixed_by_wave || (waveOf(f) && waveOf(f).state === 'done' ? waveOf(f) : null);
       return w ? 'Fixed in Wave ' + w.number : f.closed_by ? 'Fixed: test run ' + f.closed_by + ' got past it' : 'Fixed';
@@ -1851,12 +1853,12 @@
 
   /* A problem's mark in the navigator, which alone says where it stands (Petar, 22 November 2026, third round):
      an empty box, not decided yet; a thumbs-up, chosen to fix in the next wave (or being fixed in one now); a green
-     tick, fixed, its wave and when on hover; a red X, Won't fix; an orange X, Not a problem. The box ticks it, the
+     tick, fixed, its wave and when on hover; a red X, Won't fix, its reason on hover. The box ticks it, the
      thumbs-up takes it back, the green tick chooses it again for a new wave, and an X takes the choice back. */
   function problemMark(t, stepN, f, going) {
     var id = 'tr-tick-' + stepN + '-' + f.number;
     var rw = runningWave(f);
-    var kind = f.verdict === 'wont_fix' ? 'wont' : f.verdict === 'not_a_problem' ? 'not' : f.standing === 'fixed' ? 'fixed'
+    var kind = f.verdict === 'wont_fix' ? 'wont' : f.standing === 'fixed' ? 'fixed'
       : (rw || chosenNext(f)) ? 'chosen' : '';
     if (!kind) {
       var tick = el('input', 'tr-ptick');
@@ -1873,9 +1875,9 @@
     var b = button('tr-pmark is-' + kind, null);
     b.id = id;
     var words, act;
-    if (kind === 'wont' || kind === 'not') {
+    if (kind === 'wont') {
       b.innerHTML = '<svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true"><path d="M4 4l10 10M14 4 4 14" stroke="currentColor" stroke-width="3" stroke-linecap="round"/></svg>';
-      words = kind === 'wont' ? 'Won’t fix' + (f.reason ? ': ' + f.reason : '') : 'Not a problem';
+      words = 'Won’t fix' + (f.reason ? ': ' + f.reason : '');
       act = 'Press to take it back and make it open again.';
       b.addEventListener('click', function () { decideOn(t, f, ''); });
     } else if (kind === 'fixed') {
@@ -2043,7 +2045,6 @@
     var own = f.verdict === 'decided' && f.decision && f.decision !== f.fix;
     act('Describe Solution', '', function () { S.cardDeciding = stepN + ':' + f.number; draw(); },
       own ? 'Change the way you wrote to fix it' : 'Write your own way to fix it', own);
-    act('Not a problem', '', function () { decideOn(t, f, 'not_a_problem'); }, 'The tester was wrong: it is fine as it is.', f.verdict === 'not_a_problem');
     // Won't fix asks why, the same way Describe Solution asks how: the reason is kept for reading later why
     // problems were declined (Petar, 22 November 2026). It can be left empty, and changed by pressing it again.
     act('Won’t fix', '', function () { S.cardDeciding = 'wf:' + stepN + ':' + f.number; draw(); },
@@ -2087,7 +2088,7 @@
     r2.appendChild(ok);
     r2.appendChild(cancel);
     form.appendChild(r2);
-    form.appendChild(el('p', 'tr-dim', 'The reason is kept with the choice, so later you can see why problems were set aside. It can be left empty.'));
+    form.appendChild(el('p', 'tr-dim', 'The reason is kept with the choice, so later you can see why problems were not fixed. It can be left empty.'));
     form.addEventListener('submit', function (e) { e.preventDefault(); save(why.value.trim()); });
     setTimeout(function () { why.focus(); }, 0);
     return form;
@@ -2224,7 +2225,7 @@
 
   var STATUS_TABS = [['open', 'Needs your decision', 'open'], ['awaiting', 'Waiting for your choice', ''],
                      ['decided', 'Chosen to fix', 'decided'], ['again', 'Seen again', ''], ['fixed', 'Fixed', 'fixed'],
-                     ['set_aside', 'Set aside', 'set_aside'], ['all', 'All', '*']];
+                     ['set_aside', 'Won’t fix', 'set_aside'], ['all', 'All', '*']];
 
   function drawProblems(root) {
     var d = S.data.problems;
@@ -2511,12 +2512,11 @@
     [['Fix it like this…', 'You say how it should be fixed. The next round of fixes does it your way.'],
      ['Send as feedback', 'Sends it now, with its picture, to Rouh’s list of changes to make to itself.'],
      ['Edit before sending', 'The same, but you can change the words first, then send.'],
-     ['Not a problem', 'The tester was wrong: it is fine as it is.'],
      ['Won’t fix', 'It is real, but not worth changing. You say why, and the reason is kept with the choice.'],
      ['Take it back', 'Undo your choice: it is open again. Every choice also has Undo on the message that appears.']]
       .forEach(function (x) { dl.appendChild(el('dt', '', x[0])); dl.appendChild(el('dd', '', x[1])); });
     what.appendChild(dl);
-    what.appendChild(el('p', 'tr-dim', 'After Not a problem or Won’t fix, a tester who runs into it again no longer counts against the change.'));
+    what.appendChild(el('p', 'tr-dim', 'After Won’t fix, a tester who runs into it again no longer counts against the change.'));
     story.appendChild(what);
 
     var seen = section('', 'Every time it was seen');
@@ -2590,9 +2590,6 @@
       'Sends it now, with its picture, to Rouh’s list of changes to make to itself.');
     act('Edit before sending', '', function () { toFeedback(p, true); },
       'The same, but you can change the words first, then send.');
-    if (p.verdict !== 'not_a_problem') {
-      act('Not a problem', '', function () { verdict(p, 'not_a_problem'); }, 'The tester was wrong: it is fine as it is.');
-    }
     act(p.verdict === 'wont_fix' ? 'Change why it won’t be fixed' : 'Won’t fix', '', function () { S.wontFixing = true; draw(); },
       'It is real, but not worth changing: say why.');
     if (p.verdict) { act('Take it back', '', function () { verdict(p, ''); }, 'Undo your choice: it is open again.'); }
@@ -3143,7 +3140,7 @@
     [['Talk it over', 'write to Rouh on the problem’s page. Rouh answers there, with the problem, its picture and the whole test run in front of it.'],
      ['Fix it like this', 'say how it should be fixed. The next round of fixes reads it and does it your way.'],
      ['Send as feedback', 'it goes, with its picture, to Rouh’s list of changes to make to itself. Edit before sending lets you change the words first.'],
-     ['Not a problem, Won’t fix', 'set it aside. A tester who runs into it again no longer counts against the test run.'],
+     ['Won’t fix', 'say why it is not worth changing. A tester who runs into it again no longer counts against the test run.'],
      ['Undo', 'every choice can be taken back: press Undo on the message that appears, or Take it back later.'],
      ['Fixed', 'a problem is fixed as soon as the wave of fixes you chose it for has finished, or when a later test run passes its screen without tripping on it. Nobody marks it by hand, and a later test run that meets it again opens it again.']]
       .forEach(function (x) { s3.appendChild(said(x[0], x[1])); });

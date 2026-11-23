@@ -2169,7 +2169,7 @@ class ToolRegistry:
             "problem on the list by hand, such as something the owner found confusing, in their words. sighting: one "
             "more time a problem was seen. reopen: a fixed problem that is not fixed after all. Closing is never by "
             "hand: only a try that passes closes a problem. decide: the owner's decision on a problem, only on their "
-            "own words: verdict not_a_problem, wont_fix, decided (with decision, how to fix it) or none to take it "
+            "own words: verdict wont_fix (with reason, why), decided (with decision, how to fix it) or none to take it "
             "back. personas and persona: the testers, and one whole profile. tester_add: a new tester, from what the "
             "owner said: name, age, job, city, short (one line), them (her, him or them), profile (Markdown written to "
             "them in the second person, a heading a part: home, work, family, money, devices, skills, temperament, "
@@ -2219,7 +2219,7 @@ class ToolRegistry:
                 "quote": {"type": "string", "description": "For record and sighting: the words, exactly as said."},
                 "how_bad": {"type": "string", "enum": ["blocked", "confused", "annoyed", "minor"]},
                 "note": {"type": "string", "description": "For reopen: why."},
-                "verdict": {"type": "string", "enum": ["not_a_problem", "wont_fix", "decided", "none"]},
+                "verdict": {"type": "string", "enum": ["wont_fix", "decided", "none"]},
                 "decision": {"type": "string", "description": "For decide with decided: how to fix it."},
                 "reason": {"type": "string", "description": "For decide with wont_fix: why it won't be fixed, in the owner's words."},
                 "name": {"type": "string"}, "age": {"type": "integer"}, "job_title": {"type": "string",

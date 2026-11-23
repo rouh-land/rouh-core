@@ -377,7 +377,7 @@ a.tr-stat:hover { border-color: var(--ink-2); }
 .tr-toast { position: sticky; bottom: 150px; margin: 0 auto; z-index: 40; width: fit-content; max-width: calc(100% - 24px); background: var(--ink); color: var(--bg);
   border-radius: 12px; padding: 10px 12px 10px 16px; display: flex; gap: 12px; align-items: center; box-shadow: 0 8px 24px rgba(0, 0, 0, .35);
   transform: translateY(-12px); font-weight: 600; }
-.tr-toast-b { background: transparent; color: var(--bg); border: 1.5px solid var(--bg); border-radius: 8px; min-height: 36px; padding: 4px 12px; cursor: pointer; font-weight: 700; }
+.tr-toast-b { flex: none; background: transparent; color: var(--bg); border: 1.5px solid var(--bg); border-radius: 8px; min-height: 44px; padding: 4px 12px; cursor: pointer; font-weight: 700; }
 
 /* the Cast */
 .tr-cast-acts { margin-top: 16px; }
@@ -567,7 +567,6 @@ a.tr-stat:hover { border-color: var(--ink-2); }
 .tr-pmark { align-self: center; justify-self: center; display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 32px;
   padding: 0; border-radius: 8px; border: 1.5px solid currentColor; background: transparent; cursor: pointer; }
 .tr-pmark.is-wont { color: var(--s-blocked); }
-.tr-pmark.is-not { color: var(--s-annoyed); }
 .tr-pmark.is-chosen { color: var(--accent); background: var(--accent-soft); }
 .tr-pmark.is-fixed { color: var(--accent-ink); background: var(--st-fixed); border-color: var(--st-fixed); }
 .tr-pmark:hover:not(:disabled) { background: var(--surface-2); }
@@ -637,7 +636,7 @@ a.tr-stat:hover { border-color: var(--ink-2); }
 /* A problem's type icon by where it stands (fourth round): the type's own colour while open, green once fixed,
    the set-aside yellow once settled without a fix (seventh round, the rings' colour); its shape never changes. */
 .tr-shape.is-fixed { --s-blocked: var(--st-fixed); --s-confused: var(--st-fixed); --s-annoyed: var(--st-fixed); --s-minor: var(--st-fixed); }
-.tr-shape.is-wont, .tr-shape.is-not { --s-blocked: var(--st-aside); --s-confused: var(--st-aside); --s-annoyed: var(--st-aside); --s-minor: var(--st-aside); opacity: .8; }
+.tr-shape.is-wont { --s-blocked: var(--st-aside); --s-confused: var(--st-aside); --s-annoyed: var(--st-aside); --s-minor: var(--st-aside); opacity: .8; }
 .tr-strip-open { font-size: 11px; line-height: 1.2; font-weight: 700; color: var(--ink); display: inline-flex; align-items: center; gap: 2px; }
 .tr-strip-open.is-clear { color: var(--st-fixed); }
 /* The filter above the step map: the status, the types, and how many it shows, with Reset. */

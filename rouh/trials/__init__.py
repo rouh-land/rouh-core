@@ -35,8 +35,8 @@ trial, and a later try that meets one again opens it again, as `reopen` does by 
 **Jobs and discussions** (Petar, 4 November 2026, after "Terrible first version of trials"): every try
 belongs to a job, what is being tested, and the list shows jobs; who tried each shows only once one is
 opened. Every problem has what should have happened, what did and a suggested fix, and a thread where the
-owner writes and Rouh answers (`say`, the use `trial_discuss`), from which it is set aside (not a problem,
-won't fix), decided ("fix it like this", which the next round's builder reads), or sent as feedback to
+owner writes and Rouh answers (`say`, the use `trial_discuss`), from which it is set aside (won't fix,
+with why), decided ("fix it like this", which the next round's builder reads), or sent as feedback to
 Gene therapy (`set_verdict`). A problem set aside no longer fails a try.
 
 **Pass** is the persona managing the goal with no blocked or confused problem. A failed trial is
@@ -635,18 +635,33 @@ def _number_next(model, who) -> int:
 # --- what is shown ------------------------------------------------------------------------------
 
 #: What the owner made of a problem, as the page says it. "" is not looked at yet.
-VERDICTS = {"": "Not looked at yet", "not_a_problem": "Not a problem", "wont_fix": "Won't fix",
+#: Not a problem is no longer one of them (Petar, 23 November 2026): Won't fix with a reason is the one way to set
+#: a problem aside, and migration 0276 turned every old one into it. A not_a_problem still met (an old row, an old
+#: caller) reads as Won't fix, never as an error.
+VERDICTS = {"": "Not looked at yet", "wont_fix": "Won't fix",
             "decided": "Decided how to fix it", "sent": "Sent as feedback"}
 #: The verdicts that set a problem aside: it no longer fails a trial, and it is not on the open list.
-SET_ASIDE = ("not_a_problem", "wont_fix")
+SET_ASIDE = ("wont_fix", "not_a_problem")
 #: The page's filter of where a problem stands.
 STANDINGS = ("open", "decided", "fixed", "set_aside", "all")
+
+
+def _verdict(p) -> str:
+    """The verdict as it is shown: an old not_a_problem reads as wont_fix."""
+    return "wont_fix" if p.verdict == "not_a_problem" else p.verdict
+
+
+def _reason(p) -> str:
+    """Why it won't be fixed; an old not_a_problem says so in its reason."""
+    if p.verdict == "not_a_problem":
+        return ("Not a problem: " + p.reason.strip()) if (p.reason or "").strip() else "Not a problem"
+    return p.reason
 
 
 def standing(p) -> str:
     """Where one problem stands, in one word the page filters by: fixed (its wave of fixes finished, or a passing
     trial got past it),
-    set_aside (not a problem, or won't fix), decided (decided or sent as feedback) or open."""
+    set_aside (won't fix), decided (decided or sent as feedback) or open."""
     if p.status == "closed":
         return "fixed"
     if p.verdict in SET_ASIDE:
@@ -970,7 +985,7 @@ def kind_of(source: str = "", mode: str = "") -> str:
 
 def _request_summaries(who, rows: list, *, attempts: bool = False) -> dict:
     """For each job (`TrialRequest.id`): its journeys, attempts, how many journeys a tester finished, and its problems
-    by where they stand - found, fixed (by a wave, or a later try that got past it), set aside (Won't fix or Not a
+    by where they stand - found, fixed (by a wave, or a later try that got past it), set aside (Won't fix
     problem), resolved (the two together, everything settled), decided (chosen to fix, not fixed yet) and open (not
     settled: still to decide, or decided and waiting for its fix). With `attempts`, each journey's attempts too."""
     M = _m()
@@ -1185,8 +1200,8 @@ def problem_brief(p, *, notes: dict | None = None, reviewed: set | None = None) 
     if reviewed is None:
         reviewed = _reviewed_ids(_Whose(p.org_id, p.user_id), [p.id])
     return {"awaiting_choice": p.id in reviewed and p.status == "open" and not p.verdict,"number": p.number, "what": p.what, "how_bad": p.how_bad, "count": p.count, "status": p.status,
-            "standing": standing(p), "verdict": p.verdict, "verdict_name": VERDICTS.get(p.verdict, p.verdict),
-            "decision": p.decision, "reason": p.reason, "expected": p.expected, "actual": p.actual, "fix": p.fix,
+            "standing": standing(p), "verdict": _verdict(p), "verdict_name": VERDICTS.get(_verdict(p), p.verdict),
+            "decision": p.decision, "reason": _reason(p), "expected": p.expected, "actual": p.actual, "fix": p.fix,
             "screen": p.screen, "screen_name": p.screen_name or p.screen or "", "source": p.source,
             "personas": p.personas or [], "notes": (notes or {}).get(p.id, 0), "feedback_id": p.feedback_id,
             "verdict_at": p.verdict_at, "fixed_by_wave": _wave_of(p)}
@@ -1395,7 +1410,7 @@ def reopen(who, number, *, note: str = "") -> dict:
 #
 # Petar: "for each try, I want to see the different problems and discuss them." He writes, Rouh answers
 # in the thread on the Smart tier with the problem, its screenshot and the try in front of it, and from
-# there he sets it aside (not a problem, won't fix), decides how it is fixed (which the builder of the
+# there he sets it aside (won't fix, with why), decides how it is fixed (which the builder of the
 # next round reads, `rouh-trial problems --status decided`), or sends it as feedback to Gene therapy.
 
 
@@ -1404,10 +1419,13 @@ def set_verdict(who, number, verdict: str, *, decision: str = "", feedback_id: s
     why (`reason`, Petar, 22 November 2026), for reading later why problems were declined."""
     p = _problem(who, number)
     verdict = str(verdict or "").strip().lower().replace(" ", "_").replace("'", "")
-    verdict = {"won't_fix": "wont_fix", "wontfix": "wont_fix", "not": "not_a_problem", "undo": "", "open": "",
+    if verdict in ("not", "not_a_problem"):
+        # No longer a choice (23 November 2026): an old caller's Not a problem is Won't fix, saying so.
+        verdict, reason = "wont_fix", ("Not a problem: " + str(reason).strip()) if str(reason or "").strip() else "Not a problem"
+    verdict = {"won't_fix": "wont_fix", "wontfix": "wont_fix", "undo": "", "open": "",
                "feedback": "sent"}.get(verdict, verdict)
     if verdict not in VERDICTS:
-        raise Refused("A verdict is not_a_problem, wont_fix, decided (with how to fix it), sent, or nothing.")
+        raise Refused("A verdict is wont_fix (with why), decided (with how to fix it), sent, or nothing.")
     decision = str(decision or "").strip()[:3000]
     if verdict == "decided" and not decision:
         raise Refused("Say how it should be fixed: \"Fix it like this: ...\".")
@@ -1423,8 +1441,9 @@ def set_verdict(who, number, verdict: str, *, decision: str = "", feedback_id: s
     p.reason = reason if verdict == "wont_fix" else ""
     if feedback_id:
         p.feedback_id = _cut(feedback_id, 80)
-    p.save(update_fields=["verdict", "verdict_at", "decision", "reason", "feedback_id"])
-    line = {"": "Taken back: it is open again.", "not_a_problem": "Marked as not a problem.",
+    p.verdict_was = ""
+    p.save(update_fields=["verdict", "verdict_at", "decision", "reason", "feedback_id", "verdict_was"])
+    line = {"": "Taken back: it is open again.",
             "wont_fix": "Marked as won't fix" + (f": {reason}" if reason else "."), "decided": f"Decided: {decision}",
             "sent": "Sent as feedback, to Rouh's list of changes to itself (Gene therapy)."}[verdict]
     _m().TrialNote.objects.create(**_whose(who), problem_id=p.id, who="owner", kind="verdict", text=line, at=now)
@@ -1433,7 +1452,7 @@ def set_verdict(who, number, verdict: str, *, decision: str = "", feedback_id: s
 
 TALK = """You are Rouh, a personal assistant, talking with ‹owner›, the person you belong to, about one usability problem a made-up test person ran into while trying a page of Rouh on their phone. You are shown the problem, every time it was seen with the tester's own words, the try it came from step by step, the discussion so far, and the screenshot of the moment.
 
-Answer ‹owner›'s last message in the thread. Be short and plain: two to five sentences, no headings, no jargon, no code. Say what you think is really going on for the tester and why, and when it helps, suggest one concrete way to fix it on the screen. If ‹owner› seems to be deciding, say in one line what you would mark it as: Not a problem, Won't fix, or Fix it like this: <how>. Never pretend you changed anything: you only talk here."""
+Answer ‹owner›'s last message in the thread. Be short and plain: two to five sentences, no headings, no jargon, no code. Say what you think is really going on for the tester and why, and when it helps, suggest one concrete way to fix it on the screen. If ‹owner› seems to be deciding, say in one line what you would mark it as: Won't fix (and why), or Fix it like this: <how>. Never pretend you changed anything: you only talk here."""
 
 
 def _talk_context(who, p) -> tuple[str, str | None]:
@@ -1848,7 +1867,7 @@ async def finish(who, number, *, ending: dict | None = None, gave_up: bool = Fal
     except Exception:  # noqa: BLE001 - a step's name is never worth the ending
         log.exception("trial %s: its steps could not be named", t.number)
     t = await asyncio.to_thread(_trial, who, number)
-    # A problem the owner set aside (not a problem, won't fix) no longer fails a try.
+    # A problem the owner set aside (won't fix) no longer fails a try.
     stops = any(f["how_bad"] in FAILS and f.get("verdict") not in SET_ASIDE for f in found)
     state = "passed" if managed == "yes" and not stops else "failed"
 
@@ -2312,7 +2331,7 @@ After your Playwright proof passes, if your change touches anything a person see
    `rouh-trial run --url http://127.0.0.1:<port><the page> --user <its sign-in> --password <its password> --goal "<one sentence>" --job "<what is being tested, in a few plain words>" --gene <the gene's key>`
    The goal is what the gene is for, written as the person would put it, with nothing about how it was built: "You want to see what Rouh did for you yesterday." The job is what is being tested, such as "Seeing yesterday's work"; every try of the same thing goes into the same job. The tester is the person's default (Vesela, unless they made someone else the default) unless the person asked for another by name (`--persona boris`); `rouh-trial personas` lists them.
 2. It drives the browser as that person, at a phone's size, and prints PASS or FAIL, what they said, the problems, and the try's page. Wait for it, however long it takes.
-3. This is the automatic mode: nobody is asked, and no problem waits for the person's choice. PASS: land it. FAIL: fix what the tester tripped on yourself, within what this change was already asked and approved to be, prove the fix in the browser again, and run it again with `--round 2` (a new tester, who has seen nothing). At most two rounds of fixes: if `--round 3` still fails, land it anyway; the problems stay open on the list, and Rouh tells the person in one line. Where the person already decided ("Fix it like this", `rouh-trial problems --status decided`), do it their way; leave alone what they set aside (not a problem, won't fix) and anything marked as waiting on their choice from a review they asked for.
+3. This is the automatic mode: nobody is asked, and no problem waits for the person's choice. PASS: land it. FAIL: fix what the tester tripped on yourself, within what this change was already asked and approved to be, prove the fix in the browser again, and run it again with `--round 2` (a new tester, who has seen nothing). At most two rounds of fixes: if `--round 3` still fails, land it anyway; the problems stay open on the list, and Rouh tells the person in one line. Where the person already decided ("Fix it like this", `rouh-trial problems --status decided`), do it their way; leave alone what they set aside (won't fix) and anything marked as waiting on their choice from a review they asked for.
 4. In your last message, give the trial's result, its round and its page, apart from what Playwright showed.
 5. If it prints `SKIPPED: skipped: tester paused` (it exits 0), the person has paused that tester, or all testing. That is not a failure and does not block anything: do not run it again, do not pick another tester, do not resume anyone, and do not try any other way round the pause. Land your change as you would after a pass, and write "Trial: skipped: tester paused" in your last message and in your test results."""
 
@@ -2338,7 +2357,7 @@ rouh-trial tester-remove <name> | default <name>   # only when the person says s
 
 A tester can be paused by the person, or all testing at once (`rouh-trial personas` says who is). The pause is for automatic tries only: a paused tester starts no automatic try, and `rouh-trial run` then prints `SKIPPED: skipped: tester paused` and exits 0. That is never a failure and never blocks a build: record "skipped: tester paused" in your report and test results, carry on, and never work round it (another tester, resuming one, `--review` without the person asking, or anything else). A review the person asked for in their own words (`rouh-trial run --review`, or `rouh-trial queue`) still runs while the tester is paused, and the pause stays as it was. Only the person pauses and resumes, on Evolution, Trials, Testers or in their own words.
 
-A goal is one sentence, as the person would put it, never how the thing was built. A problem is closed, never by hand, when the wave of fixes the person chose it for has finished, or when a later trial that passes gets past it. A problem the person decided ("Fix it like this") is fixed their way; one they set aside (not a problem, won't fix) is left alone, and so is one waiting on their choice from a review."""
+A goal is one sentence, as the person would put it, never how the thing was built. A problem is closed, never by hand, when the wave of fixes the person chose it for has finished, or when a later trial that passes gets past it. A problem the person decided ("Fix it like this") is fixed their way; one they set aside (won't fix) is left alone, and so is one waiting on their choice from a review."""
 
 
 def for_runs(org: str) -> str:

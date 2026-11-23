@@ -467,7 +467,7 @@ def report(t: dict) -> int:
                 print(f"    The person decided: fix it like this: {f['decision']}")
             elif f.get("awaiting_choice"):
                 print("    Found by a review the person asked for, and waiting on their choice: leave it.")
-            elif f.get("verdict") in ("not_a_problem", "wont_fix"):
+            elif f.get("verdict") == "wont_fix":
                 print(f"    The person set it aside ({f['verdict_name'].lower()}): leave it.")
             elif f.get("fix"):
                 print(f"    Suggested fix: {f['fix']}")
