@@ -8,7 +8,7 @@
    which put words in a chat nobody could find again; pictures in every lesson.
 
    Three pages, from the data file's `pages`:
-   - Your path: a search over every tip, a row of the stages' names to jump to, then the eight
+   - Your path: where the person stands and their next tip, a search over every tip, then the eight
      stages, all closed at first, each with the topics inside it in plain words, and each opening
      into its tips' cards. Lessons are called tips on every page since 22 November 2026 (review 49):
      a card shows a symbol, not a screenshot, and where it stands in its own stage, never out of
@@ -289,7 +289,8 @@
     } else {
       var def = pageDef();
       page.appendChild(tabs(def));
-      var note = orbNote();
+      // Not on Your path, the Guide's main page (Petar, 23 November 2026): only its other pages carry the line.
+      var note = def.id === 'path' ? null : orbNote();
       if (note) { page.appendChild(note); }
       (def.views || []).forEach(function (v) {
         var words = (content().sections || {})[v];
@@ -480,7 +481,7 @@
     return a;
   }
 
-  /* ---- Your path: a search, the stages' names to jump to, then the stages, each closed until pressed ---- */
+  /* ---- Your path: progress and the next tip, a search, then the stages, each closed until pressed ---- */
 
   /** Every tip whose words have all the words typed, in the order of the path. */
   function found(q) {
@@ -572,36 +573,13 @@
     }
   }
 
-  /** The stages' names in one short row: pressing one opens that stage and goes to it (problem 366). */
-  function stageJumps() {
-    var nav = el('nav', 'hh-jumps');
-    nav.setAttribute('aria-label', 'Go to a stage');
-    (content().stages || []).forEach(function (stage) {
-      var b = k(button('', 'hh-jump', function () {
-        H.find = '';
-        H.stages[stage.id] = true;
-        draw();
-        var li = $('hh-stage-' + stage.id);
-        if (li) { li.scrollIntoView({ block: 'start', behavior: reduced() ? 'auto' : 'smooth' }); }
-        var t = document.querySelector('[data-k="stage-' + stage.id + '"]');
-        if (t) { t.focus({ preventScroll: true }); }
-      }), 'jump-' + stage.id);
-      var jc = stageCounts(stage);
-      var jn = el('span', 'hh-jump-n' + (jc.all && jc.done === jc.all ? ' all' : ''));
-      if (jc.all && jc.done === jc.all) { jn.appendChild(glyph(TICK, 14)); } else { jn.textContent = String(stage.n); }
-      b.appendChild(jn);
-      b.appendChild(el('span', '', stage.title));
-      if (jc.all && jc.done === jc.all) { b.setAttribute('aria-label', stage.title + ', every tip done'); }
-      nav.appendChild(b);
-    });
-    return nav;
-  }
-
   function pathView(def) {
     var sec = el('section', 'hh-sec hh-path');
     sec.id = 'hh-path';
     sec.setAttribute('aria-labelledby', 'hh-path-h');
     heading(sec, 'hh-path-h', def, 'Your path');
+    // Where the person stands and their next tip first, then the search, then the stages (Petar, 23 November 2026).
+    sec.appendChild(overview());
     sec.appendChild(findBox());
     var q = H.find.trim();
     if (q) {
@@ -622,8 +600,6 @@
       }
       return sec;
     }
-    sec.appendChild(overview());
-    sec.appendChild(stageJumps());
     var ol = el('ol', 'hh-stages');
     (content().stages || []).forEach(function (stage) {
       var sc = stageCounts(stage);
@@ -1311,7 +1287,7 @@
 
   /* ---- the orb, which can be slid aside (review 50, problem 347) ----
      Petar: "we keep the orb where it is and how it behaves. rather we have to let people know they can slide it
-     to the right side when they need." One quiet line at the top of the Guide's pages says so, until the person
+     to the right side when they need." One quiet line at the top of the Guide's pages but Your path says so, until the person
      presses Got it or slides the orb to the right, which is the lesson learned (app/orb.js keeps the side). */
   var ORB_SIDE = 'rouh.orb.side.v1';
   var ORB_NOTE = 'rouh.guide.orbnote.v1';

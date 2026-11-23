@@ -97,7 +97,7 @@ a.hh-quiet, a.hh-main { text-decoration: none; }
 .hh-stage-why { margin: 0; padding: 12px 16px 0; font-size: 14px; line-height: 1.5; color: var(--text); max-width: 64ch; }
 .hh-stage-body { border-top: 1px solid var(--line-soft); }
 .hh-stage-body .hh-cards { border-top: 0; }
-/* The search over every tip, and the stages' names to jump to (review 49, problem 366). */
+/* The search over every tip (review 49, problem 366). */
 .hh-find {
   position: relative; display: flex; align-items: center; gap: 8px; min-height: 48px; padding: 0 14px;
   border: 1px solid var(--line); border-radius: 12px; background: var(--panel); color: var(--dim);
@@ -108,18 +108,6 @@ a.hh-quiet, a.hh-main { text-decoration: none; }
   font: inherit; font-size: 15px; outline: none;
 }
 .hh-find-box::placeholder { color: var(--dim); }
-.hh-jumps { display: flex; flex-wrap: wrap; gap: 8px; }
-.hh-jump {
-  display: inline-flex; align-items: center; gap: 7px; min-height: 40px; padding: 4px 12px 4px 5px; border-radius: 999px;
-  border: 1px solid var(--line); background: transparent; color: var(--text); font: inherit; font-size: 13.5px;
-  font-weight: 600; cursor: pointer;
-}
-.hh-jump:hover { border-color: var(--dim); background: var(--panel); }
-.hh-jump:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
-.hh-jump-n {
-  display: grid; place-items: center; width: 28px; height: 28px; border-radius: 50%; background: var(--panel-2);
-  font-size: 12.5px; font-variant-numeric: tabular-nums; color: var(--dim);
-}
 .hh-stage-meter { display: grid; gap: 6px; justify-items: end; min-width: 76px; }
 .hh-stage-count { font-size: 13px; font-weight: 650; font-variant-numeric: tabular-nums; color: var(--dim); white-space: nowrap; }
 .hh-bar { display: block; width: 76px; height: 6px; border-radius: 999px; background: var(--line); overflow: hidden; }
@@ -639,8 +627,6 @@ a.hh-quiet, a.hh-main { text-decoration: none; }
   .hh-ov-bar { max-width: none; }
 }
 
-/* A finished stage's jump carries a green tick in place of its number. */
-.hh-jump-n.all { background: var(--good); color: var(--bg); }
 
 /* One mark per tip in a stage's row: a green tick for each done, a ring for the next, a hollow dot for the rest. */
 .hh-pips { display: flex; flex-wrap: wrap; gap: 4px; justify-content: flex-end; max-width: 220px; }
