@@ -27,7 +27,7 @@ import { send } from 'app/socket.js';
 
 /** @typedef {{ id: string, name: string, hint: string, model: string, model_name: string }} ModelOption */
 /** @typedef {{ chat: string, choice: string, own: boolean, default: string, chooses: boolean,
- *              mode: string, options: ModelOption[] }} ModelChoice */
+ *              mode: string, remembered?: boolean, options: ModelOption[] }} ModelChoice */
 
 var NAMES = /** @type {Record<string, string>} */ ({ cheap: 'Cheap', smart: 'Smart', auto: 'Auto' });
 var MODES = /** @type {Record<string, string>} */ ({ best: 'Best', balanced: 'Balanced', saver: 'Saver' });
@@ -269,7 +269,7 @@ function draw(d) {
   modelBtn.classList.toggle('follows', !d.own);
   modelBtn.disabled = !d.chooses;
   var says = d.chooses
-    ? 'Model for this chat: ' + name + (d.own ? '' : ', the default from the Models page')
+    ? 'Model for this chat: ' + name + (d.own ? '' : d.remembered ? ', your last pick' : ', the default')
     : 'This chat answers on what it is for, set on the Models page';
   modelBtn.title = says;
   modelBtn.setAttribute('aria-label', says);
@@ -291,16 +291,30 @@ function draw(d) {
     modelOpts.appendChild(b);
   });
   modelFoot.textContent = '';
-  var dflt = NAMES[d.default] || 'its own model';
-  if (d.own) {
-    modelFoot.appendChild(el('span', '', 'New chats start on ' + dflt + ', from the Models page (' + (MODES[d.mode] || d.mode) + ').'));
-    var reset = el('button', 'model-reset', 'Follow the Models page');
-    reset.type = 'button';
-    reset.addEventListener('click', function () { pick(''); });
-    modelFoot.appendChild(reset);
+  // Petar, 23 November 2026 (review 52 of the Guide, problem 358): a chat starts on Auto, and whatever
+  // the person picks is remembered for their next chats; a Guide link to the tip that teaches this.
+  if (d.chooses) {
+    modelFoot.appendChild(el('span', '', 'Your pick holds for this chat, and your new chats start on it.'));
   } else {
-    modelFoot.appendChild(el('span', '', 'This chat follows the Models page (' + (MODES[d.mode] || d.mode) + ' is ' + dflt + '). Picking one keeps it for this chat only.'));
+    modelFoot.appendChild(el('span', '', 'This chat answers on what it is for, from the Models page (' + (MODES[d.mode] || d.mode) + ').'));
   }
+  modelFoot.appendChild(guideLink());
+}
+
+/** The Guide's tip on choosing the model, opened in Rouh. */
+var MODEL_TIP = '/guide/lesson/chat-model';
+function guideLink() {
+  var a = /** @type {HTMLAnchorElement} */ (el('a', 'model-guide', 'Guide: which model to pick'));
+  a.href = MODEL_TIP;
+  a.addEventListener('click', function (e) {
+    if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) return;
+    var host = window.RouhHandholdingHost;
+    if (!host || !host.show) return;
+    e.preventDefault();
+    showPop(modelBtn, modelPop, false);
+    host.show(MODEL_TIP);
+  });
+  return a;
 }
 
 // Arrow keys move between the three, as a group of radio buttons does.

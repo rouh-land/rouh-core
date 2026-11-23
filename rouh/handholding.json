@@ -363,64 +363,170 @@
      "summary": [
       "Everything starts with a sentence. You type it in the message box at the bottom of the chat, or say it out loud. This is the one place you talk to Rouh: every tip after this one says what to say, and you say it here."
      ],
-     "how": [
+     "how_tabs": [
       {
-       "text": "Find the message box: the wide box at the bottom of the chat that says Type to Rouh. Press it and type what you want, in plain words.",
-       "image": {
-        "src": "handholding/talk-cut.webp",
-        "alt": "A cut-out of the chat on a phone, numbered: your question, Rouh's answer listing what it can do, the message box and the blue Send arrow.",
-        "w": 780,
-        "h": 1016,
-        "cut": true,
-        "marks": [
-         {
-          "n": 1,
-          "x": 2.8,
-          "y": 80.6,
-          "label": "The message box: type here"
-         },
-         {
-          "n": 2,
-          "x": 90.3,
-          "y": 93.9,
-          "label": "Send: the blue arrow"
-         },
-         {
-          "n": 3,
-          "x": 30.0,
-          "y": 9.6,
-          "label": "What you said"
-         },
-         {
-          "n": 4,
-          "x": 14.0,
-          "y": 22.8,
-          "label": "Rouh's answer"
+       "id": "phone",
+       "name": "On a phone",
+       "how": [
+        {
+         "text": "Open the chat: press the round button at the bottom left to open the menu, then press Rouh, circled in red below. The chat opens, with the message box at the bottom.",
+         "image": {
+          "src": "handholding/talk-open-chat-phone.webp",
+          "alt": "The menu open on a phone, with Rouh at the bottom of it circled in red: pressing it opens the chat.",
+          "w": 780,
+          "h": 1228,
+          "cut": true,
+          "marks": [
+           {
+            "n": 1,
+            "x": 18.5,
+            "y": 75.7,
+            "label": "The round button: it opens the menu, and shows an X while the menu is open"
+           },
+           {
+            "n": 2,
+            "x": 15.5,
+            "y": 86.0,
+            "ring": {
+             "w": 26,
+             "h": 6.5
+            },
+            "label": "Rouh: press it to open the chat"
+           }
+          ]
          }
-        ]
-       }
+        },
+        {
+         "text": "Tap the message box, the wide box at the bottom that says Type to Rouh, and type what you want, in plain words.",
+         "image": {
+          "src": "handholding/talk-cut.webp",
+          "alt": "A cut-out of the chat on a phone, numbered: your question, Rouh's answer listing what it can do, the message box and the blue Send arrow.",
+          "w": 780,
+          "h": 1016,
+          "cut": true,
+          "marks": [
+           {
+            "n": 1,
+            "x": 2.8,
+            "y": 80.6,
+            "label": "The message box: type here"
+           },
+           {
+            "n": 2,
+            "x": 90.3,
+            "y": 93.9,
+            "label": "Send: the blue arrow"
+           },
+           {
+            "n": 3,
+            "x": 30.0,
+            "y": 9.6,
+            "label": "What you said"
+           },
+           {
+            "n": 4,
+            "x": 14.0,
+            "y": 22.8,
+            "label": "Rouh's answer"
+           }
+          ]
+         }
+        },
+        "Tap the blue arrow at the right end of the box to send. The return key on the phone's keyboard starts a new line; it does not send.",
+        "Rouh's answer appears in the chat, under your words.",
+        "The chat and the page you were on take turns on a phone: the button at the top right switches between them, so this tip is one tap away."
+       ]
       },
-      "On a phone, tap the blue arrow at the right end of the box to send; the return key on the phone's keyboard starts a new line. At a computer, press Enter to send, and Shift with Enter for a new line.",
-      "Rouh's answer appears in the chat, under your words. Pages, tables and pictures appear on the canvas beside the chat (the next tips show it).",
       {
-       "text": "If you cannot see the chat, it has been put away to a narrow bar at the left of the screen. Press that bar, Show the chat, and it comes back.",
-       "image": {
-        "src": "handholding/talk-hidden-cut.webp",
-        "alt": "A cut-out of the top left corner at a desk with the chat put away: a narrow bar at the left edge, marked Chat, numbered.",
-        "w": 720,
-        "h": 440,
-        "cut": true,
-        "marks": [
-         {
-          "n": 1,
-          "x": 5.3,
-          "y": 15.9,
-          "label": "Show the chat"
+       "id": "desk",
+       "name": "On a computer",
+       "how": [
+        {
+         "text": "The chat is the column on the left, beside the page. To open it from anywhere, press the round button at the bottom left of the chat to open the menu, then press Rouh, circled in red below.",
+         "image": {
+          "src": "handholding/talk-open-chat-desk.webp",
+          "alt": "The menu open at a computer, with Rouh near the bottom of it circled in red: pressing it opens the chat.",
+          "w": 1100,
+          "h": 1080,
+          "cut": true,
+          "marks": [
+           {
+            "n": 1,
+            "x": 13.0,
+            "y": 72.4,
+            "label": "The round button: it opens the menu, and shows an X while the menu is open"
+           },
+           {
+            "n": 2,
+            "x": 12.0,
+            "y": 82.8,
+            "ring": {
+             "w": 22,
+             "h": 8
+            },
+            "label": "Rouh: press it to open the chat"
+           }
+          ]
          }
-        ]
-       }
-      },
-      "On a phone the chat and the canvas take turns: the button at the top right switches between them."
+        },
+        {
+         "text": "Find the message box: the wide box at the bottom of the chat that says Type to Rouh. Press it and type what you want, in plain words.",
+         "image": {
+          "src": "handholding/talk-cut.webp",
+          "alt": "A cut-out of the chat on a phone, numbered: your question, Rouh's answer listing what it can do, the message box and the blue Send arrow.",
+          "w": 780,
+          "h": 1016,
+          "cut": true,
+          "marks": [
+           {
+            "n": 1,
+            "x": 2.8,
+            "y": 80.6,
+            "label": "The message box: type here"
+           },
+           {
+            "n": 2,
+            "x": 90.3,
+            "y": 93.9,
+            "label": "Send: the blue arrow"
+           },
+           {
+            "n": 3,
+            "x": 30.0,
+            "y": 9.6,
+            "label": "What you said"
+           },
+           {
+            "n": 4,
+            "x": 14.0,
+            "y": 22.8,
+            "label": "Rouh's answer"
+           }
+          ]
+         }
+        },
+        "Press Enter to send, or press the blue arrow at the right end of the box. Shift with Enter starts a new line.",
+        "Rouh's answer appears in the chat, under your words. Pages, tables and pictures appear on the canvas, the space beside the chat where pages open (the next tips show it).",
+        {
+         "text": "If you cannot see the chat, it has been put away to a narrow bar at the left of the screen. Press that bar, Show the chat, and it comes back.",
+         "image": {
+          "src": "handholding/talk-hidden-cut.webp",
+          "alt": "A cut-out of the top left corner at a desk with the chat put away: a narrow bar at the left edge, marked Chat, numbered.",
+          "w": 720,
+          "h": 440,
+          "cut": true,
+          "marks": [
+           {
+            "n": 1,
+            "x": 5.3,
+            "y": 15.9,
+            "label": "Show the chat"
+           }
+          ]
+         }
+        }
+       ]
+      }
      ],
      "says": [
       "Hello Rouh, what can you do for me?",
@@ -904,15 +1010,35 @@
       "h": 625
      },
      "summary": [
-      "The button under the message box that says Auto, Smart or Cheap chooses which model answers in this chat."
+      "The button under the message box that says Auto, Smart or Cheap chooses which model answers in this chat. A new chat starts on Auto, and once you pick, your new chats start on your pick."
      ],
      "how": [
       "Press it. Which model answers in this chat lists the three, each with the model it uses.",
-      "Auto picks for each message: Cheap for clearly easy ones, Smart otherwise. Smart always uses the strongest model; Cheap always the quickest.",
-      "The choice holds for this chat only, on every device. Follow the Models page puts it back.",
-      "At the top of each answer a line names the model, the time and the cost. Press Cheaper or Smart there to have that answer again on the other."
+      "Auto lets Rouh pick for each message: Cheap for clearly easy ones, Smart otherwise. You do not have to choose anything.",
+      "Cheap always uses the cheaper model: it costs less, and it is less capable. Smart always uses the smarter model: it is more capable, and it costs more.",
+      "Your pick holds for this chat, on every device, and your new chats start on it. Pick Auto to go back.",
+      "The line at the top of each answer says its time and cost. Press it to see which model answered; Cheaper or Smart there has that answer again on the other."
      ],
      "see": "models",
+     "glyph": "chip"
+    },
+    {
+     "id": "answer-line",
+     "title": "Read the line above an answer",
+     "outcome": "After this you know what the small grey line above each of Rouh's answers says, and what opening it shows.",
+     "minutes": 1,
+     "optional": true,
+     "summary": [
+      "Above each answer of Rouh's is one small grey line: how long the answer took and what it cost, such as 5.0 s · $0.144. You never need it to use Rouh. It is there for when you are curious how an answer was made."
+     ],
+     "how": [
+      "The time is how long Rouh took, from your message to the end of its answer. The cost is what the AI charged for it, in dollars, on the AI account Rouh is set up with.",
+      "Press the line to open it. Its title line then also says which model answered and how it was chosen, such as Opus 5.5 · chat set to Auto, and what Rouh looked up in its memory.",
+      "Cheaper and Smart on the opened line say which of the two answered. Press the other one to have the same answer again on it.",
+      "Under the title line, each step of the answer is a bar on one clock: reading your message, looking things up, the model writing, each tool it used. Press a bar for its details.",
+      "Details opens everything kept about the answer, on one page. Press the line again to close it."
+     ],
+     "see": "chat-model",
      "glyph": "chip"
     },
     {

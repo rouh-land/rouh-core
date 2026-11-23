@@ -137,7 +137,7 @@ export interface ServerMessages {
   page_changed: { doc: string; summary?: string; };
   /** Cheap, Smart or Auto for one chat, the control beside the composer (`chatkinds.choice_of`): said back to
    *  the tab that asked or set it, and to every other tab of the person's when it was set. */
-  chat_model: { chat: string; choice?: string; own?: boolean; default?: string; chooses?: boolean; mode?: string;
+  chat_model: { chat: string; choice?: string; own?: boolean; default?: string; remembered?: boolean; chooses?: boolean; mode?: string;
     options?: { id: string; name: string; hint: string; model: string; model_name: string; }[]; error: string; };
   /** A blind comparison under an answer, with the opt-in on (`rouh/modelvotes.py`, app/compare.js): the
    *  two answers, A and B, the models' names hidden, and the one-time word the vote is posted with. */

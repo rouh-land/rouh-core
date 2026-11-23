@@ -839,8 +839,23 @@ function addrName() {
     }
     return CANVAS.title || named || rel.split('/').pop();
   }
+  return '';
+}
+
+/* What the tab is called: the chat and what is open beside it, because both are there, one press or
+   one tap apart (Petar, 23 November 2026, review 52 of the Guide, problem 343: "for rouh chat + content
+   should be Rouh Chat | [Content title]. for other task chats should be just the task, because they
+   are related"). Rouh's own chat with something open is "Rouh Chat | Guide"; a task's own chat is the
+   task; any other chat with something open is "Its name | Guide"; nothing open is the chat's name. */
+function addrTitle() {
+  var place = addrName();
   var chat = CHATS && CHATS.active ? chatById(CHATS.active) : null;
-  return chat ? threadName(chat) : '';
+  if (!chat) return place ? place + ' - Rouh' : 'Rouh';
+  var general = chat.id === CHATS.general;
+  var talk = general ? 'Rouh Chat' : threadName(chat);
+  if (chat.task && !general) return talk + ' - Rouh';
+  if (!place || place === talk) return general ? talk : talk + ' - Rouh';
+  return talk + ' | ' + place;
 }
 
 /* What a run is called: what the one program says about it where that has
@@ -906,8 +921,7 @@ function addrShow() {
     if (!ADDR.half) ADDR.half = want;
     else if (ADDR.half !== want) { ADDR.thread = ''; ADDR.half = ''; }
   }
-  var name = addrName();
-  document.title = name ? name + ' - Rouh' : 'Rouh';
+  document.title = addrTitle();
 }
 
 /* Going to what an address names. The server turns the path into the same

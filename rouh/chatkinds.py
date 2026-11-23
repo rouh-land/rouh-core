@@ -45,16 +45,20 @@ for any new chat, unless changed later." So the control beside the composer is b
 words rather than a list of models, and kept on the chat (`Chat.model_choice`), never in the
 browser: Cheap is the Cheaper tier, Smart the Smart tier, and Auto the router of Balanced
 (`rouh/modelrouter.py`: Cheaper only when it is at least the bar sure the message is easy).
-A chat with no choice of its own follows the Models page (`default_choice`): Best is Smart,
-Balanced is Auto, Saver is Cheap, and a use locked to a tier is that tier. Setting one chat
-never moves the Models page, and moving the Models page never rewrites a chat that has its own.
+A chat with no choice of its own starts on the person's last pick, and on Auto until they make one
+(`default_choice`, `remembered`; Petar, 23 November 2026, review 52 of the Guide). Until then it
+followed the Models page (Best was Smart, Balanced Auto, Saver Cheap), which a chat that is not the
+person's still does. Setting a chat never moves the Models page, and moving the Models page never
+rewrites a chat that has its own.
 A chat set to Smart is never routed, and one set to Cheap always answers on Cheaper. Only the
 person's chats take a choice (`chooses`): a case's turn and a heartbeat's chat keep their own
 use's tier, and so does every unattended job, which never asks through a chat.
 """
 from __future__ import annotations
 
+import json
 import logging
+import time
 from dataclasses import dataclass
 
 from . import context_editing, conversations, modeldefaults
@@ -167,9 +171,14 @@ CHOICE_NAMES = {CHEAP: "Cheap", SMART: "Smart", AUTO: "Auto"}
 #: The tier a fixed choice answers on.
 CHOICE_TIER = {CHEAP: modeldefaults.CHEAPER, SMART: modeldefaults.SMART}
 #: What each choice means, in a line the control shows.
-CHOICE_HINTS = {CHEAP: "Always the cheaper model.",
-                SMART: "Always the smart model. The router never runs.",
-                AUTO: "Cheap for clearly easy messages; Smart otherwise."}
+#: Petar, 23 November 2026 (review 52 of the Guide, problem 358): Cheap says it is less capable, Smart
+#: that it is more expensive, and none of them mentions the router.
+CHOICE_HINTS = {CHEAP: "Always the cheaper model. It costs less, and it is less capable.",
+                SMART: "Always the smarter model. It is more capable, and it costs more.",
+                AUTO: "Rouh picks for each message: Cheap for clearly easy ones, Smart otherwise."}
+#: The person's last pick beside the composer, in `user_settings`: what a chat of theirs that was never
+#: set starts on. Nothing kept is Auto (`default_choice`).
+REMEMBERED = "chat_model_choice"
 #: The uses whose chats take a choice of their own: General and its forks, and every other chat.
 CHOOSING = ("general", "chats")
 
@@ -205,27 +214,79 @@ def own_choice(chat_id: str | None) -> str:
     return stored_choice(chat_id) if chooses(chat_id) else ""
 
 
-def default_choice(chat_id: str | None, cfg=None, now=None) -> str:
-    """What a chat with no choice of its own is on, from the Models page: Auto when its use is
-    routed (Balanced), else its use's tier (Best is Smart, Saver is Cheap); "" for a use on a
-    model of its own or off, which no three words describe."""
+def remembered(who=None) -> str:
+    """The person's last pick beside the composer, or "" (`REMEMBERED`). `who` is the person; without
+    one, the person the context is for, else the installation's only account (`owner.resolve`)."""
+    from . import owner as owner_mod
+    from .models import UserSetting
+
+    try:
+        found = owner_mod.resolve(who)
+        if found is None:
+            return ""
+        value = (UserSetting.objects.filter(user_id=str(found.user_id), org_id=str(found.org_id or ""),
+                                            name=REMEMBERED).values_list("value", flat=True).first())
+        got = json.loads(value) if value else ""
+    except Exception:                      # a new chat starts on Auto instead
+        log.exception("the model choice the person last made could not be read")
+        return ""
+    return got if got in CHOICES else ""
+
+
+def remember(who, choice: str) -> None:
+    """Keep the person's pick, so their next new chat starts on it (Petar, 23 November 2026: "whatever
+    a person selects is remembered for the future"). "" forgets it: new chats start on Auto again."""
+    from .models import UserSetting
+
+    if choice and choice not in CHOICES:
+        return
+    me = {"user_id": str(who.user_id), "org_id": str(getattr(who, "org_id", "") or "")}
+    if not choice:
+        UserSetting.objects.filter(**me, name=REMEMBERED).delete()
+        return
+    UserSetting.objects.bulk_create(
+        [UserSetting(**me, name=REMEMBERED, value=json.dumps(choice), updated_at=time.time())],
+        update_conflicts=True, unique_fields=["user_id", "name"],
+        update_fields=["org_id", "value", "updated_at"])
+
+
+def default_choice(chat_id: str | None, cfg=None, now=None, who=None) -> str:
+    """What a chat with no choice of its own is on. One of the person's chats (`chooses`) starts on
+    the last thing they picked, and on Auto until they pick (Petar, 23 November 2026, review 52 of the
+    Guide, problem 358: "default should be on Auto, not Smart. but whatever a person selects is
+    remembered for the future"). Any other chat follows the Models page: Auto when its use is routed
+    (Balanced), else its use's tier (Best is Smart, Saver is Cheap). "" for a use on a model of its
+    own or off, which no three words describe, and which the Models page keeps deciding."""
     now = now or modeldefaults.Now(None, cfg)
     kind = now.kind(use_for(chat_id))
-    return {modeldefaults.AUTO: AUTO, modeldefaults.CHEAPER: CHEAP,
+    page = {modeldefaults.AUTO: AUTO, modeldefaults.CHEAPER: CHEAP,
             modeldefaults.SMART: SMART}.get(kind, "")
+    if page and chooses(chat_id):
+        return remembered(who) or AUTO
+    return page
 
 
-def choice_of(chat_id: str | None, cfg=None) -> dict:
+def choice_now(chat_id: str | None, cfg=None) -> str:
+    """The choice that decides this chat's model: its own, else what it starts on (`default_choice`)
+    when it is one of the person's chats; "" to follow the Models page."""
+    own = own_choice(chat_id)
+    if own or not chooses(chat_id):
+        return own
+    return default_choice(chat_id, cfg)
+
+
+def choice_of(chat_id: str | None, cfg=None, who=None) -> dict:
     """What the control beside the composer shows for this chat: the choice in force, whether
-    it is the chat's own or the Models page's, the default it would follow, and the model each
-    choice answers with here."""
+    it is the chat's own or the one it starts on, that default, whether the default is the
+    person's own last pick (`remembered`), and the model each choice answers with here."""
     now = modeldefaults.Now(None, cfg)
     use = use_for(chat_id)
-    default = default_choice(chat_id, now=now)
+    default = default_choice(chat_id, now=now, who=who)
     own = own_choice(chat_id)
     models = {c: now.tier_pair(use, t).model for c, t in CHOICE_TIER.items()}
     return {"chat": chat_id or "", "choice": own or default, "own": bool(own), "default": default,
             "chooses": chooses(chat_id), "mode": now.mode,
+            "remembered": bool(chooses(chat_id) and remembered(who)),
             "options": [{"id": c, "name": CHOICE_NAMES[c], "hint": CHOICE_HINTS[c],
                          "model": models.get(c, ""),
                          "model_name": model_name(models[c]) if models.get(c) else ""}
@@ -251,7 +312,7 @@ def routes(chat_id: str | None, cfg=None) -> bool:
     """Whether this chat is on Auto: each turn's tier is picked by a model that reads
     the message (`rouh/modelrouter.py`). The chat's own choice first: Smart and Cheap
     never route, and Auto always does."""
-    own = own_choice(chat_id)
+    own = choice_now(chat_id, cfg)
     if own:
         return own == AUTO
     return modeldefaults.use_tier(use_for(chat_id), cfg=cfg) == modeldefaults.AUTO
@@ -261,7 +322,7 @@ def model_for(chat_id: str | None, cfg=None) -> str:
     """The model that answers in this chat: its own fixed choice's tier when it has one; on
     Auto, the fallback tier's, for what asks without a message to read (a turn routes before
     it asks)."""
-    own = own_choice(chat_id)
+    own = choice_now(chat_id, cfg)
     if own in CHOICE_TIER:
         return tier_model(chat_id, CHOICE_TIER[own], cfg)
     if own == AUTO:

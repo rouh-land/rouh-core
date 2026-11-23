@@ -11,10 +11,13 @@
    `rouh/turntrace.py`, kept in its record, `rouh/turnrecords.py`) are drawn together, here
    and nowhere else:
 
-   - closed, one line: which tier answered as a two-part marker (pressing a part answers the
-     exchange again on that tier, `retry` with `tier`), the model, how sure the router was
-     and how long it took, the memory's counts, and the whole turn's time and cost. On a
-     narrow screen the words end in "..." and are whole once it is opened (W5);
+   - closed, one line: the whole turn's time and cost, and nothing else (Petar, 23 November 2026,
+     review 52 of the Guide, problem 357: "leave time and money on top ... hide the 'Opus 5.5 · chat
+     set to Smart' and 'cheaper/Smart' to be seen on top once this debug panel is open. Details and
+     guide should be on the same title line once opened");
+   - opened, its title line: the time and cost, the model and how it was chosen, the memory's
+     counts, which tier answered as a two-part marker (pressing a part answers the exchange again
+     on that tier, `retry` with `tier`), Details, and Guide, the tip on this line (`answer-line`);
    - opened, across the whole width of the chat: one row per step on one time axis with its
      scale at the top, and each row's time and cost in one fixed column on the right;
    - each row's details in a popover, on hover with a mouse and on a tap or Enter anywhere;
@@ -169,12 +172,21 @@ function boxIn(turn) {
   var toggle = el('button', 'tl-toggle');
   toggle.type = 'button';
   toggle.setAttribute('aria-expanded', 'false');
+  // Closed, the line is the time and the cost and nothing else; opened, the model's words, the tier
+  // marker, Details and Guide are on the same title line (review 52, problem 357).
   toggle.appendChild(el('span', 'tl-chev'));
-  toggle.appendChild(el('span', 'tl-sum'));
   toggle.appendChild(el('span', 'tl-total'));
+  toggle.appendChild(el('span', 'tl-sum'));
   toggle.addEventListener('click', function () { setOpen(box, !box.__open, true); });
   head.appendChild(toggle);
   head.appendChild(el('div', 'tl-tiers'));
+  var acts = el('div', 'tl-acts');
+  var more = el('button', 'tl-details', 'Details');
+  more.type = 'button';
+  more.addEventListener('click', function () { details(box); });
+  acts.appendChild(more);
+  acts.appendChild(guideLink());
+  head.appendChild(acts);
   box.appendChild(head);
   var body = el('div', 'tl-body');
   body.hidden = true;
@@ -533,12 +545,30 @@ function paint(box) {
     total = took(tl.state === 'running' && box.__live ? now : tl.elapsed_ms || 0);
     if (tl.cost != null) total += ' · ' + dollars(tl.cost);
   }
+  // An answer kept from before its time and cost were recorded still says what the line is.
+  if (!total) total = 'How this answer was made';
   var tot = box.querySelector('.tl-total');
   if (tot.textContent !== total) tot.textContent = total;
   box.classList.toggle('running', !!(tl && tl.state === 'running' && box.__live));
   tiers(box, q, (r && r.tier) || (tl && tl.tier) || '');
   if (!box.__open) return;
   body(box, rowsOf(box), now);
+}
+
+/** The Guide's tip on this line: what each part of it says. An address in Rouh, opened in Rouh. */
+var GUIDE_TIP = '/guide/lesson/answer-line';
+function guideLink() {
+  var a = /** @type {HTMLAnchorElement} */ (el('a', 'tl-guide', 'Guide'));
+  a.href = GUIDE_TIP;
+  a.title = 'What this line says, in the Guide';
+  a.addEventListener('click', function (e) {
+    if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) return;
+    var host = window.RouhHandholdingHost;
+    if (!host || !host.show) return;
+    e.preventDefault();
+    host.show(GUIDE_TIP);
+  });
+  return a;
 }
 
 /** The two-part marker of the tier that answered; a press answers it again on the one pressed. */
@@ -600,10 +630,7 @@ function body(box, rows, now) {
     axis = el('div', 'tl-axis');
     axis.appendChild(el('span', 'tl-axis-name'));
     axis.appendChild(el('span', 'tl-ticks'));
-    var more = el('button', 'tl-details', 'Details');
-    more.type = 'button';
-    more.addEventListener('click', function () { details(box); });
-    axis.appendChild(more);
+    axis.appendChild(el('span', 'tl-axis-end'));
     panel.appendChild(axis);
     panel.appendChild(el('div', 'tl-rows'));
   }
@@ -1069,8 +1096,8 @@ function details(box) {
   top.appendChild(close);
   dlg.appendChild(top);
   var inner = el('div', 'tl-dialog-body');
-  inner.appendChild(el('p', 'tl-dialog-sum', box.querySelector('.tl-sum').textContent +
-    (box.querySelector('.tl-total').textContent ? ' · ' + box.querySelector('.tl-total').textContent : '')));
+  var said = box.querySelector('.tl-sum').textContent, spent = box.__tl ? box.querySelector('.tl-total').textContent : '';
+  inner.appendChild(el('p', 'tl-dialog-sum', said + (spent ? (said ? ' · ' : '') + spent : '')));
   rowsOf(box).forEach(function (row) {
     var sec = el('section', 'tl-dialog-row ' + colourOf(row));
     sec.appendChild(el('h3', '', nameOf(row) + (timeOf(row, nowMs(box), box) ? ' · ' + timeOf(row, nowMs(box), box) : '')));

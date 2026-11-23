@@ -95,7 +95,10 @@ function show(b) {
   var w = tip.offsetWidth, h = tip.offsetHeight;
   tip.style.left = Math.round(Math.max(8, Math.min(window.innerWidth - w - 8, r.left + r.width / 2 - w / 2))) + 'px';
   // Below a button in the top half of the screen, above one in the bottom half.
-  var below = r.bottom + 8, above = r.top - h - 8;
+  // A button on the composer's line has its tip above the whole composer, never over the box the
+  // person types in (review 52 of the Guide, problem 362).
+  var box = b.closest('.composer-box');
+  var below = r.bottom + 8, above = (box ? Math.min(r.top, box.getBoundingClientRect().top) : r.top) - h - 8;
   var y = r.top < window.innerHeight / 2 ? (below + h <= window.innerHeight - 8 ? below : above)
     : (above >= 8 ? above : below);
   tip.style.top = Math.round(y) + 'px';

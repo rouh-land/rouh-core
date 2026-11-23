@@ -5916,9 +5916,15 @@ class ToolRegistry:
         if row.next_at and row.next_at - asked.timestamp() > 60:
             moved = (f" The first time you gave, {reminders.dated(asked)}, had already passed, "
                      "so it starts at its next time instead: say so.")
+        # The answer says it is set, plainly and with its time (Petar, 23 November 2026, review 52 of
+        # the Guide, problem 361: Rouh's answer gave the person no sign the reminder was made).
+        # Its date and not "tomorrow": this result stays in the chat for days (`reminders.dated`).
+        sure = ("Done, I will remind you on " if kind == "remind" else "Done, I will do it and tell you on ") + \
+            re.sub(r" \d{4} at ", " at ", v["dated"])
         return (f"Scheduled as {row.id}: {how}, {v['dated']}{rep}.{moved} It is on "
                 f"Clockwork, now on their screen. At the time it is said in this chat"
-                f"{self._phone_said()}.")
+                f"{self._phone_said()}. Confirm it to them first, in one short plain sentence "
+                f"with its day and time, such as: {sure}.")
 
     async def _upcoming(self, args, emit):
         who = await self._clock_who()

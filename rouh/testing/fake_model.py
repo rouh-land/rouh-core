@@ -514,8 +514,65 @@ def _typed_calls(body: dict) -> tuple[list[tuple[str, dict]], int, str]:
             # The person's own words a scheduled row keeps are quoted after its instruction
             # (`reminders.their_words`): what they said then, not something to do again now.
             said = said.split(THEIR_WORDS)[0]
-        return tool_lines(said), answered, said
+        calls = tool_lines(said)
+        if not calls and not is_note(message) and "schedule" in offered_tools(body):
+            asked = a_reminder_asked(said)
+            if asked:
+                calls = [("schedule", asked)]
+        return calls, answered, said
     return [], 0, ""
+
+
+def offered_tools(body: dict) -> set[str]:
+    """The names of the tools this request offers the model."""
+    return {str(t.get("name") or "") for t in (body.get("tools") or []) if isinstance(t, dict)}
+
+
+#: A reminder asked for in plain words, as a real model reads one: "remind me ... at 16:00", with
+#: "tomorrow" or "in 20 minutes" if it is said (review 52 of the Guide, problem 361: the stand-in said
+#: "I received: text ..." back, and the person had no sign the reminder was made).
+REMIND_ME = re.compile(r"\bremind me\b", re.I)
+REMIND_AT = re.compile(r"\b(\d{1,2})[:.](\d{2})\b|\b(\d{1,2})\s*(am|pm)\b", re.I)
+REMIND_IN = re.compile(r"\bin\s+(\d{1,4})\s*(minutes?|mins?|hours?)\b", re.I)
+
+
+def a_reminder_asked(said: str) -> dict | None:
+    """The `schedule` call a real model would make of these words, or None when they ask for none."""
+    if not REMIND_ME.search(said or ""):
+        return None
+    what = " ".join(said.split())[:300]
+    later = REMIND_IN.search(said)
+    if later:
+        n = int(later.group(1)) * (60 if later.group(2).lower().startswith("hour") else 1)
+        return {"what": what, "kind": "remind", "in_minutes": n}
+    at = REMIND_AT.search(said)
+    if not at:
+        return None
+    if at.group(1):
+        hour, minute = int(at.group(1)), int(at.group(2))
+    else:
+        hour, minute = int(at.group(3)) % 12 + (12 if at.group(4).lower() == "pm" else 0), 0
+    if hour > 23 or minute > 59:
+        return None
+    hm = f"{hour:02d}:{minute:02d}"
+    if re.search(r"\btomorrow\b", said, re.I):
+        day = time.strftime("%Y-%m-%d", time.localtime(time.time() + 24 * 3600))
+        return {"what": what, "kind": "remind", "at": f"{day}T{hm}"}
+    return {"what": what, "kind": "remind", "at": hm}
+
+
+def reminder_said(body: dict) -> str:
+    """What a real model says once `schedule` answered: the plain sentence its result asks for, or
+    why it was not set. "" when the last thing back was not that."""
+    for block in last_user_blocks(body):
+        if block.get("type") != "tool_result":
+            continue
+        got = _flat(block.get("content"))
+        if got.startswith("Scheduled as ") and "such as: " in got:
+            return got.split("such as: ", 1)[1].strip().rstrip(".") + "."
+        if got.startswith("Not scheduled: "):
+            return "I could not set that reminder: " + got[len("Not scheduled: "):]
+    return ""
 
 
 #: The generation of a model id, by family: "claude-sonnet-5" is 5.
@@ -3265,7 +3322,8 @@ def build_app(record_dir: str) -> FastAPI:
                      if b.get("type") == "text")))
         answer = next((answer for matched, _, answer in errands
                        if matched and answer is not None), None)
-        reply = answer(body) if answer is not None else clock_answer(body) or describe(body)
+        reply = (answer(body) if answer is not None
+                 else clock_answer(body) or reminder_said(body) or describe(body))
         if not errand and asks_for_notes(body):
             reply = notes_said(body)
         if not errand and not naming:

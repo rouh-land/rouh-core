@@ -18461,6 +18461,13 @@ function handholdingAddress() {
 window.RouhHandholdingHost = {
   close: handholdingClose,
   go: function (href) { return goToAddress(href); },
+  /** A tip opened from the chat (the line above an answer, the model's panel): on a phone the page side
+      comes forward, where the tip is (review 52 of the Guide, problems 357 and 358). */
+  show: function (href) {
+    var went = goToAddress(href);
+    if (went && narrow()) setPane('canvas');
+    return went;
+  },
   /** The page says which of its pages, or which lesson and from where, it is showing. */
   place: function (page, lesson, from) {
     HOLD.page = lesson ? '' : (page || '');

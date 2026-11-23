@@ -5122,9 +5122,9 @@ class Turns:
         # picked a tier (`Turn.route`, `rouh/modelrouter.py`).
         tier = modelstandard.tier_id(tier) if tier else ""
         tier = tier if tier in modeldefaults.TIERS else ""
-        # Cheap, Smart or Auto when the chat is set to one beside the composer (`chatkinds`):
-        # Smart and Cheap answer on their tier with no router, Auto always routes.
-        own = "" if tier else await asyncio.to_thread(chatkinds.own_choice, chat)
+        # Cheap, Smart or Auto when the chat is set to one beside the composer, or starts on one
+        # (`chatkinds.choice_now`): Smart and Cheap answer on their tier with no router, Auto always routes.
+        own = "" if tier else await asyncio.to_thread(chatkinds.choice_now, chat)
         if tier:
             model = await asyncio.to_thread(chatkinds.tier_model, chat, tier, config)
         elif own in chatkinds.CHOICE_TIER:
@@ -6195,7 +6195,10 @@ class Session:
                     error = "This chat's model is set by what it is for, not here."
                 elif not await asyncio.to_thread(chatkinds.set_choice, chat, choice):
                     error = "There is no such chat."
-            said = dict(await asyncio.to_thread(chatkinds.choice_of, chat, config) if chat else {},
+                elif self.me is not None:
+                    # And remembered: the person's next new chat starts on it (review 52, problem 358).
+                    await asyncio.to_thread(chatkinds.remember, self.me, choice)
+            said = dict(await asyncio.to_thread(chatkinds.choice_of, chat, config, self.me) if chat else {},
                         type="chat_model", chat=chat, error=error)
             await self.emit(said)
             if setting and not error:

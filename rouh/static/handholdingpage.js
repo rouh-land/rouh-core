@@ -351,9 +351,14 @@
     var im = el('img');
     im.src = src(p.src);
     im.alt = p.alt || '';
-    im.loading = 'lazy';
+    // A picture with numbered callouts is what a step teaches from: loaded at once, never left an empty
+    // frame with only its letters while the page waits to scroll to it (review 52, problem 351).
+    im.loading = withLegend ? 'eager' : 'lazy';
     im.decoding = 'async';
     if (p.w && p.h) { im.width = p.w; im.height = p.h; }
+    // Its letters and rings are shown with the picture, never over an empty frame.
+    frame.classList.add('hh-shot-wait');
+    im.addEventListener('load', function () { frame.classList.remove('hh-shot-wait'); });
     im.addEventListener('error', function () {
       frame.textContent = '';
       frame.classList.add('hh-shot-none');
@@ -363,11 +368,22 @@
     frame.appendChild(im);
     var marks = withLegend ? (p.marks || []) : [];
     marks.forEach(function (m) {
+      // A ring round what to press (review 52, problem 350): `w` and `h` its size, centred on x and y.
+      if (m.ring) {
+        var ring = el('span', 'hh-ring');
+        ring.style.left = (m.x - m.ring.w / 2) + '%';
+        ring.style.top = (m.y - m.ring.h / 2) + '%';
+        ring.style.width = m.ring.w + '%';
+        ring.style.height = m.ring.h + '%';
+        ring.setAttribute('aria-hidden', 'true');
+        frame.appendChild(ring);
+      }
       // Near an edge, the number goes on the side that has room.
       var dot = el('span', 'hh-dot' + (m.x > 88 ? ' hh-dot-l' : '') + (m.y < 12 ? ' hh-dot-b' : ''));
       dot.appendChild(el('span', 'hh-dot-n', letter(m.n)));
-      dot.style.left = m.x + '%';
-      dot.style.top = m.y + '%';
+      // A ring's letter sits on its edge, never on the word it rings.
+      dot.style.left = (m.ring ? m.x + m.ring.w / 2 : m.x) + '%';
+      dot.style.top = (m.ring ? m.y - m.ring.h / 2 : m.y) + '%';
       dot.setAttribute('aria-hidden', 'true');
       frame.appendChild(dot);
     });
@@ -493,7 +509,7 @@
       var l = x.lesson;
       var hay = [l.title, l.tag || '', l.outcome, (l.summary || []).join(' '), x.stage.title, x.stage.topics || '',
                  (l.says || []).join(' '), (l.parts || []).map(function (p) { return p.name + ' ' + p.text; }).join(' '),
-                 (l.how || []).map(function (h) { return typeof h === 'string' ? h : h.text; }).join(' '),
+                 howSteps(l).map(function (h) { return typeof h === 'string' ? h : h.text; }).join(' '),
                  (l.keys || []).map(function (r) { return r.join(' '); }).join(' ')].join(' ').toLowerCase();
       return words.every(function (w) { return hay.indexOf(w) >= 0; });
     }).sort(function (a, b) {
@@ -982,19 +998,13 @@
     if (l.remembers) { wrap.appendChild(remembers()); }
     if (l.connection) { wrap.appendChild(connectionFacts(l)); }
     if (l.parts && l.parts.length) { wrap.appendChild(partsList(l, used)); }
-    if (l.how && l.how.length) {
+    if (l.how_tabs && l.how_tabs.length) {
+      wrap.appendChild(el('h4', 'hh-h2', 'How'));
+      wrap.appendChild(howTabs(l, used));
+    } else if (l.how && l.how.length) {
       var hh = el('h4', 'hh-h2', 'How');
       wrap.appendChild(hh);
-      var ol = el('ol', 'hh-how');
-      l.how.forEach(function (s, i) {
-        var li = el('li');
-        var words = typeof s === 'string' ? s : s.text;
-        li.appendChild(rich('p', 'hh-how-t', words, l.id, used));
-        if (s && s.image) { li.appendChild(picture(s.image, '', true)); }
-        k(li, 'how-' + i);
-        ol.appendChild(li);
-      });
-      wrap.appendChild(ol);
+      wrap.appendChild(howList(l, l.how, used, 'how-'));
     }
     if (l.says && l.says.length) {
       var sh = el('h4', 'hh-h2', 'Things you can say');
@@ -1023,6 +1033,83 @@
     // Where the tip's words end: the reading line is measured to here.
     wrap.appendChild(el('div', 'hh-end'));
     return wrap;
+  }
+
+  /** The numbered steps of a tip's How. */
+  function howList(l, steps, used, key) {
+    var ol = el('ol', 'hh-how');
+    steps.forEach(function (s, i) {
+      var li = el('li');
+      var words = typeof s === 'string' ? s : s.text;
+      li.appendChild(rich('p', 'hh-how-t', words, l.id, used));
+      if (s && s.image) { li.appendChild(picture(s.image, '', true)); }
+      k(li, key + i);
+      ol.appendChild(li);
+    });
+    return ol;
+  }
+  /** Every step of a tip's How, in one list: its own, or every tab's (`how_tabs`). */
+  function howSteps(l) {
+    if (l.how_tabs && l.how_tabs.length) {
+      return [].concat.apply([], l.how_tabs.map(function (t) { return t.how || []; }));
+    }
+    return l.how || [];
+  }
+  /** A phone, or a tablet: the tab a tip's How opens on there (review 52, problem 353). */
+  function onPhone() {
+    return !!(window.matchMedia && (window.matchMedia('(pointer: coarse)').matches ||
+      window.matchMedia('(max-width: 600px)').matches));
+  }
+  /** A How in tabs, one for a phone and one for a computer (Petar, 23 November 2026, review 52 of the
+      Guide, problem 353: "have 2 tabs to split between mobile and desktop. show default open the one at
+      which the person is using it"). The tab picked is kept while the page is open. */
+  function howTabs(l, used) {
+    H.howTab = H.howTab || {};
+    var tabs = l.how_tabs;
+    var mine = tabs.filter(function (t) { return t.id === (onPhone() ? 'phone' : 'desk'); })[0] || tabs[0];
+    var on = H.howTab[l.id] || mine.id;
+    var box = el('div', 'hh-tabs');
+    var bar = el('div', 'hh-tabbar');
+    bar.setAttribute('role', 'tablist');
+    bar.setAttribute('aria-label', 'How, on a phone or on a computer');
+    box.appendChild(bar);
+    var btns = [], panels = [];
+    function choose(id, focus) {
+      H.howTab[l.id] = id;
+      tabs.forEach(function (t, i) {
+        var sel = t.id === id;
+        btns[i].setAttribute('aria-selected', sel ? 'true' : 'false');
+        btns[i].tabIndex = sel ? 0 : -1;
+        panels[i].hidden = !sel;
+        if (sel && focus) { btns[i].focus(); }
+      });
+    }
+    tabs.forEach(function (t, i) {
+      var b = k(el('button', 'hh-tab'), 'howtab-' + t.id);
+      b.type = 'button';
+      b.id = 'hh-howtab-' + l.id + '-' + t.id;
+      b.setAttribute('role', 'tab');
+      b.setAttribute('aria-controls', 'hh-howpanel-' + l.id + '-' + t.id);
+      b.appendChild(el('span', '', t.name));
+      if (t.id === mine.id) { b.appendChild(el('span', 'hh-tab-note', 'you are on this')); }
+      b.addEventListener('click', function () { choose(t.id, false); });
+      b.addEventListener('keydown', function (e) {
+        if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') { return; }
+        e.preventDefault();
+        choose(tabs[(i + (e.key === 'ArrowRight' ? 1 : tabs.length - 1)) % tabs.length].id, true);
+      });
+      bar.appendChild(b);
+      btns.push(b);
+      var panel = el('div', 'hh-tabpanel');
+      panel.id = 'hh-howpanel-' + l.id + '-' + t.id;
+      panel.setAttribute('role', 'tabpanel');
+      panel.setAttribute('aria-labelledby', b.id);
+      panel.appendChild(howList(l, t.how || [], used, 'how-' + t.id + '-'));
+      box.appendChild(panel);
+      panels.push(panel);
+    });
+    choose(on, false);
+    return box;
   }
 
   /** While the chat cannot answer (review 51, problem 372): said in plain words, the one button that
