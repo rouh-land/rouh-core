@@ -33,7 +33,7 @@ import anthropic
 
 from . import (attachments, chatkinds, citing, clock, context_editing, costs, demo, events,
                fetchfallback, heartbeat, keeping, llmlog, location, modelstandard, promptcache, replymode,
-               retrying, rouhlinks, servercalls, telegram_chat, toolsearch, turnmarks, turntrace, untrusted,
+               retrying, rouhlinks, senders, servercalls, telegram_chat, toolsearch, turnmarks, turntrace, untrusted,
                worklabel)
 from . import memory as memory_mod
 from .config import (GOOGLE, PROVIDER_NAMES, XAI, effort_for, is_openai, luna_ready, model_name,
@@ -989,6 +989,11 @@ class Brain:
         (`seeds_for_turn`), for this turn alone, after the clock, and
         `recall` what automatic recall found about what it names
         (`memory_for_turn`), after them."""
+        # A guest's turn is told its grant's page and rules, and none of the owner's (`rouh/senders.py`). Here, in
+        # the one place every request of a turn builds its system prompt, fallbacks to another model included.
+        sealed = senders.guest()
+        if sealed is not None:
+            return senders.system_blocks(sealed)
         from . import prompting, reading, rules as rules_mod
         from .modeldefaults import org_now
 
@@ -1264,6 +1269,10 @@ class Brain:
         # beside everything the turn does before its first request (D84).
         # Neither on the stage in demo mode, which is told nothing of the person's memory (`rouh/demo.py`).
         stage = demo.on_stage()
+        # A guest's message (`rouh/senders.py`): nothing of the owner's memory is looked up for it, here or anywhere
+        # in the turn. Their turn is built from their grant alone.
+        sealed = senders.guest()
+        stage = stage or sealed is not None
         seeds = None if note or stage else start_seeds(session_id, user_content)
         # And automatic recall of what the message is about, beside it, on the
         # person's own words only (`start_recall`): their message, or a
@@ -1279,7 +1288,7 @@ class Brain:
         # that fails leaves the chat's own fallback to answer.
         # The goals part of the system prompt, which reads every goal and its plan,
         # worked out beside the router too rather than after it (`_goals_block`).
-        goals_early = asyncio.ensure_future(asyncio.to_thread(_goals_block, session_id))
+        goals_early = asyncio.ensure_future(asyncio.to_thread(_goals_block, session_id)) if sealed is None else None
         if asyncio.isfuture(model):
             pending = model
             trace = turntrace.current()
@@ -1295,11 +1304,13 @@ class Brain:
             if trace is not None:
                 trace.waited("Waiting for the model decision", since)
         try:
-            GOALS_EARLY.set({"chat": session_id, "text": await goals_early})
+            GOALS_EARLY.set({"chat": session_id, "text": await goals_early} if goals_early is not None else None)
         except Exception:  # noqa: BLE001 - the prompt reads them itself then
             GOALS_EARLY.set(None)
         try:
-            with llmlog.about(purpose="turn", session_id=session_id,
+            # A guest's turn is a page's conversation on the Models page and on the stats screen ("askai"), and
+            # stays under the guest's own name there (`llmlog.about(who=...)` around it, `rouh/rooms.py`).
+            with llmlog.about(purpose="askai" if sealed is not None else "turn", session_id=session_id,
                               turn_id=turn_id or "turn-" + uuid.uuid4().hex[:12]):
                 return await self._turn(session_id, user_content, emit, on_sentence,
                                         model, stop, answer_now, question, seeds, recall,
@@ -1360,6 +1371,12 @@ class Brain:
         # (`modelstandard.effort`), whichever model that is.
         model = model or chatkinds.model_for(session_id, self.cfg)
         level = modelstandard.effort(model)
+        # A guest's message (`rouh/senders.py`): the turn is built from their grant, and only Anthropic's loop below
+        # knows how (`rooms.answer` asks with the "askai" use's Anthropic model).
+        sealed = senders.guest()
+        if sealed is not None and (is_openai(model) or provider_of(model) in (GOOGLE, XAI)):
+            raise RuntimeError(f"{model_name(model)} cannot answer a shared page's conversation: it needs an "
+                               "Anthropic model on the Models page's Ask AI.")
         # An OpenAI model, when the chat's tier is one (`rouh/modeldefaults.py`).
         # Its turn is a loop of its own over OpenAI's Responses API
         # (`rouh/luna.py`), so nothing below this changes for Anthropic's.
@@ -1396,7 +1413,7 @@ class Brain:
         # first time: the window stops in front of it, so the model is not
         # shown its own old answer to the very question it is being asked.
         # On a thread, as the system prompt below: on the loop they held every tab.
-        history = await asyncio.to_thread(
+        history = [] if sealed is not None else await asyncio.to_thread(
             self.memory.history, session_id, rules.history, before=question.slot.root,
             # A fork carries what it came off the way that chat is sent itself.
             limit_of=lambda chat: chatkinds.profile(chat, self.cfg).history,
@@ -1407,6 +1424,16 @@ class Brain:
                  f"all {len(history)} messages" if rules.history < 0
                  else f"the newest {len(history)} messages", model)
         messages = history + [{"role": "user", "content": user_content}]
+        from . import rooms
+
+        if sealed is not None:
+            # The page's shared room as who-said-what, words only, then their message (`rooms.guest_messages`):
+            # never a tool call or result of anybody's turn, so nothing an owner's turn read is in it.
+            messages = await asyncio.to_thread(rooms.guest_messages, session_id, user_content, sealed.owner_name)
+        elif await asyncio.to_thread(rooms.is_room, session_id):
+            # The owner in a shared room: every guest's words boxed as theirs, never obeyed as his
+            # (`rooms.quoted_for_owner`).
+            messages = rooms.quoted_for_owner(messages)
         noted = answer_now and replymode.NOW.get().marks
         if noted:
             # Only where the marks were asked for: a typed message is finished
@@ -1431,9 +1458,17 @@ class Brain:
         # one is deferred: the model is handed a search tool and a catalogue,
         # and loads what it needs (`rouh/toolsearch.py`). Which mode depends on
         # the model, so a fallback to one that cannot defer gets its own plan.
-        entries = self.tool_entries("claude", messages)
-        plan = self._tool_plan(entries, model, messages)
-        if not _reads(session_id)["any_tools"] and not _has_tool_calls(messages):
+        if sealed is not None:
+            # Only the grant's tools, declared whole: no catalogue of the owner's, no search, none of his rules told
+            # with them (`senders.tool_definitions`). `ToolRegistry.call` refuses anything else anyway.
+            declared = senders.tool_definitions(self.tools)
+            entries = []
+            plan = toolsearch.Plan(mode="off", tools=declared, catalogue="",
+                                   declared={d.get("name", "") for d in declared})
+        else:
+            entries = self.tool_entries("claude", messages)
+            plan = self._tool_plan(entries, model, messages)
+        if sealed is None and not _reads(session_id)["any_tools"] and not _has_tool_calls(messages):
             # Tools off and no call in the history to declare them for: none is declared at all, so the
             # model is told of none (`rouh/reading.py`).
             entries = []
@@ -1450,7 +1485,7 @@ class Brain:
         # on a 400. And every round trip of the turn reads the one before it
         # out of the prompt cache only while nothing in front of it has
         # changed (`rouh/promptcache.py`).
-        found, remembered = await memory_for_turn(session_id, seeds, recall, began)
+        found, remembered = (await memory_for_turn(session_id, seeds, recall, began)) if sealed is None else ("", "")
         # The asked-again offer and plain words, worked out once a turn. Named `again`, not
         # `asked`, which is the model the request asks for below.
         # Both read and keep the person's words, so neither runs in an incognito chat or with Memory off
@@ -1458,11 +1493,13 @@ class Brain:
         from . import incognito as _incognito
 
         reads = _reads(session_id)
-        quiet = _incognito.quiet(session_id) or not reads["memory"] or "ctx:terms" in set(reads.get("off") or ())
+        quiet = (sealed is not None or _incognito.quiet(session_id) or not reads["memory"]
+                 or "ctx:terms" in set(reads.get("off") or ()))
         again = "" if question.note or quiet else await asyncio.to_thread(_asked_again_block, session_id,
                                                                           user_content)
         plain = (await asyncio.to_thread(_plain_words_block, session_id, user_content, question.note)
-                 if not quiet else (await asyncio.to_thread(_plain_words_rule) if reads["rules"] else ""))
+                 if not quiet else (await asyncio.to_thread(_plain_words_rule)
+                                    if reads["rules"] and sealed is None else ""))
         if plain:
             again = (again + "\n\n" + plain) if again else plain
         system = await asyncio.to_thread(self._system, plan, seeds=found, recall=remembered, asked=again)
@@ -1539,7 +1576,8 @@ class Brain:
         # A page web_fetch could not read is read again in a browser, and the
         # reply carries on from what the browser read; a link to Rouh itself
         # is read inside Rouh instead, never outside (`rouh/fetchfallback.py`).
-        second = fetchfallback.Second(getattr(self.tools, "browsing", None), links=self.tools)
+        second = (fetchfallback.Second(getattr(self.tools, "browsing", None), links=self.tools)
+                  if sealed is None else fetchfallback.Second(None, links=None))
         sent_at = time.monotonic()
         first = True
         while True:
@@ -2142,7 +2180,8 @@ class Brain:
         await emit({"type": "assistant_done", "text": text,
                     "usage": usage, "spent": spent})
         if not acted and text:
-            self._double(session_id, system, messages, text, request, usage)
+            if sealed is None:
+                self._double(session_id, system, messages, text, request, usage)
         return text
 
     def _double(self, session_id: str, system, messages: list, text: str, request: dict,

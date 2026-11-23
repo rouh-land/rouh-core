@@ -1428,7 +1428,6 @@ slack_listener = slack_listen_mod.Listener(
     tenancy=tenancy)
 
 
-
 async def start_run_for(*, brief: str, title: str, workspace: str = "",
                         policy: str = "", preset: str = "", org_id: str = "") -> dict:
     """One run, started the one way every run on this machine is started.
@@ -2850,7 +2849,6 @@ class TreeFeed:
             return
         cls.last = tree
         await Hub.broadcast({"type": "tree", "tree": tree, "now": time.time()})
-
 
 
 class OwnWork:
@@ -6941,7 +6939,8 @@ class Session:
             # carries it and nothing after it does.
             from . import page_in_chat
 
-            page = await asyncio.to_thread(page_in_chat.take, msg.get("page"))
+            # In a shared page's room the room's own page, when the message named none (`page_in_chat.take_for`).
+            page = await asyncio.to_thread(page_in_chat.take_for, self.session_id, msg.get("page"))
             beside = page_in_chat.NOW.set(page)
             # And the screen it was sent from, for a job asked to change Rouh (`rouh/fix_context.py`).
             from . import fix_context
@@ -7417,6 +7416,15 @@ class Session:
                                  "message": "An edited message cannot be empty."})
                 return
         again = memory.another_try(self.session_id, root, text)
+        # A guest's message in a shared page's room is theirs: asked again here it would be the owner's whole turn
+        # doing what they said (`rouh/rooms.py`). Nothing is changed; the owner says it in his own words instead.
+        from . import rooms
+
+        if again is not None and rooms.room_of(again.get("content")) is not None:
+            await self.emit({"type": "error", "fatal": False,
+                             "message": "That was somebody else's message in this shared conversation, so it is "
+                                        "not asked again as yours. Say what you want in your own message."})
+            return
         if again is None:
             await self.emit({"type": "error", "fatal": False,
                              "message": "That message is not in this conversation "
@@ -7618,7 +7626,6 @@ class Session:
         except SpeechError as exc:
             await self.emit({"type": "error", "message": str(exc)[:200], "fatal": False})
             return ""
-
 
 
 #: The task that shares tasks with whoever outside asked for them, held so it is not collected.
@@ -8247,64 +8254,6 @@ async def _drop_unknown_task(job_id: str) -> None:
     log.info("dropping the card for %s: no such job here", job_id)
     await Hub.broadcast({"type": "tasks_forgotten", "ids": [job_id]})
     await Hub.broadcast({"type": "tasks", "tasks": rows})
-
-
-#: The Ask AI exchanges on their way into a conversation, held so that none of
-#: them is collected half way (`askai_said`).
-_ASKAI_WRITING: set[asyncio.Task] = set()
-
-
-def askai_said(chat: str, doc: str, title: str):
-    """What Ask AI hands each exchange the owner has in it (`askai.answer`).
-
-    Petar, 27 September 2026 (fr_dd4ac24658fa): "ask ai doesn't get included in
-    the orb and it should". Ask AI kept its exchanges to itself, so the
-    conversation beside it - the Rouh tab, which is the chat the orb and the
-    voice talk in - had never heard of them. Now each one is written into that
-    conversation too, as the person's question and the answer they had, drawn
-    under a label that says it was Ask AI and read by the model like any turn
-    (`Memory.add_askai`). The Ask AI topics stay what they were: its own rows,
-    and its own history of topics on the page.
-
-    `chat` is the conversation the page had on the screen when the question
-    was asked, which is where the person will carry on. One that is not a chat
-    or a draft of one any more is the active chat instead.
-    """
-    def said(question: str, passage: str, answer: str) -> None:
-        try:
-            loop = asyncio.get_running_loop()
-        except RuntimeError:
-            return
-        task = loop.create_task(_askai_write(chat, doc, title, question, passage, answer))
-        _ASKAI_WRITING.add(task)
-        task.add_done_callback(_ASKAI_WRITING.discard)
-    return said
-
-
-async def _askai_write(chat: str, doc: str, title: str, question: str, passage: str,
-                       answer: str) -> None:
-    chat = (chat or "").strip()
-    if not chat or (memory.chat(chat) is None and conversations.draft(chat) is None):
-        chat = memory.active_chat()
-    # Between two turns and never inside one: a turn running there has its
-    # question, its tool calls and their results to write in that order, and an
-    # exchange put in the middle of them would be a conversation the model
-    # refuses to read.
-    while (running := Turns.of(chat)) is not None and running.task is not None:
-        await asyncio.wait({running.task})
-    # Nothing is awaited from here to the write, so no turn can start in this
-    # chat in between. A chat deleted meanwhile is not made again.
-    if memory.chat(chat) is None and conversations.draft(chat) is None:
-        return
-    try:
-        rows = memory.add_askai(chat, doc, title, question, passage, answer)
-    except Exception:                               # noqa: BLE001 - logged, never raised
-        log.exception("the Ask AI exchange about %s could not be written into %s", doc, chat)
-        return
-    await Pictures.to_chat(chat, {"type": "askai_said", "rows": rows})
-    # A draft is a chat now, and the rail says so; its name, and its place at
-    # the top of the list, are a turn's.
-    after_a_turn(chat)
 
 
 async def announce(note: str, chat: str = "") -> bool:

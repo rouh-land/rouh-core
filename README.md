@@ -512,6 +512,21 @@ sign-in: a username and a password, on an account of your own.
   Everything about tasks starts here: clicking a task in the list of chats and
   tasks loads exactly what clicking it here loads, and so does asking for it out
   loud.
+- **One chat for everybody on a shared page, each message with its sender's permissions** (23 November 2026,
+  task 182: "the same chat, just different permissions for different people").
+  A shared page has one conversation (`rouh/rooms.py`): a chat in the owner's own list, titled "Shared: <page>",
+  where the owner, every person the page is shared with and every visitor to its public edit link write, each
+  message under its sender's name, and Rouh answers with its one turn loop.
+  Each turn is built on the server from the grant of whoever sent the message (`rouh/senders.py`): a guest's turn
+  is offered only `read_page_source`, web search and, when their share lets them change the page, `edit_page`;
+  every other tool is refused before it runs; it is told the page, its step's and task's notes and who is asking,
+  and none of the owner's rules, memory, recall or context; and it is sent the room as words, never a tool's
+  result. In the owner's turn a guest's words are boxed as somebody else's, and "Answer this again" on them is
+  refused. The owner's private chats stay private; the page's old Ask AI topics of guests are brought across
+  once, the owner's own are not. Each guest's calls are logged under them, split by person on the stats screen,
+  where each guest's monthly cap is set (`rouh/guest_caps.py`, $10 a month by default), told near it and
+  stopped politely at it. `rouh/selfcheck/shared_rooms.py` tries the escapes.
+  The rest of this item is how it was before, kept for the history of the drawer.
 - **Asks about the page you are reading, and changes it, from one place.**
   The conversation column has two tabs over it while a page from the workspace
   is loaded: **This page** and **Rouh**. One of them is on the screen at a time

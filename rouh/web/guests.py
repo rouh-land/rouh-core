@@ -45,10 +45,12 @@ visitor would need - and the one who may change the page can.
 What such a reader can never reach is anything else. Every route here starts
 from the token, finds the one page it names, and serves that page and its
 questions: never a path from the request, never a listing, never the rest of
-the workspace, never Rouh's own chat. Their questions are kept as their own
-(`askai_threads`, under the guest's own id, or ``link:<token>`` for everybody
-holding one link, which is the "collaboration" Petar asked for), and there is
-a ceiling on them a day, because they are paid for by the owner.
+the workspace, never the owner's own chats. Since 23 November 2026 what they
+say is in the page's one shared conversation (`rouh/rooms.py`), with its owner
+and everybody else it is shared with, answered by Rouh's one turn loop from
+their grant alone (`rouh/senders.py`); there is a ceiling on their questions a
+day and on what they spend in a month (`rouh/guest_caps.py`), because they are
+paid for by the owner.
 """
 from __future__ import annotations
 
@@ -617,7 +619,7 @@ async def shared_back(request: HttpRequest):
         return await asyncio.to_thread(_landshare_page, request, str(exc))
     try:
         guest = await asyncio.to_thread(landshare.guest_for, said["email"], said["land_id"])
-    except landshare.NotAGuest as exc:
+    except landshare.NotAGuest:
         return HttpResponseRedirect("/login?" + urlencode({"next": said["then"], "email": said["email"]}),
                                     status=303)
     except landshare.Refused as exc:
@@ -1021,30 +1023,75 @@ async def reader_ask(request: HttpRequest, kind: str, token: str):
     if reader is None:
         return refuse("That page is not shared with you.", 404)
     asked = body_of(request)
-    response = StreamingHttpResponse(
-        askai.answer(config, _rt().ask_threads, reader.who, reader.rel, asked,
-                     can_edit=reader.can_edit, most_a_day=reader.most_a_day,
-                     page_org=reader.org_id),
-        content_type="text/event-stream")
+    # Answered by Rouh's one turn loop, in the page's shared room, from this reader's grant alone
+    # (`rouh/rooms.py`, `rouh/senders.py`; Petar, 23 November 2026: "the same chat, just different permissions").
+    from rouh import rooms
+
+    response = StreamingHttpResponse(rooms.answer(config, reader, asked), content_type="text/event-stream")
     response["Cache-Control"] = "no-store, private"
     response["X-Accel-Buffering"] = "no"
     return response
 
 
+def _room_topics(reader: Reader) -> list[dict]:
+    """The page's one conversation, as the drawer lists topics: one row, or none before anybody spoke."""
+    from rouh import rooms
+
+    room = rooms.find(reader.owner_id, reader.org_id, reader.rel)
+    if room is None:
+        return []
+    rows = rooms.for_reader(room["chat"], reader.rel, reader.org_id, reader.who, reader.owner)
+    said = [r for r in rows if r["role"] != "edit"]
+    first = next((r for r in said if r["role"] == "user"), None)
+    return [{"id": rooms.thread_id(room["chat"]), "title": "This page's conversation",
+             "created_at": room.get("at") or 0, "selected_text": "",
+             "first_question": "This page's conversation", "first_answer": "",
+             "msg_count": len(said), "room": True, "first": (first or {}).get("content", ""),
+             "quotes": sorted({r["selected_text"] for r in said if r.get("selected_text")})[:60]}]
+
+
+def _room_rows(reader: Reader, thread_id: int) -> list[dict]:
+    from rouh import rooms
+
+    room = rooms.find(reader.owner_id, reader.org_id, reader.rel)
+    if room is None or rooms.thread_id(room["chat"]) != int(thread_id):
+        return []
+    return rooms.for_reader(room["chat"], reader.rel, reader.org_id, reader.who, reader.owner)
+
+
 async def reader_threads(request: HttpRequest, kind: str, token: str):
+    """The page's shared conversation, as the one topic the drawer lists (`rouh/rooms.py`). A page whose Ask AI
+    history has not been brought into its room yet is brought across here, the first time it is read."""
     reader = await _reader(request, kind, token)
     if reader is None:
         return refuse("That page is not shared with you.", 404)
-    return answer(await asyncio.to_thread(_rt().ask_threads.threads, reader.who, reader.rel),
-                  headers=NO_STORE)
+    await asyncio.to_thread(_bring, reader)
+    return answer(await asyncio.to_thread(_room_topics, reader), headers=NO_STORE)
+
+
+def _bring(reader: Reader) -> None:
+    from rouh import rooms
+
+    room = rooms.find(reader.owner_id, reader.org_id, reader.rel)
+    if room is None:
+        from rouh.models import AskThread
+
+        # A room is made for a page somebody already asked about, so their history is there to read.
+        if not AskThread.objects.filter(doc=reader.rel).exclude(user_id=str(reader.owner_id)).exists():
+            return
+        room = rooms.room_for(reader.owner_id, reader.org_id, reader.rel, reader.title)
+    if not room.get("brought"):
+        try:
+            rooms.bring_across(reader.owner_id, reader.org_id, reader.rel)
+        except Exception:  # noqa: BLE001 - the room is still read
+            log.exception("the Ask AI history of %s could not be brought into its room", reader.rel)
 
 
 async def reader_thread(request: HttpRequest, kind: str, token: str, thread_id: int):
     reader = await _reader(request, kind, token)
     if reader is None:
         return refuse("That page is not shared with you.", 404)
-    return answer(await asyncio.to_thread(_rt().ask_threads.messages, reader.who, reader.rel,
-                                          thread_id), headers=NO_STORE)
+    return answer(await asyncio.to_thread(_room_rows, reader, thread_id), headers=NO_STORE)
 
 
 async def reader_undo(request: HttpRequest, kind: str, token: str):

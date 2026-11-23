@@ -45,12 +45,15 @@ from . import clock, costs
 from .usage import _money, named
 
 #: What a level may be split by, in the order the screen goes down unless told otherwise.
-ORDER = ("purpose", "provider", "model", "day", "origin")
+ORDER = ("purpose", "provider", "model", "day", "origin", "person")
 
 #: Every one of them as the screen says it.
 DIMS = {"provider": "Company", "model": "Model", "purpose": "Use", "day": "Day",
         "origin": "Chat, job or page", "hour": "Hour", "why": "Why no price",
-        "source": "Memory source", "item": "Item"}
+        "source": "Memory source", "item": "Item",
+        # Whose message the call answered: the owner, each person a page is shared with, each public link
+        # (`rouh/rooms.py`, `rouh/guest_caps.py`; Petar's brief of 23 November 2026, point 6).
+        "person": "Person"}
 
 #: Which source fed a memory call (Petar, 23 November 2026, task 182, step 182-15: "can we split it by source
 #: so we can make that analysis at a later time?"), from the two columns `rouh/synapse/feeds.py` fills. A
@@ -480,6 +483,8 @@ def _expr(dim: str, zone_name: str) -> tuple[str, list]:
         return SOURCE_SQL, []
     if dim == "item":
         return ITEM_SQL, []
+    if dim == "person":
+        return "user_id", []
     raise Refused(f"a level is split by one of {', '.join(ORDER)}")
 
 
@@ -646,7 +651,8 @@ def level(who, *, period: str = "days30", at: str | None = None, start: str | No
         else:
             got.sort(key=lambda g: (-_sum(g[1]), -g[2], str(g[0])))
         keys = [g[0] for g in got[:ROWS]]
-        known = _titles(keys, who.org_id) if by == "origin" else _item_titles(keys, who) if by == "item" else {}
+        known = (_titles(keys, who.org_id) if by == "origin" else _item_titles(keys, who) if by == "item" else
+                 people_named(keys, who) if by == "person" else {})
         for k, cost, calls, nopay, bcost, bcalls, tokens in got[:ROWS]:
             k = k or ""
             cost, bcost = _sum(cost), _sum(bcost)
@@ -721,6 +727,7 @@ def level(who, *, period: str = "days30", at: str | None = None, start: str | No
         "change": change,
         "rows": rows,
         "more": more,
+        "caps": caps_for(who, [r["key"] for r in rows]) if by == "person" else None,
         "series": series,
         "plans": plans,
         "began": datetime.fromtimestamp(began, zone).date().isoformat() if began else None,
@@ -763,7 +770,8 @@ def _trail(who, filters: dict) -> list[dict]:
     """The choices made on the way down, each as the screen says it."""
     out = []
     for dim, value in filters.items():
-        known = _titles([value], who.org_id) if dim == "origin" else _item_titles([value], who) if dim == "item" else {}
+        known = (_titles([value], who.org_id) if dim == "origin" else _item_titles([value], who) if dim == "item"
+                 else people_named([value], who) if dim == "person" else {})
         named_ = _row_name(dim, value, known)
         out.append({"dim": dim, "value": value, "name": named_["name"], "what": DIMS[dim],
                     "link": named_.get("link", "")})
@@ -842,7 +850,51 @@ def _row_name(dim: str, key: str, known: dict) -> dict:
         return {"name": source_named(key), "link": ""}
     if dim == "item":
         return {"name": item_named(key, known), "link": ""}
+    if dim == "person":
+        return {"name": known.get(key) or ("Nobody named (Rouh's own work)" if not key else key), "link": ""}
     return {"name": key, "link": ""}
+
+
+def people_named(keys, who) -> dict:
+    """Each person's id in the log as the screen names them: you, a guest by name and address, a public link."""
+    from .models import User
+
+    out: dict[str, str] = {}
+    ids = [int(k) for k in keys if str(k or "").isdigit()]
+    for u in User.objects.filter(id__in=ids).values("id", "first_name", "last_name", "email", "is_guest"):
+        key = str(u["id"])
+        name = " ".join(f"{u['first_name'] or ''} {u['last_name'] or ''}".split()) or u["email"] or f"Person {key}"
+        if key == str(who.user_id):
+            out[key] = f"You ({name})" if name else "You"
+        elif u.get("is_guest"):
+            out[key] = (f"{name} ({u['email']})" if u["email"] and u["email"] != name else name) + ", a guest"
+        else:
+            out[key] = name
+    for k in keys:
+        if str(k or "").startswith("link:"):
+            out[str(k)] = "A visitor with a public link (" + str(k)[5:13] + "...)"
+    return out
+
+
+def caps_for(who, keys) -> dict | None:
+    """The monthly cap of each guest on this level, and what they spent this month, for the owner to change
+    (`rouh/guest_caps.py`). None for anybody but the owner."""
+    if not who.is_admin:
+        return None
+    from . import guest_caps
+
+    held = guest_caps.settings(who.user_id, who.org_id)
+    rows = {}
+    for k in keys:
+        k = str(k or "")
+        if not k or k == str(who.user_id):
+            continue
+        cap = float(held["people"].get(k, held["default"]))
+        used = guest_caps.spent(k, who.org_id)
+        rows[k] = {"cap": cap, "own": k in held["people"], "month": round(used, 4),
+                   "cap_said": _money(cap), "month_said": _money(used),
+                   "stopped": used >= cap, "near": cap > 0 and used >= cap * guest_caps.WARN_AT}
+    return {"default": held["default"], "default_said": _money(held["default"]), "rows": rows}
 
 
 #: How many of a level's rows the chart colours one by one; the rest are one grey "Other".

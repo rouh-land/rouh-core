@@ -134,7 +134,7 @@ export interface ServerMessages {
   model_defaults: {};
   /** The page open beside the chat was changed by Rouh in the one conversation (`edit_page`,
    *  `rouh/page_in_chat.py`): the canvas draws it again when it is that page. */
-  page_changed: { doc: string; summary?: string; };
+  page_changed: { doc: string; summary?: string; edit?: number; keepable?: boolean; patch?: any; show?: boolean; };
   /** Cheap, Smart or Auto for one chat, the control beside the composer (`chatkinds.choice_of`): said back to
    *  the tab that asked or set it, and to every other tab of the person's when it was set. */
   chat_model: { chat: string; choice?: string; own?: boolean; default?: string; remembered?: boolean; chooses?: boolean; mode?: string;

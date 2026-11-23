@@ -902,6 +902,15 @@
     "rouh/static/askai/askai.*"
    ]
   },
+  "shared-rooms": {
+   "name": "Shared rooms",
+   "what": "One conversation per shared page for its owner, the people it is shared with and Rouh, answered by Rouh's one turn loop with each message's turn built from its sender's grant (only their page, read or change as shared), each guest's spending capped by the month.",
+   "files": [
+    "rouh/senders.py",
+    "rouh/rooms.py",
+    "rouh/guest_caps.py"
+   ]
+  },
   "page-comments": {
    "name": "Page comments",
    "what": "Rouh lets people on a shared page leave Figma-style pinned comments with tags, resolving and orphan snapshots, and Rouh and its agents read, add, change and take away those comments with the page_comments tool.",

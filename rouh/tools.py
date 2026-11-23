@@ -3441,6 +3441,10 @@ class ToolRegistry:
             _edit = page_in_chat.tool_definition()
             self._own(_edit["name"], _edit["description"], _edit["input_schema"], self._edit_page,
                       area="tasks", brief="change the page open on the canvas beside this chat")
+            # And the exact pieces of a long page's source, which is not sent whole (`page_in_chat.read_piece`).
+            _piece = page_in_chat.PIECE_TOOL
+            self._own(_piece["name"], _piece["description"], _piece["input_schema"], self._read_page_source,
+                      area="tasks", brief="read exact pieces of the open page's HTML source")
             # What the canvas can be pointed at. Two modes and no more: the
             # tasks, and now. Opening one task or one step is not a third mode
             # - it is what to load, and it is loaded exactly as a click on it
@@ -12386,6 +12390,12 @@ class ToolRegistry:
         is not shown the rest, and `call` refuses them anyway.
         """
         turn = mail_turn.now()
+        # A guest's message, in a shared page's room: only their grant's tools, and nothing else is even named
+        # (`rouh/senders.py`). First, so no other rule below can add one back.
+        from . import senders
+
+        if senders.guest() is not None:
+            return [d for d in senders.tool_definitions(self) if d.get("name") != "web_search"]
         defs = self._defs
         # A person's own MCP servers only in their own turns (`_mcp_theirs`).
         if self.mcp_live:
@@ -12495,6 +12505,13 @@ class ToolRegistry:
             return None
 
     async def call(self, name: str, args, emit, *, call_id: str = ""):
+        # A guest's turn calls its grant's tools and nothing else, however it was asked to (`rouh/senders.py`).
+        # Before anything else is looked up, so a refused call has no effect of any kind.
+        from . import senders
+
+        if not senders.may_use(name):
+            log.warning("a guest's turn was refused %s", name)
+            return untrusted.ours(senders.refused(name))
         handler = self._handlers.get(name)
         if handler is None:
             return f"There is no tool called {name}."
@@ -15115,8 +15132,14 @@ class ToolRegistry:
         said, changed = await asyncio.to_thread(page_in_chat.edit, args if isinstance(args, dict) else {})
         if changed:
             with contextlib.suppress(Exception):
-                await emit({"type": "page_changed", "doc": changed["doc"], "summary": changed["summary"]})
+                await emit({"type": "page_changed", **changed})
         return said
+
+    async def _read_page_source(self, args, emit):
+        """Exact pieces of the open page's source (`rouh/page_in_chat.py`)."""
+        from . import page_in_chat
+
+        return await asyncio.to_thread(page_in_chat.read_piece, args if isinstance(args, dict) else {})
 
     async def _show_workspace_page(self, args, emit):
         """A page from the person's workspace, whole, in a sandboxed frame on a card."""

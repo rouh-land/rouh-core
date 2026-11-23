@@ -652,6 +652,9 @@ function fitActs(turn) {
     // through it: the exchange it is in is the question above's, so asking it
     // again or editing it would be asking that question, not this.
     var steered = turn.classList.contains('steered');
+    // Somebody else's words in a shared page's conversation (`roomMark`): asking them again or editing them would
+    // be the owner's turn doing what a guest said, which the server refuses too (`Session.answer_again`).
+    if (turn.classList.contains('room-guest')) steered = true;
     var retry = actBtn('retry', mine ? 'Ask this again' : 'Answer this again');
     retry.addEventListener('click', function () { askAgain(turn); });
     if (!askai && !notice && !steered) row.appendChild(retry);
@@ -1275,6 +1278,7 @@ function drawStored(e, before, last) {
   }
   var turn = newTurn(mine ? 'You' : 'Rouh', mine ? 'user' : 'assistant', before);
   if (e.askai) askaiMark(turn, e.askai, mine);
+  if (e.room && mine) roomMark(turn, e.room);
   if (e.notice && !mine) noticeMark(turn);
   if (e.steered && mine) turn.turn.classList.add('steered');
   // Which row of the conversation this is, and when it was. A card says
@@ -1620,6 +1624,21 @@ function askaiMark(turn, about, mine) {
   var head = el('div', 'askai-about');
   head.appendChild(el('span', 'askai-page', 'On ' + (about.title || about.doc || 'the page')));
   if (about.passage) head.appendChild(el('span', 'askai-passage', clipWords(about.passage, 160)));
+  turn.body.parentNode.insertBefore(head, turn.body);
+}
+
+/* A message somebody else said in a shared page's conversation (`rouh/rooms.py`): their name over it, not "You",
+   and the passage they asked about. Petar, 23 November 2026: "the same chat, just different permissions for
+   different people". */
+function roomMark(turn, said) {
+  turn.turn.classList.add('room-guest');
+  var who = turn.turn.querySelector(':scope > .turn-who');
+  if (who) who.textContent = said.kind === 'link' ? (said.label || 'A visitor with the link')
+    : (said.label || 'A guest') + ', shared with them';
+  if (said.name && who) who.title = said.name + (said.may ? ' - ' + said.may : '');
+  if (!said.quote) return;
+  var head = el('div', 'askai-about');
+  head.appendChild(el('span', 'askai-passage', clipWords(said.quote, 160)));
   turn.body.parentNode.insertBefore(head, turn.body);
 }
 

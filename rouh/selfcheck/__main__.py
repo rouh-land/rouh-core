@@ -14,6 +14,8 @@ import tempfile
 import time
 from pathlib import Path
 
+from . import GROUPS
+
 
 def _environment() -> None:
     """Nothing of the person's: no keys, no live services, a data folder of its own."""
@@ -72,7 +74,7 @@ def _database(wait: float) -> str:
 
 def main() -> int:
     ap = argparse.ArgumentParser(prog="python -m rouh.selfcheck")
-    ap.add_argument("--only", choices=("own", "security", "unrestricted", "undo_191", "tools_191", "protections_191"), default="")
+    ap.add_argument("--only", choices=GROUPS, default="")
     ap.add_argument("--wait-db", type=float, default=90.0)
     a = ap.parse_args()
 

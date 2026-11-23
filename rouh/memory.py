@@ -1272,33 +1272,6 @@ class Memory:
         said = "" if note else _words(role, content)
         conversations.add_turn(session_id, role, "" if said == STOP_NOTE else said)
 
-    def add_askai(self, session_id: str, doc: str, title: str, question: str,
-                  passage: str, answer: str) -> list[dict]:
-        """One Ask AI exchange, written into a chat as a question and its answer.
-
-        One exchange: the answer's row belongs to the question's, the way every
-        turn's answer does. Handed back as the page draws the two rows, for the
-        tabs standing in that chat (`runtime.askai_said`).
-        """
-        asked = [{"type": "text", "text": _askai_head(doc, title)}]
-        if passage:
-            asked.append({"type": "text", "text": f"{ASKAI_PASSAGE}\n{passage}]"})
-        asked.append({"type": "text", "text": question})
-        first = self.add_message(session_id, "user", asked)
-        second = self.add_message(session_id, "assistant", [{"type": "text", "text": answer}],
-                                  root=first)
-        with self._lock:
-            rows = _drawn(TranscriptMessage.objects.filter(session_id=session_id,
-                                                           id__in=(first, second))
-                          .order_by("id"))
-        out: list[dict] = []
-        for r in rows:
-            said = self._said(r)
-            if said is not None:
-                _askai_answer(out[-1] if out else None, said)
-                out.append(said)
-        return out
-
     # --- asking the same thing again ----------------------------------------
     #
     # Re-asking used to mean sending the same words a second time, which left
@@ -2334,6 +2307,12 @@ class Memory:
         asked = askai_of(content) if r["role"] == "user" else None
         if asked is not None:
             row["askai"] = {k: asked[k] for k in ("title", "doc", "passage")}
+        # A message somebody else said in a shared page's room: drawn under their name (`rouh/rooms.py`).
+        from . import rooms
+
+        said_by = rooms.room_of(content) if r["role"] == "user" else None
+        if said_by is not None:
+            row["room"] = {k: said_by[k] for k in ("name", "label", "kind", "quote", "may")}
         if r.get("root") is not None:
             row["root"] = int(r["root"])
         if files:
@@ -2909,6 +2888,12 @@ def _words(role: str, content) -> str:
     asked = askai_of(content) if role == "user" else None
     if asked is not None:
         return asked["question"]
+    if role == "user":
+        from . import rooms
+
+        said_by = rooms.room_of(content)
+        if said_by is not None:
+            return said_by["words"]
     return _plain(content)
 
 

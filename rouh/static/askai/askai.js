@@ -406,6 +406,14 @@ root.querySelector('[data-act="new"]').addEventListener("click", function () {
   open();
 });
 root.querySelector('[data-act="history"]').addEventListener("click", showHistory);
+/* A reader a page was shared with has one conversation on it, shared with its owner and everybody else it is
+   shared with (`rouh/rooms.py`): no topics to start or list. */
+if (!HOSTED) {
+  root.querySelector('[data-act="new"]').hidden = true;
+  root.querySelector('[data-act="history"]').hidden = true;
+  var headWords = root.querySelector("#askai-drawer .head .t");
+  if (headWords) headWords.textContent = "This page's conversation";
+}
 
 /* --------------------------------------------------- highlight anchoring ---- */
 /* Anchor on the passage TEXT, not offsets or XPaths: text survives edits above
@@ -501,6 +509,8 @@ function refreshHighlights() {
           count: t.msg_count, text: t.selected_text
         };
         if (t.selected_text) applyHighlight(t.selected_text, t.id, MAIN);
+        /* A shared page's one conversation marks every passage asked about in it (`rouh/rooms.py`). */
+        (t.quotes || []).forEach(function (q) { if (q) applyHighlight(q, t.id, MAIN); });
       });
     })
     .catch(function () { /* proxy down - page still fine, just unhighlighted */ });
@@ -1199,6 +1209,14 @@ function bubble(cls, text) {
   msgs.appendChild(d); down();
   return d;
 }
+/* Who said the message under it, in a shared page's conversation. */
+function sayWho(name, side) {
+  var d = document.createElement("div");
+  d.className = "who " + (side || "");
+  d.textContent = name;
+  msgs.appendChild(d);
+  return d;
+}
 function dots() {
   var d = document.createElement("div");
   d.className = "dots"; d.innerHTML = "<i></i><i></i><i></i>";
@@ -1270,8 +1288,10 @@ function loadThread(id) {
     .then(function (r) { return r.json(); })
     .then(function (rows) {
       rows.forEach(function (m) {
-        if (m.role === "user") bubble("user", m.content);
-        else if (m.role === "edit") editLine(m.edit, m.content, !!m.undone);
+        /* A shared page's conversation is everybody's: each message says who said it (`rouh/rooms.py`). */
+        if (m.from) sayWho(m.role === "user" && m.mine ? "You" : m.from, m.role === "user" && !m.mine ? "other" : m.role);
+        if (m.role === "user") bubble(m.mine ? "user" : "user other", m.content);
+        else if (m.role === "edit") editLine(m.edit, m.content, !!m.undone, m.mine === false);
         else bubble("ai").innerHTML = md(m.content);
       });
     })
@@ -1319,6 +1339,7 @@ function ask() {
   var q = input.value.trim();
   if (!q || busy) return;
   busy = true; send.disabled = true;
+  if (!HOSTED) sayWho("You", "user");
   bubble("user", q); down(true);
   input.value = ""; size();
 
@@ -1359,7 +1380,7 @@ function ask() {
           }
           else if (ev.type === "text") {
             if (spinner) { spinner.remove(); spinner = null; }
-            if (!target) { target = bubble("ai"); acc = ""; }
+            if (!target) { if (!HOSTED && !wrote) sayWho("Rouh", "ai"); target = bubble("ai"); acc = ""; }
             wrote = true;
             acc += ev.text;
             target.innerHTML = md(acc);
@@ -1405,9 +1426,11 @@ function ask() {
 }
 
 /* A change Ask AI made to the page, as a line of its own, with Undo on it. */
-function editLine(id, summary, undone) {
+function editLine(id, summary, undone, theirs) {
   var d = document.createElement("div");
   d.className = "msg edit" + (undone ? " undone" : "");
+  /* Somebody else's change in the shared conversation: theirs to put back, not this reader's. */
+  if (theirs) undone = true;
   var w = document.createElement("span");
   w.className = "w";
   w.textContent = "Changed the page: " + (summary || "done");

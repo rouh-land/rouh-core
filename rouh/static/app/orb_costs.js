@@ -47,7 +47,7 @@ function ouColour(key) {
   return OU_COLOURS[h % OU_COLOURS.length];
 }
 //: The default order down, as the server has it (`usage_drill.ORDER`).
-var OU_ORDER = ['purpose', 'provider', 'model', 'day', 'origin'];
+var OU_ORDER = ['purpose', 'provider', 'model', 'day', 'origin', 'person'];
 
 /**
  * Where the screen is: the period, the choices made on the way down in the
@@ -876,11 +876,68 @@ function ouPaintSplit(body, u, paint) {
     list.appendChild(li);
   });
   part.appendChild(list);
+  if (u.caps) part.appendChild(ouCaps(u, rows));
   if (u.more) {
     part.appendChild(el('p', 'ou-note', 'And ' + ouCount(u.more.count) + ' more, ' + u.more.said + ' together over ' +
       ouCalls(u.more.calls) + '. See the calls below for every one.'));
   }
   body.appendChild(part);
+}
+
+/* What each person a page is shared with may spend in a month, on the split by person, for the owner to change
+   (`rouh/guest_caps.py`). Petar, 23 November 2026: "Each guest gets a monthly cap with a conservative default the
+   owner can change". */
+function ouCaps(u, rows) {
+  var box = el('div', 'ou-caps');
+  box.appendChild(el('h3', 'ou-h', 'What guests may spend'));
+  box.appendChild(el('p', 'ou-note', 'Each person a page is shared with can spend up to their monthly cap on its ' +
+    'conversation. Near it they are told; at it Rouh stops answering them until the next month.'));
+  var said = el('p', 'ou-capsaid');
+  said.setAttribute('role', 'status');
+  said.setAttribute('aria-live', 'polite');
+  function line(label, value, own, key) {
+    var f = el('div', 'ou-capline');
+    var id = 'ouCap-' + (key || 'default').replace(/[^a-z0-9]/gi, '');
+    var lab = el('label', 'ou-caplabel', label);
+    lab.setAttribute('for', id);
+    var input = /** @type {HTMLInputElement} */ (el('input', 'ou-capin'));
+    input.type = 'number'; input.min = '0'; input.max = '1000'; input.step = '1'; input.id = id;
+    input.value = String(value);
+    input.setAttribute('inputmode', 'decimal');
+    var unit = el('span', 'ou-capunit', 'dollars a month');
+    var save = el('button', 'ctl small', 'Save');
+    save.type = 'button';
+    save.addEventListener('click', function () {
+      var body = key ? { person: key, amount: input.value } : { 'default': input.value };
+      save.disabled = true;
+      fetch('/api/usage/guest-cap', { method: 'POST', credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
+        .then(function (r) { return r.json().then(function (j) { return { ok: r.ok, j: j }; }); })
+        .then(function (got) {
+          said.textContent = got.ok ? (key ? label + ': saved.' : 'Saved for everybody without a cap of their own.')
+            : (got.j && got.j.error) || 'It could not be saved.';
+          if (got.ok) orbUsageLoad();
+        })
+        .catch(function () { said.textContent = 'Rouh could not be reached. Try again.'; })
+        .then(function () { save.disabled = false; });
+    });
+    f.appendChild(lab); f.appendChild(input); f.appendChild(unit); f.appendChild(save);
+    f.appendChild(el('span', 'ou-capmonth', own ? 'Their own cap.' : ''));
+    return f;
+  }
+  box.appendChild(line('Everybody, unless set below', u.caps['default'], false, ''));
+  rows.forEach(function (r) {
+    var c = u.caps.rows && u.caps.rows[r.key];
+    if (!c) return;
+    var f = line(r.name, c.cap, c.own, r.key);
+    var note = f.querySelector('.ou-capmonth');
+    note.className = 'ou-capmonth' + (c.stopped ? ' stopped' : c.near ? ' near' : '');
+    note.textContent = (c.stopped ? 'Stopped: ' : c.near ? 'Near the cap: ' : '') + c.month_said + ' this month' +
+      (c.own ? ', their own cap' : '');
+    box.appendChild(f);
+  });
+  box.appendChild(said);
+  return box;
 }
 
 function ouNextAfter(dim, value) {
@@ -889,7 +946,7 @@ function ouNextAfter(dim, value) {
   var n = ouNext();
   OU.filters = keep;
   return ({ provider: 'company', model: 'model', purpose: 'use', day: 'day', origin: 'chat, job or page', why: 'why no price',
-    source: 'memory source', item: 'item' })[n] || '';
+    source: 'memory source', item: 'item', person: 'person' })[n] || '';
 }
 
 /* ---- the calls ---------------------------------------------------------- */

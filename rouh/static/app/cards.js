@@ -4614,7 +4614,7 @@ var ASK_THREAD = /^\/api\/threads\/(\d+)$/;
 
 // The Rouh address for one of the page's own, or nothing.
 function askRoute(path) {
-  if (path === '/api/ask') return ASK_ROUTE + 'ask';
+  // Asking is the conversation beside the page, never a route of the page's own (`rouh/page_in_chat.py`).
   if (path === '/api/threads') return ASK_ROUTE + 'threads';
   // Text typed straight into the page, and put back from the page itself
   // (`askai.type_text`): the only change the page makes without a question.

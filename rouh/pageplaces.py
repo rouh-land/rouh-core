@@ -349,6 +349,10 @@ def _repoint(old: str, new: str, root=None) -> dict:
         counts["askai_threads"] = AskThread.objects.filter(doc=old).update(doc=new)
         counts["askai_edits"] = AskEdit.objects.filter(doc=old).update(doc=new)
         counts["page_options"] = PageOption.objects.filter(doc=old).update(doc=new)
+        # The page's shared conversation (`rouh/rooms.py`), kept in its owner's settings by the page's path.
+        from . import rooms
+
+        counts["page_rooms"] = rooms.moved(old, new)
         place = PagePlace.objects.select_for_update().filter(rel=old).first()
         if place is not None or found is not None:
             obj, sub = found if found is not None else (place.object_id, place.sub)

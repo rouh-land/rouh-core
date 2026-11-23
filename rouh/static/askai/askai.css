@@ -273,6 +273,12 @@ body.askai-resizing{ user-select:none }
   border-radius:12px 12px 3px 12px; color:var(--askai-copy); white-space:pre-wrap;
   overflow-wrap:anywhere }
 #askai-msgs .msg.ai{ color:var(--askai-muted) }
+/* Who said the message under it, in a shared page's conversation (`rouh/rooms.py`). */
+#askai-msgs .who{ font-size:11.5px; font-weight:600; color:var(--askai-muted); margin:0 0 -10px;
+  letter-spacing:.01em }
+#askai-msgs .who.user{ align-self:flex-end }
+#askai-msgs .msg.user.other{ align-self:flex-start; border-radius:12px 12px 12px 3px;
+  background:var(--askai-panel); border-color:var(--askai-border) }
 #askai-msgs .msg.ai > :first-child{ margin-top:0 }
 #askai-msgs .msg.ai h1,#askai-msgs .msg.ai h2,#askai-msgs .msg.ai h3{
   font-size:14px; margin:14px 0 6px; color:var(--askai-copy); font-weight:640 }

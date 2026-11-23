@@ -1011,6 +1011,23 @@ button { font: inherit; color: inherit; }
 .ou-fail { color: var(--bad); }
 .ou-hint { margin: 4px 0 0; font-size: 12px; line-height: 1.45; color: var(--dim); }
 .ou-grew { margin: 2px 0 8px; font-size: 13px; color: var(--warn); }
+/* What guests may spend, on the split by person (`ouCaps`, `rouh/guest_caps.py`). */
+.ou-caps { margin-top: 18px; padding-top: 14px; border-top: 1px solid var(--line); display: grid; gap: 8px; }
+.ou-caps .ou-note { margin: 0 0 4px; }
+.ou-capline { display: grid; grid-template-columns: minmax(0, 1fr) 84px auto auto minmax(170px, auto);
+  align-items: center; gap: 8px 10px; min-height: 44px; }
+.ou-caplabel { min-width: 0; font-size: 13px; overflow-wrap: anywhere; }
+@media (max-width: 640px) {
+  .ou-capline { grid-template-columns: 84px auto auto; }
+  .ou-caplabel, .ou-capmonth { grid-column: 1 / -1; }
+}
+.ou-capin { width: 84px; min-height: 36px; padding: 6px 8px; border-radius: 6px; border: 1px solid var(--line);
+  background: var(--panel-2); color: var(--text); font: inherit; font-variant-numeric: tabular-nums; }
+.ou-capin:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.ou-capunit, .ou-capmonth { font-size: 12px; color: var(--dim); }
+.ou-capmonth.near { color: var(--warn); }
+.ou-capmonth.stopped { color: var(--warn); font-weight: 600; }
+.ou-capsaid { margin: 0; font-size: 12.5px; color: var(--dim); min-height: 1em; }
 .ou-empty { margin-top: 20px; padding: 22px; border: 1px dashed var(--line); border-radius: var(--radius-s); color: var(--dim); }
 .ou-empty p { margin: 0 0 12px; }
 .ou-part { margin-top: 28px; }
@@ -5873,6 +5890,13 @@ button.rule-tag:focus-visible { outline: 2px solid var(--r-accent); outline-offs
   padding-right: 8px; border-right: 2px solid var(--line);
   color: var(--dimmer); font-style: italic; overflow-wrap: anywhere; text-align: right;
 }
+/* Somebody else in a shared page's conversation (`roomMark`, `rouh/rooms.py`): on the far side from the owner's own
+   words, in a plain bubble, under their name. */
+.turn.user.room-guest { justify-items: start; margin-left: 0; margin-right: auto; }
+.turn.user.room-guest .turn-body { background: var(--panel-2); border-color: var(--line); }
+.turn.user.room-guest .askai-about { justify-items: start; }
+.turn.user.room-guest .askai-passage { padding: 0 0 0 8px; border-right: 0; border-left: 2px solid var(--line);
+  text-align: left; }
 .turn-usage {
   font-size: 10.5px; letter-spacing: 0.06em; color: var(--dimmer);
   text-align: right; padding-right: 2px;

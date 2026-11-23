@@ -23,7 +23,7 @@ import re
 from urllib.parse import quote
 
 from asgiref.sync import sync_to_async
-from django.http import HttpRequest, HttpResponse, HttpResponseRedirect, StreamingHttpResponse
+from django.http import HttpRequest, HttpResponse, HttpResponseRedirect
 from django.shortcuts import render
 from django.utils.http import content_disposition_header
 from django.views.decorators.csrf import csrf_exempt
@@ -151,7 +151,7 @@ async def machine_load_now(request: HttpRequest):
 
 
 #: What the drill-down may be asked, beside the period: the choices made on the way down.
-_DRILL_ASKS = ("provider", "model", "purpose", "day", "hour", "origin", "why", "source", "item")
+_DRILL_ASKS = ("provider", "model", "purpose", "day", "hour", "origin", "why", "source", "item", "person")
 
 
 def _drill_args(request: HttpRequest) -> dict:
@@ -179,6 +179,27 @@ async def _drill(request: HttpRequest, work):
     except Exception as exc:
         log.exception("the drill-down could not be read")
         return refuse(f"the log could not be read: {exc}", 500)
+
+
+@only("POST")
+async def usage_guest_cap(request: HttpRequest):
+    """The owner changes the monthly cap of a person his pages are shared with, or everybody's default
+    (`rouh/guest_caps.py`), from the stats screen's split by person."""
+    from rouh import guest_caps
+
+    me = await sync_to_async(who)(request)
+    if me is None or not me.is_admin:
+        return refuse("Only the owner changes what guests may spend.", 403)
+    got = body_of(request)
+    try:
+        held = await asyncio.to_thread(
+            guest_caps.put, me.user_id, me.org_id,
+            default=float(got["default"]) if got.get("default") not in (None, "") else None,
+            person=str(got.get("person") or "")[:80],
+            amount=float(got["amount"]) if got.get("amount") not in (None, "") else None)
+    except (TypeError, ValueError) as exc:
+        return refuse(str(exc) or "A cap is a number of dollars.", 400)
+    return answer(held, headers=NO_STORE)
 
 
 @only("GET")
@@ -1466,38 +1487,6 @@ async def askai_thread(request: HttpRequest, thread_id: int):
         return refuse("Sign in to Rouh first.", 401)
     return answer(await asyncio.to_thread(_rt().ask_threads.messages, me,
                                           request.GET.get("doc", ""), thread_id))
-
-
-@only("POST")
-async def askai_ask(request: HttpRequest):
-    """One question, answered as it is written - or the page changed, when that
-    is what was asked for (`askai.py`, "Changing the page").
-
-    The answer streams back as server-sent events, which is what the drawer's
-    own reader loop already expects; app.js passes the bytes on to the frame
-    without looking inside them.
-
-    Anybody who reaches this route is signed in with a whole account - a guest
-    is turned away at the gate - and the workspace is theirs, so they may
-    change its pages. A reader who is not the owner asks through the routes
-    under their own token instead (`rouh/web/guests.py`).
-    """
-    me = await sync_to_async(who)(request)
-    if me is None:
-        return refuse("Sign in to Rouh first.", 401)
-    asked = body_of(request)
-    doc = str(request.GET.get("doc") or asked.get("doc") or "")
-    # The exchange goes into the conversation the page had on the screen as
-    # well, which is the one the orb talks in (`runtime.askai_said`).
-    said_to = _rt().askai_said(str(asked.get("chat") or "")[:80], doc,
-                               str(asked.get("title") or "").strip()[:200])
-    response = StreamingHttpResponse(
-        askai.answer(config, _rt().ask_threads, me, doc, asked, can_edit=True,
-                     said_to=said_to),
-        content_type="text/event-stream")
-    response["Cache-Control"] = "no-store, private"
-    response["X-Accel-Buffering"] = "no"
-    return response
 
 
 @only("POST")

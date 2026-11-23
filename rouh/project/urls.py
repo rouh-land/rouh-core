@@ -256,6 +256,7 @@ urlpatterns = [
     path("api/spend", views.spend_record),
     path("api/usage/daily", views.usage_by_day),
     path("api/usage/level", views.usage_level),
+    path("api/usage/guest-cap", views.usage_guest_cap),
     path("api/usage/calls", views.usage_calls),
     path("api/usage/call", views.usage_call),
     path("api/turns/export", views.turns_export),
@@ -302,7 +303,6 @@ urlpatterns = [
     re_path(r"^" + pages.ROUTE.lstrip("/") + r"(?P<path>.*)$", views.workspace_page),
     path(askai.ROUTE.lstrip("/") + "threads", views.askai_threads),
     path(askai.ROUTE.lstrip("/") + "threads/<int:thread_id>", views.askai_thread),
-    path(askai.ROUTE.lstrip("/") + "ask", views.askai_ask),
     path(askai.ROUTE.lstrip("/") + "undo", views.askai_undo),
     path(askai.ROUTE.lstrip("/") + "type", views.askai_type),
     # Comments pinned to one of the person's own pages (`rouh/web/comments.py`).
