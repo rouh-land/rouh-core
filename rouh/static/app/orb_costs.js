@@ -1106,7 +1106,9 @@ function ouPaintCall(c) {
   }
 
   var pieces = (c.pieces || []).filter(function (p) { return p.chars; });
-  if (pieces.length) {
+  if (c.makeup && c.makeup.kept) {
+    ouPaintMakeup(body, c.makeup);
+  } else if (pieces.length) {
     var ps = el('section', 'ou-part');
     ps.appendChild(el('h3', 'ou-h', 'What it sent'));
     ps.appendChild(el('p', 'ou-hint', (c.sent ? ouCount(c.sent) + ' tokens in all, ' + Math.round((c.cached_share || 0) * 100) +
@@ -1132,6 +1134,7 @@ function ouPaintCall(c) {
   } else {
     body.appendChild(el('p', 'ou-note', 'What this call sent is not logged in parts, only its size: ' + ouCount(c.request_bytes) + ' bytes.'));
   }
+  if (c.makeup && !c.makeup.kept && c.makeup.note && pieces.length) body.appendChild(el('p', 'ou-note', c.makeup.note));
 
   var fs = el('section', 'ou-part');
   fs.appendChild(el('h3', 'ou-h', 'Everything else the log knows'));
@@ -1165,6 +1168,113 @@ function ouPaintCall(c) {
   if (c.same_request > 0) fact('Sent again word for word', c.same_request + (c.same_request === 1 ? ' more time' : ' more times'));
   fs.appendChild(dl);
   body.appendChild(fs);
+}
+
+/* What one call was made of (`rouh/call_makeup.py`, task 182, step 182-18): the owner's "where the 380,000
+   tokens come from. Is it the history of the chat, files from the task, loaded memory, or what?" Whether the
+   cache hit and why, then one bar of the cost by group, a table of every part under its group, and the ten
+   largest single items. */
+var OU_GROUP_COLOURS = { instructions: OU_COLOURS[0], tools: OU_COLOURS[3], history: OU_COLOURS[1],
+  turn: OU_COLOURS[2], output: OU_COLOURS[4] };
+
+/** @param {HTMLElement} body @param {any} m */
+function ouPaintMakeup(body, m) {
+  var sec = el('section', 'ou-part ou-makeup');
+  sec.appendChild(el('h3', 'ou-h', 'What this call was made of'));
+  var cache = m.cache || {};
+  if (cache.said) {
+    var cp = el('p', 'ou-cache ou-cache-' + (cache.state || 'none'));
+    var label = { hit: 'Cache hit', partly: 'Cache partly hit', missed: 'Cache missed', none: 'No cache' }[cache.state] || 'Cache';
+    cp.appendChild(el('strong', 'ou-cachetag', label));
+    var said = String(cache.said).replace(/^The cache (hit|missed)[:,]?\s*/, '');
+    cp.appendChild(document.createTextNode(' ' + said.charAt(0).toUpperCase() + said.slice(1)));
+    sec.appendChild(cp);
+    (cache.facts || []).forEach(function (f) { sec.appendChild(el('p', 'ou-hint', f)); });
+  }
+  var groups = (m.groups || []).filter(function (g) { return g.tokens > 0; });
+  var bar = el('div', 'ou-split');
+  bar.setAttribute('role', 'img');
+  bar.setAttribute('aria-label', groups.map(function (g) { return g.name + ' ' + Math.round(g.share * 100) + '%'; }).join(', '));
+  groups.forEach(function (g) {
+    if (!(g.share > 0)) return;
+    var s = el('i');
+    s.style.flex = (g.share * 100) + ' 1 0';
+    s.style.background = OU_GROUP_COLOURS[g.group] || OU_COLOURS[5];
+    s.title = g.name + ': ' + Math.round(g.share * 100) + '% of the cost';
+    bar.appendChild(s);
+  });
+  sec.appendChild(bar);
+
+  var t = el('table', 'ou-ptable ou-mtable');
+  var th = el('thead');
+  var tr = el('tr');
+  ['Part', 'Tokens', 'Cost', 'Share'].forEach(function (x) { var c2 = el('th', '', x); c2.scope = 'col'; tr.appendChild(c2); });
+  th.appendChild(tr);
+  t.appendChild(th);
+  var tb = el('tbody');
+  groups.forEach(function (g) {
+    var r = el('tr', 'ou-mgroup');
+    var nm = el('th');
+    nm.scope = 'row';
+    var sw = el('i', 'ou-sw');
+    sw.style.background = OU_GROUP_COLOURS[g.group] || OU_COLOURS[5];
+    nm.appendChild(sw);
+    nm.appendChild(document.createTextNode(g.name));
+    if (g.group === 'tools' && m.tools) nm.appendChild(el('small', '', m.tools.sent + ' sent in full' + (m.tools.waiting ? ', ' + m.tools.waiting + ' more only named, to be searched for' : '')));
+    if (g.group === 'history' && m.messages) nm.appendChild(el('small', '', ouCount(m.messages) + (m.messages === 1 ? ' message' : ' messages') + ' sent'));
+    r.appendChild(nm);
+    r.appendChild(el('td', '', ouCount(g.tokens)));
+    r.appendChild(el('td', 'ou-pcost', g.money));
+    r.appendChild(el('td', '', Math.round(g.share * 100) + '%'));
+    tb.appendChild(r);
+    (m.parts || []).filter(function (p) { return p.group === g.group && p.tokens > 0; }).forEach(function (p) {
+      if (g.group === 'output' || g.group === 'tools') return;
+      var pr = el('tr', 'ou-mpart');
+      var pn = el('th', '', p.name);
+      pn.scope = 'row';
+      pr.appendChild(pn);
+      pr.appendChild(el('td', '', ouCount(p.tokens)));
+      pr.appendChild(el('td', '', p.money));
+      pr.appendChild(el('td', '', Math.round(p.share * 100) + '%'));
+      tb.appendChild(pr);
+    });
+  });
+  t.appendChild(tb);
+  sec.appendChild(t);
+  if (m.chat) {
+    var since = m.chat.since ? new Date(m.chat.since * 1000).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : '';
+    sec.appendChild(el('p', 'ou-hint', 'This chat: ' + m.chat.kind + ' It holds ' + ouCount(m.chat.messages_held) + ' messages' + (since ? ', the first on ' + since : '') + '.'));
+  }
+  body.appendChild(sec);
+
+  var big = m.largest || [];
+  if (big.length) {
+    var ls = el('section', 'ou-part');
+    ls.appendChild(el('h3', 'ou-h', 'The largest single items'));
+    var box = el('div', 'ou-tablebox');
+    var lt = el('table', 'ou-ptable ou-ltable');
+    var lh = el('thead');
+    var lr = el('tr');
+    ['Item', 'Tokens', 'Cost'].forEach(function (x) { var c2 = el('th', '', x); c2.scope = 'col'; lr.appendChild(c2); });
+    lh.appendChild(lr);
+    lt.appendChild(lh);
+    var lb = el('tbody');
+    big.forEach(function (it) {
+      var r = el('tr');
+      var nm = el('th', '', it.label);
+      nm.scope = 'row';
+      nm.appendChild(el('small', '', it.kind + (it.where ? ', ' + it.where : '')));
+      r.appendChild(nm);
+      r.appendChild(el('td', '', ouCount(it.tokens)));
+      r.appendChild(el('td', 'ou-pcost', it.money));
+      lb.appendChild(r);
+    });
+    lt.appendChild(lb);
+    box.appendChild(lt);
+    ls.appendChild(box);
+    body.appendChild(ls);
+  }
+  if (m.how) body.appendChild(el('p', 'ou-note', 'About these numbers: ' + m.how.charAt(0).toLowerCase() + m.how.slice(1)));
 }
 
 /* What the call was asked, by whom, and what came back (`usage_drill.exchange`): the owner's

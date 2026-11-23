@@ -1079,6 +1079,7 @@ def one_call(who, call_id: int) -> dict:
     was made of, and everything else the log knows about it."""
     from django.db import models
 
+    from . import call_makeup
     from .models import LLMPiece
     from .usage import everything
 
@@ -1175,6 +1176,8 @@ def one_call(who, call_id: int) -> dict:
         "same_request": retries,
         "price": {"input": price[0], "output": price[1]} if price else None,
         "exchange": exchange(r, zone),
+        # What it was made of, part by part, and why the cache read what it read (task 182, step 182-18).
+        "makeup": call_makeup.of_call(who, r),
     }
 
 

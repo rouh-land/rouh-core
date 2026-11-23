@@ -145,3 +145,21 @@ class LLMPiece(models.Model):
 
     class Meta:
         db_table = "llm_pieces"
+
+
+class LLMCallMakeup(models.Model):
+    """What one call to a model was made of, worked out from its pieces the first time its page on the
+    stats screen is opened, and kept (`rouh/call_makeup.py`).
+
+    Petar, 24 November 2026 (task 182): "where the 380,000 tokens come from. Is it the history of the chat,
+    files from the task, loaded memory, or what?" A call's words may later be dropped from the log
+    (`rouh/lean.py`) or scrubbed, so what they were made of is kept here, once, as numbers and short labels:
+    never the words themselves. `version` is the way it was worked out; an older one is worked out again."""
+
+    request_id = models.BigIntegerField(primary_key=True)
+    version = models.IntegerField(default=1)
+    made_at = models.FloatField()
+    body = models.JSONField(default=dict)
+
+    class Meta:
+        db_table = "llm_call_makeup"

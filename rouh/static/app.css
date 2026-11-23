@@ -12221,3 +12221,19 @@ body.cot-open { overflow: hidden; }
   text-align: center; color: var(--dim); display: grid; gap: 10px; justify-items: center; }
 .fb-empty p { margin: 0; }
 .fb-empty[hidden] { display: none; }
+/* One call: what it was made of (`ouPaintMakeup`, task 182, step 182-18). */
+.ou-cache { margin: 4px 0 6px; font-size: 13.5px; line-height: 1.5; color: var(--text); max-width: 72ch; }
+.ou-cachetag {
+  display: inline-block; margin-right: 6px; padding: 1px 8px; border-radius: 999px; font-size: 12px; font-weight: 600;
+  border: 1px solid var(--line-soft); color: var(--text);
+}
+.ou-cache-missed .ou-cachetag { border-color: var(--warn); color: var(--warn); }
+.ou-cache-hit .ou-cachetag::before { content: "\2713  "; }
+.ou-cache-missed .ou-cachetag::before { content: "\00d7  "; }
+.ou-mtable tbody tr.ou-mgroup th, .ou-mtable tbody tr.ou-mgroup td { color: var(--text); font-weight: 600; }
+.ou-mtable tbody tr.ou-mpart th { padding-left: 18px; font-weight: 400; color: var(--dim); }
+.ou-mtable tbody tr.ou-mpart th, .ou-mtable tbody tr.ou-mpart td { border-top-style: dotted; }
+.ou-mtable tbody tr.ou-mgroup th small { font-weight: 400; }
+.ou-tablebox { overflow-x: auto; }
+.ou-ltable tbody th { overflow-wrap: anywhere; }
+.ou-ltable tbody th small { margin-left: 0; }
