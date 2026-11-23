@@ -192,15 +192,20 @@ def _address(base: str, rest: str) -> tuple[str, str]:
 
 
 def call(mem, method: str, rest: str, body: dict | None = None, *, private_raw: bytes | None = None,
-         extra: dict | None = None) -> dict:
+         extra: dict | None = None, kind: str = KIND, raw: bytes | None = None,
+         content_type: str = "application/json") -> dict:
     """One signed request to the Pool and its signed answer's payload. Refused, in words, for
-    anything else: a sign-in page, a signature that does not hold, an error it said."""
+    anything else: a sign-in page, a signature that does not hold, an error it said.
+
+    `kind` and `raw` are for rouh.land's other services that a member speaks to the same way
+    (`rouh/feedback.py`): the kind their answers are signed as, and a body of bytes sent as it is."""
     import httpx
 
     from . import genelab
 
     url, path = _address(mem.url or DEFAULT_URL, rest)
-    raw = json.dumps(body, ensure_ascii=False).encode() if body is not None else b""
+    sending = raw is not None or body is not None
+    raw = raw if raw is not None else (json.dumps(body, ensure_ascii=False).encode() if body is not None else b"")
     if private_raw is None:
         if mem.private_key:
             private_raw = base64.b64decode(_box().open_(mem.private_key))
@@ -215,11 +220,11 @@ def call(mem, method: str, rest: str, body: dict | None = None, *, private_raw: 
                **_sign(private_raw, method, path, raw), **(extra or {})}
     if mem.rouh_id:
         headers["X-Rouh-Id"] = mem.rouh_id
-    if body is not None:
-        headers["Content-Type"] = "application/json"
+    if sending:
+        headers["Content-Type"] = content_type
     try:
         with httpx.Client(timeout=TIMEOUT, follow_redirects=False) as client:
-            r = client.request(method, url, content=raw if body is not None else None, headers=headers)
+            r = client.request(method, url, content=raw if sending else None, headers=headers)
     except Exception as exc:  # noqa: BLE001 - said, not hidden
         raise Refused(f"The {NAME} could not be reached ({type(exc).__name__}).") from None
     if 300 <= r.status_code < 400:
@@ -237,7 +242,7 @@ def call(mem, method: str, rest: str, body: dict | None = None, *, private_raw: 
         raise Refused(f"The {NAME} answered {r.status_code} with something that is not its signed answer.") from None
     key = genelab.load_key(mem.pool_key or DEFAULT_KEY)
     try:
-        payload = genelab.verify(doc, key, KIND)
+        payload = genelab.verify(doc, key, kind)
     except genelab.Refused as exc:
         raise Refused(f"The {NAME}'s answer was refused: {exc}.") from None
     if payload.get("error"):

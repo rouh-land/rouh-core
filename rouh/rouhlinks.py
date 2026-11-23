@@ -276,9 +276,13 @@ async def _route(tools, who, path: str, query: dict, fragment: str) -> Got | Non
         return await _tool(tools, "upcoming", {}, "clockwork", "data", title="Clockwork")
     if path.rstrip("/") == addressing.GOALS:
         return await _tool(tools, "goals", {}, "goals", "data", title="goals")
-    # Gene therapy, and /feedback, its address while it was Feedback: the whole board.
-    if path.rstrip("/") in (addressing.GENE_THERAPY, addressing.GENE_THERAPY_OLD):
-        return await _api(who, "/api/gene-therapy", "gene-therapy", title="Gene therapy")
+    # All feedback, the person's own; and Gene therapy's old address, whose history is in
+    # Every change.
+    if path.rstrip("/") in (addressing.FEEDBACK, addressing.FEEDBACK_MINE):
+        return await _api(who, "/api/feedback/mine", "feedback", title="your feedback")
+    if path.rstrip("/") == addressing.GENE_THERAPY_OLD:
+        return await _api(who, "/api/evolution/changes", "changes",
+                          title="every change, Gene therapy's history among them")
     found = re.fullmatch(r"/(quests)(?:/(\d+))?/?", path)
     if found:
         return await _api(who, "/api/quests" + (f"/{found.group(2)}" if found.group(2) else ""),

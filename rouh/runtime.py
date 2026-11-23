@@ -534,6 +534,12 @@ async def _gene_log_catch_up_loop() -> None:
         try:
             owner = await asyncio.to_thread(telegram.phone_owner, tenancy)
             if owner is not None:
+                # Every change, in Mutations (`rouh/everychange.py`), whatever the gene log's switch says.
+                from . import everychange
+
+                done = await asyncio.to_thread(everychange.catch_up, str(owner.org_id))
+                if not done.get("nothing"):
+                    log.info("every change catch-up: %s", done)
                 got = await genelog.catch_up(owner, whole=whole)
                 if not got.get("nothing") and not got.get("off"):
                     log.info("gene log catch-up: %s", got)
@@ -573,7 +579,31 @@ async def _gene_log_landed(commits: list[str]) -> None:
 
     owner = await asyncio.to_thread(telegram.phone_owner, tenancy)
     if owner is not None:
+        from . import everychange
+
+        await asyncio.to_thread(everychange.catch_up, str(owner.org_id))
         await genelog.landed(owner, commits)
+
+
+#: How often feedback not yet taken by rouh.land is tried again (`rouh/feedback.py`); each one
+#: waits its own time too, longer after every try.
+FEEDBACK_EVERY = 60
+
+
+async def _feedback_loop() -> None:
+    """Feedback kept here and not yet sent: sent, on the beat, so nothing is lost when rouh.land
+    cannot be reached (Petar, 23 November 2026)."""
+    from . import feedback
+
+    await asyncio.sleep(30)
+    while True:
+        try:
+            got = await asyncio.to_thread(feedback.send_due)
+            if got.get("sent"):
+                log.info("feedback sent: %s", got)
+        except Exception:  # noqa: BLE001 - tried again on the next beat
+            log.exception("the feedback beat failed")
+        await asyncio.sleep(FEEDBACK_EVERY)
 
 
 #: How often the model standard and the outcome counts are looked at (`rouh/modeloutcomes.py`);
@@ -1466,11 +1496,16 @@ async def announce_gene_therapy() -> None:
 #: left behind (`rouh/triage.py`). It is handed the same `start_run_for` the
 #: board's own button uses, so a run it starts is a run of exactly the same
 #: kind.
+#:
+#: Off for good since 23 November 2026, when Gene therapy became Feedback (`rouh/feedback.py`),
+#: which builds nothing: nothing is read or started by itself any more. The beat is kept only to
+#: settle a request whose run was already going (`triage.settle`), so its entry in Every change
+#: (`rouh/everychange.py`) says how it ended.
 converter = triage.Converter(
     gene_therapy, start_run_for,
     on_change=announce_gene_therapy,
     sweep_minutes=config.gene_therapy_sweep_minutes,
-    enabled=config.gene_therapy_auto,
+    enabled=False,
 )
 
 class GeneTherapySweep:
@@ -8120,6 +8155,8 @@ async def startup() -> None:
     asyncio.ensure_future(_gene_log_loop())
     # Its catch-up, at the start and once a day; the trigger is the landing (`codechanges.Watch`).
     asyncio.ensure_future(_gene_log_catch_up_loop())
+    # Feedback kept here, sent to rouh.land, and tried again until it is (`rouh/feedback.py`).
+    asyncio.ensure_future(_feedback_loop())
     # What this Rouh keeps and runs: its preset set up, its values kept fresh, the daily sweep (`rouh/lean.py`).
     asyncio.ensure_future(_lean_loop())
     asyncio.ensure_future(_model_standard_loop())
@@ -8167,10 +8204,8 @@ async def startup() -> None:
         mail_alerts.start()
         log.info("the mail alerts beat is running every %g minute(s), and every new "
                  "message is handed to Rouh (%s)", mail_alerts.minutes, mail_alerts.model)
-    log.info("the Gene therapy beat is running every %g minute(s), and each mutation asked for is %s",
-             converter.sweep_minutes,
-             "taken up by itself, read by the default model in Settings"
-             if converter.enabled else "left for somebody to pick up")
+    log.info("the Gene therapy beat is running every %g minute(s), only to settle runs already going",
+             converter.sweep_minutes)
 
     # Nothing is started here for the chats. There was a `ChatSweep` until
     # 22 September 2026 - it archived a loose chat after a month of quiet and

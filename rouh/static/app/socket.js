@@ -31,7 +31,7 @@ import { detachAnswer, detachAnswered, FIND, findAnswer, findAsk, findChanged, f
 import { ADDR, addrAsk, addrFound, addrSocketGone, FRESH } from 'app/address.js';
 import { earlyFlush, earlyLift, panelsForChat, setMic, setVoice, showDictation } from 'app/controls.js';
 import { onPicturePartial, onPictures, picturesReady } from 'app/attachments.js';
-import { gtBoardRefresh } from 'app/gene_therapy.js';
+import { gtBoardRefresh } from 'app/feedback.js';
 import { notify, noteBuild, noticesHeard } from 'app/notices.js';
 import { offlineHeard, offlineRepaint, offlineResults, offlineSocketDown } from 'app/offline.js';
 import { compareShow } from 'app/compare.js';
@@ -1179,25 +1179,15 @@ function handleMessage(m) {
       break;
     case 'task':
       upsertTask(m);
-      // A run started from a feature request is an ordinary run, so it
-      // arrives here like every other one. This is the message that carries
-      // a single run moving - the whole list below is only sent on connect -
-      // and it is what puts "run running" and then "run finished" on that
-      // request's card with nothing polling (section 12).
-      gtBoardRefresh(m.id);
       break;
     case 'tasks':
       // `whole` is the list that follows a handshake, which is the truth: a
       // card for a run the server has no row for is left over from before.
       applyTaskList(m.tasks, !!m.whole);
-      gtBoardRefresh();
       break;
     case 'gene_therapy':
-      // Something on the Gene therapy board moved with nobody pressing
-      // anything: a feedback read and turned into a feature request, or a run
-      // started for one (rouh/triage.py). The board redraws itself, so
-      // somebody watching their own mutation sees it picked up. The message
-      // was `feedback` until 12 October 2026.
+      // A person's feedback moved (it was Gene therapy's board until 23 November 2026, and
+      // the message keeps its name): All feedback, if it is open, is read again.
       gtBoardRefresh();
       break;
     case 'tasks_forgotten':

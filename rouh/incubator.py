@@ -21,11 +21,11 @@ edited.
 **Statuses** are plain words (task 159 found invented names the first cause of Petar asking what
 Rouh meant): New, Triaged, Go, In build, Built, Parked, Rejected, and Merged into another idea.
 
-**One way of building.** Setting an idea to Go hands it to Gene therapy as a feedback, in its
-own words, and the same converter every feedback goes through reads it, writes the feature
-request and starts its run when the board builds by itself (`rouh/triage.py`). There is no
-second pipeline. The idea remembers the feedback, then the request once there is one, and moves
-to In build; when the request ships it is Built (`follow`).
+**One way of building.** Setting an idea to Go starts the run every change to Rouh's code is
+(`improve_myself`'s preset), briefed with the idea in its own words, and writes its entry in Every
+change, marked Incubator (`rouh/everychange.py`). The idea remembers the run and is In build; when the
+change lands it is Built (`follow`). Until 23 November 2026 Go handed the idea to Gene therapy as a
+feedback; those ideas still follow their feature request.
 
 **Whose.** Every row carries `org_id` and `user_id` and every query names both; an idea of
 anybody else's is "not found".
@@ -50,8 +50,8 @@ PREFIX = "INC"
 STATUSES: tuple[tuple[str, str, str], ...] = (
     ("new", "New", "caught, not looked at yet"),
     ("triaged", "Triaged", "looked at: sized, researched or answered, not decided yet"),
-    ("go", "Go", "decided to build: handed to Gene therapy, waiting for its feature request"),
-    ("in_build", "In build", "its feature request is being built, or waits to be"),
+    ("go", "Go", "decided to build: its run is being started"),
+    ("in_build", "In build", "a run is building it; it is in Every change, in Mutations"),
     ("built", "Built", "it became a gene or a mutation, or Rouh already does it"),
     ("parked", "Parked", "not now; the notes say why"),
     ("rejected", "Rejected", "not to be built; the notes say why, so it is not proposed again"),
@@ -515,10 +515,10 @@ def edit(who, ident, *, by: str = "you", **fields) -> dict:
 
 
 def set_status(who, ident, status: str, *, by: str = "you", note: str = "", into=None) -> dict:
-    """Move an idea to a status. Go is `go` (it hands the idea to Gene therapy), and Merged is `merge`."""
+    """Move an idea to a status. Go is `go` (it starts the run that builds it), and Merged is `merge`."""
     s = _status(status)
     if s == "go":
-        raise Refused("Go hands the idea to Gene therapy to be built: use go.")
+        raise Refused("Go starts the run that builds the idea: use go.")
     if s == "merged":
         if into is None:
             raise Refused("Merged needs the idea it is merged into.")
@@ -570,7 +570,7 @@ def merge(who, ident, into, *, by: str = "you") -> dict:
 
 def feedback(who, ident, text: str, *, by: str = "you") -> dict:
     """The person's feedback on an idea: kept in its history, and added to its notes with the day, so
-    Gene therapy, the scorer and the chats read it with the idea. Its original words never change."""
+    the run that builds it, the scorer and the chats read it with the idea. Its original words never change."""
     row = find(who, ident)
     text = str(text or "").strip()
     if not text:
@@ -614,11 +614,17 @@ def bulk(who, idents: Iterable, *, status: str = "", category: str = "", by: str
     return {"done": done, "failed": failed}
 
 
-# --- Go: one way of building, through Gene therapy -------------------------------------------------
+# --- Go: one way of building, the run every change is ---------------------------------------------------
+
+
+#: The most a run's brief carries of one idea.
+MAX_BRIEF = 20_000
 
 
 def brief_of(row) -> str:
-    """What Gene therapy is given: the idea's own words, whole, under where it came from."""
+    """What the run that builds it is given: the idea's own words, whole, under where it came from.
+    It starts with "From the Incubator, I-<n>", which is how Every change knows its source
+    (`everychange.INCUBATOR_MARK`)."""
     head = [f"From the Incubator, {code(row.number)}: {row.title}",
             f"Kind: {KIND_NAMES.get(row.kind, row.kind)}" + (f", of the gene {row.gene}" if row.gene else ""),
             f"Category: {CATEGORY_NAMES.get(row.category, row.category)}",
@@ -626,70 +632,90 @@ def brief_of(row) -> str:
             f"The idea whole: /evolution/incubator/{code(row.number)}"]
     if row.notes:
         head += ["", "Notes:", row.notes]
-    from .gene_therapy import MAX_BODY
-
     body = "\n".join(head) + "\n\nThe idea, as it was written:\n\n" + (row.original or row.title)
-    if len(body) > MAX_BODY:
+    if len(body) > MAX_BRIEF:
         tail = "\n\n[The rest is in the Incubator, at the address above.]"
-        body = body[:MAX_BODY - len(tail)] + tail
-    return body
+        body = body[:MAX_BRIEF - len(tail)] + tail
+    return body + ("\n\nBuild this into Rouh's own code: make the change, prove it in a real browser, "
+                   "commit and land it.")
 
 
 async def go(who, ident, *, by: str = "you", author: str = "") -> dict:
-    """Hand an idea to Gene therapy to be built: a feedback in its own words, read by the converter
-    every feedback goes through, which writes the feature request and starts its run when the board
-    builds by itself. The idea is Go now, and In build once its request is there (`follow`)."""
+    """Build an idea: the same run a change asked for in a chat is (`improve_myself`'s preset),
+    briefed with the idea's own words, and its entry in Every change written at once, marked
+    Incubator (`everychange.started`). Until 23 November 2026 Go handed the idea to Gene therapy as a
+    feedback; Gene therapy is Feedback now, which builds nothing. The idea is In build while its
+    run works, and Built once the change landed (`follow`)."""
     import asyncio
 
-    from . import runtime
+    from . import everychange, nightly_feature
 
     row = await asyncio.to_thread(find, who, ident)
     if row.status in ("go", "in_build", "built"):
         return {"ok": False, "idea": view(row),
-                "said": f"{code(row.number)} is {STATUS_NAMES[row.status]} already; it was not handed on again."}
+                "said": f"{code(row.number)} is {STATUS_NAMES[row.status]} already; it was not started again."}
     if row.status == "merged":
         raise Refused(f"{code(row.number)} is merged into another idea: set that one to Go.")
-    store = getattr(runtime, "gene_therapy", None)
-    if store is None:
-        raise Refused("Gene therapy is not set up here, so nothing can be built from the Incubator.")
-    fb = await asyncio.to_thread(lambda: store.add_feedback(
-        org_id=str(who.org_id), user_id=str(who.user_id), author=author or by,
-        body=brief_of(row), page=f"/evolution/incubator/{code(row.number)}"))
-    converter = getattr(runtime, "converter", None)
-    taken = converter is not None and converter.enabled
-    if taken:
-        converter.take_later(str(who.org_id), fb)
+    if nightly_feature.hooks.start is None:
+        raise Refused("Rouh's runs are not ready yet, so nothing can be built from the Incubator. Try again in a minute.")
+    try:
+        got = await nightly_feature.hooks.start(brief=brief_of(row), title=f"{code(row.number)}: {row.title}"[:120],
+                                                preset="improve_myself", org_id=str(who.org_id))
+    except Exception as exc:  # noqa: BLE001 - said, not hidden; the idea keeps its status
+        raise Refused(f"Its run could not be started: {(str(exc).strip() or type(exc).__name__).rstrip('.')}.") from None
+    run = str((got or {}).get("id") or "")
+    if not run:
+        raise Refused("Its run could not be started: nothing said which run it is.")
 
     def mark():
         was = row.status
-        row.status, row.feedback_id, row.updated_at = "go", fb.id, time.time()
+        row.status, row.request_id, row.updated_at = "in_build", f"run:{run}", time.time()
+        row.links = _clean_links([*(row.links or []), {
+            "kind": "change", "label": f"Run {run}, in Every change", "href": "/evolution/mutations"}])
         row.save()
-        _event(who, row.id, "go", by=by, before={"status": was}, after={"status": "go", "feedback": fb.id},
-               note="Handed to Gene therapy as a feedback, to be read into a feature request and built.")
+        everychange.started(str(who.org_id), run_id=run, source="incubator", user_id=str(who.user_id),
+                        asked=row.original or row.title, title=row.title, ref=code(row.number))
+        _event(who, row.id, "go", by=by, before={"status": was}, after={"status": "in_build", "run": run},
+               note=f"Go: run {run} is building it; it is in Every change, in Mutations.")
         return view(row)
 
     idea = await asyncio.to_thread(mark)
-    said = (f"{code(row.number)} is Go: it is in Gene therapy as feedback {fb.id}, which is being read into a "
-            "feature request now; it moves to In build once the request is there.") if taken else (
-            f"{code(row.number)} is Go: it is in Gene therapy as feedback {fb.id}. Gene therapy reads "
-            "feedback by itself on its next sweep, and the idea moves to In build once its request is there.")
-    try:
-        await runtime.announce_gene_therapy()
-    except Exception:  # noqa: BLE001 - the board catches up on its next read
-        log.debug("the board could not be told about %s", fb.id, exc_info=True)
-    return {"ok": True, "idea": idea, "feedback": fb.id, "said": said}
+    return {"ok": True, "idea": idea, "run": run,
+            "said": f"{code(row.number)} is In build: run {run} is building it now. It is in Every change, "
+                    "in Evolution > Mutations."}
 
 
 def follow(who) -> int:
-    """Ideas handed to Gene therapy, moved on as their request is: In build once there is one, Built once
-    it shipped, Parked if it was declined. How many moved. Never raises."""
+    """Ideas being built, moved on as their change is: Built once it landed, back to Triaged if its
+    run ended with nothing landed (the notes say so). Ideas handed to Gene therapy before 23 November
+    2026 follow their feature request as they did. How many moved. Never raises."""
     try:
-        from . import runtime
+        from . import everychange, runtime
 
+        moved = 0
+        for row in _rows(who).filter(status__in=("go", "in_build"), request_id__startswith="run:"):
+            run = row.request_id[4:]
+            c = _models_changes().filter(org_id=str(who.org_id), key=f"run:{run}").first()
+            if c is None:
+                continue
+            state = everychange.view_of(c, frozenset(), {}).get("state")
+            if state not in ("landed", "failed"):
+                continue
+            was = row.status
+            if state == "landed":
+                row.status, row.built_as = "built", row.built_as or f"Change {c.id}, run {run}"
+            else:
+                row.status = "triaged"
+                row.notes = (row.notes + "\n\n" if row.notes else "") + \
+                    f"Its run {run} ended with nothing landed ({time.strftime('%d %B %Y')}); set it to Go again to retry."
+            row.updated_at = time.time()
+            row.save()
+            moved += 1
+            _event(who, row.id, row.status, by="Every change", before={"status": was},
+                   after={"status": row.status, "run": run})
         store = getattr(runtime, "gene_therapy", None)
         if store is None:
-            return 0
-        moved = 0
+            return moved
         for row in _rows(who).filter(status__in=("go", "in_build")).exclude(feedback_id=""):
             req = None
             if not row.request_id:
@@ -698,8 +724,6 @@ def follow(who) -> int:
                 if req is None:
                     continue
                 row.request_id = req.id
-                row.links = _clean_links([*(row.links or []), {
-                    "kind": "request", "label": f"Feature request {req.id}: {req.title}", "href": "/gene-therapy"}])
             else:
                 req = store.get_request(str(who.org_id), row.request_id)
                 if req is None:
@@ -718,8 +742,14 @@ def follow(who) -> int:
                    before={"status": was}, after={"status": now, "request": req.id, "request_status": req.status})
         return moved
     except Exception:  # noqa: BLE001 - the page still draws; the next read tries again
-        log.exception("the Incubator could not follow Gene therapy")
+        log.exception("the Incubator could not follow its ideas being built")
         return 0
+
+
+def _models_changes():
+    from .models import RouhChange
+
+    return RouhChange.objects
 
 
 def follow_everyone() -> int:
@@ -728,7 +758,7 @@ def follow_everyone() -> int:
 
     Idea, _ = _models()
     moved = 0
-    whose = set(Idea.objects.filter(status__in=("go", "in_build")).exclude(feedback_id="")
+    whose = set(Idea.objects.filter(status__in=("go", "in_build"))
                 .values_list("org_id", "user_id"))
     for org_id, user_id in whose:
         who = Tenancy().identity_of(user_id)
@@ -842,8 +872,8 @@ def prompt_block(chat_id: str) -> str:
             "Rouh's new genes and mutations. What the person says here is about that list. Read and change it "
             "with the incubator tools (incubator_list, incubator_read, incubator_add, incubator_edit, "
             "incubator_status, incubator_merge, incubator_link). Ideas are numbered "
-            f"{PREFIX}-<n>; say the number. Setting an idea to go with incubator_status hands it to Gene therapy "
-            "to be built, so do it only when the person asks for it. Every idea has a score, worked out from its "
+            f"{PREFIX}-<n>; say the number. Setting an idea to go with incubator_status starts a run "
+            "that builds it into Rouh, so do it only when the person asks for it. Every idea has a score, worked out from its "
             "parts: Score = Impact² × Confidence × Frequency × Pain × Stars × Clarity ÷ Risk, with Impact 1-5 "
             "(squared; raised when it unblocks other ideas), Confidence 50-100%, Frequency 1-4 (daily 4, weekly 3, "
             "now and then 2, once 1, raised by demand: how often the idea came back), Pain ×2 broken today, ×1.5 "

@@ -360,8 +360,8 @@ USES: tuple[Use, ...] = (
         only=OPENAI, needs="It checks the OpenAI key that was just pasted.",
         purposes=("key_check_openai",)),
     Use("code_runs", "Runs and helpers", "Code runs",
-        "Every Claude Code run of the one program that Rouh starts, the runs that build "
-        "Gene therapy's mutations among them.",
+        "Every Claude Code run of the one program that Rouh starts, the runs that change "
+        "Rouh's own code among them.",
         only=ANTHROPIC, needs="Every Claude Code run of the one program is a Claude Code run, and Claude Code asks only Anthropic's models.",
         subscription=True, needs_key=False,
         fallback="It runs on your own Claude Code sign-in, so it needs no Anthropic key here."),
@@ -404,9 +404,11 @@ USES: tuple[Use, ...] = (
         fallback="It runs on your own Claude Code sign-in, so it needs no Anthropic key here."),
     # Named for Gene therapy, Feedback until 12 October 2026; the id, which the
     # picks are kept under, is unchanged.
-    Use("triage", "Runs and helpers", "Reading Gene therapy",
-        "Reads what was asked for in Gene therapy (feedback) the moment it lands and "
-        "writes the brief a run builds from.", purposes=("triage",)),
+    # Not asked since 23 November 2026, when Gene therapy became Feedback, which builds nothing;
+    # kept so the picks made for it and its calls in the log still have their name.
+    Use("triage", "Runs and helpers", "Reading Gene therapy (no longer used)",
+        "Read what was asked for in Gene therapy until 23 November 2026 and wrote the brief a run "
+        "built from. Gene therapy is Feedback now, which builds nothing.", purposes=("triage",)),
     Use("run_summary", "Runs and helpers", "Run summaries",
         "The one line on a finished run's card.",
         purposes=("run_summary",)),

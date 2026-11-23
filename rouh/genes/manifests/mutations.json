@@ -1,7 +1,7 @@
 {
   "id": "mutations",
   "name": "Mutations",
-  "title": "Mutations: every gene the nightly run built for you, its card, your decisions, mutations, questions and how it is learned",
+  "title": "Mutations: every change made to Rouh, whatever started it, and every gene the nightly run built for you, its card, your decisions, mutations, questions and how it is learned",
   "aliases": [
     "gene library",
     "genes",
@@ -16,7 +16,11 @@
     "nightly genes built",
     "switches",
     "feature switches",
-    "other switches"
+    "other switches",
+    "every change",
+    "changes",
+    "undo a change",
+    "gene therapy history"
   ],
   "group": "evolution",
   "route": "/evolution/mutations",
@@ -45,6 +49,7 @@
     ],
     "accounts": [],
     "tables": [
+      "rouh_changes",
       "mutations_genes",
       "mutations_gene_events",
       "gene_mutations",
@@ -63,7 +68,7 @@
       "every fifteen minutes: nights brought in, trials judged by use, mutations and removals settled (evolution.tick)",
       "every fifteen minutes: the gene log reads what landed and counts each gene's use, and from the 25th the model evaluates the month's genes (runtime._gene_log_loop)"
     ],
-    "remove": "Delete this manifest, rouh/evolution.py, rouh/gene_questions.py, rouh/web/evolution.py, evolutionpage.js and evolutionpage.css (with Other switches; every switch stays where it is), the Evolution layer in index.html, GeneSource in decision_sources.py, the gene_offer tool and the offers line in brain.py, and drop the tables mutations_genes, mutations_gene_events, gene_mutations and gene_questions; every gene's own feature switch stays where it is. The gene log goes with it: turn its switches gene_log and gene_usage off, or drop its six tables with a migration and delete rouh/genelog.py, rouh/geneuse.py, rouh/web/genelog.py and genelogpage.js/.css."
+    "remove": "Delete this manifest, rouh/evolution.py, rouh/gene_questions.py, rouh/web/evolution.py, evolutionpage.js and evolutionpage.css (with Other switches; every switch stays where it is), the Evolution layer in index.html, GeneSource in decision_sources.py, the gene_offer tool and the offers line in brain.py, Every change (rouh/everychange.py, rouh/web/everychange.py) and its table rouh_changes, and drop the tables mutations_genes, mutations_gene_events, gene_mutations and gene_questions; every gene's own feature switch stays where it is. The gene log goes with it: turn its switches gene_log and gene_usage off, or drop its six tables with a migration and delete rouh/genelog.py, rouh/geneuse.py, rouh/web/genelog.py and genelogpage.js/.css."
   },
   "uses": {
     "tools": [

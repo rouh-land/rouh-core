@@ -205,7 +205,7 @@ NIGHTLY = [
      []),
     ("nightly_idea", "idea",
      "The Incubator, for this night: the one list it picks ideas from. do list (the ideas a night may "
-     "pick: New or Triaged, not technical, never handed to Gene therapy, not built, no repeated title; "
+     "pick: New or Triaged, not technical, never set to Go, not built, no repeated title; "
      "or q to search them all), read (id), pick (id: In build; an idea the rule leaves out is refused), "
      "add (title, text, kind, category: source nightly; a title already there is refused), drop (id, "
      "status parked or rejected, why).",

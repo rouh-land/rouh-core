@@ -8,10 +8,8 @@ password needs, `/login/forgot` and the link it emails,
 `/login/reset/<uid>/<token>` (`rouh/web/reset.py`); since 4 November 2026 the
 ways in after the email box (`rouh/web/auth.py`), and no Google sign-in.
 
-**Order matters in three places.** `/api/gene-therapy/requests...` and
-`/api/gene-therapy/settings` come before `/api/gene-therapy/<id>`, or the word
-"requests" or "settings" would be read as a feedback's id (and the same under
-`/api/feedback`, Gene therapy's name until 12 October 2026).
+**Order matters in three places.** `/api/feedback/send` and `/api/feedback/mine` come
+before `/api/feedback`, Gene therapy's old address, which takes whatever an old page sends.
 The page's own
 addresses - `/`, `/one/`, `/tasks` and one per kind of object - are last,
 because they are the widest.
@@ -55,7 +53,7 @@ from rouh.web import (apple, assets, auth, boxes, brief, changes as changes_web,
                       decisions, defaults,
                       definitions,
                       draftedits,
-                      evolution as evolution_web, incubator as incubator_web, nightly_run as nightly_run_web, trials as trials_web, gene_therapy, genelog as genelog_web, genepool as genepool_web, genes as genes_web,
+                      evolution as evolution_web, incubator as incubator_web, nightly_run as nightly_run_web, trials as trials_web, feedback as feedback_web, everychange as everychange_web, genelog as genelog_web, genepool as genepool_web, genes as genes_web,
                       heartbeat, payments, quests, receipts, services, shipping, signups, stats, thoughts,
                       google,
                       guests, highlights, location, reading, mail_alerts, mailboxes, mycard, offline, people, profile, relationships as relationships_web, reset,
@@ -79,11 +77,14 @@ def _section(name: str) -> str:
     return f"{addressing.ANATOMY.lstrip('/')}/{genes.SECTIONS[name]}/{name}"
 
 
-def gene_therapy_old_address(request):
-    """/feedback, Gene therapy's name until 12 October 2026: the page with the drawer
-    open, at its new address, with anything after the `?` kept."""
+def gene_therapy_old_address(request, rest=""):
+    """/gene-therapy, Feedback's address while it was Gene therapy (12 October to 23 November
+    2026): the page with the Feedback panel open. Anything under it - what Gene therapy listed
+    as All mutations - is Evolution > Mutations now, the one list of every change, with what
+    Gene therapy was asked in it (Petar, 23 November 2026)."""
     query = request.META.get("QUERY_STRING", "")
-    return HttpResponseRedirect(addressing.GENE_THERAPY + ("?" + query if query else ""))
+    to = addressing.EVOLUTION + "/mutations" if (rest or "").strip("/") else addressing.FEEDBACK
+    return HttpResponseRedirect(to + ("?" + query if query else ""))
 
 
 def evolution_tuning_old_address(request):
@@ -358,6 +359,9 @@ urlpatterns = [
     # Evolution: Parameters and Mutations (`rouh/web/evolution.py`, `rouh/evolution.py`).
     path("api/evolution/parameters", evolution_web.parameters),
     path("api/evolution/mutations", evolution_web.mutations),
+    # Every change to Rouh's code, Mutations' first view (`rouh/web/everychange.py`).
+    path("api/evolution/changes", everychange_web.listing),
+    path("api/evolution/changes/<int:change_id>/undo", everychange_web.undo),
     path("api/evolution/month", evolution_web.month),
     path("api/evolution/genes/<int:gene_id>", evolution_web.gene),
     path("api/evolution/genes/<int:gene_id>/answer", evolution_web.gene_answer),
@@ -505,18 +509,12 @@ urlpatterns = [
     path("shared/<str:token>/list", sharedlist_web.for_shared),
     path("shared/<str:token>/checks", sharedlist_web.checks_shared),
 
-    # --- Gene therapy: feedback and feature requests (requests, settings first: see the
-    # docstring). Under `api/feedback` as well, its name until 12 October 2026, so a page
-    # loaded before the rename still sends and reads.
-    *[route for base in ("api/gene-therapy", "api/feedback") for route in (
-        path(base, gene_therapy.board),
-        path(base + "/settings", gene_therapy.settings),
-        path(base + "/requests", gene_therapy.new_request),
-        path(base + "/requests/<str:request_id>", gene_therapy.one_request),
-        path(base + "/requests/<str:request_id>/run", gene_therapy.run_for_request),
-        path(base + "/<str:feedback_id>", gene_therapy.one_feedback),
-        path(base + "/<str:feedback_id>/promote", gene_therapy.promote),
-    )],
+    # --- Feedback (`rouh/web/feedback.py`): what the panel sends, and All feedback. What a page
+    # loaded before 23 November 2026 sends, to Gene therapy's addresses, is a feedback too.
+    path("api/feedback/send", feedback_web.send),
+    path("api/feedback/mine", feedback_web.mine),
+    path("api/feedback", feedback_web.old_address),
+    path("api/gene-therapy", feedback_web.old_address),
 
     # --- Google: the organisation's client, and each person's connection ----------------
     path("api/reading", reading.reading_api),
@@ -753,7 +751,7 @@ urlpatterns = [
     # The emails the person changed before Send, recorded (`rouh/web/draftedits.py`).
     path("api/settings/draft-edits", draftedits.page),
     # Cloudflare's API tokens, one a zone, typed in and sealed (`rouh/web/cloudflare.py`).
-    # Meta, Changes: this Rouh's code, its undo points and its protected core (`rouh/web/changes.py`).
+    # Meta, Changes: this Rouh's code, its undo points and its protected core (`rouh/web/everychange.py`).
     path("api/settings/changes", changes_web.page),
     path("api/settings/changes/undo", changes_web.undo),
     # Rouh's updates: ride along, update when pressed, or its own path (`rouh/code_update.py`).
@@ -905,9 +903,11 @@ urlpatterns = [
     # Clockwork's address until 8 October 2026, which links on phones and in chats still name.
     path(addressing.REMINDERS_OLD.lstrip("/"), clockwork_old_address),
     path(addressing.GOALS.lstrip("/"), views.index),
-    # Gene therapy: the page with its drawer open, and its address while it was Feedback.
-    path(addressing.GENE_THERAPY.lstrip("/"), views.index),
+    # Feedback: the page with its panel open, and All feedback; and Gene therapy's address.
+    path(addressing.FEEDBACK.lstrip("/"), views.index),
+    path(addressing.FEEDBACK_MINE.lstrip("/"), views.index),
     path(addressing.GENE_THERAPY_OLD.lstrip("/"), gene_therapy_old_address),
+    re_path(r"^" + addressing.GENE_THERAPY_OLD.lstrip("/") + r"/(?P<rest>.+)$", gene_therapy_old_address),
     path(addressing.CONTROL.lstrip("/"), views.index),
     path(addressing.SYNAPSE.lstrip("/"), views.index),
     re_path(r"^" + addressing.SYNAPSE.lstrip("/") + r"/[0-9a-f-]{36}$", views.index),
@@ -968,7 +968,7 @@ urlpatterns = [
             r"|tester/[a-z0-9]{1,40}(?:/edit)?|how)$", views.index),
     re_path(r"^" + addressing.EVOLUTION.lstrip("/") + r"/incubator/(?:INC-)?\d{1,6}$", views.index),
     re_path(r"^" + addressing.EVOLUTION.lstrip("/")
-            + r"/mutations/(?:new|trial|passed|failed|unused|month|out|review|rouh|off|rejected|week|deck|log|log/\d+"
+            + r"/mutations/(?:changes|new|trial|passed|failed|unused|month|out|review|rouh|off|rejected|week|deck|log|log/\d+"
             + r"|gene/\d+(?:/(?:essence|trial|versions|history|card|mutations|decisions|questions|learning))?)$",
             views.index),
     re_path(r"^" + addressing.EVOLUTION.lstrip("/") + r"/pool/(?:[0-9a-f]{1,16}|yours|yours/\d+|outgoing|outgoing/\d+|incoming)$", views.index),

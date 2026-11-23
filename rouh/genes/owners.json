@@ -1396,18 +1396,20 @@
     "rouh/web/agent_instructions.py"
    ]
   },
-  "gene-therapy": {
+  "feedback": {
    "files": [
-    "rouh/gene_therapy.py",
-    "rouh/web/gene_therapy.py",
-    "rouh/static/app/gene_therapy.js"
+    "rouh/feedback.py",
+    "rouh/web/feedback.py",
+    "rouh/static/app/feedback.js",
+    "rouh/models/changes.py"
    ]
   },
   "feedback-triage-board": {
    "name": "Feedback triage board",
-   "what": "Reads feedback, writes feature requests, starts runs for them and tracks each through to Done on the board.",
+   "what": "Gene therapy's board, kept as history since 23 November 2026: its tables, and the beat that settles a run already going. It reads and starts nothing any more.",
    "files": [
-    "rouh/triage.py"
+    "rouh/triage.py",
+    "rouh/gene_therapy.py"
    ]
   },
   "mutations": {
@@ -1419,7 +1421,10 @@
     "rouh/static/evolutionpage.*",
     "EVOLUTION.md",
     "rouh/nightly_feature.py",
-    "rouh/nightly_ideas.py"
+    "rouh/nightly_ideas.py",
+    "rouh/everychange.py",
+    "rouh/web/everychange.py",
+    "rouh/models/changes.py"
    ]
   },
   "nightly-refactoring": {

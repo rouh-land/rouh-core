@@ -26,7 +26,7 @@ import { traceOn, traceSet, traceShowAll } from 'app/turnline.js';
 import { accountMenu, canvasAwayIfBare, canvasIsWanted, chatIsWanted, chatOnScreen, chatPutAway, growInput, input, narrow,
   ownName, screenHeight, setPane, sidebarDone, tasksHold, tasksTakeChat } from 'app/controls.js';
 import { dragHasFiles, drawTurnFiles } from 'app/attachments.js';
-import { gtBoardClose } from 'app/gene_therapy.js';
+import { gtBoardClose } from 'app/feedback.js';
 
 /* ---------------------------------------------------------------- 10b */
 

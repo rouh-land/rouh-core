@@ -5,7 +5,7 @@
     GET  /api/incubator/<n>                  one idea whole: its text in sections, its history, what is merged in
     POST /api/incubator/new                  {"title", "text"?, "kind"?, "gene"?, "category"?, "tags"?}
     POST /api/incubator/<n>                  {"title"?, "kind"?, "gene"?, "category"?, "tags"?, "notes"?}
-    POST /api/incubator/<n>/status           {"status", "note"?, "into"?}; Go hands it to Gene therapy
+    POST /api/incubator/<n>/status           {"status", "note"?, "into"?}; Go starts the run that builds it
     POST /api/incubator/<n>/merge            {"into"}
     POST /api/incubator/<n>/link             {"kind", "label", "href"?}
     POST /api/incubator/<n>/score            {"stars": 1-3 or null} the person's stars; {"part", "value"} a part

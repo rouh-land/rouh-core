@@ -6,7 +6,7 @@ each navigation item and the count of taps in a bar chart for total for 30 days
 rolling back."
 
 * **The navigation is the rows of the sidebar's `#sbNav`** and the dedicated area under
-  it: the links beside the rail of five group boxes, and Rouh, Search and Gene therapy, each marked
+  it: the links beside the rail of five group boxes, and Rouh, Search and Feedback, each marked
   `data-nav="<key>"` in the page with one of the keys in `ITEMS`. The group boxes, the
   account menu, the statuses at the foot and the buttons in the head are not
   navigation, and are not counted.
@@ -58,8 +58,9 @@ from . import genes
 ITEMS: tuple[tuple[str, str], ...] = genes.nav_keys()
 NAMES = dict(ITEMS)
 #: Keys a row was counted under before it was renamed, and the key it has now, so its
-#: presses from before still count for it: Gene therapy was Feedback until 12 October 2026.
-FORMERLY = {"feedback": "gene-therapy"}
+#: presses from before still count for it: Feedback was Gene therapy from 12 October to
+#: 23 November 2026 (and Feedback before that, under the key it has again).
+FORMERLY = {"gene-therapy": "feedback"}
 
 #: How far back the chart counts, in days.
 DAYS = 30

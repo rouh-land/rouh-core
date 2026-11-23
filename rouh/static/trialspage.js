@@ -273,7 +273,7 @@
       n('done', 'check', (p.verdict === 'sent' ? 'Sent ' : 'Decided ') + dayShort(p.verdict_at)); ln();
       n('bad', 'up', ag.trial ? 'Test run ' + ag.trial + ' hit it again' : 'Seen again ' + dayShort(ag.at)); ln(); n('bad', '', 'Not fixed');
     } else if (p.standing === 'decided') {
-      n('done', 'check', (p.verdict === 'sent' ? 'Sent ' : 'Chosen ') + dayShort(p.verdict_at)); ln(); n('', 'wait', p.verdict === 'sent' ? 'Gene therapy' : 'Its wave of fixes'); ln(); n('', '', 'Fixed');
+      n('done', 'check', (p.verdict === 'sent' ? 'Sent ' : 'Chosen ') + dayShort(p.verdict_at)); ln(); n('', 'wait', p.verdict === 'sent' ? 'Feedback' : 'Its wave of fixes'); ln(); n('', '', 'Fixed');
     } else {
       n('', '', 'Not decided'); ln(); n('', '', 'A wave of fixes'); ln(); n('', '', 'Fixed');
     }
@@ -2633,7 +2633,7 @@
   }
 
   function toFeedback(p, edit) {
-    var gt = window.RouhGeneTherapy;
+    var gt = window.RouhFeedback || window.RouhGeneTherapy;
     if (!gt) { S.error = 'Feedback cannot be sent from this page.'; draw(); return; }
     S.busy = 'feedback'; draw();
     call('/problems/' + p.number + '/report').then(function (r) {
@@ -2649,7 +2649,7 @@
       } });
     }).then(function (got) {
       S.busy = '';
-      S.said = got && got.ok === false ? got.error : edit ? 'It is in the box on the right. Change the words, then press Mutate to send it.' : 'Sending it…';
+      S.said = got && got.ok === false ? got.error : edit ? 'It is in the box on the right. Change the words, then press Send.' : 'Sending it…';
       draw();
     }, fail);
   }

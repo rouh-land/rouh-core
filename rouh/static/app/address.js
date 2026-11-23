@@ -251,10 +251,11 @@ var ADDR_THOUGHTS = '/thoughts';
 var ADDR_BOX = '/box';
 //: What this device keeps for when there is no connection (`addressing.OFFLINE`).
 var ADDR_OFFLINE = '/offline';
-//: Gene therapy, a door rather than a place (`addressing.GENE_THERAPY`): the page with the
-//: drawer open, which is navigation and so never what the bar says afterwards. It was
-//: Feedback until 12 October 2026, and /feedback is sent here by the server.
-var ADDR_GENE_THERAPY = '/gene-therapy';
+//: Feedback, a door rather than a place (`addressing.FEEDBACK`): the page with the panel open,
+//: which is navigation and so never what the bar says afterwards; and /feedback/mine, All
+//: feedback, the person's own. It was Gene therapy, at /gene-therapy, from 12 October to
+//: 23 November 2026, and the server sends that address here.
+var ADDR_FEEDBACK = '/feedback';
 //: Synapse's lab, and one dataset of it (`addressing.SYNAPSE`).
 var ADDR_SYNAPSE = '/synapse';
 //: Anatomy, its groups under it and a section of each under that (`addressing.ANATOMY`),
@@ -472,8 +473,11 @@ function addrReadPlace(path, query) {
   if (parts.length === 1 && '/' + parts[0] === ADDR_OFFLINE) {
     return { kind: '', id: '', chat: chat, offline: true };
   }
-  if (parts.length === 1 && '/' + parts[0] === ADDR_GENE_THERAPY) {
-    return { kind: '', id: '', chat: chat, geneTherapy: true };
+  if (parts.length === 1 && '/' + parts[0] === ADDR_FEEDBACK) {
+    return { kind: '', id: '', chat: chat, feedback: 'panel' };
+  }
+  if (parts.length === 2 && '/' + parts[0] === ADDR_FEEDBACK && parts[1] === 'mine') {
+    return { kind: '', id: '', chat: chat, feedback: 'mine' };
   }
   // The lab's Improvements page, and one attempt on it (`rouh/synapse/improvements.py`).
   if (parts.length === 3 && '/' + parts[0] === ADDR_SYNAPSE && parts[1] === 'improvements' && /^\d+$/.test(parts[2])) {
@@ -1133,14 +1137,19 @@ function addrAsk() {
     if (want.chat) chatIsWanted();
     return;
   }
-  // And Gene therapy's drawer, opened the way the person opens it: its own row, pressed.
-  // Pressed rather than called, so this module does not import the drawer's and move
-  // where that one runs (app.js says why the order matters).
-  if (want.geneTherapy) {
+  // And the Feedback panel, opened the way the person opens it: its own row, pressed; or All
+  // feedback, by the panel's own link. Pressed rather than called, so this module does not
+  // import the panel's and move where that one runs (app.js says why the order matters).
+  if (want.feedback) {
     ADDR.wanted = null;
     ADDR.asked = false;
-    var gt = $('geneTherapyBtn');
-    if (gt && gt.getAttribute('aria-expanded') !== 'true') gt.click();
+    if (want.feedback === 'mine') {
+      var all = $('gtAll');
+      if (all) all.click();
+      return;
+    }
+    var fb = $('feedbackBtn');
+    if (fb && fb.getAttribute('aria-expanded') !== 'true') fb.click();
     if (want.chat) chatIsWanted(); else addrTouch();
     return;
   }

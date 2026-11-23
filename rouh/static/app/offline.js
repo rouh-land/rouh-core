@@ -34,7 +34,7 @@
  *
  * - **The outbox.** Every action taken with no connection (`offlineQueue`) -
  *   on the Offline page, and on Clockwork, a goal's or a quest's own page and
- *   the Gene therapy drawer, which hand theirs here (`window.RouhOffline`) -
+ *   the Feedback panel, which hand theirs here (`window.RouhOffline`) -
  *   with an id of its own, this device, the time and the version of what it
  *   acted on, kept until the server says what became of it, and sent the
  *   moment there is a connection (`outboxFlush`).
@@ -924,7 +924,7 @@ function labelOf(kind, p) {
   if (kind === 'task') return 'New task: ' + (p.title || '');
   if (kind === 'note') return p.audio ? 'Voice note' : 'Note: ' + (p.text || '').slice(0, 80);
   if (kind === 'clock') return p.label || 'A change on Clockwork, a goal or a quest';
-  if (kind === 'feedback') return 'Gene therapy: ' + (p.body || '').slice(0, 80);
+  if (kind === 'feedback') return 'Feedback: ' + (p.body || '').slice(0, 80);
   return kind;
 }
 

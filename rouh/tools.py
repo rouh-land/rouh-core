@@ -1659,7 +1659,7 @@ class ToolRegistry:
             "own (Custom, an ordered list too), named by its id in 'which': 'general' (Rouh, this conversation, and its "
             "forks), 'chats' (every other chat), chat titles, filing, Clockwork's titles and words, "
             "the heartbeat's wake-up check (which may also be 'off') and decision, code runs, Codex "
-            "runs, the nightly runs, background workers, reading Gene therapy, run summaries, "
+            "runs, the nightly runs, background workers, run summaries, "
             "helpers, Ask AI and page comments, source checks, the gene log, mail cases, Slack, "
             "goals, the morning brief, meetings and the Control Room. The mode moves only what "
             "nobody set by hand: a locked use keeps its own. Nobody picks how deeply a model "
@@ -2102,7 +2102,7 @@ class ToolRegistry:
         self._own(
             "incubator_status",
             _inc + "Move one or more ideas to a status: new, triaged, in_build, built, parked or rejected, with a "
-            "note saying why. go hands the idea to Gene therapy to be built, the one way anything is built: only "
+            "note saying why. go starts the run that builds the idea into Rouh (its change is then in Every change, in Mutations): only "
             "when the person says go or build it. To merge, use incubator_merge.",
             {"type": "object", "properties": {
                 "ids": {"type": "array", "items": {"type": "string"}},
@@ -15592,6 +15592,18 @@ class ToolRegistry:
 
                 await asyncio.to_thread(boxes.not_started, handed["grant"])
             return str(exc)
+        if preset == "improve_myself" and got.get("id"):
+            # Every change to Rouh's code is in Evolution > Mutations, Every change, from the
+            # moment its run starts: from a chat, with the person's own words and the way back
+            # to the chat (`rouh/everychange.py`, Petar, 23 November 2026).
+            from . import everychange
+
+            me = await self._thought_who()
+            if me is not None:
+                await asyncio.to_thread(
+                    everychange.started, str(me.org_id), run_id=str(got["id"]), source="chat",
+                    user_id=str(me.user_id), asked=asked_for or str(args.get("change") or ""),
+                    chat_id=_turns_chat(), title=str(got.get("title") or args.get("title") or ""))
         if turn is not None and turn.mode and got.get("id"):
             from . import mail_cases
 

@@ -30,7 +30,7 @@
      reject only, let's call it so. If those are rejected by some other mechanism should be a
      different category"): Rejected is what he rejected or turned off himself, Not used what its
      trial failed by itself. */
-  var VIEWS = [['new', 'New'], ['trial', 'On trial'], ['passed', 'Passed'], ['rejected', 'Rejected'], ['unused', 'Not used'],
+  var VIEWS = [['changes', 'Every change'], ['new', 'New'], ['trial', 'On trial'], ['passed', 'Passed'], ['rejected', 'Rejected'], ['unused', 'Not used'],
                ['month', 'Month'], ['log', 'Gene log']];
   /* Out of trial was one view of Passed and Failed until 19 October 2026, the month view the week
      view, and the morning deck a page of its own (Petar, fr_650809f11685: "where it says out of
@@ -155,6 +155,8 @@
       }));
     } else if (sub === 'month') {
       jobs.push(call('/month').then(function (j) { if (seq === R.seq && j) { R.month = j; } }));
+    } else if (!sub || sub === 'changes') {
+      jobs.push(changesLoad(false, seq));
     }
     return Promise.all(jobs);
   }
@@ -616,7 +618,9 @@
     if (!muts) { wrap.appendChild(el('p', 'evo-loading', 'Reading your mutations…')); return; }
     var gene = /^gene\/(\d+)/.exec(R.sub);
     if (gene) { drawGene(wrap); return; }
-    var view = R.sub || 'new';
+    // Every change is where Mutations opens (Petar, 23 November 2026: "make Evolution > Mutations
+    // the one list of every change made to Rouh, including changes made from chat").
+    var view = R.sub || 'changes';
     if (isExt(view) && view.indexOf('/') > 0 && ext()) { ext().draw(wrap, view, extCtx()); return; }
     /* Where everything stands, first (Petar, 7 November 2026: "Make the journeys first and then pass
        it on for redesign and restructuring"; the journeys are in the commit that made this): one
@@ -635,10 +639,10 @@
       clearTimeout(R.findTimer);
       R.findTimer = setTimeout(function () { load().then(function () { var f = document.querySelector('.evo-find'); if (f) { f.focus(); f.setSelectionRange(f.value.length, f.value.length); } }); }, 250);
     });
-    if (!isExt(view)) { bar.appendChild(find); }
+    if (!isExt(view) && view !== 'changes') { bar.appendChild(find); }
     var more = el('nav', 'evo-more');
     more.setAttribute('aria-label', 'More of Mutations');
-    [['month', 'Month'], ['log', 'Gene log']].forEach(function (v) {
+    [['changes', 'Every change'], ['month', 'Month'], ['log', 'Gene log']].forEach(function (v) {
       var a = link(v[1], '/evolution/mutations/' + v[0], 'evo-more-link');
       if (view === v[0]) { a.setAttribute('aria-current', 'page'); }
       more.appendChild(a);
@@ -649,6 +653,7 @@
       if (ext()) { ext().draw(wrap, view, extCtx()); }
       return;
     }
+    if (view === 'changes') { drawChanges(wrap); return; }
     if (R.said) { wrap.appendChild(el('p', 'evo-said', R.said)); }
     if (view === 'month') { drawMonth(wrap); return; }
     var found = muts.found ? muts.found : null;
@@ -690,6 +695,202 @@
       list(muts.views['new'] || [], 'Nothing new to look at.', { place: 'new', done: leftNew });
       unasked(wrap, muts.unasked || []);
     }
+  }
+
+
+  /* ---- Every change ----
+
+     Every change to Rouh's code, whatever started it (`rouh/everychange.py`): from a chat, with the way
+     back to it; Gene therapy's history; the Incubator; the nightly runs; a Rouh update; by hand. The
+     journeys are in the commit that made this: did the change I asked for land, and is it live (the
+     row, unopened); back to its chat (one press); what exactly changed (Details); an old Gene
+     therapy request (its filter); and Undo, confirmed in place. */
+
+  var CH = { data: null, items: [], source: '', q: '', opened: {}, confirm: 0, said: '', loading: false, timer: 0 };
+
+  function changesLoad(more, seq) {
+    var q = [];
+    if (CH.source) { q.push('source=' + encodeURIComponent(CH.source)); }
+    if (CH.q) { q.push('q=' + encodeURIComponent(CH.q)); }
+    if (more && CH.items.length) { q.push('before=' + CH.items[CH.items.length - 1].id); }
+    CH.loading = true;
+    return call('/changes' + (q.length ? '?' + q.join('&') : '')).then(function (j) {
+      CH.loading = false;
+      if (!j || (seq && seq !== R.seq)) { return; }
+      CH.data = j;
+      CH.items = more ? CH.items.concat(j.items || []) : (j.items || []);
+      CH.error = '';
+    }, function (err) {
+      CH.loading = false;
+      CH.error = String((err && err.message) || err);
+    });
+  }
+
+  function changesAgain(more) {
+    return changesLoad(more).then(function () {
+      var box = document.getElementById('evoChanges');
+      if (box) { fillChanges(box); }
+    });
+  }
+
+  function drawChanges(wrap) {
+    var box = el('section', 'evo-ch');
+    box.id = 'evoChanges';
+    box.setAttribute('aria-label', 'Every change');
+    wrap.appendChild(box);
+    fillChanges(box);
+  }
+
+  function chNum(n) { return Number(n || 0).toLocaleString('en'); }
+
+  function fillChanges(box) {
+    var keepFind = document.activeElement && document.activeElement.id === 'evoChFind';
+    box.textContent = '';
+    box.appendChild(el('h2', 'evo-ch-h', 'Every change'));
+    var d = CH.data;
+    if (CH.error) { box.appendChild(el('p', 'evo-error', CH.error)); }
+    if (!d) { if (!CH.error) { box.appendChild(el('p', 'evo-loading', 'Reading every change…')); } return; }
+    var first = CH.items[0];
+    box.appendChild(el('p', 'evo-ch-lede', !d.total ? 'No change to Rouh’s code is written down yet.'
+      : chNum(d.total) + (d.total === 1 ? ' change' : ' changes') + ' to Rouh, ' + chNum(d.live) + ' of them live.'
+        + (first && !CH.source && !CH.q ? ' The newest: ' + (first.when || '') + '.' : '')));
+    // The sources, each with its count over the whole list: chips at a desk, one select on a phone.
+    var bar = el('div', 'evo-ch-bar');
+    var chips = el('div', 'evo-ch-chips');
+    chips.setAttribute('role', 'group');
+    chips.setAttribute('aria-label', 'Show changes from');
+    var sel = el('select', 'evo-ch-sel');
+    sel.id = 'evoChSel';
+    var lab = el('label', 'sr-only', 'Show changes from');
+    lab.htmlFor = 'evoChSel';
+    [{ id: '', name: 'All', count: d.total }].concat(d.sources || []).forEach(function (src) {
+      var b = button('evo-ch-chip', src.name + ' ');
+      b.appendChild(el('span', 'evo-ch-n', chNum(src.count)));
+      b.setAttribute('aria-pressed', CH.source === src.id ? 'true' : 'false');
+      b.addEventListener('click', function () { CH.source = src.id; CH.opened = {}; changesAgain(false); });
+      chips.appendChild(b);
+      var o = el('option', '', src.name + ' (' + chNum(src.count) + ')');
+      o.value = src.id;
+      if (CH.source === src.id) { o.selected = true; }
+      sel.appendChild(o);
+    });
+    sel.addEventListener('change', function () { CH.source = sel.value; CH.opened = {}; changesAgain(false); });
+    bar.appendChild(chips);
+    bar.appendChild(lab);
+    bar.appendChild(sel);
+    var find = el('input', 'evo-find evo-ch-find');
+    find.id = 'evoChFind';
+    find.type = 'search';
+    find.placeholder = 'Find a change';
+    find.setAttribute('aria-label', 'Find a change by what was asked or its title');
+    find.value = CH.q;
+    find.addEventListener('input', function () {
+      CH.q = find.value.trim();
+      clearTimeout(CH.timer);
+      CH.timer = setTimeout(function () { changesAgain(false); }, 250);
+    });
+    bar.appendChild(find);
+    box.appendChild(bar);
+    if (CH.said) { box.appendChild(el('p', 'evo-said', CH.said)); }
+    var list = el('ul', 'evo-ch-list');
+    CH.items.forEach(function (c) { list.appendChild(changeRow(c)); });
+    box.appendChild(list);
+    if (!CH.items.length) {
+      box.appendChild(el('p', 'evo-ch-empty', CH.q || CH.source ? 'No change matches.' : 'No change yet.'));
+    }
+    if (d.more) {
+      var more = button('ctl evo-ch-more', 'Show 50 more (' + chNum(CH.items.length) + ' of ' + chNum(d.matching) + ' shown)');
+      more.addEventListener('click', function () { more.disabled = true; changesAgain(true); });
+      box.appendChild(more);
+    }
+    if (keepFind) { find.focus(); find.setSelectionRange(find.value.length, find.value.length); }
+  }
+
+  function changePill(c) {
+    if (c.undo_run) { return el('span', 'evo-ch-pill is-undo', 'Undo started'); }
+    if (c.live === true) { return el('span', 'evo-ch-pill is-live', 'Live'); }
+    if (c.live === false) { return el('span', 'evo-ch-pill is-off', 'Not live'); }
+    return el('span', 'evo-ch-pill is-' + c.state, c.state_name);
+  }
+
+  function changeRow(c) {
+    var li = el('li', 'evo-ch-row');
+    li.dataset.change = c.id;
+    var head = el('div', 'evo-ch-head');
+    head.appendChild(el('span', 'evo-ch-src', c.source_name));
+    head.appendChild(changePill(c));
+    if (c.when) { head.appendChild(el('span', 'evo-ch-when', c.when)); }
+    if (c.chat && !c.chat.gone) {
+      var a = link('Open the chat', c.chat.href, 'evo-link evo-ch-chat');
+      a.setAttribute('aria-label', 'Open the chat it came from' + (c.chat.name ? ': ' + c.chat.name : ''));
+      head.appendChild(a);
+    } else if (c.chat && c.chat.gone) {
+      head.appendChild(el('span', 'evo-ch-when', 'Its chat is gone'));
+    }
+    if (c.ref_href) { head.appendChild(link(c.ref, c.ref_href, 'evo-link evo-ch-chat')); }
+    if (c.can_undo && CH.confirm !== c.id) {
+      var u = button('ctl small evo-ch-undo', 'Undo');
+      u.setAttribute('aria-label', 'Undo this change');
+      u.addEventListener('click', function () { CH.confirm = c.id; redrawRow(c); var y = document.querySelector('[data-change="' + c.id + '"] .evo-ch-yes'); if (y) { y.focus(); } });
+      head.appendChild(u);
+    }
+    li.appendChild(head);
+    if (CH.confirm === c.id) {
+      var box = el('div', 'evo-ch-confirm');
+      box.appendChild(el('p', '', 'Take this change out? A run removes it and keeps everything that came after it.'));
+      var acts = el('div', 'evo-acts');
+      var yes = button('ctl small evo-ch-yes', 'Undo it');
+      var no = button('ctl small', 'Keep it');
+      yes.addEventListener('click', function () {
+        yes.disabled = no.disabled = true;
+        fetch(API + '/changes/' + c.id + '/undo', { method: 'POST', credentials: 'same-origin',
+          headers: { 'Content-Type': 'application/json' }, body: '{}' })
+          .then(function (r) { return r.json().catch(function () { return {}; }).then(function (j) { if (!r.ok) { throw new Error(j.error || 'Undo could not start.'); } return j; }); })
+          .then(function (j) { CH.confirm = 0; c.undo_run = j.run; c.can_undo = false; c.undo_said = j.said; redrawRow(c); },
+                function (err) { CH.confirm = 0; c.undo_said = String(err.message || err); redrawRow(c); });
+      });
+      no.addEventListener('click', function () { CH.confirm = 0; redrawRow(c); });
+      acts.appendChild(yes);
+      acts.appendChild(no);
+      box.appendChild(acts);
+      li.appendChild(box);
+    }
+    if (c.undo_said || c.undo_run) {
+      li.appendChild(el('p', 'evo-ch-said', c.undo_said || ('Undo started: run ' + c.undo_run + ' is taking it out.')));
+    }
+    var open = !!CH.opened[c.id];
+    var b = button('evo-ch-open');
+    b.setAttribute('aria-expanded', open ? 'true' : 'false');
+    var words = c.asked || c.title || 'A change';
+    b.appendChild(el('span', 'evo-ch-words' + (open ? ' is-whole' : ''), words));
+    var meta = c.commit_count ? 'Details · ' + c.commit_count + (c.commit_count === 1 ? ' commit' : ' commits') + ', '
+      + c.file_count + (c.file_count === 1 ? ' file' : ' files') : (c.note || 'Nothing landed');
+    b.appendChild(el('span', 'evo-ch-meta', meta));
+    b.addEventListener('click', function () { CH.opened[c.id] = !CH.opened[c.id]; redrawRow(c); });
+    li.appendChild(b);
+    if (open && c.commit_count) {
+      var more = el('div', 'evo-ch-more-body');
+      if (c.title && c.asked && c.title !== c.asked) { more.appendChild(el('p', 'evo-ch-title', c.title)); }
+      var ul = el('ul', 'evo-ch-commits');
+      (c.commits || []).forEach(function (k) {
+        var i = el('li');
+        i.appendChild(el('code', '', String(k.sha || '').slice(0, 7)));
+        i.appendChild(document.createTextNode(k.subject || ''));
+        ul.appendChild(i);
+      });
+      if (c.commit_count > (c.commits || []).length) { ul.appendChild(el('li', 'evo-ch-meta', 'and ' + (c.commit_count - c.commits.length) + ' older')); }
+      more.appendChild(ul);
+      var files = el('p', 'evo-ch-files', (c.files || []).join('  ') + (c.file_count > (c.files || []).length ? '  and ' + (c.file_count - c.files.length) + ' more' : ''));
+      more.appendChild(files);
+      if (c.run) { more.appendChild(el('p', 'evo-ch-meta', 'Run ' + c.run)); }
+      li.appendChild(more);
+    }
+    return li;
+  }
+
+  function redrawRow(c) {
+    var old = document.querySelector('#evoChanges [data-change="' + c.id + '"]');
+    if (old) { old.replaceWith(changeRow(c)); }
   }
 
   /* A gene answered in New leaves it at once, its row folded away where it was, and is counted in

@@ -35,7 +35,7 @@
  *   app/controls.js    11   controls, composer, the speakers
  *   app/attachments.js 11c  files attached to a message: the paperclip, the drop
  *                           zone, paste
- *   app/gene_therapy.js 12  Gene therapy: the drawer on the right, and the board it
+ *   app/feedback.js     12  Feedback: the panel on the right, and All feedback, the person's own
  *                           opens; and window.__rouh, what the tests reach
  *   app/shared.js           the variables more than one module assigns
  *   app/stars.js            a falling star across the navigation now and
@@ -96,7 +96,7 @@
  * at the file, so the type checker reads the same graph the browser does
  * (tools/typecheck says how to run it).
  */
-import 'app/gene_therapy.js';
+import 'app/feedback.js';
 import 'app/stars.js';
 import 'app/notices.js';
 import 'app/offlineview.js';

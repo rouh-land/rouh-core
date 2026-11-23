@@ -7,7 +7,7 @@
    give my feedback, or chat about the future thing." (task 166, step 166-05; the design standard of task
    169, full tier, one direction; its journeys, structure and states are in that step's `designs/`).
 
-   - Decide: every row has Take (Go: Gene therapy builds it), Park, Drop and Merge, and the keys T, P, D and
+   - Decide: every row has Take (Go: a run builds it), Park, Drop and Merge, and the keys T, P, D and
      M on the selected row; the row changes at once, a toast says what was done with Undo (and Z), and the
      row stays where it is, dimmed, until the list is put in order again (R). Take waits a few seconds
      before it hands the idea on, so Undo never has to take back a feature request.
@@ -67,7 +67,7 @@
   var SIZE_ORDER = { small: 1, medium: 2, large: 3 };
   /* The decisions on a row: what they set, their key, and what the toast says. Take is Go. */
   var DECIDE = [
-    { id: 'take', name: 'Take', key: 't', status: 'go', said: 'goes to Gene therapy to be built', line: 'Build it: hand it to Gene therapy' },
+    { id: 'take', name: 'Take', key: 't', status: 'go', said: 'is being built', line: 'Build it: a run builds it into Rouh' },
     { id: 'park', name: 'Park', key: 'p', status: 'parked', said: 'parked', line: 'Not now: keep it for later' },
     { id: 'drop', name: 'Drop', key: 'd', status: 'rejected', said: 'dropped', line: 'Not to be built: it is set to Rejected' },
     { id: 'merge', name: 'Merge', key: 'm', status: 'merged', said: 'merged', line: 'The same as another idea: compare and merge' }
@@ -930,7 +930,7 @@
     facts('statuses').forEach(function (s) { if (s.id !== 'merged') { st.appendChild(new Option(s.name, s.id)); } });
     st.addEventListener('change', function () {
       if (!st.value) { return; }
-      if (st.value === 'go' && !window.confirm('Hand ' + ids.length + ' ideas to Gene therapy to be built?')) { st.value = ''; return; }
+      if (st.value === 'go' && !window.confirm('Start a run to build each of these ' + ids.length + ' ideas?')) { st.value = ''; return; }
       bulk({ ids: ids, status: st.value });
     });
     bar.appendChild(st);
@@ -1228,7 +1228,7 @@
         call('/' + v.number + '/status', { status: 'go' }).then(function (j) {
           v._pending = false;
           if (j.idea) { Object.assign(v, j.idea); recalc(v); }
-          toast(v.code + ' is in Gene therapy. It moves to In build once its feature request is written.');
+          toast(v.code + ' is In build: a run is building it. It is in Every change, in Mutations.');
           refreshIdea(v);
         }, function (err) {
           v._pending = false;
@@ -1489,7 +1489,7 @@
   /* ---- the keys ---- */
 
   var KEYS = [['↑ ↓  j k', 'move between ideas'], ['Space', 'At a glance, open or fold'], ['Enter', 'open the idea'],
-              ['T', 'Take: Gene therapy builds it'], ['P', 'Park'], ['D', 'Drop'], ['M', 'Merge: compare with its lookalike'],
+              ['T', 'Take: a run builds it'], ['P', 'Park'], ['D', 'Drop'], ['M', 'Merge: compare with its lookalike'],
               ['Z', 'Undo the last decision'], ['1 2 3', 'your stars'], ['0', 'back to Rouh’s stars'], ['/', 'search'],
               ['R', 'put the list in order again'], ['Esc', 'close, then back to the list'], ['?', 'these keys']];
   function drawKeys() {
@@ -1649,8 +1649,8 @@
     ct.addEventListener('change', function () { call('/' + v.number, { category: ct.value }).then(function () { load(); openIdea(v.number, true); }, fail); });
     more.appendChild(labelled('Category', ct));
     dec.appendChild(more);
-    if (row._pending) { dec.appendChild(el('p', 'inc-n', 'Going to Gene therapy in a few seconds: Undo is in the message at the bottom.')); }
-    if (v.request_id) { dec.appendChild(el('p', 'inc-n', 'Feature request ' + v.request_id + ' in Gene therapy.')); }
+    if (row._pending) { dec.appendChild(el('p', 'inc-n', 'Its run starts in a few seconds: Undo is in the message at the bottom.')); }
+    if (v.request_id) { dec.appendChild(el('p', 'inc-n', /^run:/.test(v.request_id) ? 'Run ' + v.request_id.slice(4) + ' is building it; it is in Every change, in Mutations.' : 'Feature request ' + v.request_id + ', from when Gene therapy built ideas.')); }
     if (v.built_as) { dec.appendChild(el('p', 'inc-n', 'Became: ' + v.built_as)); }
     p.appendChild(dec);
 

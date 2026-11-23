@@ -22,7 +22,7 @@
     POST /api/trials/problems/<n>/say         {"text"}: the owner writes in its thread, and Rouh answers there
     POST /api/trials/problems/<n>/verdict     {"verdict", "decision"?, "reason"? (why won't fix), "feedback"?}: not a problem, won't fix,
                                               decided (fix it like this), sent as feedback, or "" to take it back
-    GET  /api/trials/problems/<n>/report      the problem as a report for Gene therapy
+    GET  /api/trials/problems/<n>/report      the problem as a report to send as feedback
     GET  /api/trials/testers                  every tester (?archived=1 with the removed ones)
     GET  /api/trials/testers/<key>            one tester whole: their profile in sections, and their tries
     POST /api/trials/testers/new              a new tester from the form

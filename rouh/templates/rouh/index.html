@@ -452,7 +452,7 @@ with {% asset %}, which gives it its hashed address.
            Search and Feedback with them from the row by his name. On
            10 October 2026 three went again, to free the places over the menu
            button: Search to the right hand end of the person's own row, and
-           Rouh and Gene therapy to two rows of their own under the button
+           Rouh and Gene therapy (Feedback since 23 November 2026) to two rows of their own under the button
            (`#sbUnder`).
 
            The column above them is empty on purpose: the group is pushed to
@@ -516,7 +516,7 @@ with {% asset %}, which gives it its hashed address.
           var reg = {};
           try { reg = JSON.parse(document.getElementById('rouhGenes').textContent); } catch (e) {}
           var path = location.pathname.replace(/\/+$/, ''), best = '', len = 0, kept = '';
-          // A gene in the dedicated area picks no group: Gene therapy has an address,
+          // A gene in the dedicated area picks no group: Feedback has an address,
           // and its row is under the button, in none of them.
           (reg.genes || []).forEach(function (f) {
             var r = f.place === 'dedicated' ? '' : f.route;
@@ -622,7 +622,7 @@ with {% asset %}, which gives it its hashed address.
       </div>
     </div>
 
-    {% comment %} Rouh and Gene therapy, under the menu button, since 10 October 2026.
+    {% comment %} Rouh and Feedback (Gene therapy from 12 October to 23 November 2026), under the menu button, since 10 October 2026.
          They were the last links in the list above, with Search, and Petar
          asked for them here so the list over the button is shorter: "Put
          Rouh link and feedback under the menu/close button. These changes
@@ -647,7 +647,7 @@ with {% asset %}, which gives it its hashed address.
          bubble (fr_eb6641de300d: "make Rouh and the icon purple"): a small
          orb with six of them curling out all round it ("tentacles to go in
          all directions and orb center to be slightly smaller"). The red dot
-         is something new in it. Gene therapy opens the drawer on the right,
+         is something new in it. Feedback opens the panel on the right,
          which pushes the page in rather than lying over it, so whatever the
          person is writing about is still on the screen beside what they are
          writing. {% endcomment %}
@@ -662,17 +662,19 @@ with {% asset %}, which gives it its hashed address.
         <span class="sb-row-name">Rouh</span>
         <span class="sb-row-dot" id="generalBadge" hidden></span>
       </a>
-      {% comment %} Gene therapy was Feedback until 12 October 2026, when Petar renamed it, with
-           the gene emoji in the place the speech bubble had: "Can we also change the
-           name of the feedback function to be called gene therapy with a gene emoji
-           ... Also make it playful, how would you like to mutate me?" The emoji sits
-           in the 16 px column every row's glyph is in (`.sb-emoji`), so the row is the
-           same size in the same place. {% endcomment %}
-      <button id="geneTherapyBtn" class="sb-row sb-do" type="button" data-nav="gene-therapy"
+      {% comment %} Feedback, Gene therapy from 12 October to 23 November 2026, when Petar
+           made it Feedback again: "Where the Gene therapy link/button is now, put a
+           Feedback button. It opens the same side panel as today." The same row in the
+           same place, its glyph a speech bubble in the 16 px column every row's glyph
+           is in. {% endcomment %}
+      <button id="feedbackBtn" class="sb-row sb-do" type="button" data-nav="feedback"
               aria-expanded="false" aria-controls="gtDrawer"
-              title="How would you like to mutate me?">
-        <span class="sb-emoji" aria-hidden="true">🧬</span>
-        <span class="sb-row-name">Gene therapy</span>
+              title="Tell us what you think">
+        <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="none"
+             stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M4 5.5h16v10H9.5L5 19.5v-4H4z"/>
+        </svg>
+        <span class="sb-row-name">Feedback</span>
       </button>
     </div>
 
@@ -4651,45 +4653,44 @@ with {% asset %}, which gives it its hashed address.
     </div>
   </section>
 
-  {% comment %} 5. Gene therapy (Feedback until 12 October 2026): the drawer on the right,
-       and the board it opens.
+  {% comment %} 5. Feedback (Gene therapy from 12 October to 23 November 2026): the panel on
+       the right, and All feedback.
 
-       The drawer is a column of the grid, not a sheet over the page. Its
+       The panel is a column of the grid, not a sheet over the page. Its
        track is nothing until it is opened and `--gt-w` once it is, so opening
        it pushes the conversation and the canvas in rather than covering
        them: whatever the person is writing about stays on the screen beside
        what they are writing. On a phone there are no columns to push, so it
-       is a full-height sheet instead (app.css, under "Gene therapy").
+       is a full-height sheet instead (app.css, under "Feedback").
 
-       The board is the other half. It spans the conversation's column and the
-       canvas's, so "All mutations" replaces both with one screen: what people
-       said on the left, what is going to be done about it on the right. The
-       sidebar is untouched, because it is how you leave. {% endcomment %}
-  <aside class="gt-drawer" id="gtDrawer" aria-label="Gene therapy">
+       Send keeps it and sends it on (`rouh/feedback.py`); the panel says only
+       Thank you (Petar, 23 November 2026: "just thank people for the
+       feedback"). All feedback spans the conversation's column and the
+       canvas's: the person's own feedback and nobody else's, with what became
+       of each. What Gene therapy was asked and built is in Evolution >
+       Mutations. {% endcomment %}
+  <aside class="gt-drawer" id="gtDrawer" aria-label="Feedback">
     <div class="gt-panel" id="gtPanel">
       <div class="gt-head">
-        <h2 class="gt-title"><span aria-hidden="true">🧬 </span>Gene therapy</h2>
-        {% comment %} The way to everything anybody has ever said. A link rather than a
-             button because that is what it is: it goes somewhere. {% endcomment %}
-        <button id="gtAll" class="gt-link" type="button">All mutations</button>
+        <h2 class="gt-title">Feedback</h2>
+        <button id="gtAll" class="gt-link" type="button">All feedback</button>
         <button id="gtClose" class="layer-x" type="button"
-                title="Close (Esc)" aria-label="Close the Gene therapy drawer">&times;</button>
+                title="Close (Esc)" aria-label="Close the Feedback panel">&times;</button>
       </div>
 
       <form class="gt-form" id="gtForm" autocomplete="off">
-        {% comment %} The question is the prompt, and the old one is still under it, because
-             "mutate me" alone does not say that a broken button counts. {% endcomment %}
-        <label class="gt-ask" for="gtText">How would you like to mutate me?</label>
+        <label class="gt-ask" for="gtText">What would you like to tell us?</label>
         <textarea id="gtText" class="gt-text" rows="7"
-                  placeholder="Something good to keep, something broken to fix, something missing to grow."></textarea>
+                  placeholder="Something good, something broken, something missing."></textarea>
         {% comment %} Screenshots and anything else, uploaded the moment they are
              attached rather than when Send is pressed, so the wait for a
              twenty megabyte recording happens while the person is still
              typing. The same chips the composer draws, and the same route
-             underneath (jarvis/attachments.py). {% endcomment %}
+             underneath (rouh/attachments.py). {% endcomment %}
         <div class="gt-atts" id="gtFiles" hidden></div>
         <input type="file" id="gtFileInput" class="sr-only" multiple
                accept="{{ATTACH_ACCEPT}}" aria-hidden="true" tabindex="-1">
+        <p class="gt-hint">Paste or drop screenshots and files here.</p>
         <p class="gt-say" id="gtSay" role="alert" hidden></p>
         <div class="gt-actions">
           <button id="gtAttach" class="ctl small" type="button"
@@ -4700,32 +4701,24 @@ with {% asset %}, which gives it its hashed address.
             </svg>
             Attach
           </button>
-          <button id="gtSend" class="ctl small primary" type="submit">Mutate</button>
+          <button id="gtSend" class="ctl small primary" type="submit">Send</button>
         </div>
       </form>
 
-      {% comment %} What is on the screen instead of the form once it has been sent. It
-           stays for two seconds and then the drawer goes back off to the
-           right by itself, unless Submit another one is pressed first. {% endcomment %}
+      {% comment %} What is on the screen instead of the form once it has been sent, and
+           nothing else: no word of where it goes. It stays a moment and the
+           panel goes back off to the right by itself, unless Send more is
+           pressed first. {% endcomment %}
       <div class="gt-thanks" id="gtThanks" role="status" hidden>
         <svg viewBox="0 0 24 24" width="30" height="30" aria-hidden="true" fill="none"
              stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
           <circle cx="12" cy="12" r="9"/><path d="M8 12.5l2.6 2.6L16 9.7"/>
         </svg>
-        <p>Noted. The mutation is queued.</p>
-        {% comment %} What is happening to it, shown only when the server really is
-             taking it up by itself (rouh/triage.py). By the time this has been
-             read it has usually already happened: the feedback has been read,
-             a feature request written from it, and a run started to build it.
-             With the board's Automatic build off, app.js says the shorter
-             truth instead: read and written up, and waiting to be built. {% endcomment %}
-        <p class="gt-thanks-more" id="gtThanksMore" hidden>It is being read now,
-          written up as a feature request, and given a run to splice it in.</p>
-        {# Straight back to an empty form, and the drawer stays. #}
-        <button id="gtAnother" class="ctl small" type="button">Another mutation</button>
+        <p>Thank you for your feedback.</p>
+        <button id="gtAnother" class="ctl small" type="button">Send more</button>
       </div>
 
-      {% comment %} Files dragged anywhere over the drawer land on this, for the same
+      {% comment %} Files dragged anywhere over the panel land on this, for the same
            reason the conversation has one: aiming at a particular box while
            holding a file is not something anybody should have to do. {% endcomment %}
       <div class="gt-drop" id="gtDrop" hidden aria-hidden="true">
@@ -4734,65 +4727,21 @@ with {% asset %}, which gives it its hashed address.
     </div>
   </aside>
 
-  <section class="gt-board" id="gtBoard" hidden aria-label="All mutations">
+  <section class="gt-board" id="gtBoard" hidden aria-labelledby="gtBoardTitle">
     <div class="gt-board-head">
-      <h2 id="gtBoardTitle">All mutations</h2>
+      <h2 id="gtBoardTitle">All feedback</h2>
       <p class="gt-board-sub" id="gtBoardSub"></p>
-      {% comment %} Whether a feature request written out of a feedback is given a run
-           by itself (rouh/triage.py). Off, feedback is still read and written
-           up, and the request waits on the board for somebody to start it.
-           The organisation's switch, not the person's: the board is one list
-           for everybody in it. Hidden when nothing here is taken up by itself
-           at all, because then it has nothing to switch. {% endcomment %}
-      <button id="gtAutobuild" class="gt-switch" type="button" role="switch"
-              aria-checked="true" hidden>
-        <span class="gt-switch-track" aria-hidden="true"><span class="gt-switch-knob"></span></span>
-        <span class="gt-switch-label">Automatic build</span>
-        <span class="gt-switch-state" id="gtAutobuildState" aria-hidden="true">On</span>
-      </button>
-      {% comment %} Both columns at once, because a word somebody used is as likely to
-           be in what they said as in what was written about it. It narrows
-           what is already on the screen and asks the server nothing. {% endcomment %}
-      <label class="sr-only" for="gtSearch">Search the mutations</label>
-      <input id="gtSearch" class="gt-search" type="search" placeholder="Search"
-             autocomplete="off" spellcheck="false">
-      {% comment %} Back, on a detail view. Hidden on the two columns themselves,
-           because there is nowhere above them to go. {% endcomment %}
-      <button id="gtBack" class="ctl small" type="button" hidden>&#8592; Back</button>
-      <button id="gtNewRequest" class="ctl small" type="button">New feature request</button>
       <button id="gtBoardClose" class="layer-x" type="button"
               title="Back to the conversation (Esc)"
-              aria-label="Close the Gene therapy board">&times;</button>
+              aria-label="Close All feedback">&times;</button>
     </div>
-
-    {% comment %} Two columns, and on a phone they stack. Left is what people said,
-         right is what is going to be done about it, and each has its own
-         status filter above it. {% endcomment %}
-    <div class="gt-board-body" id="gtBoardBody">
-      <section class="gt-col" aria-label="Mutations asked for">
-        <div class="gt-col-head">
-          <h3>Mutations asked for <span class="head-count" id="gtCountSaid">0</span></h3>
-          <div class="gt-filters" id="gtFilterSaid" role="group" aria-label="Filter the mutations asked for by status"></div>
-        </div>
-        <div class="gt-cards" id="gtListSaid">
-          <p class="empty" id="gtSaidEmpty">Nobody has asked for a mutation yet.</p>
-        </div>
-      </section>
-      <section class="gt-col" aria-label="Feature requests">
-        <div class="gt-col-head">
-          <h3>Feature requests <span class="head-count" id="gtCountAsked">0</span></h3>
-          <div class="gt-filters" id="gtFilterAsked" role="group" aria-label="Filter feature requests by status"></div>
-        </div>
-        <div class="gt-cards" id="gtListAsked">
-          <p class="empty" id="gtAskedEmpty">Nothing has been spliced into a feature request yet.</p>
-        </div>
-      </section>
+    <div class="fb-body">
+      <ul class="fb-list" id="fbList"></ul>
+      <div class="fb-empty" id="fbEmpty" hidden>
+        <p>You have not sent any feedback yet.</p>
+        <button id="fbWrite" class="ctl small" type="button">Write some feedback</button>
+      </div>
     </div>
-
-    {% comment %} One feedback or one feature request, everything about it. Drawn by
-         app.js; the two columns above are hidden while it is up, and Back
-         brings them back. {% endcomment %}
-    <div class="gt-detail" id="gtDetail" hidden tabindex="-1"></div>
   </section>
 
 </main>

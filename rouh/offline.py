@@ -78,7 +78,7 @@ log = logging.getLogger("rouh.offline")
 
 #: What a device may have done offline, each carried out by its own function below. `clock`
 #: is a change on Clockwork, a goal or a quest, sent through the very view that makes it online
-#: (`CLOCK_ROUTES`); `feedback` is the Gene therapy drawer's Send (the kind kept its old name, because it is stored).
+#: (`CLOCK_ROUTES`); `feedback` is the Feedback panel's Send (Gene therapy's from 12 October to 23 November 2026).
 KINDS = ("decision", "reply", "draft", "page", "reminder", "task", "note", "clock", "feedback")
 #: What became of one: received and running on the way, then done, clash (a decision now),
 #: held (waiting on a confirmation, as a decision), failed (said why), or dropped (he said so).
@@ -653,7 +653,7 @@ def label_of(kind: str, payload: dict) -> str:
     if kind == "clock":
         return str(payload.get("label") or "A change on Clockwork, a goal or a quest")[:140]
     if kind == "feedback":
-        return f"Gene therapy: {payload.get('body') or ''}"[:140]
+        return f"Feedback: {payload.get('body') or ''}"[:140]
     return kind
 
 
@@ -1354,40 +1354,31 @@ async def _clock(who, row, *, over: bool = False) -> None:
                             route=name)
 
 
-async def _gene_therapy(who, row) -> None:
-    """Feedback written offline: on the board as if Send had been pressed when it was written.
-
-    Through the board's own store, under his organisation, dated when he wrote it rather than
-    when the device came back, and taken up by itself as the drawer's Send is."""
-    from . import runtime
+async def _feedback(who, row) -> None:
+    """Feedback written offline: kept and sent on as if Send had been pressed when it was written
+    (`rouh/feedback.py`), dated when it was written rather than when the device came back. It was
+    Gene therapy's until 23 November 2026, which built what it was told; Feedback builds nothing."""
+    from . import feedback
 
     p = row.payload or {}
     body = str(p.get("body") or "").strip()
     if not body:
         raise Refused("There was nothing written, so nothing was sent.")
-    store = getattr(runtime, "gene_therapy", None)
-    if store is None:
-        raise Refused("Gene therapy is not kept on this Rouh.")
-    from . import gene_therapy as gt
-
     try:
-        made = await asyncio.to_thread(store.add_feedback, org_id=who.org_id, user_id=who.user_id,
-                                       author=getattr(who, "name", "") or "", body=body,
-                                       page=str(p.get("page") or ""), created_at=row.made_at)
-    except gt.Refused as exc:
+        made = await asyncio.to_thread(feedback.add, who, body=body, page=str(p.get("page") or ""),
+                                       created_at=row.made_at)
+    except feedback.Refused as exc:
         raise Refused(str(exc)) from None
-    convert = getattr(runtime, "converter", None)
-    if convert is not None and convert.enabled:
-        with contextlib.suppress(Exception):
-            convert.take_later(who.org_id, made)
+    with contextlib.suppress(Exception):
+        await asyncio.to_thread(feedback.send_due, only=made["id"])
     await asyncio.to_thread(_finish, row, "done",
-                            f"On the Gene therapy board, as written {_when(who, row.made_at)}.",
-                            feedback=made.id)
+                            f"Sent as feedback, as written {_when(who, row.made_at)}.",
+                            feedback=made["id"])
 
 
 CARRY = {"decision": _decision, "reply": _reply, "draft": _draft, "page": _page_async,
          "reminder": _reminder, "task": _task, "note": _note, "clock": _clock,
-         "feedback": _gene_therapy}
+         "feedback": _feedback}
 
 
 # --- clashes and holds, answered as decisions (`decision_sources.OfflineSource`) -------------

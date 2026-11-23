@@ -3146,8 +3146,8 @@
      "outcome": "After this Rouh grows a new ability because you asked for it.",
      "minutes": 3,
      "cover": {
-      "src": "handholding/gene-therapy.webp",
-      "alt": "Gene therapy open beside the chat: How would you like to mutate me?, with a box and Mutate.",
+      "src": "handholding/every-change.webp",
+      "alt": "Every change, in Evolution > Mutations: each change to Rouh with where it came from, Live, and the words asked.",
       "w": 1000,
       "h": 562
      },
@@ -3155,16 +3155,16 @@
       "Say what you would like Rouh to do differently. Rouh builds the change as a gene (one ability of Rouh), checks it, and puts it live."
      ],
      "how": [
-      "Say improve yourself so, and what you want.",
-      "Or open Gene therapy (the menu's foot, beside Rouh), write it in the box and press Mutate.",
-      "Rouh tells you when the new gene is live."
+      "Say improve yourself so, and what you want, in any chat.",
+      "Rouh tells you when the change is live.",
+      "Every change ever made to Rouh is in Evolution > Mutations, Every change, with the way back to the chat it came from."
      ],
      "says": [
       "Improve yourself so the morning brief also lists my birthdays this week."
      ],
      "open": {
-      "label": "Gene therapy",
-      "href": "/gene-therapy"
+      "label": "Every change",
+      "href": "/evolution/mutations"
      },
      "talk": true,
      "glyph": "dna"

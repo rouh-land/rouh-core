@@ -175,7 +175,7 @@ A run has no Docker socket and cannot build or replace the containers. The Creat
 
 | ID | Feature | Before | Now | How it is checked | Windows |
 |---|---|---|---|---|---|
-| `self.improve` | Rouh changes its own code when asked (`improve_myself`, Gene therapy) | broken | works | `improve_myself` starts a run in a clone of the code; its commit is checked by the protected core and becomes the code that runs | not checked |
+| `self.improve` | Rouh changes its own code when asked (`improve_myself`, the Incubator's Go) | broken | works | `improve_myself` starts a run in a clone of the code; its commit is checked by the protected core and becomes the code that runs | not checked |
 | `self.deploy` | A change goes live | replaced | replaced | the protected core's change step puts a checked change live (`guard.change-step`), in place of `deploy_myself` and the one program's update button | not checked |
 | `self.gene-grow` | Growing a gene | broken | works | a gene drafted and grown starts its run in a clone of the code; its `./land.sh` hands the work to the protected core (`bin/rouh-land`) | not checked |
 | `self.gene-log` | Each change written into its genes' history | broken | works | after a run's change goes live through the protected core it is written into the gene log at once (`genelog.landed`, `rouh/codechanges.py`), and Read now (the catch-up) says the log is up to date through the code that runs; the run it came from is written down beside it | not checked |
@@ -301,7 +301,8 @@ Every gene in `rouh/genes/owners.json` and every page Rouh serves that no row ab
 | `gene.plain-words` | Plain words | untested | works | a term asked about is explained in every later turn and run | not checked |
 | `gene.offline-outbox` | What was done offline, carried out | untested | works | a note sent from a device's offline outbox is given to Rouh | not checked |
 | `page.mail-case` | A trusted contact's mail case page | untested | works | a case's page and `/api/mail/case/<key>`; a case that is not there is 404 | not checked |
-| `gene.feedback-board` | The feedback board (Gene therapy) | untested | works | feedback given becomes a feature request on the board, with automatic building off for the check | not checked |
+| `gene.feedback` | Feedback: the panel keeps what is sent, thanks the person, lists their own in All feedback and sends it on to rouh.land (Gene therapy until 23 November 2026) | untested | works | sent feedback is answered with the thank-you and is in its sender's All feedback | not checked |
+| `gene.every-change` | Every change, in Evolution > Mutations: every change to Rouh's code, whatever started it | untested | works | the list answers with its items, its counts by source and how many are live | not checked |
 | `gene.task-rename` | Rename a task in words | untested | works | `rename_task` in the task's chat, and the task list has the new name | not checked |
 | `gene.step-move` | Move a step in words | untested | works | `move_step` takes a task's step out as a task of its own | not checked |
 | `gene.short-answers` | Short answers in Ask AI | untested | works | its words for Ask AI with "shortly", and none when more is asked for | not checked |

@@ -31,7 +31,7 @@ import { ADDR, ADDR_BROWSER, addrAsk, addrOnCanvas, addrRead, addrTouch } from '
 import { canvasIsWanted, canvasShown, chatIsWanted, growInput, input, narrow, paintPaneButton, pane, sendTyped,
   setPane } from 'app/controls.js';
 import { attSize, editorOpen } from 'app/attachments.js';
-import { gtBoardClose, gtFromPage, gtOver } from 'app/gene_therapy.js';
+import { gtBoardClose, gtFromPage, gtOver } from 'app/feedback.js';
 import { offlineClose, offlineViewing } from 'app/offlineview.js';
 
 /* ------------------------------------------------------------------ 9 */

@@ -1420,6 +1420,10 @@ async def start_mutation(who, mutation_id, *, kept: bool = False) -> dict:
         r.run_id = run
         record(g, "mutation_started", by="person", detail=f"Run {run} started building it at once.",
                data={"mutation": r.id, "run": run})
+        from . import everychange
+
+        everychange.started(str(who.org_id), run_id=run, source="mutation", user_id=str(who.user_id),
+                        asked=r.words, title=f"Mutate the gene {g.name}", ref=f"gene {g.id}")
 
     await asyncio.to_thread(started)
     _poke(who)

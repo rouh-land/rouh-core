@@ -215,13 +215,15 @@ CLOCKWORK = "/clockwork"
 REMINDERS = CLOCKWORK
 REMINDERS_OLD = "/reminders"
 GOALS = "/goals"
-#: Gene therapy, what the person tells Rouh to change about itself: the page with its drawer
-#: open on the right, ready to be written in. A door rather than a place, because the drawer
-#: is navigation and not in an address (above): the page opens it and the bar then says
-#: whatever is on the screen beside it. It was Feedback, at `/feedback`, until 12 October
-#: 2026, and that address is sent on to this one (`GENE_THERAPY_OLD`).
-GENE_THERAPY = "/gene-therapy"
-GENE_THERAPY_OLD = "/feedback"
+#: Feedback, what a person tells Rouh's makers: the page with its panel open on the right,
+#: ready to be written in. A door rather than a place, because the panel is navigation and not
+#: in an address (above): the page opens it and the bar then says whatever is on the screen
+#: beside it. `/feedback/mine` is All feedback, the person's own. It was Gene therapy, at
+#: `/gene-therapy`, from 12 October to 23 November 2026, and that address is sent here
+#: (`GENE_THERAPY_OLD`); anything under it goes to Evolution > Mutations.
+FEEDBACK = "/feedback"
+FEEDBACK_MINE = "/feedback/mine"
+GENE_THERAPY_OLD = "/gene-therapy"
 #: The Control Room (`rouh/controlroom.py`): the foundational work in flight,
 #: and where each piece stands. A place like the two
 #: above: every line on it has an address of its own, and it is none of them.

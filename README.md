@@ -123,7 +123,7 @@ sign-in: a username and a password, on an account of your own.
   own name: **New chat** and **New task**; then **Task browser**, **Runs**,
   **General**, **Morning brief**, **Control room**, **Reminders** and
   **Goals** (and **Live browser** while one is open); then **Search** and
-  **Gene therapy** (Feedback until 12 October 2026). Above them the column is empty on purpose.
+  **Feedback** (Gene therapy from 12 October to 23 November 2026). Above them the column is empty on purpose.
   Until 30 September 2026 the sidebar was one of three lists at a time -
   **Tasks**, **Chats**, **Runs** - behind a switch of three icons at its top,
   each list opening with a **Pinned** section. The owner goes everywhere through
@@ -1187,7 +1187,7 @@ It is the one thing search reads that is a copy, because the words in a PDF or a
   It is derived: on every start `uploads.catch_up` takes in any file that was given and has no row, and drops the row of any file taken off a project or given to a chat or a project since deleted.
   The first start after this landed is what took in everything uploaded before it.
 - **Only what was given is found.** A chat's files are taken in when the message carrying them is sent, not when they land in the composer, and a file whose chat or project has been deleted is never found.
-  The Gene therapy drawer's files belong to the Gene therapy board and are never in it.
+  The Feedback panel's files belong to the person's feedback and are never in it.
 - **Reading starts on upload**, on one thread of its own that takes the files one at a time, so by the time the message is sent the words are nearly always there; a sent message waits up to eight seconds for the words of a file the model cannot open itself.
 
 A file's row is its own name, a few of its words round the match with the Markdown's marks taken out, and the date it was uploaded; a picture, which has no words, says which chat or project it was given in, and the tooltip says it for every file.
@@ -2587,7 +2587,28 @@ The device's own encryption (FileVault, the iPhone's passcode) is what protects 
 
 Later phases plug into the same two halves: models on the device answer from the copy, a handoff between devices passes outbox entries that are carried out once by their ids, and the Gmail-to-Synapse mirror becomes another part of the pack.
 
-## Gene therapy: feedback, and what is done about it
+## Feedback, and Every change
+
+Petar, 23 November 2026: "Replace Gene therapy with Feedback, and make Evolution > Mutations (/evolution/mutations) the one list of every change made to Rouh, including changes made from chat."
+And on the panel's words: "just thank people for the feedback ... the feedback is only for the administrators. random users can't read other's feedback."
+
+**Feedback** is the row under the menu button, beside Rouh, where Gene therapy was, and it opens the same panel down the right, with the same box, screenshots and files (`app/feedback.js`).
+Send changes nothing in Rouh and starts no run: it keeps the feedback in this Rouh's outbox (`feedback_outbox`, `rouh/feedback.py`) with who sent it, the screen they were on and the code it was sent from, and the panel says only **Thank you for your feedback.**
+Rouh sends it on to rouh.land's feedback service, beside the Gene Pool (`<pool>/../feedback/`: `api/send`, then `api/files/<id>/<n>` one file a request), signed with this Rouh's own key exactly as the Pool is spoken to (`genepool.call`), and checks rouh.land's signed answer against the registry key pinned here.
+What cannot go yet - rouh.land not reached, the service not there, a Rouh not yet a member of the Pool - stays queued and is tried again on the beat (`runtime._feedback_loop`, every minute, each feedback waiting longer after each try), so nothing is lost; the switch `feedback_send` stops the sending and keeps the feedback.
+**All feedback** (`/feedback/mine`, and the panel's link) takes the board's place over the conversation and the canvas: the signed-in person's own feedback and nobody else's, newest first, each with its status as rouh.land reports it (`api/status`, asked for that person's ids only): Not sent yet, Received, Being looked at, Done.
+Reading everybody's feedback is for rouh.land's administrators alone, on its staff pages (`rouh-land`, the app `feedback`).
+`/gene-therapy` is sent to `/feedback`, anything under it to `/evolution/mutations`, and an old page's `POST /api/gene-therapy` is kept as a feedback.
+
+**Every change** (`rouh/everychange.py`, `rouh_changes`) is where Evolution > Mutations opens: one row per change to Rouh's code, whatever started it, with where it came from (a chat, with the way back to it; Gene therapy; the Incubator; a mutation request; a nightly run; a Rouh update; by hand), the words asked, its commits and files, when it landed, whether it is live, and Undo (a run that takes it out and keeps what came after; confirmed in place).
+A run that changes Rouh's code writes its row as it starts (`everychange.started`: `improve_myself` from any chat, the Incubator's Go, a mutation request, Undo), and every landed commit is put to the run that landed it (`genelog.landings`) when the code lands and at Rouh's start and once a day (`everychange.catch_up`, beside the gene log's), so a change nobody started here still has its row.
+Gene therapy's history - every request and every feedback never made into one - is brought in as rows marked Gene therapy, with the person's words and what came of it; its tables are kept as they were.
+The list is the organisation's code, so only its administrators read it.
+
+## Gene therapy: feedback, and what is done about it (until 23 November 2026)
+
+What follows is how Gene therapy worked until it became Feedback, above; its tables are kept, read into Every change, and nothing reads or builds from them any more.
+
 
 Gene therapy is what this was called Feedback until 12 October 2026, when Petar renamed it, gene emoji and all: "Can we also change the name of the feedback function to be called gene therapy with a gene emoji and rename all the code files, not just the link in navigation. Also make it playful, how would you like to mutate me?"
 So the row under the menu button says 🧬 Gene therapy, the drawer asks "How would you like to mutate me?", Send is **Mutate**, and the files are `rouh/gene_therapy.py`, `rouh/web/gene_therapy.py`, `rouh/static/app/gene_therapy.js` and the gene `gene-therapy`, whose words include feedback, mutate and gene therapy so Search and Rouh still find it by any of them.

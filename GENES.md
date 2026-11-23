@@ -102,7 +102,7 @@ The picked box is lit in the accent on the panel's colour.
 Only Now carries a count, a small badge on its box: how many decisions wait on the owner's answer, red while one is urgent.
 The group that shows when the page loads is the one holding the page the address opens; otherwise the one picked last on that device (`localStorage`, `rouh.navGroup`); otherwise Now.
 
-What is not in the links and never changes with them: the orb and the way it opens the navigation, the close button where the orb was, the orb's row and its expansion to the whole screen, and the dedicated area under the links - Rouh, Gene therapy, the profile row with the notifications and Search.
+What is not in the links and never changes with them: the orb and the way it opens the navigation, the close button where the orb was, the orb's row and its expansion to the whole screen, and the dedicated area under the links - Rouh, Feedback, the profile row with the notifications and Search.
 Those have genes too (`"place": "dedicated"`), so Search finds them, but nothing here draws them.
 
 The menu behind the person's own name holds Edit, which opens About You (`/anatomy/you/about-you`, the `profile` gene; You, Profile until 4 November 2026), and Sign out, and nothing else.

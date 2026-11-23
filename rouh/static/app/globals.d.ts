@@ -41,6 +41,7 @@ interface Window {
   /** The pages themselves, once controlroom.js, synapse.js and briefpage.js have run. */
   RouhControl?: any;
   /** Gene therapy's drawer, filled by Rouh's own pages (gene_therapy.js `gtHandOver`): Trials' "Send as feedback". */
+  RouhFeedback?: { fill: (body: string, shots: string[], opts?: { edit?: boolean, onSent?: (feedback: any) => void }) => Promise<any> };
   RouhGeneTherapy?: { fill: (body: string, shots: string[], opts?: { edit?: boolean, onSent?: (feedback: any) => void }) => Promise<any> };
   RouhSynapse?: any;
   /** Also known as: one person's identifiers, linked and unlinked, on the contact card and in Synapse

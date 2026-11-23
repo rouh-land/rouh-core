@@ -1080,20 +1080,22 @@ def mail_case(s: Stack) -> None:
     expect(code == 404, f"a case that is not there answered {code}")
 
 
-@check("gene.feedback-board")
-def feedback_board(s: Stack) -> None:
-    """Feedback given on a page becomes a feature request on the board (Gene therapy)."""
-    before = api(s, "/api/gene-therapy")
-    auto = (before.get("settings") or {}).get("autobuild")
-    post(s, "/api/gene-therapy/settings", {"autobuild": False})
-    try:
-        post(s, "/api/gene-therapy", {"body": "The search box should find pages by their title.", "page": "/tasks"})
-        got = api(s, "/api/gene-therapy", "counts")
-        expect("find pages by their title" in json.dumps(got), f"the feedback is not on the board: {json.dumps(got)[:400]}")
-        expect(got["counts"].get("requests"), f"no feature request was written from it: {got['counts']}")
-    finally:
-        if auto is not None:
-            post(s, "/api/gene-therapy/settings", {"autobuild": auto})
+@check("gene.feedback")
+def feedback_kept(s: Stack) -> None:
+    """Feedback sent from the panel is kept, thanked for, and in its sender's All feedback; nothing is
+    built from it (Gene therapy became Feedback on 23 November 2026)."""
+    got = post(s, "/api/feedback/send", {"body": "The search box should find pages by their title.", "page": "/tasks"})
+    expect(got.get("said") == "Thank you for your feedback.", f"the answer to Send: {json.dumps(got)[:300]}")
+    mine = api(s, "/api/feedback/mine", "items")
+    expect("find pages by their title" in json.dumps(mine), f"not in All feedback: {json.dumps(mine)[:400]}")
+
+
+@check("gene.every-change")
+def every_change(s: Stack) -> None:
+    """Evolution > Mutations lists every change to Rouh's code, with the counts of where each came from."""
+    got = api(s, "/api/evolution/changes", "items")
+    expect(isinstance(got.get("items"), list) and "counts" in got and "live" in got,
+           f"Every change answered: {json.dumps(got)[:300]}")
 
 
 # --- tasks and steps renamed and moved in words -------------------------------------------------------

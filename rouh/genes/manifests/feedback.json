@@ -1,0 +1,37 @@
+{
+  "id": "feedback",
+  "name": "Feedback",
+  "title": "Feedback: tell us what you think",
+  "aliases": [
+    "feedback",
+    "report",
+    "complain",
+    "suggestion",
+    "all feedback",
+    "gene therapy"
+  ],
+  "group": "machine",
+  "route": "/feedback",
+  "icon": "<path d=\"M4 5.5h16v10H9.5L5 19.5v-4H4z\"/>",
+  "attaches_to": [],
+  "maturity": "accepted",
+  "switch": "feedback_send",
+  "nav": {
+    "place": "dedicated",
+    "opens": "press",
+    "press": "feedbackBtn",
+    "counts": true
+  },
+  "touches": {
+    "permissions": [],
+    "accounts": [],
+    "tables": [
+      "feedback_outbox"
+    ],
+    "jobs": [],
+    "remove": "Not removable: Feedback is in the dedicated area under the menu button. Turning the switch feedback_send off keeps feedback here and sends none. It was Gene therapy from 12 October to 23 November 2026, which built what it was told; its tables feedback, feature_request, feedback_board and feedback_file are kept as history and read into Every change (rouh/everychange.py)."
+  },
+  "uses": {
+    "tools": []
+  }
+}
