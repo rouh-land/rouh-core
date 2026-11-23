@@ -594,7 +594,9 @@ function gtBoardClose() {
 }
 
 function gtLoad() {
-  if (GT.loading) return GT.loading;
+  // A read asked for while one is going (Send landing just after All feedback opened) is read
+  // again once that one is back, so what was just sent is never missing from the list.
+  if (GT.loading) return GT.loading.then(function () { return gtLoad(); });
   GT.loading = gtFetch('/api/feedback/mine', { cache: 'no-store' }).then(function (got) {
     GT.data = got;
     GT.loading = null;
