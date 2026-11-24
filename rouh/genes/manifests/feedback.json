@@ -16,6 +16,11 @@
   "attaches_to": [],
   "maturity": "accepted",
   "switch": "feedback_send",
+  "signals": {
+    "events": {
+      "sent": "You sent feedback from the Feedback panel"
+    }
+  },
   "nav": {
     "place": "dedicated",
     "opens": "press",

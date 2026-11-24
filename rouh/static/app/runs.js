@@ -580,6 +580,268 @@ function runDeskUsed(name, event, run) {
     body: JSON.stringify({ switch: name, event: event, run: String(run || '') }) }).catch(function () {});
 }
 
+/* Night 53's four run genes, each with its own switch (`rouh/run_brief.py`): a brief's page paths
+   (brief_links, on the server alone), a run filed under the task its brief names (run_task), Start a
+   run on this page (page_run) and pictures with the brief (brief_pictures). The page is told which
+   are on in `#rouhRunBrief`. */
+var RUN_BRIEF = (function () {
+  try {
+    var node = document.getElementById('rouhRunBrief');
+    var got = node ? JSON.parse(node.textContent || '{}') : {};
+    var pics = got.pictures || {};
+    return { on: Array.isArray(got.on) ? got.on : [], most: Number(pics.most) || 6,
+             bytes: Number(pics.bytes) || 20000000 };
+  } catch (err) { return { on: [], most: 6, bytes: 20000000 }; }
+}());
+
+/** @param {string} name */
+function runBriefOn(name) { return RUN_BRIEF.on.indexOf(name) >= 0; }
+
+/** One of them used: counted by the server. @param {string} name @param {string} event @param {string} detail */
+function runBriefUsed(name, event, detail) {
+  fetch('/api/run-brief', { method: 'POST', keepalive: true, credentials: 'same-origin',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ switch: name, event: event, detail: String(detail || '').slice(0, 120) }) }).catch(function () {});
+}
+
+/* run_task: the tasks and steps a brief names, as `run_brief.named` reads them, and the one it is
+   about: a step when it names one step, else the task, never one of several. */
+/** @param {string} brief @returns {string[]} */
+function runTaskNamed(brief) {
+  var out = [], m, text = String(brief || '');
+  var task = /\btask\s*#?(\d{1,5})(?:-(\d{1,3}))?\b/gi, step = /(^|[^\w.-])(\d{1,5})-(\d{2,3})(?![\w-])/g;
+  while ((m = task.exec(text))) { var k = m[1] + (m[2] ? '-' + m[2] : ''); if (out.indexOf(k) < 0) out.push(k); }
+  while ((m = step.exec(text))) { var s = m[2] + '-' + m[3]; if (out.indexOf(s) < 0) out.push(s); }
+  return out;
+}
+/** The task or step a brief is about, among the workspace's. @param {string} brief @returns {any} */
+function runTaskOf(brief) {
+  var keys = runTaskNamed(brief), tasks = {};
+  keys.forEach(function (k) { tasks[k.split('-')[0]] = true; });
+  if (Object.keys(tasks).length !== 1) return null;
+  var steps = keys.filter(function (k) { return k.indexOf('-') > 0; });
+  var want = steps.length === 1 ? steps[0] : Object.keys(tasks)[0];
+  var rows = flatTasks(), i;
+  for (i = 0; i < rows.length; i++) {
+    var t = rows[i];
+    if (want.indexOf('-') > 0 ? isStep(t) && t.step === want : !isStep(t) && String(t.number) === want) return t;
+  }
+  // A step the workspace does not list: its task.
+  if (want.indexOf('-') > 0) {
+    var top = want.split('-')[0];
+    for (i = 0; i < rows.length; i++) if (!isStep(rows[i]) && String(rows[i].number) === top) return rows[i];
+  }
+  return null;
+}
+/** @type {Record<string, boolean>} */
+var RUN_TASK_SEEN = {};
+var RUN_TASK = { run: '', task: '' };
+function runTaskPaint() {
+  var box = $('oneBriefTask');
+  if (!box) return;
+  var id = ONE && ONE.selected, run = id ? ONE.runs[id] : null, rec = id ? taskRecs[id] : null;
+  if (!runBriefOn('run_task') || !run || run.kind !== 'agent' || !rec || rec.owned_by) {
+    box.hidden = true;
+    return;
+  }
+  runBriefOf(id).then(function (brief) {
+    if (ONE.selected !== id) return;
+    var t = runTaskOf(brief), now = taskRecs[id];
+    if (!t || !now || now.owned_by) { box.hidden = true; return; }
+    var said = $('oneBriefTaskSay');
+    said.textContent = '';
+    var name = (isStep(t) ? t.step : String(t.number)) + ', ' + (t.title || 'untitled');
+    said.appendChild(el('strong', null, 'Its brief is about ' + (isStep(t) ? 'step ' : 'task ') + name));
+    said.appendChild(document.createTextNode('It belongs to nothing yet, so its report goes to General.'));
+    RUN_TASK.run = id;
+    RUN_TASK.task = t.id;
+    $('oneBriefTaskGo').title = 'File this run under ' + (isStep(t) ? 'step ' : 'task ') + name;
+    box.hidden = false;
+    if (!RUN_TASK_SEEN[id]) { RUN_TASK_SEEN[id] = true; runBriefUsed('run_task', 'seen', id); }
+  });
+}
+$('oneBriefTaskGo').addEventListener('click', function () {
+  if (!RUN_TASK.run || !RUN_TASK.task || RUN_TASK.run !== ONE.selected) return;
+  send({ type: 'attach', kind: 'run', id: RUN_TASK.run, owner_kind: 'task', owner_id: RUN_TASK.task });
+  runBriefUsed('run_task', 'filed', RUN_TASK.run);
+  $('oneBriefTask').hidden = true;
+});
+
+/* page_run: Start a run on the page open on the canvas, from its Share menu: the assistant's
+   workspace, the page's step and path in the brief, and the run filed under the page's step. */
+var PAGE_RUN = { rel: '', owner: '' };
+var START_PAGE = { owner: '', rel: '' };
+/** The deepest task or step whose folder holds `rel`. @param {string} rel @returns {any} */
+function pageRunOwner(rel) {
+  var best = null;
+  flatTasks().forEach(function (t) {
+    var f = String(t.folder || '').replace(/\/+$/, '');
+    if (f && rel.indexOf(f + '/') === 0 && (!best || f.length > String(best.folder || '').length)) best = t;
+  });
+  return best;
+}
+/** @param {string} rel */
+function pageRunTouch(rel) {
+  var section = $('pageRunSection');
+  if (!section) return;
+  PAGE_RUN.rel = rel || '';
+  // A page of the workspace is there only where the assistant's workspace is.
+  section.hidden = !(runBriefOn('page_run') && PAGE_RUN.rel);
+}
+$('pageRunGo').addEventListener('click', function () {
+  var rel = PAGE_RUN.rel;
+  if (!rel) return;
+  if (typeof shareMenuShow === 'function') shareMenuShow(false);
+  var t = pageRunOwner(rel);
+  var where = t ? (isStep(t) ? 'step ' + t.step : 'task ' + t.number) + ', ' + (t.title || '') : '';
+  RUN_AGAIN.run = '';
+  oneStartOpen({ agent: 'claude', space: 'assistant',
+                 brief: 'About the page ' + rel + (where ? ' (' + where + ')' : '') + ':\n\n' });
+  START_PAGE.owner = t ? String(t.id) : '';
+  START_PAGE.rel = rel;
+  var box = /** @type {HTMLTextAreaElement} */ ($('oneStartBrief'));
+  box.setSelectionRange(box.value.length, box.value.length);
+  runBriefUsed('page_run', 'opened', rel);
+});
+
+/* brief_pictures: pictures pasted or dropped on the brief, listed under it, and once the run has
+   started, put where it can read them (the program's own drop, `one/drops.py`) and given at its
+   prompt as attachments, with a line saying they go with the brief, and Enter. */
+/** @type {{list: File[], sending: File[], expect: number}} */
+var PICS = { list: [], sending: [], expect: 0 };
+/* What the brief says when pictures go with it: the run is told to wait for them at its prompt, where
+   the program gives them to it once its first turn is over. @param {number} n */
+function picsWait(n) {
+  return '\n\n' + (n === 1 ? 'A picture goes' : n + ' pictures go') + ' with this brief. ' + (n === 1 ? 'It reaches'
+    : 'They reach') + ' your prompt as your next message: end this turn now, saying only that you are waiting'
+    + ' for ' + (n === 1 ? 'it' : 'them') + ', and do the work when ' + (n === 1 ? 'it arrives' : 'they arrive') + '.';
+}
+/** @param {DataTransfer | null} data @returns {File[]} */
+function picsIn(data) {
+  var out = [];
+  if (!data) return out;
+  var files = data.files && data.files.length ? Array.prototype.slice.call(data.files) : [];
+  if (!files.length && data.items) {
+    Array.prototype.forEach.call(data.items, function (it) {
+      if (it.kind === 'file') { var f = it.getAsFile(); if (f) files.push(f); }
+    });
+  }
+  files.forEach(function (f) { if (/^image\//.test(f.type || '')) out.push(f); });
+  return out;
+}
+function picsDraw() {
+  var box = $('oneStartPics'), list = $('oneStartPicsList');
+  if (!box || !list) return;
+  list.textContent = '';
+  PICS.list.forEach(function (f, at) {
+    var li = el('li', 'one-pic');
+    var img = /** @type {HTMLImageElement} */ (el('img', null));
+    img.alt = '';
+    img.src = URL.createObjectURL(f);
+    img.onload = function () { URL.revokeObjectURL(img.src); };
+    li.appendChild(img);
+    li.appendChild(el('span', 'one-pic-name', f.name || 'Picture ' + (at + 1)));
+    var x = /** @type {HTMLButtonElement} */ (el('button', 'one-pic-x', '×'));
+    x.type = 'button';
+    x.setAttribute('aria-label', 'Remove ' + (f.name || 'this picture'));
+    x.title = 'Remove it';
+    x.addEventListener('click', function () { PICS.list.splice(at, 1); picsDraw(); $('oneStartBrief').focus(); });
+    li.appendChild(x);
+    list.appendChild(li);
+  });
+  box.hidden = !PICS.list.length;
+}
+/** @param {File[]} files */
+function picsAdd(files) {
+  var error = $('oneStartError');
+  error.hidden = true;
+  files.forEach(function (f) {
+    if (PICS.list.length >= RUN_BRIEF.most) {
+      error.textContent = 'At most ' + RUN_BRIEF.most + ' pictures go with one brief.';
+      error.hidden = false;
+      return;
+    }
+    if (f.size > RUN_BRIEF.bytes) {
+      error.textContent = (f.name || 'That picture') + ' is too big: the most one may be is 20 MB.';
+      error.hidden = false;
+      return;
+    }
+    // A pasted screenshot is called image.png: each gets a name of its own.
+    var n = PICS.list.length + 1;
+    var named = f.name && f.name !== 'image.png' ? f : new File([f], 'brief-picture-' + n + '.'
+      + ((f.type.split('/')[1] || 'png').replace('jpeg', 'jpg')), { type: f.type });
+    PICS.list.push(named);
+  });
+  picsDraw();
+}
+if (runBriefOn('brief_pictures')) $('oneStartPicsHint').hidden = false;
+$('oneStartBrief').addEventListener('paste', function (e) {
+  if (!runBriefOn('brief_pictures')) return;
+  var got = picsIn(/** @type {ClipboardEvent} */ (e).clipboardData);
+  if (!got.length) return;
+  e.preventDefault();
+  picsAdd(got);
+});
+$('oneStartBrief').addEventListener('dragover', function (e) {
+  if (!runBriefOn('brief_pictures')) return;
+  var dt = /** @type {DragEvent} */ (e).dataTransfer;
+  if (dt && Array.prototype.indexOf.call(dt.types || [], 'Files') >= 0) e.preventDefault();
+});
+$('oneStartBrief').addEventListener('drop', function (e) {
+  if (!runBriefOn('brief_pictures')) return;
+  var got = picsIn(/** @type {DragEvent} */ (e).dataTransfer);
+  if (!got.length) return;
+  e.preventDefault();
+  picsAdd(got);
+});
+$('oneStartDialog').addEventListener('close', function () {
+  PICS.list = [];
+  picsDraw();
+  START_PAGE.owner = '';
+  START_PAGE.rel = '';
+});
+/* The run is up: its pictures go to its folder, then to its prompt. It is given a few moments to be
+   at its prompt, as long as it is starting. @param {string} id @param {File[]} files */
+function picsSend(id, files) {
+  var tries = 0;
+  (function go() {
+    var run = ONE.runs[id];
+    if (!run || run.state === 'queued' || run.state === 'starting') {
+      if (++tries < 60) setTimeout(go, 1000);
+      return;
+    }
+    if (ONE_ENDED[run.state] || runEngine(run) === 'codex') return;
+    var body = new FormData();
+    body.append('run', id);
+    files.forEach(function (f) { body.append('file', f, f.name); });
+    fetch(oneDropUrl(), { method: 'POST', body: body, credentials: 'same-origin' })
+      .then(function (res) { return res.json().catch(function () { return {}; }).then(function (got) {
+        if (!res.ok || !got.ok) throw new Error(got.why || 'the program could not take the pictures');
+        return got;
+      }); })
+      .then(function (got) {
+        // As a message of the program's own (`say`): pasted, so each path becomes an attachment,
+        // and kept until the run is at its prompt, which the brief asked it to be (PICS_WAIT).
+        return oneSend('say', { run: id, text: (files.length === 1 ? 'The picture that goes'
+          : 'The ' + files.length + ' pictures that go') + ' with your brief:\n\n' + String(got.typed || '').trim() });
+      })
+      .then(function () { runBriefUsed('brief_pictures', 'started', id + ': ' + files.length); })
+      .catch(function (err) {
+        notify('The pictures did not reach run ' + id + ': ' + (err && err.message || 'it would not take them')
+          + '. Drop them on its terminal instead.', { tone: 'error' });
+      });
+  }());
+}
+window.addEventListener('rouh:run-started', function (e) {
+  var m = /** @type {CustomEvent} */ (e).detail || {};
+  if (!PICS.expect) return;
+  PICS.expect -= 1;
+  var files = PICS.sending;
+  if (!PICS.expect) PICS.sending = [];
+  if (!m.ok || !m.id || m.mode !== 'one' || !files.length) return;
+  picsSend(String(m.id), files);
+});
+
 /** @type {Record<string, string>} Each run's brief, once read: a list of runs leaves it out. */
 var RUN_BRIEFS = {};
 /** A run's whole brief. @param {string} id @returns {Promise<string>} */
@@ -954,6 +1216,8 @@ function oneWhen(d) {
 // Where the open run belongs, on its heading. It says so whenever the column
 // is drawn, because that is when Rouh has said the owner changed.
 function oneOwnerPaint() {
+  // Filed under the task its brief names (`rouh/run_brief.py`, run_task): drawn with what it belongs to.
+  runTaskPaint();
   var b = $('oneOwner');
   if (!b) return;
   var rec = ONE && ONE.selected ? taskRecs[ONE.selected] : null;
@@ -2553,6 +2817,12 @@ $('oneStartBrief').addEventListener('input', startTwiceHide);
 $('oneStartSpace').addEventListener('change', startTwiceHide);
 $('oneStartAgent').addEventListener('change', startTwiceHide);
 $('oneStartDialog').addEventListener('close', function () { startTwiceHide(); START_TWICE.anyway = false; });
+/* The form submitted again once the look is over. On the next turn of the page, never in the same one:
+   when nothing was found the look is over at once, while the press's own submit is still going, and a
+   form asked to submit then does nothing at all, so the first press of Start started nothing (night 53). */
+function startAgain() {
+  setTimeout(function () { /** @type {HTMLFormElement} */ ($('oneStartForm')).requestSubmit(); }, 0);
+}
 /** The run already doing this brief, or ''. @param {string} brief @param {string} space @param {string} engine
     @returns {Promise<string>} */
 function startTwiceFind(brief, space, engine) {
@@ -2624,11 +2894,11 @@ $('oneStartForm').addEventListener('submit', function (e) {
         return;
       }
       START_TWICE.anyway = true;
-      /** @type {HTMLFormElement} */ ($('oneStartForm')).requestSubmit();
+      startAgain();
     }, function () {
       button.disabled = false;
       START_TWICE.anyway = true;
-      /** @type {HTMLFormElement} */ ($('oneStartForm')).requestSubmit();
+      startAgain();
     });
     return;
   }
@@ -2677,13 +2947,38 @@ $('oneStartForm').addEventListener('submit', function (e) {
       // Said only when it is the key: the subscription is what a run is.
       if ($('oneStartBilling').value === 'api') start.billing = 'api';
     }
+    // Started on a page (page_run): filed under the page's step, while the brief still names it.
+    var onPage = runBriefOn('page_run') && START_PAGE.owner && brief.indexOf(START_PAGE.rel) >= 0;
+    if (onPage) { start.owner_type = 'task'; start.owner_id = START_PAGE.owner; }
+    // Its pictures (brief_pictures), sent once each run of this press has started.
+    PICS.sending = runBriefOn('brief_pictures') ? PICS.list.slice() : [];
+    PICS.expect = 0;
+    if (PICS.sending.length && start.policy !== 'one') {
+      notify('Pictures go only with a run of the one program, so they were not sent with this one.');
+      PICS.sending = [];
+    }
+    // Each run this press starts is answered with run_started; the pictures go to the Claude Code one
+    // (only it takes a message with them, `one say`), and its brief says they are coming.
+    if (PICS.sending.length) {
+      PICS.expect = 1;
+      if (start.agent !== 'codex') start.brief = brief + picsWait(PICS.sending.length);
+      else if (!/** @type {HTMLInputElement} */ ($('oneStartBoth')).checked) {
+        notify('Pictures go only with a run of Claude Code, so they were not sent with this run of Codex.');
+      }
+    }
     send(start);
+    if (onPage) runBriefUsed('page_run', 'started', START_PAGE.rel);
     // Both agents at once (run_both): the same brief, the same workspace, on the other agent too.
     var both = /** @type {HTMLInputElement} */ ($('oneStartBoth'));
     if (start.policy === 'one' && runToolOn('run_both') && !$('oneStartBothLabel').hidden && both.checked) {
       /** @type {import('./protocol').ToServer<'start_run'>} */
       var other = { type: 'start_run', brief: brief, workspace: sp, policy: 'one' };
       if (start.agent !== 'codex') other.agent = 'codex';
+      if (onPage) { other.owner_type = 'task'; other.owner_id = START_PAGE.owner; }
+      if (PICS.sending.length) {
+        PICS.expect += 1;
+        if (other.agent !== 'codex') other.brief = brief + picsWait(PICS.sending.length);
+      }
       send(other);
       runToolUsed('run_both', 'started', '').catch(function () {});
     }
@@ -7855,6 +8150,7 @@ function shareTouch() {
   // each have their own menu with PDF in it, on the task's page.
   pdfTouch(rel.indexOf(SHARE_TASK) === 0 ? '' : rel);
   gdocTouch(rel.indexOf(SHARE_TASK) === 0 ? '' : rel);
+  pageRunTouch(rel.indexOf(SHARE_TASK) === 0 ? '' : rel);
   if (rel === SHARE.rel) return;
   SHARE.rel = rel;
   SHARE.state = null;

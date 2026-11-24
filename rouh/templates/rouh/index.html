@@ -508,6 +508,8 @@ with {% asset %}, which gives it its hashed address.
         {{ NEWCOMER|json_script:"rouhNewcomer" }}
         {{ RUN_DESK|json_script:"rouhRunDesk" }}
         {{ FIRST_STEPS|json_script:"rouhFirstSteps" }}
+        {{ RUN_BRIEF|json_script:"rouhRunBrief" }}
+        {{ FIRST_HELP|json_script:"rouhFirstHelp" }}
         {{ PLAINER|json_script:"rouhPlainer" }}
         <script>
         /* The group to show before anything is painted: the one holding the page
@@ -1064,6 +1066,11 @@ with {% asset %}, which gives it its hashed address.
         <p class="chat-setup-said" id="chatSetupSaid">{{ CHATS_NEED_KEY.said }}</p>
         <p class="chat-setup-cost" id="chatSetupCost">{{ CHATS_NEED_KEY.cost }}</p>
         <a class="ctl small primary chat-setup-go" id="chatSetupGo" href="{{ CHATS_NEED_KEY.href|default:'#' }}">{{ CHATS_NEED_KEY.button|default:"Set up chat" }}</a>
+        {# The Guide's lessons about what was just asked (`rouh/first_help.py`, guide_answers). #}
+        <div class="chat-setup-guide" id="chatSetupGuide" hidden>
+          <p class="chat-setup-guide-head" id="chatSetupGuideHead"></p>
+          <ul class="chat-setup-guide-list" id="chatSetupGuideList"></ul>
+        </div>
       </div>
       <div id="transcript" class="transcript" role="log" aria-live="polite" aria-relevant="additions text" tabindex="0">
         {% comment %} The chat's own name, at the very top of its own conversation and
@@ -1673,6 +1680,13 @@ with {% asset %}, which gives it its hashed address.
           <button id="gdocOpen" class="menu-item" type="button" role="menuitem"
                   data-icon="tab" hidden>Open the Google Doc</button>
         </div>
+        {# A run on this page, filed under its task (`rouh/run_brief.py`, page_run). #}
+        <div id="pageRunSection" hidden>
+          <hr class="menu-rule">
+          <div class="menu-head">Run</div>
+          <button id="pageRunGo" class="menu-item" type="button" role="menuitem"
+                  data-icon="run" aria-haspopup="dialog">Start a run on this page</button>
+        </div>
       </div>
       {% comment %} There was a control here that gave the canvas the whole screen. It
            has nothing left to do: the tasks take the conversation the moment
@@ -1922,6 +1936,11 @@ with {% asset %}, which gives it its hashed address.
           <div id="oneTwin" class="run-twin" hidden>
             <p id="oneTwinSay"></p>
             <button id="oneTwinGo" class="ctl small" type="button" title="Open its twin, the same brief on the other agent">Open it</button>
+          </div>
+          {# The task its brief names, when it belongs to nothing yet (`rouh/run_brief.py`, run_task). #}
+          <div id="oneBriefTask" class="run-twin run-brief-task" hidden>
+            <p id="oneBriefTaskSay"></p>
+            <button id="oneBriefTaskGo" class="ctl small" type="button">File it there</button>
           </div>
         </div>
         {% comment %} The shell command that takes the same run over in a real terminal,
@@ -5070,7 +5089,14 @@ with {% asset %}, which gives it its hashed address.
                 placeholder="Write it as you would to the assistant in a terminal."></textarea>
       {# Ctrl+Enter starts it (`rouh/run_desk.py`, start_keys). #}
       <span class="hint" id="oneStartKeysHint" hidden></span>
+      {# Pictures go with it (`rouh/run_brief.py`, brief_pictures). #}
+      <span class="hint" id="oneStartPicsHint" hidden>Paste or drop a screenshot here to send it with the brief.</span>
     </label>
+    {% comment %} Pictures pasted or dropped on the brief, sent to the run's prompt once it has
+         started (`rouh/run_brief.py`, brief_pictures). {% endcomment %}
+    <div id="oneStartPics" class="one-pics" hidden>
+      <ul id="oneStartPicsList" class="one-pics-list" aria-label="Pictures that go with the brief"></ul>
+    </div>
     {% comment %} The two fields that are the whole difference between one run and
          another (rouh/starting.py): where the work belongs, and under what
          rules it is done. The four spoken verbs are presets over exactly

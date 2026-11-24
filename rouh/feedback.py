@@ -108,6 +108,10 @@ def add(who, *, body: str, page: str = "", files: list[dict] | None = None, emai
                 "kind": str(f.get("kind") or ""), "size": int(f.get("size") or 0),
                 "path": str(f.get("path") or "")} for f in files],
         state="queued", next_try_at=now)
+    # The one point where the person uses Feedback (its manifest's signals, GENES.md).
+    from . import evolution
+
+    evolution.used("feedback_send", "sent", who=who, detail=row.id)
     return view(row)
 
 

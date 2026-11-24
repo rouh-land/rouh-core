@@ -917,6 +917,28 @@ def _first_steps(request: HttpRequest) -> dict:
         return {"on": []}
 
 
+def _run_brief(request: HttpRequest) -> dict:
+    """Which of night 53's four run genes are on here (`rouh/run_brief.py`)."""
+    from rouh import run_brief
+
+    try:
+        return run_brief.for_page(who(request))
+    except Exception:
+        log.warning("run_brief: not read for the page", exc_info=True)
+        return {"on": []}
+
+
+def _first_help(request: HttpRequest) -> dict:
+    """Which of night 53's four genes for a first-time user are on here (`rouh/first_help.py`)."""
+    from rouh import first_help
+
+    try:
+        return first_help.for_page(who(request))
+    except Exception:
+        log.warning("first_help: not read for the page", exc_info=True)
+        return {"on": []}
+
+
 def _newcomer(request: HttpRequest) -> dict:
     """Which of night 51's four genes for a newcomer are on here, and what they need (`rouh/newcomer.py`)."""
     from rouh import newcomer
@@ -992,6 +1014,10 @@ def _page_for(request: HttpRequest) -> HttpResponse:
         "RUN_DESK": _run_desk(request),
         # Search reads a question, Ask Rouh instead, a setting found, type anywhere (`rouh/first_steps.py`).
         "FIRST_STEPS": _first_steps(request),
+        # A brief's page paths and pictures, a run filed under its task, a run on this page (`rouh/run_brief.py`).
+        "RUN_BRIEF": _run_brief(request),
+        # Sign-in's capitals, the Guide answering, What is this page, Ask Rouh on a selection (`rouh/first_help.py`).
+        "FIRST_HELP": _first_help(request),
         # Say it more simply, under an answer (`rouh/say_plainer.py`).
         "PLAINER": _plainer(request),
         # The open orb's music: Rouh's own, or the Cornfield Chase arrangement where its switch is on.

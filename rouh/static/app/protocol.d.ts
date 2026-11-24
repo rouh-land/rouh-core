@@ -124,7 +124,7 @@ export interface ServerMessages {
   delete_plan: { ok: any; kind: any; id: any; folder: any; label?: any; counts?: any; also?: any; sentence?: any; running?: any; total?: any; why?: any; /** What the server calls it: a task, a subtask, a project. */ what?: string; };
   deleted: { ok: any; kind: any; id: any; label: any; gone: any[]; counts: any; folders: any[]; orphan_links: any; did: any; };
   under: { kind: any; id: any; under: any; };
-  run_started: { ok: any; id?: any; title?: any; workspace?: any; policy?: any; note?: any; why?: any; /** Which tab of Metabolism it went on. */ kind?: 'mutation' | 'everyday'; };
+  run_started: { ok: any; id?: any; title?: any; workspace?: any; policy?: any; note?: any; why?: any; /** Which tab of Metabolism it went on. */ kind?: 'mutation' | 'everyday'; /** Who runs it: 'one' for the one program. */ mode?: string; };
   pong: {};
   /** Demo mode for this account, turned on or off on any device, or what is approved changed (`rouh/demo.py`). */
   demo: { on: boolean; preview?: boolean; since?: number; device?: string; dots?: boolean;
@@ -277,7 +277,9 @@ export interface Notice {
 /** One place a notice leads (`run_report.destinations`): a finished run's run, chat, task or
  *  page, as `to` says, with the word on its button and what it opens said in full. */
 /** The chat's own note while no AI service is connected (`providerkeys.chat_setup`). */
-export interface ChatSetup { head: string; said: string; cost: string; button: string; href: string; }
+export interface ChatSetup { head: string; said: string; cost: string; button: string; href: string;
+  /** The Guide's lessons about what was asked (`rouh/first_help.py`, guide_answers). */
+  guide?: { head: string; lessons: { id: string; title: string; route: string; start: boolean }[] }; }
 export interface NoticeLink { to: string; label: string; href: string; title?: string; }
 
 interface Threaded { chat?: any; turn_id?: any }

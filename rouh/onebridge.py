@@ -74,6 +74,14 @@ def _forwarded(host: str, scheme: str, client: str, path: str) -> dict:
     return headers
 
 
+def _form_of(request) -> tuple[dict, list]:
+    """A form Django has read, as httpx sends one: its fields, each with every value, and its files."""
+    data = {key: request.POST.getlist(key) for key in request.POST}
+    files = [(key, (f.name or "file", f.read(), f.content_type or "application/octet-stream"))
+             for key in request.FILES for f in request.FILES.getlist(key)]
+    return data, files
+
+
 async def http(request, rest: str = ""):
     """`/one/...`, passed to the one program and its answer streamed back."""
     import httpx
@@ -84,10 +92,22 @@ async def http(request, rest: str = ""):
     headers = {k: v for k, v in request.headers.items() if k.lower() not in HOP}
     headers.update(_forwarded(request.get_host(), request.scheme, request.META.get("REMOTE_ADDR", ""), path))
     url = ONE_HTTP + path + (f"?{request.META['QUERY_STRING']}" if request.META.get("QUERY_STRING") else "")
-    body = await asyncio.to_thread(request.read) if request.method in ("POST", "PUT", "PATCH") else None
+    body, form = None, None
+    if request.method in ("POST", "PUT", "PATCH"):
+        if getattr(request, "_read_started", False) and not hasattr(request, "_body"):
+            # A form Django has already read (the CSRF check reads a POST's form before any view):
+            # its stream is spent, so it is sent on as the same form, fields and files, rather than
+            # as the nothing that is left of it. Without this a file dropped on a run's terminal
+            # reached the program with no run named ("there is no run ''", night 53).
+            form = await asyncio.to_thread(_form_of, request)
+            headers = {k: v for k, v in headers.items() if k.lower() != "content-type"}
+        else:
+            body = await asyncio.to_thread(request.read)
     client = httpx.AsyncClient(timeout=httpx.Timeout(3600, connect=10), follow_redirects=False, trust_env=False)
     try:
-        upstream = await client.send(client.build_request(request.method, url, headers=headers, content=body), stream=True)
+        built = (client.build_request(request.method, url, headers=headers, data=form[0], files=form[1])
+                 if form is not None else client.build_request(request.method, url, headers=headers, content=body))
+        upstream = await client.send(built, stream=True)
     except httpx.HTTPError as exc:
         await client.aclose()
         log.warning("the one program did not answer %s: %s", path, exc)

@@ -3892,3 +3892,33 @@ print(json.dumps({"pages": [m["name"] for m in first_steps.plain_find("how do i 
     expect('"About You"' in out and '"settings": ["Password"]' in out and '"lease": []' in out
            and '"search_ask"' in out, f"the first steps' genes were not told as they should be: {out[-500:]}")
 
+
+
+@check("gene.run-brief")
+def run_brief(s: Stack) -> None:
+    """The page is told which of the four are on; a brief's tasks and steps are read as numbers."""
+    out = core_py(s, _owner_py("""
+from rouh import run_brief
+print(json.dumps({"page": sorted(run_brief.for_page(who)["on"]),
+    "named": run_brief.named("Fix the table for task 94 and step 94-53, not v2-100x or 1.2-33"),
+    "one": run_brief.one_task("about 94-53, task 94"), "two": run_brief.one_task("task 3 and task 4"),
+    "word": run_brief.with_paths("nothing to add", "assistant", who)}))
+"""))
+    expect('"brief_links", "brief_pictures", "page_run", "run_task"' in out and '"named": ["94", "94-53"]' in out
+           and '"one": "94-53"' in out and '"two": ""' in out and '"word": "nothing to add"' in out,
+           f"the run brief's genes were not told as they should be: {out[-500:]}")
+
+
+@check("gene.first-help")
+def first_help(s: Stack) -> None:
+    """The Guide answers a question asked before chat is set up; the page gets its plain lines and stop words."""
+    out = core_py(s, _owner_py("""
+from rouh import first_help
+page = first_help.for_page(who)
+print(json.dumps({"page": sorted(page["on"]), "plain": "Metabolism" in page["plain"], "stop": "where" in page["stop"],
+    "reminders": [l["id"] for l in (first_help.guide_for("where are my reminders?", who) or {}).get("lessons", [])],
+    "start": [l["start"] for l in (first_help.guide_for("what can you do for me?", who) or {}).get("lessons", [])]}))
+"""))
+    expect('"guide_answers", "guide_search", "page_what", "select_ask"' in out and '"plain": true' in out
+           and '"stop": true' in out and '"reminders": ["reminder"]' in out and '"start": [true]' in out,
+           f"the first help genes were not told as they should be: {out[-500:]}")

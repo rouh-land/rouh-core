@@ -792,6 +792,8 @@ function handleMessage(m) {
       }
       $('oneStartGo').disabled = false;
       $('oneStartGo').textContent = 'Start';
+      // Its pictures go to it now (`rouh/run_brief.py`, brief_pictures, app/runs.js).
+      window.dispatchEvent(new CustomEvent('rouh:run-started', { detail: m }));
       break;
     case 'chats':
       // Every chat and every project, sent whenever any of them changes -
@@ -1241,6 +1243,8 @@ function chatSetupShow(said) {
   box.hidden = false;
   box.classList.remove('chat-setup-again');
   if (was) { void box.offsetWidth; box.classList.add('chat-setup-again'); }
+  // The Guide's lessons about what was asked are drawn by app/first_help.js (guide_answers).
+  window.dispatchEvent(new CustomEvent('rouh:chat-setup', { detail: said }));
 }
 
 export { connect, CONN_WORDS, handleMessage, heldMoved, holdMessages, releaseMessages, S, send, sendBinary, setConn,

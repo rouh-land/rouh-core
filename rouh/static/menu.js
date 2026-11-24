@@ -115,6 +115,8 @@
     + '<path d="M12 14.5V3"/><path d="M8.5 6.5 12 3l3.5 3.5"/>';
   // A Google Doc of this page (`rouh/page_gdoc.py`): a document with its lines and a fold.
   ICONS.gdoc = '<path d="M6 3.5h8.5L18.5 7.5v13H6z"/><path d="M14 3.5v4.5h4.5"/><path d="M9 11.5h6M9 14.5h6M9 17.5h4"/>';
+  // A run started on a page (`rouh/run_brief.py`, page_run): a terminal's prompt.
+  ICONS.run = '<rect x="3.5" y="4.5" width="17" height="15" rx="2"/><path d="M7.5 9.5 10 12l-2.5 2.5"/><path d="M12 15h4.5"/>';
   ICONS.download = '<path d="M12 4v11"/><path d="M7.5 10.5 12 15l4.5-4.5"/><path d="M5 19.5h14"/>';
   ICONS.pause = '<rect x="6.5" y="5" width="3.5" height="14" rx="1"/><rect x="14" y="5" width="3.5" height="14" rx="1"/>';
   ICONS.resume = '<path d="M7.5 5.5v13l11-6.5z"/>';

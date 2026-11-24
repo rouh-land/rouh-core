@@ -501,9 +501,54 @@
 
   /* ---- Your path: progress and the next tip, a search, then the stages, each closed until pressed ---- */
 
-  /** Every tip whose words have all the words typed, in the order of the path. */
+  /* The Guide's search reads a question (`rouh/first_help.py`, guide_search): when no tip has every word
+     typed, it looks again with only the words that matter, and a word with an ending on it ("reminders")
+     is found as the word ("reminder"). The words that only carry a question come in `#rouhFirstHelp`. */
+  var ASKED = (function () {
+    try {
+      var node = document.getElementById('rouhFirstHelp');
+      var got = node ? JSON.parse(node.textContent || '{}') : {};
+      var on = Array.isArray(got.on) && got.on.indexOf('guide_search') >= 0;
+      var stop = {};
+      (Array.isArray(got.stop) ? got.stop : []).forEach(function (w) { stop[w] = true; });
+      return { on: on, stop: stop, said: '', timer: 0 };
+    } catch (e) { return { on: false, stop: {}, said: '', timer: 0 }; }
+  }());
+  /** The words that matter in a question, each as the start of a word (its ending taken off). */
+  function asked(q) {
+    var out = [];
+    (q.toLowerCase().match(/[a-z0-9]+/g) || []).forEach(function (w) {
+      if (w.length < 3 || ASKED.stop[w]) { return; }
+      var stem = w.length > 5 ? w.replace(/(ings|ing|ies|es|ed|s)$/, '') : w.replace(/s$/, '');
+      if (stem.length >= 3 && out.indexOf(stem) < 0) { out.push(stem); }
+    });
+    return out;
+  }
+  /** Said once a question found tips the words as typed did not: counted by the server. */
+  function askedUsed(q, n) {
+    clearTimeout(ASKED.timer);
+    ASKED.timer = setTimeout(function () {
+      if (ASKED.said === q) { return; }
+      ASKED.said = q;
+      fetch('/api/first-help', { method: 'POST', keepalive: true, credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ switch: 'guide_search', event: 'found', detail: q.slice(0, 80) + ': ' + n }) })
+        .catch(function () {});
+    }, 1500);
+  }
+
+  /** Every tip whose words have all the words typed, in the order of the path; or, while guide_search is
+      on and none has, every tip with all the words that matter in what was typed. */
   function found(q) {
-    var words = q.toLowerCase().split(/\s+/).filter(Boolean);
+    var got = foundWords(q.toLowerCase().split(/\s+/).filter(Boolean));
+    if (got.length || !ASKED.on) { return got; }
+    var words = asked(q);
+    if (!words.length || words.join(' ') === q.toLowerCase().trim()) { return got; }
+    got = foundWords(words);
+    if (got.length) { askedUsed(q, got.length); }
+    return got;
+  }
+  function foundWords(words) {
     return all().filter(function (x) {
       var l = x.lesson;
       var hay = [l.title, l.tag || '', (l.summary || []).join(' '), x.stage.title, x.stage.topics || '',

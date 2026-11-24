@@ -4553,9 +4553,18 @@ class Turn:
                 # the screen until closed (a new Rouh's first run, 24 October 2026).
                 # Since 22 November 2026 (review 51) the page shows it as the chat's own plain note
                 # with one button, not as a red notice (`chat_setup`, PROTOCOL.md).
+                setup = await asyncio.to_thread(providerkeys.chat_setup)
+                # And the Guide's lessons about what they asked (`rouh/first_help.py`, guide_answers).
+                if setup is not None:
+                    from . import first_help
+                    from .tenancy import speaker
+
+                    with contextlib.suppress(Exception):
+                        guide = await asyncio.to_thread(first_help.guide_for, self.asked, speaker())
+                        if guide:
+                            setup = dict(setup, guide=guide)
                 await self.emit({"type": "error", "message": providerkeys.where_to_add_a_key(),
-                                 "fatal": False, "lasting": True,
-                                 "chat_setup": await asyncio.to_thread(providerkeys.chat_setup)})
+                                 "fatal": False, "lasting": True, "chat_setup": setup})
             else:
                 await self.emit({"type": "error", "message": str(exc)[:300], "fatal": False})
         finally:
@@ -6654,9 +6663,17 @@ class Session:
             agent = str(msg.get("agent") or "").strip().lower()
             agent = "codex" if agent == "codex" and msg.get("policy") == "one" else ""
             billing = "api" if agent == "codex" and msg.get("billing") == "api" else ""
+            brief = str(msg.get("brief") or "")
+            # A page named by its address gets its path in the workspace (`rouh/run_brief.py`, brief_links).
+            with contextlib.suppress(Exception):
+                from . import run_brief
+                from .tenancy import speaker
+
+                brief = await asyncio.to_thread(run_brief.with_paths, brief,
+                                                str(msg.get("workspace") or ""), speaker())
             try:
                 got = await starting.start(
-                    brief=str(msg.get("brief") or ""),
+                    brief=brief,
                     title=str(msg.get("title") or ""),
                     workspace=str(msg.get("workspace") or ""),
                     policy=str(msg.get("policy") or ""),

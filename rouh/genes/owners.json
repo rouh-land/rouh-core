@@ -3970,6 +3970,128 @@
     "rouh/say_plainer.py",
     "rouh/web/say_plainer.py"
    ]
+  },
+  "n53-brief-links": {
+   "name": "A page's path with its address",
+   "what": "A run in the assistant's workspace whose brief names a workspace page by its address in Rouh gets the page's path in the workspace written after the address, so the run can open it.",
+   "switch": "brief_links",
+   "signals": {
+    "events": {
+     "started": "You started a run whose brief named a page by its address, and the run was told where the page is"
+    }
+   },
+   "files": [
+    "rouh/run_brief.py",
+    "rouh/web/run_brief.py"
+   ]
+  },
+  "n53-run-task": {
+   "name": "Filed under the task its brief names",
+   "what": "A run that belongs to nothing, whose brief names one task or step, says so on its head with File it there, which files it under that task or step.",
+   "switch": "run_task",
+   "signals": {
+    "events": {
+     "filed": "You pressed File it there on a run's head, and the run went under the task its brief names"
+    },
+    "runs": {
+     "seen": "A run's head said which task its brief names"
+    }
+   },
+   "files": [
+    "rouh/run_brief.py",
+    "rouh/web/run_brief.py"
+   ]
+  },
+  "n53-page-run": {
+   "name": "Start a run on this page",
+   "what": "A page's Share menu has Start a run on this page: Start a run opens with the assistant's workspace and the page's step and path in the brief, and the run is filed under the page's step.",
+   "switch": "page_run",
+   "signals": {
+    "events": {
+     "opened": "You pressed Start a run on this page in a page's Share menu",
+     "started": "You started a run on a page from its Share menu"
+    }
+   },
+   "files": [
+    "rouh/run_brief.py",
+    "rouh/web/run_brief.py"
+   ]
+  },
+  "n53-brief-pictures": {
+   "name": "Pictures with the brief",
+   "what": "A picture pasted or dropped on Start a run's brief is listed under it, and once the run has started it is given at the run's prompt as an attachment, with a line saying it goes with the brief.",
+   "switch": "brief_pictures",
+   "signals": {
+    "events": {
+     "started": "You started a run with pictures pasted into its brief, and they reached its prompt"
+    }
+   },
+   "files": [
+    "rouh/run_brief.py",
+    "rouh/web/run_brief.py"
+   ]
+  },
+  "n53-guide-answers": {
+   "name": "The Guide answers while chat is not set up",
+   "what": "A message sent before any AI service is connected gets, under Chat is not set up yet, the Guide's lessons about what was asked, or Start here.",
+   "switch": "guide_answers",
+   "signals": {
+    "events": {
+     "opened": "You opened a Guide lesson offered under Chat is not set up yet"
+    },
+    "runs": {
+     "shown": "The note Chat is not set up yet listed the Guide's lessons about what was asked"
+    }
+   },
+   "files": [
+    "rouh/first_help.py",
+    "rouh/web/first_help.py",
+    "rouh/static/app/first_help.js"
+   ]
+  },
+  "n53-page-what": {
+   "name": "What is this page?",
+   "what": "A (?) beside the name of one of Rouh's own pages (Metabolism, Anatomy, Synapse, Clockwork and more) says in plain words what the page holds and what to do there.",
+   "switch": "page_what",
+   "signals": {
+    "events": {
+     "opened": "You pressed the (?) beside a page's name and read what the page is for"
+    }
+   },
+   "files": [
+    "rouh/first_help.py",
+    "rouh/web/first_help.py",
+    "rouh/static/app/first_help.js"
+   ]
+  },
+  "n53-select-ask": {
+   "name": "Ask Rouh about words you select",
+   "what": "Words selected on one of Rouh's own pages offer Ask Rouh what this means, which asks in the conversation what they mean on that page.",
+   "switch": "select_ask",
+   "signals": {
+    "events": {
+     "asked": "You selected words on one of Rouh's pages and pressed Ask Rouh what this means"
+    }
+   },
+   "files": [
+    "rouh/first_help.py",
+    "rouh/web/first_help.py",
+    "rouh/static/app/first_help.js"
+   ]
+  },
+  "n53-guide-search": {
+   "name": "The Guide's search reads a question",
+   "what": "When no tip of the Guide holds every word typed in its Search tips box, it searches again with the words that matter, forgiving an ending, so \"where are my reminders\" finds Set a reminder.",
+   "switch": "guide_search",
+   "signals": {
+    "events": {
+     "found": "You searched the Guide's tips with a question, and it found tips the words as typed did not"
+    }
+   },
+   "files": [
+    "rouh/first_help.py",
+    "rouh/web/first_help.py"
+   ]
   }
  }
 }

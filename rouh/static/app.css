@@ -9895,6 +9895,47 @@ a.att-name:hover { text-decoration: underline; }
   0%, 100% { border-color: var(--line); }
   30% { border-color: var(--accent); }
 }
+/* The Guide's lessons about what was just asked, under the note (`rouh/first_help.py`, guide_answers):
+   a short list of links, quiet, after the one button. */
+.chat-setup-guide { display: grid; gap: 4px; margin-top: 8px; padding-top: 10px; border-top: 1px solid var(--line);
+  justify-self: stretch; }
+.chat-setup-guide[hidden] { display: none; }
+.chat-setup-guide-head { font-size: 13px; line-height: 1.5; color: var(--dim); }
+.chat-setup-guide-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; }
+.chat-setup-guide-list a { display: flex; align-items: center; gap: 8px; min-height: 44px; padding: 0 10px;
+  margin: 0 -10px; border-radius: 8px; color: var(--accent); font-size: 14px; text-decoration: none; }
+.chat-setup-guide-list a:hover { background: var(--accent-soft); }
+.chat-setup-guide-list a:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.chat-setup-guide-list svg { flex: 0 0 auto; width: 16px; height: 16px; stroke: currentColor; fill: none;
+  stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+
+/* What is this page? (`rouh/first_help.py`, page_what): a (?) beside the name of one of Rouh's own
+   pages, and what it says under the heading until it is closed. */
+.page-what { flex: 0 0 auto; display: inline-grid; place-items: center; width: 28px; height: 28px;
+  margin-left: 6px; padding: 0; border: 1px solid var(--line); border-radius: 50%; background: transparent;
+  color: var(--dim); font: 600 13px/1 inherit; cursor: pointer; vertical-align: middle; position: relative; }
+.page-what::before { content: ""; position: absolute; inset: -8px; }
+.page-what:hover, .page-what[aria-expanded="true"] { color: var(--text); border-color: var(--dim); }
+.page-what:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.page-what[hidden] { display: none; }
+.run-heading.has-page-what { display: flex; flex-wrap: wrap; align-items: center; }
+.run-heading.has-page-what > h3 { flex: 0 1 auto; min-width: 0; }
+.run-heading.has-page-what > :not(h3):not(.page-what) { flex: 1 0 100%; }
+.page-what-said { margin: 8px 0 4px; max-width: 62ch; padding: 10px 12px; border: 1px solid var(--line);
+  border-radius: var(--radius); background: var(--panel-2); color: var(--text); font-size: 14px; line-height: 1.5;
+  font-weight: 400; }
+.page-what-said[hidden] { display: none; }
+
+/* Ask Rouh about words selected on one of Rouh's own pages (`rouh/first_help.py`, select_ask). */
+.select-ask { position: fixed; z-index: 60; min-height: 44px; padding: 0 14px; border-radius: 22px;
+  border: 1px solid var(--line); background: var(--panel); color: var(--text); font-size: 14px;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.35); cursor: pointer; display: inline-flex; align-items: center; gap: 8px; }
+.select-ask[hidden] { display: none; }
+.select-ask:hover { border-color: var(--accent); }
+.select-ask:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.select-ask svg { width: 16px; height: 16px; stroke: var(--accent); fill: none; stroke-width: 1.8;
+  stroke-linecap: round; stroke-linejoin: round; }
+
 /* On a phone the conversation's head floats over its top: the note starts under it, and the words
    under the note need no room of their own for it. */
 @media (max-width: 899px) {
@@ -12135,6 +12176,26 @@ body.cot-open { overflow: hidden; }
   /* Ctrl+Enter is a desk's key: a touch screen has no use for the line (start_keys). */
   #oneStartKeysHint { display: none; }
 }
+
+/* Night 53 (`rouh/run_brief.py`). The task a run's brief names, with File it there (run_task): the
+   twin's quiet box, its first line in the run's own words rather than a label. */
+.run-brief-task strong { text-transform: none; letter-spacing: 0; font-size: 13px; font-weight: 600;
+  color: var(--text); }
+@media (pointer: coarse) { .run-brief-task .ctl { min-height: 44px; } }
+/* Pictures that go with a brief (brief_pictures): a row of small pictures under the box, each named,
+   with a cross that takes it off. */
+.one-pics[hidden] { display: none; }
+.one-pics-list { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 8px; }
+.one-pic { display: flex; align-items: center; gap: 8px; max-width: 100%; padding: 4px 4px 4px 4px;
+  border: 1px solid var(--line); border-radius: var(--radius-s); background: var(--panel-2); font-size: 13px; }
+.one-pic img { width: 40px; height: 40px; object-fit: cover; border-radius: 4px; flex: 0 0 auto;
+  background: var(--panel); }
+.one-pic-name { min-width: 0; max-width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  color: var(--text); }
+.one-pic-x { flex: 0 0 auto; width: 44px; height: 40px; border: 0; border-radius: 4px; background: transparent;
+  color: var(--dim); font-size: 18px; line-height: 1; cursor: pointer; }
+.one-pic-x:hover { color: var(--text); background: var(--line-soft); }
+.one-pic-x:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 
 /* Night 52 (`rouh/first_steps.py`). Ask Rouh instead, under Search's "Nothing matches" (search_ask). */
 .find-ask { display: block; width: fit-content; margin: 0 14px 14px; max-width: calc(100% - 28px); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
