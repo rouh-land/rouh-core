@@ -244,6 +244,10 @@ def rates_of(model: str) -> dict | None:
     model. A rate the standard leaves out is the rule it always was: a cache write a quarter
     more than input, one kept an hour twice input, a cache read a tenth of it. Nothing for a
     model priced nowhere."""
+    if str(model or "").strip().startswith("local/"):
+        # A model on the organisation's own server (G23, `config.LOCAL`): no price per token.
+        return {"name": str(model).strip(), "in": 0.0, "out": 0.0, "cache_write": 0.0,
+                "cache_write_1h": 0.0, "cache_read": 0.0, "image_in": 0.0, "image_out": 0.0}
     listed = price_list()
     name = _match(model, listed)
     if name is None:

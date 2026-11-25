@@ -352,11 +352,47 @@ LEVELS_TAKEN = {"grok-4.3": ("none", "low")}
 #: (`model_standard.json`): Anthropic, OpenAI, Google, xAI (Petar, 24 October 2026:
 #: "Default order until there is data: Anthropic 1, OpenAI 2, Google 3, xAI 4").
 ANTHROPIC, OPENAI, GOOGLE, XAI = "anthropic", "openai", "google", "xai"
-PROVIDERS = (ANTHROPIC, OPENAI, GOOGLE, XAI)
-PROVIDER_NAMES = {ANTHROPIC: "Anthropic", OPENAI: "OpenAI", GOOGLE: "Google", XAI: "xAI"}
+#: And two whose models are nobody's list but the organisation's own (Petar, 25 November 2026,
+#: task 98, gap G23): any server that speaks OpenAI's Chat Completions, found by its address
+#: (Ollama, LM Studio, vLLM, llama.cpp's server and the like, `LOCAL`), and OpenRouter, which
+#: serves hundreds of other companies' models behind one key (`OPENROUTER`). Their models are
+#: the ones the organisation adds on the Models page (`rouh/providerkeys.py`), each written
+#: with its provider in front ("local/qwen2.5:3b", "openrouter/meta-llama/llama-3.2-3b-instruct")
+#: so that whose a model is can still be read from its id alone (`provider_of`), and asked
+#: without it (`wire_model`). They need no place on rouh.land's priced list: a model on your own
+#: server costs nothing, and OpenRouter says what each answer cost.
+LOCAL, OPENROUTER = "local", "openrouter"
+OPEN_PROVIDERS = (OPENROUTER, LOCAL)
+PROVIDERS = (ANTHROPIC, OPENAI, GOOGLE, XAI) + OPEN_PROVIDERS
+PROVIDER_NAMES = {ANTHROPIC: "Anthropic", OPENAI: "OpenAI", GOOGLE: "Google", XAI: "xAI",
+                  OPENROUTER: "OpenRouter", LOCAL: "Your own server"}
 #: Each provider's models, in the order the Models page lists them.
 CHOICES_OF = {ANTHROPIC: ANTHROPIC_CHOICES, OPENAI: OPENAI_CHOICES, GOOGLE: GOOGLE_CHOICES,
-              XAI: XAI_CHOICES}
+              XAI: XAI_CHOICES, OPENROUTER: (), LOCAL: ()}
+
+
+def open_model(model: str) -> tuple[str, str] | None:
+    """(provider, the provider's own id) for a model of your own server's or OpenRouter's, by its
+    id ("local/qwen2.5:3b" is ("local", "qwen2.5:3b")), or None for any other."""
+    name = (model or "").strip()
+    for provider in OPEN_PROVIDERS:
+        head = provider + "/"
+        if name.startswith(head) and name[len(head):].strip() and len(name) <= 300:
+            return provider, name[len(head):]
+    return None
+
+
+def wire_model(model: str) -> str:
+    """The id a model is asked by at its provider: an open provider's without its prefix."""
+    found = open_model(model)
+    return found[1] if found else (model or "").strip()
+
+
+def is_choice(model: str) -> bool:
+    """Whether a model id is one a tier or a use may hold: one on the list, or any model of an
+    open provider's (whether this organisation has it is `providerkeys.has`)."""
+    name = (model or "").strip()
+    return name in _NAMED or open_model(name) is not None
 
 #: The models OpenAI's Decisions API takes (`POST /v1/decisions`, `rouh/llm.py` `decide`).
 #: Only GPT-6 Luna, by OpenAI's own guide and reference, read on 23 October 2026
@@ -385,6 +421,9 @@ def is_openai(model: str) -> bool:
 def provider_of(model: str) -> str:
     """Whose a model is, by its id alone: gpt- and o- are OpenAI's, gemini- Google's,
     grok- xAI's, and everything else Anthropic's (claude-)."""
+    found = open_model(model)
+    if found:
+        return found[0]
     name = (model or "").strip().lower()
     if is_openai(name):
         return OPENAI
@@ -418,6 +457,9 @@ def model_name(model: str) -> str:
     model = (model or "").strip()
     if model in _NAMED:
         return _NAMED[model]
+    found = open_model(model)
+    if found:
+        return found[1]
     gpt = _SPOKEN_GPT.match(model)
     if gpt:
         return f"GPT-{gpt.group(1)}" + (f" {gpt.group(2).capitalize()}" if gpt.group(2) else "")
@@ -643,6 +685,16 @@ class Config:
     #: (`rouh/testing/fake_compat.py`). Empty is the provider's own.
     google_base_url: str = field(default_factory=lambda: _env("ROUH_GOOGLE_BASE_URL"))
     xai_base_url: str = field(default_factory=lambda: _env("ROUH_XAI_BASE_URL"))
+    #: OpenRouter's key and your own OpenAI-compatible server, as this installation's own (G23).
+    #: An organisation's own, set on the Models page, wins (`rouh/providerkeys.py`). The models
+    #: each offers are a comma-separated list of the provider's own ids; empty for your own
+    #: server means whatever it lists at `/models`.
+    openrouter_api_key: str = field(default_factory=lambda: _env("OPENROUTER_API_KEY"))
+    openrouter_models: str = field(default_factory=lambda: _env("ROUH_OPENROUTER_MODELS"))
+    openrouter_base_url: str = field(default_factory=lambda: _env("ROUH_OPENROUTER_BASE_URL"))
+    local_base_url: str = field(default_factory=lambda: _env("ROUH_LOCAL_BASE_URL"))
+    local_api_key: str = field(default_factory=lambda: _env("ROUH_LOCAL_API_KEY"))
+    local_models: str = field(default_factory=lambda: _env("ROUH_LOCAL_MODELS"))
     #: Whether Rouh hands the OpenAI key to the one program, for runs of Codex
     #: billed to the API (`one/billing.py`). On this server it does. In the
     #: containers (`deploy/container/`) it does not: the program runs in the

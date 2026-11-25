@@ -77,7 +77,7 @@ import os
 import re
 import time
 
-from .config import EFFORTS, MODEL_CHOICES, PROVIDERS, config as _config, is_openai, provider_of
+from .config import EFFORTS, MODEL_CHOICES, PROVIDERS, config as _config, is_choice, is_openai, open_model, provider_of
 
 log = logging.getLogger("rouh.modelstandard")
 
@@ -143,7 +143,7 @@ def ordered(models) -> list[str]:
     out = []
     for m in models or []:
         m = str(m or "").strip()
-        if m in _MODELS and m not in out:
+        if is_choice(m) and m not in out:
             out.append(m)
     return out
 
@@ -615,7 +615,8 @@ def effort(model: str, doc: dict | None = None) -> str:
     doc = doc or current()
     got = (doc.get("efforts") or {}).get(model)
     if got is None:
-        return "medium"
+        # A model on OpenRouter or your own server (G23): asked with no level, which not all take.
+        return "" if open_model(model) else "medium"
     return str(got.get("effort") or "")
 
 

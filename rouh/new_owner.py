@@ -79,6 +79,27 @@ STEPS: dict[str, dict] = {
             "Under API Keys, press Create API key.",
             "Copy the key and paste it in the box above.",
         ]},
+    "openrouter": {
+        "where": "https://openrouter.ai/settings/keys", "site": "OpenRouter",
+        "steps": [
+            "Open OpenRouter and sign in, or make an account.",
+            "Add credit under Credits. Some models are free, with low daily limits.",
+            "Under Keys, press Create Key, and give it a monthly limit.",
+            "Paste the key above, and the ids of the models you want, as openrouter.ai/models names them.",
+        ]},
+    "local": {
+        "where": "https://ollama.com/download", "site": "Ollama's download page",
+        "summary": "No server yet? How to run one",
+        "steps": [
+            "Install Ollama (or LM Studio, or vLLM) on this machine or on another one on your network.",
+            "Get a small model: ollama pull qwen2.5:3b. It needs about 3 GB of memory and runs without a graphics card.",
+            "Let Rouh reach it and give it room for Rouh's long instructions: start it with "
+            "OLLAMA_HOST=0.0.0.0 and OLLAMA_CONTEXT_LENGTH=32768.",
+            "Type its address above: http://host.docker.internal:11434/v1 for this machine, or "
+            "http://its-address:11434/v1, and press Save.",
+            "Put the model on a use or a tier below. It costs nothing per answer, but a small model is "
+            "slow on a processor and much weaker than Smart's.",
+        ]},
 }
 
 #: The stops of Show me around, in order: what on the screen (a CSS selector, the first one shown

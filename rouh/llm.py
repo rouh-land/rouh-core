@@ -63,8 +63,12 @@ ANTHROPIC = "anthropic"
 OPENAI = "openai"
 GOOGLE = "google"
 XAI = "xai"
-#: The two asked through Chat Completions.
-COMPAT = (GOOGLE, XAI)
+#: OpenRouter, and a server of the organisation's own by its address (G23, `config.OPEN_PROVIDERS`).
+OPENROUTER = "openrouter"
+LOCAL = "local"
+OPEN = (OPENROUTER, LOCAL)
+#: Those asked through Chat Completions.
+COMPAT = (GOOGLE, XAI) + OPEN
 
 
 #: Room for a model's thinking on top of the words a caller asked for: both companies count
@@ -101,18 +105,23 @@ def _client(company: str, cfg, org_id: str | None = None):
 
     key = providerkeys.key(company, org_id, cfg)
     if not key:
+        if company == LOCAL:
+            raise Cannot("no server of your own is set up here")
         raise Cannot(f"there is no {PROVIDER_NAMES.get(company, company)} key here")
+    url = (providerkeys.base_url(company, org_id, cfg) if company in OPEN
+           else getattr(cfg, f"{company}_base_url", "") or "")
     mine = _clients.setdefault(asyncio.get_running_loop(), {})
     held = mine.get(company)
-    if held is None or held[0] != key:
+    if held is None or held[0] != (key, url):
         if company == OPENAI:
             made = llmlog.openai_client(key, max_retries=1)
         elif company in COMPAT:
-            made = llmlog.compat_client(company, key, getattr(cfg, f"{company}_base_url", "") or "",
-                                        max_retries=1)
+            # A small model on a processor can take minutes over a long prompt: give it them.
+            made = llmlog.compat_client(company, key, url, max_retries=1,
+                                        **({"timeout": 900.0} if company == LOCAL else {}))
         else:
             made = llmlog.client(key)
-        mine[company] = held = (key, made)
+        mine[company] = held = ((key, url), made)
     return held[1]
 
 
@@ -122,7 +131,8 @@ def compat_effort(provider: str, model: str, effort: str) -> str:
     Grok 4.5 and later take low, high and xhigh, and Grok 4.3 none and low (docs.x.ai,
     "Reasoning"). A deeper level than the model takes is its deepest."""
     level = (effort or "").strip().lower()
-    if not level:
+    if not level or provider in OPEN:
+        # A server of your own or OpenRouter's many models: not all take a level, so none is sent.
         return ""
     if provider == GOOGLE:
         return {"none": "minimal", "low": "low", "medium": "medium"}.get(level, "high")
@@ -132,6 +142,15 @@ def compat_effort(provider: str, model: str, effort: str) -> str:
     if few:
         return level if level in few else few[-1]
     return {"none": "low", "low": "low", "medium": "high", "high": "high"}.get(level, "xhigh")
+
+
+def open_limit(provider: str, max_tokens: int) -> dict:
+    """The output limit as an open provider takes it: `max_tokens`, which Ollama, LM Studio, vLLM,
+    llama.cpp's server and OpenRouter all read, and OpenRouter's own cost of the call in its usage."""
+    out: dict = {"max_tokens": int(max_tokens)}
+    if provider == OPENROUTER:
+        out["extra_body"] = {"usage": {"include": True}}
+    return out
 
 
 def chat_messages(system: str, messages: list[dict]) -> list[dict]:
@@ -186,10 +205,13 @@ def chat_messages(system: str, messages: list[dict]) -> list[dict]:
 async def _ask_compat(provider: str, model: str, effort: str, system: str, messages: list[dict],
                       max_tokens: int, cfg, org_id: str | None = None,
                       on_text=None) -> tuple[str, dict]:
+    from .config import wire_model
+
     level = compat_effort(provider, model, effort)
-    request = dict(model=model, messages=chat_messages(system, messages), stream=True,
-                   stream_options={"include_usage": True},
-                   max_completion_tokens=max_tokens + (THINKING_ROOM if level not in ("", "none", "minimal") else 0))
+    request = dict(model=wire_model(model), messages=chat_messages(system, messages), stream=True,
+                   stream_options={"include_usage": True})
+    request.update(open_limit(provider, max_tokens) if provider in OPEN else
+                   {"max_completion_tokens": max_tokens + (THINKING_ROOM if level not in ("", "none", "minimal") else 0)})
     if level:
         request["reasoning_effort"] = level
     said: list[str] = []

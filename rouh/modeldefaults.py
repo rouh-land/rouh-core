@@ -120,8 +120,8 @@ import time
 from dataclasses import dataclass
 
 from . import modelstandard as standard
-from .config import (CHOICES_OF, DECISIONS_MODELS, EFFORT_NAMES, MODEL_CHOICES, PROVIDER_NAMES,
-                     PROVIDERS, config as _config, current_model, is_decisions_model, model_name,
+from .config import (CHOICES_OF, DECISIONS_MODELS, EFFORT_NAMES, MODEL_CHOICES, OPEN_PROVIDERS, PROVIDER_NAMES,
+                     PROVIDERS, config as _config, current_model, is_choice, is_decisions_model, model_name,
                      provider_of)
 from .modelstandard import (ANTHROPIC, AUTO, BALANCED, BEST, CHEAPER, GOOGLE, MODE_NAMES, MODES, OFF,
                             OPENAI, SAVER, SMART, TIER_NAMES, TIERS, XAI)
@@ -143,7 +143,7 @@ NONE = ""
 
 
 def _is_model_id(value: str) -> bool:
-    return str(value or "").startswith(("claude-", "gpt-", "gemini-", "grok-"))
+    return str(value or "").startswith(("claude-", "gpt-", "gemini-", "grok-")) or is_choice(value)
 
 #: What a chat answers on when the router cannot say: Smart (Petar, 23 October 2026: "If it
 #: is unsure, slower than its time limit, or fails, the message stays on Smart").
@@ -674,7 +674,7 @@ def _boxes(box: str | None) -> tuple:
 
 
 def company(model: str) -> str:
-    """Whose a model is: anthropic, openai, google or xai."""
+    """Whose a model is: anthropic, openai, google, xai, openrouter or local."""
     return provider_of(model)
 
 
@@ -725,7 +725,7 @@ def _tier_held(value, std: list) -> list | None:
         return standard.ordered(current_model(str(m)) for m in value) or None
     if isinstance(value, str):
         model = current_model(value)
-        got = [model] if model in _MODELS else []
+        got = [model] if is_choice(model) else []
     elif isinstance(value, dict):
         main = value.get("main") if value.get("main") in (OPENAI, ANTHROPIC) else ""
         picks = {k: current_model(str(value.get(k) or "")) for k in (OPENAI, ANTHROPIC)}
@@ -749,7 +749,7 @@ def _custom_of(value) -> list | None:
         return got or None
     if isinstance(value, str) and _is_model_id(value.strip()):
         model = current_model(value.strip())
-        return [model] if model in _MODELS else None
+        return [model] if is_choice(model) else None
     return None
 
 
@@ -757,7 +757,7 @@ def _choice_ok(use: Use, choice) -> bool:
     """Whether a use may be on this choice: a tier, off, or a list of models of its own
     (Custom), each of a provider it can ask."""
     if isinstance(choice, (list, tuple)):
-        return bool(choice) and all(m in _MODELS and company(m) in use.providers for m in choice)
+        return bool(choice) and all(is_choice(m) and company(m) in use.providers for m in choice)
     if choice in TIERS:
         return True
     if choice == OFF:
@@ -849,6 +849,10 @@ class Now:
         from . import providerkeys
 
         self.keys = {p: providerkeys.has(p, self.org, self.cfg) for p in PROVIDERS}
+        #: The models OpenRouter and your own server offer this organisation (G23): one of theirs
+        #: is asked only while it is still on that list.
+        self.open_models = {p: {m["id"] for m in providerkeys.models_of(p, self.org, self.cfg)}
+                            for p in OPEN_PROVIDERS if self.keys.get(p)}
 
     @property
     def bar(self) -> float:
@@ -870,8 +874,12 @@ class Now:
         return not self.auto_in(box_of(item)) or item in self.locked
 
     def can_ask(self, model: str) -> bool:
-        """Whether this model's provider has a key here."""
-        return bool(self.keys.get(company(model)))
+        """Whether this model's provider has a key here (and, for OpenRouter's and your own
+        server's, whether the model is still one it offers)."""
+        p = company(model)
+        if p in OPEN_PROVIDERS:
+            return bool(self.keys.get(p)) and model in self.open_models.get(p, ())
+        return bool(self.keys.get(p))
 
     def tier(self, tier: str) -> list:
         """A tier's models, in order."""
@@ -1138,9 +1146,11 @@ def _models_given(models, what: str) -> list:
     got = []
     for m in models or []:
         wanted = current_model(str(m).strip())
-        if wanted not in _MODELS:
+        if not is_choice(wanted):
             raise Refused(f"{model_name(wanted) or 'That'} is not a model to choose. It can be "
-                          + ", ".join(n for _, n in MODEL_CHOICES) + ".")
+                          + ", ".join(n for _, n in MODEL_CHOICES)
+                          + ", or a model you added for OpenRouter or your own server (openrouter/<its id>, "
+                          "local/<its id>).")
         if wanted not in got:
             got.append(wanted)
     if not got:
@@ -1567,6 +1577,20 @@ def _model_shown(model: str, doc: dict, now: "Now") -> dict:
             "company_name": PROVIDER_NAMES[company(model)], "has_key": now.can_ask(model)}
 
 
+def _offered(provider: str, now: "Now") -> list:
+    """The models a provider's column offers: its list, or for OpenRouter and your own server the
+    models this organisation added (`providerkeys.models_of`), and any of theirs a tier or a use
+    still holds, so one taken off the server can still be taken off a list."""
+    if provider not in OPEN_PROVIDERS:
+        return [m for m, _ in CHOICES_OF[provider]]
+    from . import providerkeys
+
+    out = [m["id"] for m in providerkeys.models_of(provider, now.org, now.cfg)]
+    held = [m for t in TIERS for m in now.tier(t)] + [
+        m for u in USES for m in (now.base_choice(u.id) if is_custom(now.base_choice(u.id)) else [])]
+    return out + [m for m in dict.fromkeys(held) if company(m) == provider and m not in out]
+
+
 def _effort_name(level: str) -> str:
     """A level as a row says it: a model that takes none (Haiku 4.5) says so too."""
     return "No reasoning" if level in ("none", "") else EFFORT_NAMES.get(level, level)
@@ -1614,7 +1638,7 @@ def shown(org_id: str | None = None, cfg=None, *, who=None) -> dict:
            "provider_names": dict(PROVIDER_NAMES),
            "share_totals": now.share_totals, "compare": now.compare,
            "compare_per_day": now.compare_per_day,
-           "models": {p: [_model_shown(m, doc, now) for m, _ in CHOICES_OF[p]] for p in PROVIDERS},
+           "models": {p: [_model_shown(m, doc, now) for m in _offered(p, now)] for p in PROVIDERS},
            "tiers": [], "groups": list(GROUPS), "uses": []}
     for tier in TIERS:
         models = now.tier(tier)
@@ -1697,7 +1721,7 @@ def said(org_id: str | None = None, cfg=None) -> str:
     lines = [f"The mode is {MODE_NAMES[now.mode]} [{now.mode}]: {mode_said[now.mode]}. The modes are "
              "best, balanced and saver.",
              "This Rouh can ask " + (", ".join(keys) if keys else "no provider at all")
-             + " (a provider is asked only with a key; Google's and xAI's are typed into Anatomy, Behaviour, Models). "
+             + " (a provider is asked only with a key; Google's, xAI's and OpenRouter's are typed into Anatomy, Behaviour, Models, and so is the address of a server of the organisation's own, such as Ollama; their models are written openrouter/<id> and local/<id>). "
              "Each tier is an ordered list of models across providers, and a use asks the first one "
              "on its list it has a key for.",
              f"The service's standard is {now.doc.get('revision')}.", box_said("tiers"), box_said("uses"),

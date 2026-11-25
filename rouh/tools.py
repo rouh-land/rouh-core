@@ -1772,13 +1772,14 @@ class ToolRegistry:
                                            "(the Models box) or 'uses' (Each use). Both when "
                                            "not given."},
                     "model": {"type": "string",
-                              "enum": [m for m, _ in modeldefaults.MODEL_CHOICES],
                               "description": "A model to move to the front of a tier's list, or a "
-                                             "use's model of its own (Custom). Any provider's."},
-                    "models": {"type": "array", "items": {"type": "string",
-                                                          "enum": [m for m, _ in modeldefaults.MODEL_CHOICES]},
+                                             "use's model of its own (Custom). Any provider's: one of "
+                                             + ", ".join(m for m, _ in modeldefaults.MODEL_CHOICES)
+                                             + ", or one added for OpenRouter or the organisation's own "
+                                             "server, written openrouter/<its id> or local/<its id>."},
+                    "models": {"type": "array", "items": {"type": "string"},
                                "description": "A tier's whole list, or a use's own (Custom), first "
-                                              "asked first."},
+                                              "asked first, each model as for 'model'."},
                     "main": {"type": "string", "enum": list(modeldefaults.PROVIDERS),
                              "description": "A provider whose first model on the tier moves to "
                                             "its front."},

@@ -1,4 +1,7 @@
-"""A chat's turn answered by Google's Gemini or xAI's Grok, through their Chat Completions APIs.
+"""A chat's turn answered by Google's Gemini or xAI's Grok, through their Chat Completions APIs,
+and since 25 November 2026 (G23) by a model on OpenRouter or on a server of your own (Ollama,
+LM Studio, vLLM), which speak the same API: asked by its own id (`config.wire_model`), with no
+level of reasoning sent, and with no output limit on your own server.
 
 Petar, 24 October 2026: Google and xAI as providers beside OpenAI and Anthropic, and "an
 install with only one provider's key must work end to end". So a chat whose model is one
@@ -47,7 +50,7 @@ from . import (attachments, chatkinds, context_editing, costs, key_trouble, llm,
                retrying, toolsearch, turnmarks)
 from .brain import (_first_of, _is_stopped, _let_it_finish, _said_timing, _split_sentences, _Stopped,
                     _timed, _without_marks)
-from .config import PROVIDER_NAMES, model_name, provider_of
+from .config import PROVIDER_NAMES, model_name, provider_of, wire_model
 from .luna import should_retry, too_long
 
 log = logging.getLogger("rouh.compat")
@@ -59,6 +62,8 @@ SCHEMA_KEYS = {"type", "description", "properties", "items", "required", "enum",
 
 #: The most a turn's answer may be, in tokens.
 MAX_TOKENS = 32000
+#: And on OpenRouter, where many models write less than that and refuse a request for more.
+OPEN_MAX_TOKENS = 8000
 
 
 def _schema(schema) -> dict:
@@ -233,6 +238,8 @@ def friendly(exc, model: str) -> str:
         return plain
     who = PROVIDER_NAMES.get(provider_of(model), "The provider")
     status = retrying.status_of(exc)
+    if provider_of(model) == llm.LOCAL and status is None and "Connection" in type(exc).__name__:
+        return "I could not reach your own model server. Check that it is running, in Anatomy, Behaviour, Models."
     if status == 404:
         return f"{model_name(model)} is not available to my {who} API key."
     if status == 429:
@@ -297,8 +304,14 @@ async def turn(brain, session_id: str, user_content, emit, on_sentence, model: s
         first = False
         tools = [] if tools_off else [function(toolsearch.client_search_definition())] + [
             function(by_name[n].definition) for n in dict.fromkeys(loaded) if n in by_name]
-        request = {"model": model, "messages": convo, "stream": True,
-                   "stream_options": {"include_usage": True}, "max_completion_tokens": MAX_TOKENS}
+        request = {"model": wire_model(model), "messages": convo, "stream": True,
+                   "stream_options": {"include_usage": True}}
+        if now.provider == llm.LOCAL:
+            pass                # your own server: as long as its context allows, vLLM refuses more
+        elif now.provider in llm.OPEN:
+            request.update(llm.open_limit(now.provider, OPEN_MAX_TOKENS))
+        else:
+            request["max_completion_tokens"] = MAX_TOKENS
         if tools:
             request.update(tools=tools, tool_choice="auto")
         if effort:

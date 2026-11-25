@@ -16,7 +16,7 @@ import { $, el, linkTo } from 'app/helpers.js';
 import { goToAddress } from 'app/cards.js';
 import { narrow, setPane } from 'app/controls.js';
 
-/** @type {{on: string[], steps: Record<string, {where: string, site: string, steps: string[]}>,
+/** @type {{on: string[], steps: Record<string, {where: string, site: string, steps: string[], summary?: string}>,
  *          tour: {at: string, title: string, says: string}[],
  *          pages: {name: string, route: string, common: boolean, plain: string}[]}} */
 var OWNER = (function () {
@@ -48,7 +48,7 @@ function keyHow(id) {
   var s = OWNER.steps[id];
   var box = /** @type {HTMLDetailsElement} */ (el('details', 'prov-how'));
   box.setAttribute('data-how', id);
-  var sum = el('summary', null, 'No key yet? How to get one');
+  var sum = el('summary', null, s.summary || 'No key yet? How to get one');
   box.appendChild(sum);
   var body = el('div', 'prov-how-body');
   var ol = el('ol', 'prov-how-steps');

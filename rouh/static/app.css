@@ -4220,6 +4220,19 @@ input[type="range"]::-moz-range-thumb { width: 15px; height: 15px; border: 0; bo
 }
 .prov-remove[hidden] { display: none; }
 @media (min-width: 720px) { .prov-form { flex-basis: auto; } }
+/* OpenRouter and a server of your own (G23): labelled boxes, a full row each on a phone. */
+.prov-form.prov-server { flex-basis: 100%; display: grid; grid-template-columns: 1fr; gap: 8px; }
+.prov-field { display: grid; gap: 3px; min-width: 0; }
+.prov-field-name { font-size: 12.5px; color: var(--dim); }
+.prov-field .prov-key { min-width: 0; width: 100%; height: 44px; }
+.prov-acts { display: flex; gap: 6px; align-items: end; }
+.prov-acts .ctl { min-height: 44px; }
+/* Side by side only where the column itself is wide: the settings column is narrow at a desk too. */
+.prov-list { container-type: inline-size; }
+@container (min-width: 760px) {
+  .prov-form.prov-server { grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr) minmax(0, 1.4fr) auto; }
+  .prov-form.prov-server.no-url { grid-template-columns: minmax(0, 1fr) minmax(0, 1.8fr) auto; }
+}
 /* The agents' sign-ins: Claude Code's and Codex's, each with where it stands and one control. */
 .agent-form { margin: 0; }
 .agent-form[hidden], .agent-row a[hidden] { display: none; }

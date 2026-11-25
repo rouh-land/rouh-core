@@ -104,12 +104,16 @@ VOYAGE = "voyage"
 #: endpoints with OpenAI's SDK (`compat_client`) since 24 October 2026.
 GOOGLE = "google"
 XAI = "xai"
-COMPAT = (GOOGLE, XAI)
+#: And since 25 November 2026 (G23) OpenRouter and a server of the organisation's own (Ollama,
+#: LM Studio, vLLM), which speak the same Chat Completions (`rouh/providerkeys.py`).
+OPENROUTER = "openrouter"
+LOCAL = "local"
+COMPAT = (GOOGLE, XAI, OPENROUTER, LOCAL)
 #: Their OpenAI-compatible endpoints (ai.google.dev/gemini-api/docs/openai, docs.x.ai), kept
 #: here as every provider's address is (`rouh/llmguard.py`). `config.google_base_url` and
 #: `config.xai_base_url` put a stand-in in front of them.
 COMPAT_URLS = {GOOGLE: "https://generativelanguage.googleapis.com/v1beta/openai/",
-               XAI: "https://api.x.ai/v1"}
+               XAI: "https://api.x.ai/v1", OPENROUTER: "https://openrouter.ai/api/v1"}
 
 #: Where Voyage AI answers when nothing says otherwise. A key made in MongoDB
 #: Atlas, where Voyage's keys are made since MongoDB bought it, answers only
@@ -270,6 +274,8 @@ def compat_client(provider: str, api_key: str, base_url: str = "", **options):
 
     CompatRecording.provider = provider
     guard()
+    if not (base_url or COMPAT_URLS.get(provider)):
+        raise ValueError(f"no address to ask {provider} at")
     return openai.AsyncOpenAI(api_key=api_key, base_url=base_url or COMPAT_URLS[provider],
                               http_client=CompatRecording(),
                               **options)
@@ -1040,6 +1046,10 @@ def priced(usage, model: str, provider: str, endpoint: str) -> float | None:
 
     if not usage:
         return None
+    if provider == LOCAL:
+        return 0.0                     # a model on your own server costs nothing per call
+    if provider == OPENROUTER and isinstance(usage.get("reported_cost"), (int, float)):
+        return float(usage["reported_cost"])     # OpenRouter says what each answer cost
     if is_image_endpoint(endpoint):
         return costs.image_cost(usage, model)
     if provider == OPENAI and str(endpoint or "").rstrip("/").endswith("/decisions"):
@@ -1491,6 +1501,8 @@ def read_chat_answer(raw: bytes) -> tuple[dict, dict | None]:
         out["usage"] = {"input_tokens": max(0, sent - read),
                         "output_tokens": _number(usage.get("completion_tokens"), 0),
                         "cache_read_input_tokens": read, "cache_creation_input_tokens": 0}
+        if isinstance(usage.get("cost"), (int, float)):      # OpenRouter's own price of the call
+            out["usage"]["reported_cost"] = float(usage["cost"])
     return out, error
 
 

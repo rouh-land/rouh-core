@@ -24,7 +24,8 @@ import logging
 import threading
 import time
 
-from .config import ANTHROPIC, GOOGLE, OPENAI, PROVIDER_NAMES, PROVIDERS, XAI, config as _config
+from .config import (ANTHROPIC, GOOGLE, LOCAL, OPEN_PROVIDERS, OPENAI, OPENROUTER, PROVIDER_NAMES, PROVIDERS,
+                     XAI, config as _config)
 
 log = logging.getLogger("rouh.providerkeys")
 
@@ -45,11 +46,24 @@ def own_writable() -> bool:
     return os.path.isdir(folder) and os.access(folder, os.W_OK)
 #: The setting each provider's own key is in, for this installation.
 ENV_FIELD = {ANTHROPIC: "anthropic_api_key", OPENAI: "openai_api_key",
-             GOOGLE: "google_api_key", XAI: "xai_api_key"}
+             GOOGLE: "google_api_key", XAI: "xai_api_key",
+             OPENROUTER: "openrouter_api_key", LOCAL: "local_base_url"}
 ENV_NAME = {ANTHROPIC: "ANTHROPIC_API_KEY", OPENAI: "OPENAI_API_KEY",
-            GOOGLE: "GEMINI_API_KEY", XAI: "XAI_API_KEY"}
+            GOOGLE: "GEMINI_API_KEY", XAI: "XAI_API_KEY",
+            OPENROUTER: "OPENROUTER_API_KEY", LOCAL: "ROUH_LOCAL_BASE_URL"}
 #: Where each provider's keys are made, for the page.
-WHERE = {GOOGLE: "https://aistudio.google.com/apikey", XAI: "https://console.x.ai/"}
+WHERE = {GOOGLE: "https://aistudio.google.com/apikey", XAI: "https://console.x.ai/",
+         OPENROUTER: "https://openrouter.ai/settings/keys"}
+#: OpenRouter's own address, where its models and their prices are listed too.
+OPENROUTER_URL = "https://openrouter.ai/api/v1"
+#: What the OpenAI SDK is handed as the key of a server of your own that wants none: Ollama,
+#: LM Studio and llama.cpp's server take any.
+NO_KEY = "none"
+#: Rouh's own containers (`deploy/stack/compose.yml`), which a server of your own is never: the
+#: key proxy, above all, adds this Rouh's own keys to what it carries.
+OWN_HOSTS = {"core", "keyproxy", "guard", "postgres", "checkdb", "browser", "edge", "backup"}
+#: The most models one open provider offers on the page.
+MOST_MODELS = 40
 
 #: The organisations' sealed keys, read once and held a little while: a pick reads them on
 #: every call. Emptied by every save.
@@ -96,9 +110,62 @@ def forget() -> None:
         _HELD.clear()
 
 
+def server(provider: str, org_id: str | None = None, cfg=None) -> dict:
+    """An open provider's record for this organisation (`config.OPEN_PROVIDERS`): `url`, `key`
+    and `models` (each `{"id", "name"}`, the id with its provider in front), and `source`,
+    "settings" or "server", or {} for none. The organisation's own, typed on the Models page and
+    kept sealed, wins over this installation's environment."""
+    cfg = cfg or _config
+    if provider not in OPEN_PROVIDERS:
+        return {}
+    sealed = (_rows(_org(org_id)).get(provider) or ("",))[0]
+    if sealed:
+        try:
+            import json
+
+            from .encryption import box
+
+            got = json.loads(box().open_(sealed))
+            if isinstance(got, dict):
+                got["source"] = "settings"
+                return got
+        except Exception:
+            log.warning("the %s server of %s could not be opened", provider, org_id or "this Rouh")
+    if provider == OPENROUTER:
+        k = str(getattr(cfg, "openrouter_api_key", "") or "")
+        if not k:
+            return {}
+        url = str(getattr(cfg, "openrouter_base_url", "") or "") or OPENROUTER_URL
+        listed = str(getattr(cfg, "openrouter_models", "") or "")
+    else:
+        url = str(getattr(cfg, "local_base_url", "") or "")
+        if not url:
+            return {}
+        k = str(getattr(cfg, "local_api_key", "") or "")
+        listed = str(getattr(cfg, "local_models", "") or "")
+    models = [{"id": f"{provider}/{m}", "name": m} for m in listed.replace(",", " ").split() if m]
+    return {"url": url, "key": k, "models": models, "source": "server"}
+
+
+def base_url(provider: str, org_id: str | None = None, cfg=None) -> str:
+    """Where an open provider is asked, for this organisation, or ""."""
+    return str(server(provider, org_id, cfg).get("url") or "")
+
+
+def models_of(provider: str, org_id: str | None = None, cfg=None) -> list[dict]:
+    """The models an open provider offers this organisation, `{"id", "name"}` each."""
+    return [m for m in server(provider, org_id, cfg).get("models") or []
+            if isinstance(m, dict) and m.get("id")]
+
+
 def key(provider: str, org_id: str | None = None, cfg=None) -> str:
     """The key to ask this provider with, for this organisation, or "" for none."""
     cfg = cfg or _config
+    if provider in OPEN_PROVIDERS:
+        got = server(provider, org_id, cfg)
+        if not got.get("url"):
+            return ""
+        return str(got.get("key") or "") or (NO_KEY if provider == LOCAL else "")
     if provider in TYPED:
         sealed = (_rows(_org(org_id)).get(provider) or ("",))[0]
         if sealed:
@@ -181,6 +248,16 @@ def shown(org_id: str | None = None, cfg=None) -> list[dict]:
     for p in PROVIDERS:
         own = rows.get(p)
         env = bool(getattr(cfg, ENV_FIELD[p], ""))
+        if p in OPEN_PROVIDERS:
+            got = server(p, org, cfg)
+            out.append({"id": p, "name": PROVIDER_NAMES[p], "typed": True, "open": True,
+                        "has": bool(key(p, org, cfg)), "source": got.get("source", ""),
+                        "url": got.get("url", "") if p == LOCAL else "",
+                        "has_key": bool(got.get("key")), "last4": str(got.get("key") or "")[-4:],
+                        "models": [m["name"] for m in models_of(p, org, cfg)],
+                        "saved_by": own[2] if own else "", "saved_at": own[3] if own else None,
+                        "env": ENV_NAME[p], "where": WHERE.get(p, "")})
+            continue
         out.append({"id": p, "name": PROVIDER_NAMES[p], "typed": p in TYPED or (p in CHAT_OWN and writable),
                     "has": bool((own and own[0]) or env),
                     "source": "settings" if own and own[0] else "server" if env else "",
@@ -214,3 +291,117 @@ def save(org_id: str, provider: str, value: str, *, by: str = "") -> None:
                   "saved_at": time.time()})
     forget()
     log.info("a %s key for %s was saved by %s", provider, org_id, by or "somebody")
+
+
+def _url_ok(provider: str, url: str) -> str:
+    """An open provider's address, tidied, or Refused with why. Only http and https, never one of
+    Rouh's own containers."""
+    from urllib.parse import urlparse
+
+    url = str(url or "").strip().rstrip("/")
+    if provider == OPENROUTER and not url:
+        return OPENROUTER_URL
+    if not url:
+        raise Refused("Type the address of your server, such as http://host.docker.internal:11434/v1 for "
+                      "Ollama on this machine.")
+    if "://" not in url:
+        url = "http://" + url
+    seen = urlparse(url)
+    if seen.scheme not in ("http", "https") or not seen.hostname:
+        raise Refused("That is not a web address. It looks like http://192.168.1.20:11434/v1.")
+    if seen.hostname.lower() in OWN_HOSTS:
+        raise Refused(f"{seen.hostname} is one of Rouh's own parts, not a model server.")
+    if seen.username or seen.password:
+        raise Refused("Put the server's key in the key box, not in its address.")
+    if provider == LOCAL and not seen.path.rstrip("/"):
+        url += "/v1"            # Ollama, LM Studio, vLLM and llama.cpp all answer under /v1
+    return url
+
+
+def _listed(provider: str, url: str, key_: str) -> list[str]:
+    """The model ids a server says it has at `/models`, or Refused when it cannot be reached:
+    so an address that is wrong is said at once, not at the first chat."""
+    import httpx
+
+    headers = {"Authorization": f"Bearer {key_}"} if key_ else {}
+    try:
+        got = httpx.get(url + "/models", headers=headers, timeout=10.0)
+    except Exception as exc:
+        raise Refused(f"Rouh could not reach {url} ({type(exc).__name__}). Check the address, and that the "
+                      "server listens for other machines, not only for itself.") from None
+    if got.status_code in (401, 403):
+        raise Refused(f"{url} refused the key ({got.status_code}).")
+    if got.status_code >= 400:
+        raise Refused(f"{url}/models answered {got.status_code}: is it an OpenAI-compatible address, "
+                      "ending in /v1?")
+    try:
+        data = got.json().get("data") or []
+    except Exception:
+        raise Refused(f"{url}/models did not answer as an OpenAI-compatible server does.") from None
+    if provider == OPENROUTER:
+        # Its list of models is public, so the key is checked on its own: OpenRouter's /key says
+        # what a key is, and refuses one it does not know.
+        try:
+            mine = httpx.get(url + "/key", headers=headers, timeout=10.0)
+        except Exception:
+            mine = None
+        if mine is not None and mine.status_code in (401, 403):
+            raise Refused("OpenRouter does not know that key. Copy it again from openrouter.ai, Keys.")
+    return [str(m.get("id")) for m in data if isinstance(m, dict) and m.get("id")]
+
+
+def save_server(org_id: str, provider: str, *, url: str = "", key_: str | None = None,
+                models=None, by: str = "", check: bool = True) -> list[str]:
+    """Keep an open provider for an organisation, sealed: its address, its key (None keeps the one
+    kept; "" removes it) and the models it offers (a list or a comma-separated string of the
+    provider's own ids; empty for your own server means all it lists). With `url` empty and no
+    models for your own server, or no key for OpenRouter, it is removed. Gives back the models kept.
+    The server is asked for its models first (`check`), so a wrong address is refused here."""
+    import json
+
+    provider = str(provider or "").strip().lower()
+    if provider not in OPEN_PROVIDERS:
+        raise Refused(f"{PROVIDER_NAMES.get(provider, provider)} is not a server of your own.")
+    from .models import ModelProviderKey
+
+    held = server(provider, org_id) if (_rows(_org(org_id)).get(provider) or ("",))[0] else {}
+    k = str(held.get("key") or "") if key_ is None else "".join(str(key_ or "").split())
+    removing = (provider == LOCAL and not str(url or "").strip()) or (provider == OPENROUTER and not k)
+    if removing:
+        ModelProviderKey.objects.filter(org_id=str(org_id), provider=provider).delete()
+        forget()
+        log.info("the %s server of %s was removed by %s", provider, org_id, by or "somebody")
+        return []
+    url = _url_ok(provider, url)
+    if isinstance(models, str):
+        models = models.replace(",", " ").split()
+    wanted = []
+    for m in models or []:
+        m = str(m or "").strip()
+        if m.startswith(provider + "/"):
+            m = m[len(provider) + 1:]
+        if m and m not in wanted and len(m) <= 200:
+            wanted.append(m)
+    if check:
+        there = _listed(provider, url, k)
+        if not wanted and provider == LOCAL:
+            wanted = there[:MOST_MODELS]
+        missing = [m for m in wanted if there and m not in there]
+        if missing:
+            raise Refused(f"{url} has no model called {missing[0]}." + (
+                " It has " + ", ".join(there[:12]) + "." if there else ""))
+    if not wanted:
+        raise Refused("Name at least one model, by its id at " + PROVIDER_NAMES[provider] + ".")
+    if len(wanted) > MOST_MODELS:
+        raise Refused(f"At most {MOST_MODELS} models.")
+    from .encryption import box
+
+    record = {"url": url, "key": k, "models": [{"id": f"{provider}/{m}", "name": m} for m in wanted]}
+    ModelProviderKey.objects.update_or_create(
+        org_id=str(org_id), provider=provider,
+        defaults={"key_sealed": box().seal(json.dumps(record)), "last4": k[-4:] if k else "",
+                  "saved_by": str(by or "")[:120], "saved_at": time.time()})
+    forget()
+    log.info("the %s server of %s was saved by %s, with %d models", provider, org_id, by or "somebody",
+             len(wanted))
+    return wanted

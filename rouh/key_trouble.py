@@ -24,12 +24,13 @@ from __future__ import annotations
 
 import json
 
-from .config import ANTHROPIC, GOOGLE, OPENAI, XAI
+from .config import ANTHROPIC, GOOGLE, LOCAL, OPENAI, OPENROUTER, XAI
 
 #: The voice's company, beside the model providers of `config.PROVIDERS`.
 ELEVENLABS = "elevenlabs"
 
-NAMES = {ANTHROPIC: "Anthropic", OPENAI: "OpenAI", GOOGLE: "Google", XAI: "xAI", ELEVENLABS: "ElevenLabs"}
+NAMES = {ANTHROPIC: "Anthropic", OPENAI: "OpenAI", GOOGLE: "Google", XAI: "xAI", OPENROUTER: "OpenRouter",
+         LOCAL: "Your own model server", ELEVENLABS: "ElevenLabs"}
 
 #: Where each company's credit is bought: its own billing page, opened in a tab of its own.
 BILLING = {
@@ -37,6 +38,7 @@ BILLING = {
     OPENAI: "https://platform.openai.com/settings/organization/billing/overview",
     GOOGLE: "https://aistudio.google.com/apikey",
     XAI: "https://console.x.ai/",
+    OPENROUTER: "https://openrouter.ai/settings/credits",
     ELEVENLABS: "https://elevenlabs.io/app/subscription",
 }
 
@@ -44,7 +46,7 @@ BILLING = {
 MODELS_PAGE = ("Anatomy, Behaviour, Models", "/anatomy/behaviour/models")
 KEYS_PAGE = ("Anatomy, Connections, Keys", "/anatomy/connections/keys")
 WHERE = {ANTHROPIC: MODELS_PAGE, OPENAI: MODELS_PAGE, GOOGLE: MODELS_PAGE, XAI: MODELS_PAGE,
-         ELEVENLABS: KEYS_PAGE}
+         OPENROUTER: MODELS_PAGE, LOCAL: MODELS_PAGE, ELEVENLABS: KEYS_PAGE}
 
 #: What each company says when its account is empty, lower-cased, as far as any of them says it.
 _EMPTY_WORDS = ("credit balance is too low", "insufficient_quota", "exceeded your current quota",

@@ -10687,7 +10687,8 @@ function providersDraw(d, locked) {
       row.setAttribute('data-provider', p.id);
       row.appendChild(el('span', 'prov-name', p.name));
       row.appendChild(el('span', 'prov-state'));
-      if (p.typed) {
+      if (p.open) row.appendChild(serverForm(p));
+      else if (p.typed) {
         var form = /** @type {HTMLFormElement} */ (el('form', 'prov-form'));
         var input = /** @type {HTMLInputElement} */ (el('input', 'prov-key'));
         input.type = 'password';
@@ -10716,10 +10717,11 @@ function providersDraw(d, locked) {
       }
       box.appendChild(row);
     }
-    row.querySelector('.prov-state').textContent = !p.has ? 'No key'
+    row.querySelector('.prov-state').textContent = p.open ? serverSaid(p) : !p.has ? 'No key'
       : p.source === 'settings' ? 'Key ending ' + p.last4 + (p.saved_by ? ', saved by ' + p.saved_by : '')
       : 'This server\'s key';
     row.classList.toggle('on', !!p.has);
+    if (p.open) serverFill(row, p);
     var f = row.querySelector('.prov-form');
     if (f) {
       Array.prototype.forEach.call(f.querySelectorAll('input, button'), function (n) {
@@ -10727,6 +10729,98 @@ function providersDraw(d, locked) {
       });
       /** @type {HTMLElement} */ (f.querySelector('.prov-remove')).hidden = p.source !== 'settings';
     }
+  });
+}
+
+/* OpenRouter, and a server of your own that speaks OpenAI's API (Ollama, LM Studio, vLLM), G23: the
+   address (your own server only), a key, and the models it offers, all kept sealed. Your own server
+   with no models named offers every model it lists. */
+function serverSaid(p) {
+  if (!p.has) return p.id === 'local' ? 'Not set up' : 'No key';
+  var n = (p.models || []).length;
+  var what = n + ' model' + (n === 1 ? '' : 's');
+  if (p.id === 'local') return p.url + ' · ' + what + (p.source === 'server' ? ', this server\'s setting' : '');
+  return (p.source === 'server' ? 'This server\'s key' : 'Key ending ' + p.last4) + ' · ' + what;
+}
+
+function serverForm(p) {
+  var local = p.id === 'local';
+  var form = /** @type {HTMLFormElement} */ (el('form', 'prov-form prov-server' + (local ? '' : ' no-url')));
+  /** @param {string} cls @param {string} label @param {string} hint @param {string} type */
+  function field(cls, label, hint, type) {
+    var box = el('label', 'prov-field');
+    box.appendChild(el('span', 'prov-field-name', label));
+    var input = /** @type {HTMLInputElement} */ (el('input', 'prov-key ' + cls));
+    input.type = type;
+    input.autocomplete = 'off';
+    input.spellcheck = false;
+    input.placeholder = hint;
+    box.appendChild(input);
+    form.appendChild(box);
+    return input;
+  }
+  // Text, not url: the browser would refuse an address typed without http://, which Rouh accepts.
+  var url = local ? field('prov-url', 'Address', 'http://host.docker.internal:11434/v1', 'text') : null;
+  if (url) url.inputMode = 'url';
+  var key = field('prov-secret', local ? 'Key, if it needs one' : 'API key',
+    local ? 'Leave empty for Ollama' : 'sk-or-...', 'password');
+  var models = field('prov-models', 'Models', local ? 'Empty for every model it has'
+    : 'meta-llama/llama-3.2-3b-instruct, qwen/qwen-2.5-7b-instruct', 'text');
+  var acts = el('span', 'prov-acts');
+  var save = /** @type {HTMLButtonElement} */ (el('button', 'ctl small prov-save', 'Save'));
+  save.type = 'submit';
+  var drop = /** @type {HTMLButtonElement} */ (el('button', 'ctl small prov-remove', 'Remove'));
+  drop.type = 'button';
+  acts.appendChild(save);
+  acts.appendChild(drop);
+  form.appendChild(acts);
+  form.addEventListener('submit', function (e) {
+    e.preventDefault();
+    /** @type {Record<string, any>} */
+    var sent = { provider: p.id, models: models.value };
+    if (url) sent.url = url.value;
+    // A key typed now goes with this one request; an empty box keeps the one kept.
+    if (key.value.trim()) sent.key = key.value;
+    key.value = '';
+    serverSave(sent);
+  });
+  drop.addEventListener('click', function () {
+    serverSave({ provider: p.id, url: '', key: '', remove: true });
+  });
+  return form;
+}
+
+function serverFill(row, p) {
+  var form = row.querySelector('.prov-server');
+  if (!form) return;
+  var url = /** @type {HTMLInputElement|null} */ (form.querySelector('.prov-url'));
+  var models = /** @type {HTMLInputElement} */ (form.querySelector('.prov-models'));
+  var mine = p.source === 'settings';
+  // What is kept is put back in the boxes once, never over what is being typed.
+  if (url && !url.value && mine) url.value = p.url || '';
+  if (!models.value && mine) models.value = (p.models || []).join(', ');
+  /** @type {HTMLElement} */ (form.querySelector('.prov-remove')).hidden = !mine;
+}
+
+function serverSave(sent) {
+  if (MODELS.saving) return;
+  MODELS.saving = true;
+  modelsDraw();
+  fetch('/api/settings/models/keys', {
+    method: 'POST', credentials: 'same-origin',
+    headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(sent),
+  }).then(function (r) {
+    return r.json().then(function (out) { return { ok: r.ok, out: out }; });
+  }).then(function (answer) {
+    MODELS.saving = false;
+    if (answer.out && answer.out.tiers) MODELS.data = answer.out;
+    modelsDraw();
+    if (!answer.ok) settingsSay(answer.out.error || 'That was not saved.', 'bad');
+    else settingsSay(answer.out.said || 'Saved.', 'good');
+  }).catch(function () {
+    MODELS.saving = false;
+    modelsDraw();
+    settingsSay('That could not be saved. Try again in a moment.', 'bad');
   });
 }
 

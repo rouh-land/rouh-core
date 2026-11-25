@@ -29,6 +29,10 @@ use, locks, and the Auto toggle and Sync of each box.
     POST /api/settings/models/keys       {"provider": "google" or "xai", "key"}: an
                                          organisation's own key kept sealed, or removed
                                          with an empty one; never given back
+                                         {"provider": "local" or "openrouter", "url", "key",
+                                         "models"}: a server of its own or OpenRouter (G23),
+                                         sealed; an empty url (local) or key (OpenRouter)
+                                         removes it
     POST /api/models/vote                {"token", "vote"}: a blind comparison's vote
                                          (`rouh/modelvotes.py`)
 
@@ -136,6 +140,24 @@ async def settings_models_keys(request: HttpRequest):
         return refuse(NOT_ADMIN, 403, **(await sync_to_async(now)()))
     sent = body_of(request)
     provider = str(sent.get("provider") or "").strip().lower()
+    if provider in providerkeys.OPEN_PROVIDERS:
+        # OpenRouter, or a server of the organisation's own by its address (G23): its address, its key
+        # (absent keeps the one kept) and the models it offers, checked against what it lists first.
+        try:
+            kept = await sync_to_async(providerkeys.save_server)(
+                me.org_id, provider, url=str(sent.get("url") or ""),
+                key_=str(sent["key"]) if sent.get("key") is not None else None,
+                models=sent.get("models") or [], by=me.name or me.email or me.user_id,
+                check=not sent.get("remove"))
+        except providerkeys.Refused as exc:
+            return refuse(str(exc), 400, **(await sync_to_async(now)()))
+        from rouh import runtime
+
+        await runtime.announce_model_defaults()
+        said = (f"Saved, with {len(kept)} model{'s' if len(kept) != 1 else ''}: " + ", ".join(kept[:8])
+                + ("..." if len(kept) > 8 else "") + ". Put one on a tier, or on a use, below." if kept
+                else "Removed.")
+        return answer({"ok": True, **(await sync_to_async(now)()), "said": said})
     # A key pasted with what was around it, or into the other company's box, is cleaned and kept as
     # its own company's (`rouh/new_owner.py`, key_clean); off, it is what was typed.
     from rouh import new_owner

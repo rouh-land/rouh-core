@@ -36,7 +36,7 @@ from . import (attachments, chatkinds, citing, clock, context_editing, costs, de
                retrying, rouhlinks, senders, servercalls, spending_limit, telegram_chat, toolsearch, turnmarks, turntrace, untrusted,
                worklabel)
 from . import memory as memory_mod
-from .config import (ANTHROPIC, GOOGLE, PROVIDER_NAMES, XAI, effort_for, is_openai, luna_ready, model_name,
+from .config import (ANTHROPIC, GOOGLE, OPEN_PROVIDERS, PROVIDER_NAMES, XAI, effort_for, is_openai, luna_ready, model_name,
                      provider_of, takes_system_messages, thinking_for)
 from .stopping import STOP_NOTE
 from .version import get_version
@@ -1001,7 +1001,7 @@ class Brain:
         # Which kind of model answers: Claude, OpenAI's (Luna's loop), or Google's or xAI's
         # (`rouh/compat.py`), which is given no web tool, so no rule about one is told.
         kind = "claude" if not openai else (
-            "other" if isinstance(openai, str) and provider_of(openai) in (GOOGLE, XAI) else "luna")
+            "other" if isinstance(openai, str) and provider_of(openai) in (GOOGLE, XAI) + OPEN_PROVIDERS else "luna")
         if kind == "other":
             names = {n for n in names if n not in ("web_search", "web_fetch", "code_execution")}
         # How this turn came and how its reply goes out, written or spoken (`rouh/replymode.py`).
@@ -1403,15 +1403,15 @@ class Brain:
         # A guest's message (`rouh/senders.py`): the turn is built from their grant, and only Anthropic's loop below
         # knows how (`rooms.answer` asks with the "askai" use's Anthropic model).
         sealed = senders.guest()
-        if sealed is not None and (is_openai(model) or provider_of(model) in (GOOGLE, XAI)):
+        if sealed is not None and (is_openai(model) or provider_of(model) in (GOOGLE, XAI) + OPEN_PROVIDERS):
             raise RuntimeError(f"{model_name(model)} cannot answer a shared page's conversation: it needs an "
                                "Anthropic model on the Models page's Ask AI.")
         # An OpenAI model, when the chat's tier is one (`rouh/modeldefaults.py`).
         # Its turn is a loop of its own over OpenAI's Responses API
         # (`rouh/luna.py`), so nothing below this changes for Anthropic's.
-        # A Google or xAI model: a loop of its own over their Chat Completions APIs
-        # (`rouh/compat.py`), with the organisation's own key for that provider.
-        if provider_of(model) in (GOOGLE, XAI):
+        # A Google or xAI model, or one on OpenRouter or a server of your own: a loop of its own over
+        # their Chat Completions APIs (`rouh/compat.py`), with the organisation's own key for that provider.
+        if provider_of(model) in (GOOGLE, XAI) + OPEN_PROVIDERS:
             from . import providerkeys
 
             if providerkeys.has(provider_of(model)):
