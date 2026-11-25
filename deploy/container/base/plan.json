@@ -1,16 +1,103 @@
 {
- "level": "1.0.21",
+ "level": "1.0.22",
  "line": "1.0",
- "from_level": "1.0.20",
+ "from_level": "1.0.21",
  "changed": true,
  "changes": [
   {
-   "what": "Protected core",
-   "from": "1.1.1",
-   "to": "1.1.1, with the key proxy deciding per run (task 191)"
+   "what": "charset-normalizer",
+   "from": "3.5.2",
+   "to": "3.5.3"
+  },
+  {
+   "what": "pyyaml",
+   "from": "6.0.3",
+   "to": "6.0.4"
   }
  ],
- "security": [],
+ "security": [
+  {
+   "package": "chromium",
+   "from": "156.0.8078.79-1~deb13u1",
+   "to": "156.0.8078.108-1~deb13u1",
+   "arches": [
+    "amd64",
+    "arm64"
+   ]
+  },
+  {
+   "package": "chromium-common",
+   "from": "156.0.8078.79-1~deb13u1",
+   "to": "156.0.8078.108-1~deb13u1",
+   "arches": [
+    "amd64",
+    "arm64"
+   ]
+  },
+  {
+   "package": "libgssapi-krb5-2",
+   "from": "1.21.3-5+deb13u1",
+   "to": "1.21.3-5+deb13u2",
+   "arches": [
+    "amd64",
+    "arm64"
+   ]
+  },
+  {
+   "package": "libk5crypto3",
+   "from": "1.21.3-5+deb13u1",
+   "to": "1.21.3-5+deb13u2",
+   "arches": [
+    "amd64",
+    "arm64"
+   ]
+  },
+  {
+   "package": "libkrb5-3",
+   "from": "1.21.3-5+deb13u1",
+   "to": "1.21.3-5+deb13u2",
+   "arches": [
+    "amd64",
+    "arm64"
+   ]
+  },
+  {
+   "package": "libkrb5support0",
+   "from": "1.21.3-5+deb13u1",
+   "to": "1.21.3-5+deb13u2",
+   "arches": [
+    "amd64",
+    "arm64"
+   ]
+  },
+  {
+   "package": "libzstd1",
+   "from": "1.5.7+dfsg-1",
+   "to": "1.5.7+dfsg-1+deb13u1",
+   "arches": [
+    "amd64",
+    "arm64"
+   ]
+  },
+  {
+   "package": "login.defs",
+   "from": "1:4.17.4-2",
+   "to": "1:4.17.4-2+deb13u1",
+   "arches": [
+    "amd64",
+    "arm64"
+   ]
+  },
+  {
+   "package": "passwd",
+   "from": "1:4.17.4-2",
+   "to": "1:4.17.4-2+deb13u1",
+   "arches": [
+    "amd64",
+    "arm64"
+   ]
+  }
+ ],
  "left_for_genes": [
   {
    "what": "Python",
@@ -21,19 +108,25 @@
   {
    "what": "@openai/codex",
    "from": "0.163.0",
-   "to": "0.169.0",
+   "to": "0.172.0",
    "kind": "minor"
   },
   {
    "what": "@playwright/mcp",
    "from": "0.0.83",
-   "to": "0.0.85",
+   "to": "0.0.86",
    "kind": "minor"
+  },
+  {
+   "what": "PostgreSQL",
+   "from": "18",
+   "to": "19",
+   "kind": "major"
   },
   {
    "what": "anthropic",
    "from": "0.116.0",
-   "to": "2.9.0",
+   "to": "2.14.0",
    "kind": "major"
   },
   {
@@ -51,19 +144,19 @@
   {
    "what": "boto3",
    "from": "1.43.127",
-   "to": "1.44.4",
+   "to": "1.44.12",
    "kind": "minor"
   },
   {
    "what": "botocore",
    "from": "1.43.127",
-   "to": "1.44.4",
+   "to": "1.44.12",
    "kind": "minor"
   },
   {
    "what": "certifi",
    "from": "2026.7.22",
-   "to": "2026.10.23",
+   "to": "2026.11.20",
    "kind": "minor"
   },
   {
@@ -111,7 +204,7 @@
   {
    "what": "openai",
    "from": "3.19.2",
-   "to": "3.52.0",
+   "to": "3.59.0",
    "kind": "minor"
   },
   {
@@ -121,9 +214,15 @@
    "kind": "major"
   },
   {
+   "what": "pillow-heif",
+   "from": "1.8.1",
+   "to": "1.9.0",
+   "kind": "minor"
+  },
+  {
    "what": "platformdirs",
    "from": "4.13.7",
-   "to": "4.14.5",
+   "to": "4.14.8",
    "kind": "minor"
   },
   {
@@ -141,13 +240,13 @@
   {
    "what": "pydantic",
    "from": "2.13.5",
-   "to": "2.14.3",
+   "to": "2.14.4",
    "kind": "minor"
   },
   {
    "what": "pydantic-core",
    "from": "2.46.5",
-   "to": "2.50.4",
+   "to": "2.50.5",
    "kind": "minor"
   },
   {
@@ -159,7 +258,7 @@
   {
    "what": "pypdf",
    "from": "6.19.0",
-   "to": "7.1.0",
+   "to": "7.1.1",
    "kind": "major"
   },
   {
@@ -169,15 +268,21 @@
    "kind": "minor"
   },
   {
+   "what": "sigstore",
+   "from": "4.5.1",
+   "to": "4.6.0",
+   "kind": "minor"
+  },
+  {
    "what": "sigstore-models",
    "from": "0.0.6",
-   "to": "0.0.7",
+   "to": "0.0.8",
    "kind": "minor"
   },
   {
    "what": "telethon",
    "from": "1.42.0",
-   "to": "1.45.0",
+   "to": "1.46.0",
    "kind": "minor"
   },
   {
@@ -201,7 +306,7 @@
   {
    "what": "wcwidth",
    "from": "0.8.5",
-   "to": "0.9.4",
+   "to": "0.9.5",
    "kind": "minor"
   },
   {
@@ -217,5 +322,5 @@
    "kind": "minor"
   }
  ],
- "looked_at": "2026-11-17T10:54:59Z"
+ "looked_at": "2026-11-25T22:40:25Z"
 }
