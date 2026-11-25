@@ -644,15 +644,17 @@ def hardware_cmd(m: Machine, recreate: bool) -> int:
     said = add_hardware(stack, on=m.gpu_on())
     say(said)
     if json.dumps(stack, sort_keys=True) == before:
-        say("The stack in use already says so; nothing changed.")
-        return 0
-    backup = m.stack_file.with_name(f"stack.json.before-hardware-{time.strftime('%Y%m%d-%H%M%S')}")
-    shutil.copy2(m.stack_file, backup)
-    tmp = m.stack_file.with_name("stack.json.new")
-    tmp.write_text(json.dumps(stack, indent=1))
-    os.chmod(tmp, 0o600)
-    os.replace(tmp, m.stack_file)
-    say(f"The stack in use is changed; the one before is {backup.name}.")
+        say("The stack in use already says so.")
+    else:
+        backup = m.stack_file.with_name(f"stack.json.before-hardware-{time.strftime('%Y%m%d-%H%M%S')}")
+        shutil.copy2(m.stack_file, backup)
+        tmp = m.stack_file.with_name("stack.json.new")
+        tmp.write_text(json.dumps(stack, indent=1))
+        os.chmod(tmp, 0o600)
+        os.replace(tmp, m.stack_file)
+        say(f"The stack in use is changed; the one before is {backup.name}.")
+    # Compose recreates the worker only when what it runs differs from the file, so asking again
+    # is safe, and a worker that never took an earlier change takes it now.
     if not recreate:
         say("The worker takes it when it is next started (rouh update, or this again with --recreate).")
         return 0
