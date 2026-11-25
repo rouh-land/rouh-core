@@ -50,8 +50,11 @@ def spending_limit(s: Stack) -> None:
             return  # the stand-in's price was under a cent: nothing to stop at, and nothing broken
         said = _refused(s, "Hello past the spending limit")
         expect("spending limit" in said, f"a turn past the limit was not refused in words: {said[:300]}")
-        code, got = post(s, "/api/usage/limit", {"more": 5})
-        expect(code == 200 and got.get("state") == "ok" and got.get("extra") == 5,
+        # Enough more to pass what this stack has already spent today at the stand-in's price (about
+        # $8 by this check), as a person allowing more would: $5 above it.
+        more = int(float(got.get("today") or 0)) + 5
+        code, got = post(s, "/api/usage/limit", {"more": more})
+        expect(code == 200 and got.get("state") == "ok" and got.get("extra") == more,
                f"Allow more today did not let it go on: {code} {got}")
         text, _ = s.say("Hello after allowing more")
         expect("I received" in text, f"the turn after Allow more was not answered: {text[:300]}")
