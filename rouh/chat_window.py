@@ -73,6 +73,8 @@ ROW_CHARS = 2_000
 #: About what a summary of `MOST_WORDS` comes to, in tokens, before there is one to count.
 SUMMARY_TOKENS_GUESS = 850
 USE = "chat_summary"
+#: Calls logged under a chat that are not the chat being used: its own summary, and naming it.
+QUIET_IGNORES = (USE, "chat_title")
 
 #: The words the summary is sent under, in front of the window. A note of Rouh's own software, never the
 #: person's words (`turnmarks.NOTE`).
@@ -381,7 +383,10 @@ def quiet(chat_id: str, now_ts: float | None = None) -> bool:
 
     from .models import LLMRequest
 
-    got = LLMRequest.objects.filter(session_id=chat_id).aggregate(s=Max("started_at"), f=Max("finished_at"))
+    # The summary's own calls are logged under the chat too, and are not the chat being used: counted, the
+    # test right after writing a summary always said "in use" and nothing was kept (25 November 2026).
+    got = (LLMRequest.objects.filter(session_id=chat_id).exclude(purpose__in=QUIET_IGNORES)
+           .aggregate(s=Max("started_at"), f=Max("finished_at")))
     last = max(float(got["s"] or 0), float(got["f"] or 0))
     return (now_ts or time.time()) - last > QUIET_SECONDS
 
@@ -425,10 +430,13 @@ async def advance(chat_id: str, *, force: bool = False, store=None) -> bool:
             got = await llm.ask(USE, system=SYSTEM.format(most=MOST_WORDS), messages=ask, max_tokens=2000,
                                 session_id=chat_id, read_only=True, timeout=180)
         except llm.Cannot as e:
+            # Looked at, so the next sweep does not ask again until the chat is used again.
             log.info("chat %s's summary was not written: %s", chat_id, e)
+            await asyncio.to_thread(_checked, chat_id, checked)
             return False
         fresh = (got.text or "").strip()
         if not fresh:
+            await asyncio.to_thread(_checked, chat_id, checked)
             return False
         text = fresh
     # A message that came while the summary was being written: the window stays where it was, so the
