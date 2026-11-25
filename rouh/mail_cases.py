@@ -70,6 +70,7 @@ from . import task_access
 from . import mail_ledger as ledger
 from . import mail_outbox as outbox
 from . import telegram_guests as tgg
+from .chat_apps import APPS, NAMES as APP_NAMES
 from . import trusted as trust
 from .case_state import (ASSESSING, AWAITING, BLOCKED, CLOSED, DONE, FOLLOW_UP, IN_FLIGHT,
                          JUNK_KEPT, JUNK_SPAM, JUNKED, MERGED, NEW, NOTIFYING, REPLYING, RESTING,
@@ -236,6 +237,10 @@ def kept_email(message: dict) -> dict:
     if message.get("channel") == "telegram":
         kept.update(channel="telegram", telegram_id=str(message.get("telegram_id") or ""),
                     telegram_account=str(message.get("telegram_account") or "")[:300])
+    # And one on Discord, Signal or WhatsApp (`rouh/chat_apps.py`): which app, and which account.
+    if message.get("channel") in APPS:
+        kept.update(channel=str(message["channel"]), app_id=str(message.get("app_id") or "")[:80],
+                    app_account=str(message.get("app_account") or "")[:300])
     # And one on Slack (`rouh/slack_listen.py`): where it was said, and where the answer goes.
     if message.get("channel") == "slack":
         kept.update({k: str(message.get(k) or "")[:300] for k in (
@@ -375,7 +380,8 @@ def clean_asks(raw, tree, *, message: str = "") -> tuple[list[ledger.Ask], str]:
 
 #: How the case page names what a case came as, by its channel (Petar, 8 October 2026).
 CHANNELS = {"email": ("Email", "email"), "telegram": ("Telegram message", "message"),
-            "slack": ("Slack message", "message")}
+            "slack": ("Slack message", "message"),
+            **{app: (f"{name} message", "message") for app, name in APP_NAMES.items()}}
 
 
 def channel_of(case) -> str:
@@ -388,7 +394,7 @@ def channel_of(case) -> str:
 def by_message(case) -> bool:
     """A case that came as a chat message - on Telegram or on Slack - and not by email: there is no
     Gmail thread, no file and no inbox row behind it."""
-    return channel_of(case) in ("telegram", "slack")
+    return channel_of(case) in ("telegram", "slack", *APPS)
 
 
 def _noun(case) -> str:
@@ -398,7 +404,8 @@ def _noun(case) -> str:
 
 def _what(case) -> str:
     """What a case is about, in a word: an email, or a message on Telegram or Slack."""
-    return {"telegram": "Telegram message", "slack": "Slack message"}.get(channel_of(case), "email")
+    return CHANNELS[channel_of(case)][0] if channel_of(case) in CHANNELS and channel_of(case) != "email" \
+        else "email"
 
 
 def first_name(name: str) -> str:
@@ -987,7 +994,21 @@ def channel_said(case, owner: str, address: str = "") -> str:
     """What every turn of a case that came as a chat message is told first: Telegram or Slack."""
     if channel_of(case) == "slack":
         return slack_said(case, owner)
+    if channel_of(case) in APPS:
+        return app_said(case, owner)
     return telegram_said(case, owner, address)
+
+
+def app_said(case, owner: str) -> str:
+    """What every turn of a case that came on Discord, Signal or WhatsApp is told first."""
+    from .turnmarks import NOTE
+
+    name = APP_NAMES.get(channel_of(case), "a chat app")
+    return (f"{NOTE} This came on {name}, not by email: {case.sender_name} wrote it to Rouh on {name}, from "
+            f"their own account, which {owner} linked to them. Wherever this says the email, it means this one "
+            f"message; there is no email and no thread to look up in Gmail about it. Rouh's code sends the "
+            f"answer back to them on {name} as plain text, so write it to be read on a phone, with no Markdown, "
+            "no subject line and no signature block. Nothing can be attached there, so never promise a file.]")
 
 
 def by_email(case, contact) -> str:
@@ -1046,6 +1067,10 @@ def brief_assess(case, contact: trust.Trusted, *, mailbox: str, owner: str,
     elif channel_of(case) == "slack":
         out[2] = (f"Who wrote it: {case.sender_name}, on Slack, from the account "
                   f"{email.get('slack_account') or case.sender} ({case.identity_said}).")
+    elif channel_of(case) in APPS:
+        out[2] = (f"Who wrote it: {case.sender_name}, on {APP_NAMES[channel_of(case)]}, from the account "
+                  f"{email.get('app_account') or case.sender}, which {owner} linked to them "
+                  f"({case.identity_said}).")
     if relationship:
         out.append(f'Who they are to {owner}, in ‹his› words: "{relationship}"')
     elif not listed:
@@ -1851,7 +1876,7 @@ class CaseDesk:
                 card = email_card({**case.email, "labels": []}, confirmed=(
                     f"Telegram vouches for the account: {case.identity_said}."
                     if tgg.on_telegram(case) else
-                    f"{case.identity_said}." if channel_of(case) == "slack" else
+                    f"{case.identity_said}." if channel_of(case) in ("slack", *APPS) else
                     f"Gmail confirmed it came from {case.sender}: {case.identity_said}."
                     if case.identity_ok else
                     f"Gmail could not confirm it came from {case.sender}: "
@@ -3785,7 +3810,8 @@ class CaseDesk:
             "kind": CHANNELS.get(channel_of(case), ("Message",))[0], "noun": _noun(case),
             "from_said": ((case.email or {}).get("telegram_account") or case.sender)
             if tgg.on_telegram(case) else ((case.email or {}).get("slack_account") or case.sender)
-            if channel_of(case) == "slack" else case.sender,
+            if channel_of(case) == "slack" else ((case.email or {}).get("app_account") or case.sender)
+            if channel_of(case) in APPS else case.sender,
             "email": case.email or {}, "contact": contact,
             # Each grant once, by its name: the paths repeated every level above it.
             "contact_levels": sorted({tree.name(k) for k in tree.given(contact)},

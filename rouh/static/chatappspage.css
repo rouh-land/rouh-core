@@ -1,0 +1,44 @@
+/* Anatomy, Connections, Discord, Signal and WhatsApp (`chatappspage.js`, `rouh/chat_apps.py`).
+
+   The Keys page's cards (`keyspage.css`, `heartbeatpage.css`), one app a page: its state first, then
+   setting it up, then (Signal) Rouh's number or (WhatsApp) Meta's webhook, then its trusted contacts. */
+
+.chatapp-page { display: grid; gap: 12px; }
+.chatapp-card .settings-help { color: var(--dim); margin: 0; }
+.chatapp-card { display: grid; gap: 8px; }
+.chatapp-lead { margin: 0; overflow-wrap: anywhere; }
+.chatapp-card .hb-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 4px; }
+.chatapp-card .ctl.small { min-height: 44px; padding: 0 14px; }
+.chatapp-card .hb-field input, .chatapp-card .hb-field select { min-height: 44px; }
+.chatapp-card .keys-form { display: grid; gap: 8px; margin: 0; padding: 0; }
+.chatapp-card .settings-steps a, .chatapp-card .settings-help a { color: var(--accent); text-underline-offset: 2px; overflow-wrap: anywhere; }
+.chatapp-check { display: flex; align-items: center; gap: 10px; min-height: 44px; font-size: 13px; color: var(--dim); }
+.chatapp-check input { width: 18px; height: 18px; accent-color: var(--accent); }
+.chatapp-verify { padding-top: 8px; border-top: 1px solid var(--line-soft); }
+.chatapp-links { list-style: none; margin: 0; padding: 0; display: grid; gap: 0; }
+.chatapp-link {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 52px;
+  border-top: 1px solid var(--line-soft);
+}
+.chatapp-link:last-child { border-bottom: 1px solid var(--line-soft); }
+.chatapp-who { display: grid; gap: 2px; min-width: 0; }
+.chatapp-who strong { font-size: 14px; font-weight: 600; }
+.chatapp-ident { color: var(--dim); overflow-wrap: anywhere; }
+.chatapp-empty { margin: 0; font-size: 13px; color: var(--dim); }
+.chatapp-linkform { display: flex; flex-wrap: wrap; gap: 8px; align-items: flex-end; }
+.chatapp-linkform .hb-field { flex: 1 1 180px; }
+.chatapp-linkform .hb-field.wide { flex: 2 1 220px; }
+.chatapp-linkgo { margin: 0; }
+.chatapp-copy { display: flex; gap: 12px; align-items: center; justify-content: flex-start; flex-wrap: wrap; }
+.chatapp-copy-words { display: grid; gap: 4px; min-width: 0; }
+.chatapp-copy-label { font-size: 12px; color: var(--dim); }
+.chatapp-copy-value { padding: 8px 10px; border-radius: var(--radius-s); border: 1px solid var(--line); background: var(--bg);
+  color: var(--text); overflow-wrap: anywhere; word-break: break-all; }
+.chatapp-card .brown-toggle { margin: 0; }
+.chatapp-link .ctl.small { border-radius: 999px; }
+.chatapp-copy .ctl.small { border-radius: 999px; }
+.chatapp-last { margin: 0; font-size: 13px; color: var(--dim); }
+.chatapp-register { display: grid; gap: 8px; padding: 10px 12px; border: 1px solid var(--line-soft); border-radius: var(--radius-s); background: var(--panel-2); }
+.chatapp-register-h { margin: 0; font-size: 13px; font-weight: 600; }
+.chatapp-card .settings-help { font-size: 12.5px; line-height: 1.5; }
+.chatapp-copy { align-items: flex-end; }

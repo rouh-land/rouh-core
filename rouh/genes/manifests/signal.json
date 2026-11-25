@@ -1,0 +1,41 @@
+{
+  "id": "signal",
+  "name": "Signal",
+  "title": "Signal: a number of Rouh's own, you write to it and Rouh answers there",
+  "aliases": [
+    "signal",
+    "signal messenger"
+  ],
+  "group": "machine",
+  "route": "/anatomy/connections/signal",
+  "anatomy": {
+    "order": 22
+  },
+  "icon": "<path d=\"M12 4a8 8 0 0 0-6.9 12l-1 3.9 4-1A8 8 0 1 0 12 4z\"/>",
+  "attaches_to": [],
+  "maturity": "accepted",
+  "nav": {
+    "place": "none",
+    "opens": "address"
+  },
+  "touches": {
+    "permissions": [
+      "reads the messages to Rouh's own Signal number through the owner's signal-cli-rest-api, every few seconds; a message from anybody but the owner or a trusted contact the owner linked to a number is dropped",
+      "sends the answer to the owner's own message back to their number",
+      "registers Rouh's number with Signal from its page, on the owner's press, with the code Signal sends"
+    ],
+    "accounts": [
+      "Signal"
+    ],
+    "tables": [
+      "chat_app_links"
+    ],
+    "jobs": [
+      "the Signal reader (rouh/signal_chat.py Listener), started with Rouh"
+    ],
+    "remove": "rouh/signal_chat.py, the signal service in rouh/service_keys.py, its section in rouh/templates/rouh/index.html, the two signal routes in rouh/web/chat_apps.py and this manifest."
+  },
+  "uses": {
+    "tools": []
+  }
+}

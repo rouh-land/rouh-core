@@ -1,0 +1,41 @@
+{
+  "id": "discord",
+  "name": "Discord",
+  "title": "Discord: Rouh's own bot, you write to it and Rouh answers there",
+  "aliases": [
+    "discord",
+    "discord bot"
+  ],
+  "group": "machine",
+  "route": "/anatomy/connections/discord",
+  "anatomy": {
+    "order": 21
+  },
+  "icon": "<path d=\"M7 7.5c3-1.3 7-1.3 10 0l1.8 8.3c-1.7 1.3-3.4 2-5 2.2l-.9-1.6c-.6.1-1.2.1-1.8 0l-.9 1.6c-1.6-.2-3.3-.9-5-2.2z\"/><circle cx=\"9.6\" cy=\"12.6\" r=\"1\"/><circle cx=\"14.4\" cy=\"12.6\" r=\"1\"/>",
+  "attaches_to": [],
+  "maturity": "accepted",
+  "nav": {
+    "place": "none",
+    "opens": "address"
+  },
+  "touches": {
+    "permissions": [
+      "reads the direct messages Rouh's Discord bot has with the owner, and with each trusted contact the owner linked to a Discord account, over Discord's REST API every few seconds; nobody else's messages are ever fetched",
+      "posts the answer to the owner's own message back in that direct message, as the bot",
+      "a linked trusted contact's message is a case like their email, answered through the one outbox"
+    ],
+    "accounts": [
+      "Discord"
+    ],
+    "tables": [
+      "chat_app_links"
+    ],
+    "jobs": [
+      "the Discord reader (rouh/discord_chat.py Listener), started with Rouh"
+    ],
+    "remove": "rouh/discord_chat.py, the discord service in rouh/service_keys.py, its section in rouh/templates/rouh/index.html and this manifest; while Signal and WhatsApp stay, rouh/chat_apps.py, chatappspage.* and rouh/web/chat_apps.py stay too."
+  },
+  "uses": {
+    "tools": []
+  }
+}

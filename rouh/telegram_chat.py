@@ -177,6 +177,11 @@ def prompt_now() -> str:
     if not got:
         return ""
     out = []
+    app = str(got.get("app") or "").strip()
+    if app:
+        # Discord, Signal or WhatsApp (`rouh/chat_apps.py`): the same as a message from Telegram, on another app.
+        out.append(f"This message came on {app}, not on Telegram: everything said above about a message "
+                   f"from Telegram holds for {app} too, and your answer is sent back to them on {app} by itself.")
     replying = str(got.get("replying_to") or "").strip()
     if replying:
         out.append("They wrote it as a reply to this message on Telegram:\n"

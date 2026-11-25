@@ -1254,6 +1254,33 @@
     "rouh/web/telegram_account.py"
    ]
   },
+  "discord": {
+   "files": [
+    "rouh/discord_chat.py",
+    "rouh/chat_apps.py",
+    "rouh/web/chat_apps.py",
+    "rouh/static/chatappspage.*",
+    "rouh/migrations/0281_chat_app_links.py"
+   ]
+  },
+  "signal": {
+   "files": [
+    "rouh/signal_chat.py",
+    "rouh/chat_apps.py",
+    "rouh/web/chat_apps.py",
+    "rouh/static/chatappspage.*",
+    "rouh/migrations/0281_chat_app_links.py"
+   ]
+  },
+  "whatsapp": {
+   "files": [
+    "rouh/whatsapp_chat.py",
+    "rouh/chat_apps.py",
+    "rouh/web/chat_apps.py",
+    "rouh/static/chatappspage.*",
+    "rouh/migrations/0281_chat_app_links.py"
+   ]
+  },
   "slack": {
    "files": [
     "rouh/slack*.py",

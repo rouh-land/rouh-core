@@ -60,7 +60,7 @@ from .mcp import McpServer
 from .youtube import YouTubeTranscript
 from .slack import (SlackConnection, SlackConversation, SlackMessage, SlackPerson, SlackPromise,
                     SlackTaskDecision, SlackTaskLink)
-from .trust import (CapabilityGrant, CapabilityGrantEvent, CapabilityUse, ContactGrant, ContactGroup, DelegateAct, Grant, GrantVersion,
+from .trust import (CapabilityGrant, ChatAppLink, CapabilityGrantEvent, CapabilityUse, ContactGrant, ContactGroup, DelegateAct, Grant, GrantVersion,
                     InboxRead, MailApproval, MailAsk, MailCase, MailCaseAttempt, MailCaseDryRun,
                     MailCaseEvent, MailCaseFix, MailCaseNote,
                     MailCaseTrace, MailOutbox, TelegramLink, TrustedAddress,
@@ -112,7 +112,7 @@ __all__ = [
     "SlackConnection", "SlackConversation", "SlackMessage", "SlackPerson", "SlackPromise",
     "SlackTaskDecision", "SlackTaskLink",
     "ContactGrant", "ContactGroup", "DelegateAct", "Grant", "GrantVersion",
-    "InboxRead", "MailApproval", "MailAsk", "MailCase", "MailCaseAttempt", "MailCaseDryRun", "MailCaseEvent", "MailCaseFix", "MailCaseNote", "MailCaseTrace", "MailOutbox", "TelegramLink", "TrustedAddress",
+    "InboxRead", "MailApproval", "MailAsk", "MailCase", "MailCaseAttempt", "MailCaseDryRun", "MailCaseEvent", "MailCaseFix", "MailCaseNote", "MailCaseTrace", "MailOutbox", "TelegramLink", "ChatAppLink", "TrustedAddress",
     "TrustedContact",
     "ConnectionIncident", "ConnectionTrouble",
 ]

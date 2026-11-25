@@ -123,6 +123,31 @@ def _after_telegram() -> None:
     telegram_bot.forget_held()
 
 
+async def _check_app(module, v: dict) -> tuple[dict, str]:
+    try:
+        return await module.check(v)
+    except module.Refused as exc:
+        raise Refused(str(exc)) from None
+
+
+async def _check_discord(v: dict) -> tuple[dict, str]:
+    from . import discord_chat
+
+    return await _check_app(discord_chat, v)
+
+
+async def _check_signal(v: dict) -> tuple[dict, str]:
+    from . import signal_chat
+
+    return await _check_app(signal_chat, v)
+
+
+async def _check_whatsapp(v: dict) -> tuple[dict, str]:
+    from . import whatsapp_chat
+
+    return await _check_app(whatsapp_chat, v)
+
+
 def _check_voice(v: dict) -> tuple[dict, str]:
     from . import speech
 
@@ -405,6 +430,54 @@ SERVICES: tuple[Service, ...] = (
                     Field("ROUH_TELEGRAM_CHAT_ID", "Chat id", secret=False, required=False,
                           placeholder="Found by itself")),
             check=_check_telegram, after=_after_telegram, page="/anatomy/connections/telegram"),
+    # Discord, Signal and WhatsApp (task 98, gap G24, `rouh/chat_apps.py`): each set on its own page in
+    # Connections, with its steps; listed here too, like Telegram.
+    Service("discord", "Discord bot", "A bot of Rouh's own on Discord: you write to it, Rouh answers there.",
+            steps=("At https://discord.com/developers/applications press New Application, name it, then open Bot "
+                   "and press Reset Token. Copy the token.",
+                   "Put the bot in a server you are in: OAuth2, URL Generator, tick bot, open the address it "
+                   "makes and pick your server. Or, under Installation, install it to your own account.",
+                   "In Discord, turn on Developer Mode (Settings, Advanced), right-click your own name and Copy "
+                   "User ID.",
+                   "Paste both here and press Save. The bot writes to you to prove it can."),
+            fields=(Field("ROUH_DISCORD_BOT_TOKEN", "Bot token", placeholder="MTA...xyz"),
+                    Field("ROUH_DISCORD_OWNER_ID", "Your Discord user id", secret=False,
+                          placeholder="123456789012345678"),
+                    Field("ROUH_DISCORD_BOT_NAME", "The bot", secret=False, required=False,
+                          placeholder="Found by itself")),
+            check=_check_discord, page="/anatomy/connections/discord"),
+    Service("signal", "Signal", "A Signal number of Rouh's own: you write to it, Rouh answers there.",
+            steps=("Run signal-cli beside Rouh: the container bbernhard/signal-cli-rest-api, with MODE=native, "
+                   "where this Rouh can reach it. Its address goes here.",
+                   "Get a number nobody uses Signal on: a spare SIM, or a landline for a voice code. Register it "
+                   "with Signal in the box under the fields.",
+                   "Give your own Signal number and press Save. Rouh writes to you on Signal to prove it can."),
+            fields=(Field("ROUH_SIGNAL_API", "signal-cli's address", secret=False,
+                          placeholder="http://signal-cli:8080"),
+                    Field("ROUH_SIGNAL_NUMBER", "Rouh's Signal number", secret=False, placeholder="+44 7700 900123"),
+                    Field("ROUH_SIGNAL_OWNER", "Your own Signal number", secret=False,
+                          placeholder="+44 7700 900456")),
+            check=_check_signal, page="/anatomy/connections/signal"),
+    Service("whatsapp", "WhatsApp (Business Cloud API)", "Rouh's own WhatsApp Business number, through Meta's "
+            "official Cloud API: you write to it, Rouh answers there.",
+            steps=("At https://business.facebook.com make or pick your business, then at "
+                   "https://developers.facebook.com/apps make an app of the type Business and add WhatsApp to it.",
+                   "In WhatsApp, API Setup, add a phone number of Rouh's own (not one WhatsApp is on already) and "
+                   "copy its phone number id. Meta charges per conversation: add a way to pay there.",
+                   "In Business Settings, System users, make one, give it the app with "
+                   "whatsapp_business_messaging, and generate a token that does not expire. Copy it.",
+                   "From the app's Settings, Basic, copy the App secret. Give your own WhatsApp number, and press "
+                   "Save. Then give Meta the webhook below."),
+            fields=(Field("ROUH_WHATSAPP_TOKEN", "Access token", placeholder="EAAG..."),
+                    Field("ROUH_WHATSAPP_PHONE_ID", "Phone number id", secret=False, placeholder="106540352242922"),
+                    Field("ROUH_WHATSAPP_APP_SECRET", "App secret"),
+                    Field("ROUH_WHATSAPP_OWNER", "Your own WhatsApp number", secret=False,
+                          placeholder="+44 7700 900456"),
+                    Field("ROUH_WHATSAPP_VERIFY_TOKEN", "Verify token, for Meta's webhook", secret=False,
+                          required=False, placeholder="Made by itself"),
+                    Field("ROUH_WHATSAPP_NUMBER", "Rouh's number", secret=False, required=False,
+                          placeholder="Found by itself")),
+            check=_check_whatsapp, page="/anatomy/connections/whatsapp"),
     Service("voice", "Voice (ElevenLabs)", "Rouh hears you and speaks its answers.",
             steps=("In elevenlabs.io, open Developers, API Keys, and make a key.",
                    "Paste it here. A voice id is optional: George is the voice without one."),
@@ -652,7 +725,7 @@ def status_line() -> str:
         else:
             parts.append(f"{s.name}: not set")
     return ("; ".join(parts) + f". The owner sets each in Anatomy, Connections, Keys ({PAGE}); Telegram's bot "
-            "also on Anatomy, Connections, Telegram, and the model keys (Anthropic, OpenAI, Google, xAI) in Anatomy, "
+            "also on Anatomy, Connections, Telegram, Discord, Signal and WhatsApp each on its own page there, and the model keys (Anthropic, OpenAI, Google, xAI) in Anatomy, "
             "Behaviour, Models. Each is pasted there, checked and used at once, with nothing to restart: never in a "
             "chat, never in a box, never by editing stack.env or any other file. Never ask for a key in a message.")
 

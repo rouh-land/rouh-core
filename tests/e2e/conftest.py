@@ -125,6 +125,12 @@ def clean_env(*prefixes: str) -> dict[str, str]:
     # And GitHub, which a token typed into Keys, GitHub for your runs, is checked with
     # (`rouh/service_keys.py`); ROUH_TEST_GITHUB_API points a world at a stand-in of its own.
     env["ROUH_GITHUB_API"] = os.environ.get("ROUH_TEST_GITHUB_API", "http://127.0.0.1:1/no-github")
+    # And Discord and Meta's WhatsApp Cloud API (`rouh/discord_chat.py`, `rouh/whatsapp_chat.py`), so a bot
+    # token typed into Connections in a world never reaches them; ROUH_TEST_DISCORD_API and
+    # ROUH_TEST_WHATSAPP_API point a world at `rouh/testing/fake_chat_apps.py`. Signal is at the address
+    # typed on its page, so it needs nothing here.
+    env["ROUH_DISCORD_API"] = os.environ.get("ROUH_TEST_DISCORD_API", "http://127.0.0.1:1/no-discord")
+    env["ROUH_WHATSAPP_API"] = os.environ.get("ROUH_TEST_WHATSAPP_API", "http://127.0.0.1:1/no-whatsapp")
     # And rouh.land, where the model standard is fetched from and the day's counts of how each
     # model did would go (`rouh/modelstandard.py`, `rouh/modeloutcomes.py`): nothing a world
     # does reaches it. A world that wants a standard points this at a stand-in of its own.

@@ -1459,6 +1459,25 @@ slack_listener = slack_listen_mod.Listener(
     tenancy=tenancy)
 
 
+#: Discord, Signal and WhatsApp (`rouh/chat_apps.py`, task 98 gap G24): the owner's own messages a turn in
+#: General like Telegram's, a trusted contact the owner linked a case, anybody else dropped. Discord and
+#: Signal are read by a loop each; WhatsApp is Meta posting to /hooks/whatsapp (`rouh/web/chat_apps.py`).
+#: Each does nothing until it is set up on its page.
+from . import chat_apps as chat_apps_mod  # noqa: E402
+from . import discord_chat, signal_chat, whatsapp_chat  # noqa: E402
+
+chat_app_hub = chat_apps_mod.Hub(
+    public_url=config.public_url, general=lambda: memory.ensure_general(),
+    start_turn=lambda chat, content, heard: _phone_turn(chat, content, heard),
+    busy=lambda chat: Turns.busy(chat),
+    mirror=lambda chat, text, shown: Hub.mirror(None, "user", text, shown, chat=chat),
+    owner=lambda: telegram.phone_owner(tenancy), card_link=_card_address,
+    desk=lambda: mail_alerts.cases if mail_alerts is not None else None)
+discord_listener = discord_chat.Listener(chat_app_hub)
+signal_listener = signal_chat.Listener(chat_app_hub)
+whatsapp_listener = whatsapp_chat.Listener(chat_app_hub)
+
+
 async def start_run_for(*, brief: str, title: str, workspace: str = "",
                         policy: str = "", preset: str = "", org_id: str = "") -> dict:
     """One run, started the one way every run on this machine is started.
@@ -8270,6 +8289,9 @@ async def startup() -> None:
     # Slack, for every organisation that connected it (`rouh/slack_listen.py`): the socket opened,
     # and the last 30 days read back the first time.
     slack_listener.start()
+    # Discord and Signal, read once they are set up on their pages (`rouh/chat_apps.py`).
+    discord_listener.start()
+    signal_listener.start()
     # Every connected iCloud address book, synced by itself. Only what changed
     # is fetched; a sync never writes to iCloud (`apple_contacts.py`).
     if contacts is not None:
@@ -8707,6 +8729,9 @@ async def shutdown() -> None:
     await meeting_contacts_adder.stop()
     await phone_chat.stop()
     await slack_listener.stop()
+    await discord_listener.stop()
+    await signal_listener.stop()
+    await whatsapp_listener.stop()
     if contacts is not None:
         await contacts.stop()
     if mail_alerts is not None:

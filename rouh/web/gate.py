@@ -68,6 +68,13 @@ log = logging.getLogger("rouh.gate")
 #:   can do is make Rouh read that meeting again from the library itself
 #:   (`rouh/synapse/meetings.py`).
 #:
+#: - the address Meta posts WhatsApp messages to (`/hooks/whatsapp`). Meta has no sign-in to give:
+#:   the HMAC of the raw body with the WhatsApp app's secret kept in Keys is the credential, and a post
+#:   that is not signed with it is refused with 401 before anything in it is read; Meta's GET check of
+#:   the address is answered only with the verify token kept there (`rouh/whatsapp_chat.py`). All a
+#:   signed message can do is reach the owner's General if it is from their own number, or a case if
+#:   it is from a number they linked to a trusted contact.
+#:
 #: - an invitation to a page shared by email (`/join/<token>`), which is for
 #:   somebody who has no account yet: the token in the address is the
 #:   credential, and all it can do is make an account for the one address it
@@ -110,7 +117,7 @@ TOKEN_PATHS = frozenset({"/api/task"})
 OPEN_PATHS = frozenset({"/shared/in", "/shared/in/back", "/login", "/setup", "/setup/connect", "/setup/you", "/phone/in", "/login/forgot",
                         "/login/help", "/login/passkey/options", "/login/passkey/verify", "/logout", "/healthz",
                         "/favicon.ico", "/auth/google/callback", "/login/common-passwords",
-                        "/api/hooks/meeting-library",
+                        "/api/hooks/meeting-library", "/hooks/whatsapp",
                         # The service worker: the same script for everybody, holding nothing of
                         # anybody's, checked by the browser for an update signed in or not.
                         "/sw.js",

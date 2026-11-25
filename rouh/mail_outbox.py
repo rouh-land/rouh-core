@@ -46,6 +46,7 @@ import re
 import secrets
 import time
 
+from . import chat_apps
 from . import mail_ledger as ledger
 from . import owner
 
@@ -167,6 +168,11 @@ def channels(case, contact, *, by_email: str = "") -> list[dict]:
 
     if tgg.on_telegram(case):
         telegram_to(str(email.get("telegram_id") or ""))
+    elif str(email.get("channel") or "") in chat_apps.APPS:
+        # Back on the app it came on, to the account the owner linked to them (`rouh/chat_apps.py`).
+        if email.get("app_id") and contact is not None and contact.recognises(case.sender):
+            add({"channel": str(email["channel"]), "to": case.sender, "chat": str(email["app_id"]),
+                 "thread": "", "reply_to": "", "subject": ""})
     elif str(email.get("channel") or "") == "slack":
         # Where it was asked: the conversation, and the thread, as Rouh's bot (`rouh/slack.py`).
         if email.get("slack_channel") and contact is not None and \
@@ -428,6 +434,8 @@ async def _one(desk, who, case, ch: dict, *, kind: str, key: str, text: str, fil
 
     if ch["channel"] == "slack":
         return await _slack(who, case, ch, kind=kind, key=key, text=text, said=said)
+    if ch["channel"] in chat_apps.APPS:
+        return await _chat_app(who, case, ch, kind=kind, key=key, text=text, said=said)
     if ch["channel"] == "telegram":
         row = await asyncio.to_thread(
             _claim, who.user_id, who.org_id, case.id, key=key, attempt=case.attempt_no,
@@ -478,6 +486,27 @@ async def _one(desk, who, case, ch: dict, *, kind: str, key: str, text: str, fil
     sent_id = str((wrote or {}).get("id") or "") if isinstance(wrote, dict) else ""
     await asyncio.to_thread(_mark, row, state="sent", message_id=sent_id, sent_at=time.time())
     return Sent("email", ch["to"], state="sent", message_id=sent_id, key=key)
+
+
+async def _chat_app(who, case, ch: dict, *, kind: str, key: str, text: str, said: list) -> Sent:
+    """One message about a case on Discord, Signal or WhatsApp, to the account the owner linked to the
+    contact (`rouh/chat_apps.py`): claimed, sent and marked. The only caller of `send_to_contact`."""
+    app = ch["channel"]
+    name = chat_apps.NAMES[app]
+    row = await asyncio.to_thread(
+        _claim, who.user_id, who.org_id, case.id, key=key, attempt=case.attempt_no, kind=kind,
+        channel=app, to=ch["to"], text=text, files=[], said=said)
+    if row is None:
+        return await _again(who, key, ch)
+    try:
+        sent_id = await chat_apps.send_to_contact(app, ch["chat"], text)
+    except asyncio.CancelledError:
+        raise
+    except Exception as exc:  # noqa: BLE001 - the app's own words, kept with the row
+        await asyncio.to_thread(_mark, row, state="failed", error=str(exc)[:600])
+        return Sent(app, ch["to"], state="failed", error=f"{name} would not send it: {exc}", key=key)
+    await asyncio.to_thread(_mark, row, state="sent", message_id=sent_id, sent_at=time.time())
+    return Sent(app, ch["to"], state="sent", message_id=sent_id, key=key)
 
 
 async def _slack(who, case, ch: dict, *, kind: str, key: str, text: str, said: list) -> Sent:

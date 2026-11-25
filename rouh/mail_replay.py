@@ -66,7 +66,7 @@ GUARDED = ("mail_cases.py", "telegram_guests.py", "mail_alerts.py", "mail_ledger
            "mail_turn.py", "management/commands/case_follow_up.py", "timekeeper.py",
            "reminders.py", "clockwork_grants.py", "slack_listen.py")
 #: The calls that put a message in front of somebody, by their name.
-SENDS = {"send", "send_parts", "send_draft", "send_draft_as_it_is", "forward",
+SENDS = {"send_to_contact", "send", "send_parts", "send_draft", "send_draft_as_it_is", "forward",
          "forward_thread", "send_message", "post_message"}
 #: Where a Telegram message may go to a chat that is not the bot's own (the owner's): the
 #: outbox, and the owner's own fork groups (`telegram_chat`).
@@ -77,6 +77,9 @@ ALLOWED_CHAT_SENDS = ("mail_outbox.py", "telegram_chat.py")
 #: which posts only on their yes. A case's turn is never offered slack_send (`mail_turn.NEVER_IN_CASE`).
 #: And the nudge for a late promise in Slack, posted only on their yes to its decision's "sending"
 #: (`slack_promises.remind`, through `decisions`).
+#: Where a message to a contact on Discord, Signal or WhatsApp is sent from (`rouh/chat_apps.py`): the
+#: outbox, through the one dispatcher, which hands it to the app's own `send_to_contact`.
+ALLOWED_APP_SENDS = ("mail_outbox.py", "chat_apps.py")
 ALLOWED_SLACK_SENDS = ("mail_outbox.py", "slack.py", "slack_listen.py", "slack_promises.py", "tools.py")
 
 
@@ -772,6 +775,9 @@ def outbox_guard() -> list[tuple[str, list[str]]]:
             if chat and "telegram" in target and rel not in ALLOWED_CHAT_SENDS:
                 bad.append(f"{rel}:{node.lineno} sends a Telegram message to another chat "
                            f"({ast.unparse(node)[:90]}): only rouh/mail_outbox.py may")
+            if name == "send_to_contact" and rel not in ALLOWED_APP_SENDS:
+                bad.append(f"{rel}:{node.lineno} sends to a contact on Discord, Signal or WhatsApp "
+                           f"({ast.unparse(node)[:90]}): only rouh/mail_outbox.py may, for a case")
             if rel in GUARDED and ("gmail" in target or name in ("forward", "forward_thread",
                                                                    "send_draft")):
                 bad.append(f"{rel}:{node.lineno} sends mail itself "

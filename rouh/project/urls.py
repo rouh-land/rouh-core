@@ -154,6 +154,8 @@ admin.site.index_title = "Accounts and organisations"
 handler404 = "rouh.web.views.not_found"
 handler500 = "rouh.web.views.server_error"
 
+from rouh.web import chat_apps as chat_apps_web  # noqa: E402
+
 urlpatterns = [
     # --- signing in -----------------------------------------------------------
     path("login", auth.login),
@@ -573,6 +575,13 @@ urlpatterns = [
     path("api/settings/my-card", mycard.settings_my_card),
     path("api/settings/my-card/search", mycard.search),
     path("api/settings/my-card/emails", mycard.emails),
+    # Discord, Signal and WhatsApp (`rouh/web/chat_apps.py`, task 98 gap G24).
+    path("api/chat-apps/signal/register", chat_apps_web.signal_register),
+    path("api/chat-apps/signal/verify", chat_apps_web.signal_verify),
+    path("api/chat-apps/<str:app>", chat_apps_web.page),
+    path("api/chat-apps/<str:app>/link", chat_apps_web.link),
+    path("api/chat-apps/<str:app>/unlink", chat_apps_web.unlink),
+    path("hooks/whatsapp", chat_apps_web.whatsapp_hook),
     path("api/settings/keys", service_keys_web.page),
     path("api/settings/keys/save", service_keys_web.save),
     path("api/settings/keys/check", service_keys_web.check),

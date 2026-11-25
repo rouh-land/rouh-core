@@ -54,7 +54,7 @@ VERSION = 1
 ACTORS = ("person", "rouh", "job", "run", "delegate", "system")
 
 #: Where it came from.
-SOURCES = ("web", "telegram", "mail", "voice", "scheduler", "server")
+SOURCES = ("web", "telegram", "mail", "voice", "scheduler", "server", "discord", "signal", "whatsapp")
 
 
 @dataclass(frozen=True)
@@ -91,7 +91,7 @@ NAMES: dict[str, Kind] = {
                          "vvtop, scale, ih, ch, top. Never what was typed."),
     # --- the server ---
     "chat.message_sent": Kind(False, "A person's message reached Rouh. count: its length in "
-                                     "characters; source: web, voice or telegram. Never its words."),
+                                     "characters; source: web, voice, telegram, discord, signal or whatsapp. Never its words."),
     "chat.forked": Kind(False, "A chat was forked. object: the new chat; props.from_chat."),
     "turn.finished": Kind(False, "Rouh finished answering. duration_ms: from the start of the "
                                  "answer to its end; props.ok, props.spoken; actor: person when "

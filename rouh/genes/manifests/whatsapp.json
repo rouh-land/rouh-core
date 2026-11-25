@@ -1,0 +1,38 @@
+{
+  "id": "whatsapp",
+  "name": "WhatsApp",
+  "title": "WhatsApp: Rouh's own Business number, through Meta's official Cloud API",
+  "aliases": [
+    "whatsapp",
+    "whatsapp business"
+  ],
+  "group": "machine",
+  "route": "/anatomy/connections/whatsapp",
+  "anatomy": {
+    "order": 23
+  },
+  "icon": "<path d=\"M12 4a8 8 0 0 0-7 11.9L4 20l4.2-1A8 8 0 1 0 12 4z\"/><path d=\"M9.5 9.2c.4 2.4 2.3 4.6 5.3 5.6l.9-1.2-1.6-.9-.7.6c-1-.5-1.7-1.2-2.2-2.2l.6-.7-.9-1.6z\"/>",
+  "attaches_to": [],
+  "maturity": "accepted",
+  "nav": {
+    "place": "none",
+    "opens": "address"
+  },
+  "touches": {
+    "permissions": [
+      "takes the messages Meta posts to /hooks/whatsapp, each checked against the app secret before it is read; a message from anybody but the owner or a trusted contact the owner linked to a number is dropped",
+      "sends the answer to the owner's own message back to their number with the Cloud API, and never writes first (Meta's 24-hour rule)"
+    ],
+    "accounts": [
+      "WhatsApp Business (Meta)"
+    ],
+    "tables": [
+      "chat_app_links"
+    ],
+    "jobs": [],
+    "remove": "rouh/whatsapp_chat.py, the whatsapp service in rouh/service_keys.py, /hooks/whatsapp in rouh/project/urls.py and rouh/web/gate.py, its section in rouh/templates/rouh/index.html and this manifest."
+  },
+  "uses": {
+    "tools": []
+  }
+}

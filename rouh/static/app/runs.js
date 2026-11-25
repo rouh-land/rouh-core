@@ -9493,7 +9493,9 @@ function settingsShowGroup(where, item, query) {
 function settingsPages(section) {
   var pages = { heartbeat: window.RouhHeartbeat, beats: window.RouhBeats, payments: window.RouhPayments,
                 shipping: window.RouhShipping, services: window.RouhServices, signups: window.RouhSignups,
-                cloudflare: window.RouhCloudflare, keys: window.RouhKeys, slack: window.RouhSlack, hue: window.RouhHue, dreame: window.RouhDreame, mcp: window.RouhMcp,
+                cloudflare: window.RouhCloudflare, keys: window.RouhKeys, slack: window.RouhSlack,
+                discord: (window.RouhChatApps || {}).discord, signal: (window.RouhChatApps || {}).signal,
+                whatsapp: (window.RouhChatApps || {}).whatsapp, hue: window.RouhHue, dreame: window.RouhDreame, mcp: window.RouhMcp,
                 'draft-edits': window.RouhDraftEdits,
                 'gene-pool': window.RouhGenes, changes: window.RouhChanges, silos: window.RouhSilos,
                 stats: window.RouhStats, keeps: window.RouhKeeps, gates: window.RouhGates, permissions: window.RouhPermissions, offline: window.RouhOfflinePanel, 'this-rouh': window.RouhBirth,

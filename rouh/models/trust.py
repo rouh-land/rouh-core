@@ -144,6 +144,36 @@ class TelegramLink(models.Model):
         ]
 
 
+class ChatAppLink(models.Model):
+    """A trusted contact's own account on Discord, Signal or WhatsApp, linked by the owner (`rouh/chat_apps.py`).
+
+    Petar, 25 November 2026 (task 98, gap G24): a message on one of these apps from anybody but the owner is
+    dropped unless they are a trusted contact. The owner types the contact's Discord user id or phone number
+    on the app's page, as they tick a contact's exact email addresses, and the app vouches for who sent each
+    message. Then it is a case of that contact (`chat_apps.Hub._contact`). One account per contact per app,
+    and an account belongs to one contact only.
+    """
+
+    id = models.BigAutoField(primary_key=True)
+    user_id = models.TextField()
+    org_id = models.TextField()
+    contact = models.ForeignKey(TrustedContact, on_delete=models.CASCADE, related_name="+")
+    #: "discord", "signal" or "whatsapp".
+    app = models.TextField()
+    #: A Discord user id, or a number as +digits.
+    ident = models.TextField()
+    made_at = models.FloatField(default=0)
+
+    class Meta:
+        db_table = "chat_app_links"
+        constraints = [
+            models.UniqueConstraint(fields=["org_id", "user_id", "app", "contact"],
+                                    name="chat_app_links_one_per_contact"),
+            models.UniqueConstraint(fields=["org_id", "user_id", "app", "ident"],
+                                    name="chat_app_links_one_per_account"),
+        ]
+
+
 class MailCase(models.Model):
     """One email from somebody other than Petar, and every stage of what became of it.
 

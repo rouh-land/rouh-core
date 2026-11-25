@@ -72,6 +72,7 @@ interface Window {
   RouhSignIn?: any;
   RouhCloudflare?: any;
   RouhKeys?: any;
+  RouhChatApps?: any;
   RouhPhone?: any;
   RouhChanges?: any;
   RouhSlack?: any;

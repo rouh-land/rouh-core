@@ -305,6 +305,10 @@ class Trusted:
     #: which Slack confirmed, is one the owner ticked for them, as the sender a case names it by:
     #: "slack:<Slack's id for the member>".
     slack: list[str] = field(default_factory=list)
+    #: Their accounts on Discord, Signal and WhatsApp, each typed on that app's page by the owner and
+    #: vouched for by the app (`rouh/chat_apps.py`), as the sender a case names it by: "discord:<id>",
+    #: "signal:+<number>", "whatsapp:+<number>".
+    chat_apps: list[str] = field(default_factory=list)
     #: The grants given them as rows (`grants.give`), by key: Clockwork, Memory, Shared task
     #: and any the owner made. Their levels and inbox are above.
     extra_grants: list[str] = field(default_factory=list)
@@ -324,7 +328,7 @@ class Trusted:
         ticked, a Telegram account linked to them, or a Slack account with one of
         those addresses."""
         return bool(sender) and (sender in self.addresses or sender in self.telegram
-                                 or sender in self.slack)
+                                 or sender in self.slack or sender in self.chat_apps)
 
     def snapshot(self) -> dict:
         """What trust stood at, for a case's trace. The group is left out on purpose:
@@ -345,6 +349,9 @@ class Trusted:
         # And Slack, the same way, only when there is one, so every snapshot from before matches.
         if self.slack:
             shot["slack"] = sorted(self.slack)
+        # And Discord, Signal and WhatsApp, the same way.
+        if self.chat_apps:
+            shot["chat_apps"] = sorted(self.chat_apps)
         # And the grants, since 11 October 2026: only when one was given as a row or its
         # words changed, so every snapshot from before still matches.
         if self.held_sig:
@@ -391,6 +398,9 @@ class TrustStore:
         from .slack import linked_senders as slack_senders
 
         on_slack = slack_senders(row.user_id, row.org_id, addresses)
+        from .chat_apps import linked_senders as app_senders
+
+        on_apps = app_senders(row.user_id, row.org_id, row.id)
         from . import grants
 
         extra = grants.extra_of(row.user_id, row.org_id, row.id)
@@ -405,7 +415,7 @@ class TrustStore:
                        sees=list(row.sees) if isinstance(getattr(row, "sees", None), list) else None,
                        addresses=addresses, group_id=row.group_id,
                        group_name=groups.get(row.group_id or 0, ""), revision=row.revision,
-                       note=row.note, updated_at=row.updated_at, telegram=telegram, slack=on_slack,
+                       note=row.note, updated_at=row.updated_at, telegram=telegram, slack=on_slack, chat_apps=on_apps,
                        extra_grants=extra)
         tree = grants.tree(row.org_id)
         from . import capability_grants
@@ -862,7 +872,8 @@ def asked_by_them(meta: dict, contact) -> bool:
         return False
     guest = str(meta.get("guest") or "").strip().lower()
     return bool(guest) and (clean_address(guest) in contact.addresses
-                            or guest in contact.telegram)
+                            or guest in contact.telegram
+                            or guest in [str(x).lower() for x in getattr(contact, "chat_apps", []) or []])
 
 
 def started_by(meta: dict, contact) -> bool:

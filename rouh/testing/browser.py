@@ -433,6 +433,11 @@ def start(root, with_voice: bool = False, luna: bool = False, anthropic: bool = 
         # address that answers nothing unless a test starts the stand-in and
         # says where it is. Never Telegram itself, with anybody's account.
         ROUH_TELEGRAM_ACCOUNT_URL="http://127.0.0.1:1/no-telegram-account",
+        # Discord and Meta's WhatsApp Cloud API (`rouh/discord_chat.py`, `rouh/whatsapp_chat.py`): never the
+        # real ones from a world; ROUH_TEST_DISCORD_API and ROUH_TEST_WHATSAPP_API point it at
+        # `rouh/testing/fake_chat_apps.py`. Signal is at the address typed on its page.
+        ROUH_DISCORD_API=os.environ.get("ROUH_TEST_DISCORD_API", "http://127.0.0.1:1/no-discord"),
+        ROUH_WHATSAPP_API=os.environ.get("ROUH_TEST_WHATSAPP_API", "http://127.0.0.1:1/no-whatsapp"),
         # iCloud's CardDAV is a stand-in of this world's own, started below. A
         # world left pointed at contacts.icloud.com would send whatever Apple
         # ID was typed into Settings to Apple.
