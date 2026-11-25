@@ -12,6 +12,27 @@ from smoke import Stack, check, expect
 from checks_tools import post
 
 
+def _refused(s: Stack, text: str, limit: float = 120) -> str:
+    """A typed message past the limit: the turn is stopped with a lasting error (``fatal`` False) and
+    no ``assistant_done``, which is how the page keeps it on screen; its words."""
+    import json
+
+    s.socket()
+    seen: list = []
+    try:
+        s.ws.send(json.dumps({"type": "text", "text": text}))
+        got = s.wait_for(lambda m: m.get("type") in ("error", "assistant_done")
+                         and str(m.get("chat") or s.chat) == s.chat, limit, seen)
+    finally:
+        try:
+            s.ws.close()
+        except Exception:  # noqa: BLE001
+            pass
+        s.ws = None
+    expect(got.get("type") == "error", f"a turn past the limit was answered: {str(got.get('text'))[:300]}")
+    return str(got.get("message") or "")
+
+
 @check("gene.spending-limit")
 def spending_limit(s: Stack) -> None:
     import json
@@ -27,8 +48,7 @@ def spending_limit(s: Stack) -> None:
     try:
         if got.get("state") != "reached":
             return  # the stand-in's price was under a cent: nothing to stop at, and nothing broken
-        _, seen = s.say("Hello past the spending limit")
-        said = " ".join(str(m.get("message") or "") for m in seen if m.get("type") == "error")
+        said = _refused(s, "Hello past the spending limit")
         expect("spending limit" in said, f"a turn past the limit was not refused in words: {said[:300]}")
         code, got = post(s, "/api/usage/limit", {"more": 5})
         expect(code == 200 and got.get("state") == "ok" and got.get("extra") == 5,
