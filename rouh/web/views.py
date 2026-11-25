@@ -1007,6 +1007,13 @@ def _build_proof(request: HttpRequest) -> dict:
         return {"on": []}
 
 
+def _help_spots(request: HttpRequest) -> dict:
+    """The help icons beside Rouh's own words, and which this person put away (`rouh/help_spots.py`)."""
+    from rouh import help_spots
+
+    return help_spots.for_page(who(request))
+
+
 def _newcomer(request: HttpRequest) -> dict:
     """Which of night 51's four genes for a newcomer are on here, and what they need (`rouh/newcomer.py`)."""
     from rouh import newcomer
@@ -1086,6 +1093,8 @@ def _page_for(request: HttpRequest) -> HttpResponse:
         "RUN_BRIEF": _run_brief(request),
         # Sign-in's capitals, the Guide answering, What is this page, Ask Rouh on a selection (`rouh/first_help.py`).
         "FIRST_HELP": _first_help(request),
+        # Help icons beside Rouh's own words, put away once read (`rouh/help_spots.py`).
+        "HELP_SPOTS": _help_spots(request),
         # A pasted key cleaned, how to get a key, Show me around, page names as links (`rouh/new_owner.py`).
         "NEW_OWNER": _new_owner(request),
         # A run's pictures and screens, Change something here (`rouh/build_proof.py`).

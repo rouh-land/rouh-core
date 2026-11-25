@@ -12444,3 +12444,50 @@ html.pointing, html.pointing * { cursor: crosshair !important; }
   border: 1px solid var(--accent); background: var(--panel); color: var(--text); box-shadow: var(--shadow); font-size: 14px;
 }
 .point-bar .ctl { min-height: 44px; cursor: pointer !important; }
+
+/* Help icons beside Rouh's own words (`rouh/help_spots.py`, app/help_spots.js): drawn 16 px and quiet,
+   pressed over 44 px, lit only on hover and focus. One look everywhere; the card is one for the page. */
+.help-spot { position: relative; flex: 0 0 auto; display: inline-grid; place-items: center;
+  width: 16px; height: 16px; margin: 0 4px; padding: 0; border: 1px solid var(--dimmer); border-radius: 50%;
+  background: transparent; color: var(--dim); font: 600 11px/1 var(--sans); cursor: help; vertical-align: middle;
+  pointer-events: auto; transition: color 150ms, border-color 150ms, background-color 150ms; }
+.help-spot::before { content: ""; position: absolute; inset: -14px; }
+.help-spot:hover, .help-spot[aria-expanded="true"] { color: var(--accent); border-color: var(--accent);
+  background: var(--accent-soft); }
+.help-spot:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+/* On the orb's rim, at its top left (its own red dot is at the top right), kept there by app/help_spots.js. */
+.help-spot.help-spot-orb { position: fixed; left: -100px; top: -100px; z-index: 3; margin: 0; background: var(--panel); }
+.help-spot.help-spot-orb:hover, .help-spot.help-spot-orb[aria-expanded="true"] { background: var(--panel-2); }
+/* Beside a page's name, the way What is this page? sat. */
+.run-heading.has-help-spot { display: flex; flex-wrap: wrap; align-items: center; }
+.run-heading.has-help-spot > h3 { flex: 0 1 auto; min-width: 0; }
+.run-heading.has-help-spot > :not(h3):not(.help-spot) { flex: 1 0 100%; }
+.nt-title h2 .help-spot { margin-left: 6px; }
+
+.help-card { position: fixed; z-index: 420; width: min(320px, calc(100vw - 24px)); padding: 14px 16px 10px;
+  background: var(--panel-2); border: 1px solid var(--line); border-radius: var(--radius); box-shadow: var(--shadow);
+  color: var(--text); font-size: 14px; line-height: 1.5; }
+.help-card[hidden] { display: none; }
+.help-card-name { margin: 0 0 4px; font-weight: 600; }
+.help-card-say { margin: 0 0 2px; }
+.help-card-more[hidden] { display: none; }
+.help-card-more { display: inline-flex; align-items: center; min-height: 44px; color: var(--accent); }
+.help-card-acts { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
+.help-card-all { min-height: 44px; padding: 0 4px; border: 0; background: none; color: var(--dim); font-size: 13px;
+  cursor: pointer; text-decoration: underline; text-underline-offset: 3px; }
+.help-card-all:hover { color: var(--text); }
+.help-card .help-card-done { min-height: 44px; padding: 0 18px; font-size: 14px; }
+@media (prefers-reduced-motion: no-preference) { .help-card:not([hidden]) { animation: help-card-in 150ms ease-out; } }
+@keyframes help-card-in { from { opacity: 0; transform: translateY(4px); } }
+@media (max-width: 600px) {
+  .help-card { left: 8px; right: 8px; width: auto; padding: 16px 16px 8px; }
+}
+.help-toast { position: fixed; z-index: 421; top: 12px; left: 50%; transform: translateX(-50%);
+  width: max-content; max-width: calc(100vw - 24px); display: flex; align-items: center; gap: 10px;
+  padding: 6px 6px 6px 16px; border: 1px solid var(--line); border-radius: 22px; background: var(--panel-2);
+  box-shadow: var(--shadow); color: var(--text); font-size: 14px; }
+.help-toast[hidden] { display: none; }
+.help-toast .ctl.small { min-height: 36px; }
+.help-spots-count { margin: 10px 0 0; font-weight: 600; font-size: 14px; }
+.help-spots-bar { height: 6px; margin: 8px 0 12px; border-radius: 3px; background: var(--line); overflow: hidden; }
+.help-spots-bar i { display: block; height: 100%; width: 0; background: var(--accent); }

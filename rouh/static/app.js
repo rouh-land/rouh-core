@@ -110,6 +110,7 @@ import 'app/firsttips.js';
 import 'app/newcomer.js';
 import 'app/first_steps.js';
 import 'app/first_help.js';
+import 'app/help_spots.js';
 import 'app/new_owner.js';
 import 'app/build_proof.js';
 import { addrEarly } from 'app/address.js';

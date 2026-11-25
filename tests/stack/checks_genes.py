@@ -3924,6 +3924,26 @@ print(json.dumps({"page": sorted(page["on"]), "plain": "Metabolism" in page["pla
            f"the first help genes were not told as they should be: {out[-500:]}")
 
 
+
+@check("gene.help-spots")
+def help_spots(s: Stack) -> None:
+    """The help icons' words come from the Guide; Got it is kept per person; Hide all and Show again work."""
+    out = core_py(s, _owner_py("""
+from rouh import first_help, help_spots
+page = help_spots.for_page(who)
+got = help_spots.act(who, "got_it", "orb")
+hid = help_spots.act(who, "hide_all")
+back = help_spots.act(who, "show_again")
+print(json.dumps({"on": page["on"], "total": page["total"], "orb": page["spots"]["orb"]["route"],
+    "kept": "orb" in got["done"], "off": hid["off"], "again": [back["off"], back["read"]],
+    "plain": first_help.PLAIN.get("Clockwork") == page["spots"]["page-clockwork"]["say"],
+    "unknown": help_spots.act(who, "got_it", "nowhere")}))
+"""))
+    expect('"on": true' in out and '"total": 29' in out and '"orb": "/guide/lesson/orb"' in out
+           and '"kept": true' in out and '"off": true' in out and '"again": [false, 0]' in out
+           and '"plain": true' in out and '"unknown": null' in out,
+           f"the help icons were not told as they should be: {out[-500:]}")
+
 @check("gene.new-owner")
 def new_owner(s: Stack) -> None:
     """The page is told which of the four are on; a pasted key is cleaned and kept as its own company's."""

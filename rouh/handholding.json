@@ -113,6 +113,180 @@
    "case": true
   }
  },
+ "spots_note": "Help icons on the screen (rouh/help_spots.py, app/help_spots.js; the owner, 25 November 2026): a small ? beside a word of Rouh's own, which says in one sentence what it is and links to the tip that teaches it. `say` is the sentence, or `term` takes it from the terms above, so the two never drift; `lesson` is the tip it opens and `section` the heading in it; `rank` 1 shows first, and a few show at once on the main screen; `heading` puts it beside the page of that name, and is also that page's plain line (first_help.PLAIN). Got it puts one away for the person on every device.",
+ "spots": {
+  "orb": {
+   "name": "The orb",
+   "term": "orb",
+   "lesson": "orb",
+   "section": "The orb as a button",
+   "rank": 1
+  },
+  "chat": {
+   "name": "The chat",
+   "say": "Talk or type to Rouh here, the way you would to a person. It answers, and starts any longer work for you.",
+   "lesson": "talk",
+   "rank": 1
+  },
+  "canvas": {
+   "name": "The canvas",
+   "term": "canvas",
+   "lesson": "canvas",
+   "rank": 1
+  },
+  "notices": {
+   "name": "Notifications",
+   "say": "What Rouh finished, noticed or needs from you while you were elsewhere, newest first.",
+   "lesson": "running",
+   "rank": 1
+  },
+  "run": {
+   "name": "A run",
+   "say": "One piece of work Rouh does in the background, with its own coding agent: watch it, tell it something, or stop it.",
+   "lesson": "running",
+   "rank": 1
+  },
+  "page-metabolism": {
+   "name": "Metabolism",
+   "heading": "Metabolism",
+   "say": "The work Rouh does in the background for you: each job it was asked to do, as a run you can open, watch and stop. New run starts one.",
+   "lesson": "running"
+  },
+  "page-anatomy": {
+   "name": "Anatomy",
+   "heading": "Anatomy",
+   "say": "How your Rouh is set up: your account, your connections such as Google, how it behaves, and what it costs. Change a setting here.",
+   "lesson": "models"
+  },
+  "page-synapse": {
+   "name": "Synapse",
+   "heading": "Synapse",
+   "say": "Rouh's memory of your things: emails, documents, meetings and notes it has read, which it searches when you ask it something.",
+   "lesson": "synapse"
+  },
+  "page-mutations": {
+   "name": "Mutations",
+   "heading": "Mutations",
+   "say": "New abilities Rouh is trying out. Each is on trial: keep it, turn it off, or tell Rouh how to change it.",
+   "lesson": "evolution"
+  },
+  "page-incubator": {
+   "name": "Incubator",
+   "heading": "Incubator",
+   "say": "Ideas for new abilities, yours and Rouh's, each scored, waiting until one is worth building.",
+   "lesson": "incubator"
+  },
+  "page-gene-log": {
+   "name": "Gene log",
+   "heading": "Gene log",
+   "say": "Every change made to your Rouh, filed under the ability it belongs to, newest first.",
+   "lesson": "evolution"
+  },
+  "page-clockwork": {
+   "name": "Clockwork",
+   "heading": "Clockwork",
+   "say": "Your reminders, and the work Rouh does at a set time, such as a morning brief. Add one by asking Rouh in the chat.",
+   "lesson": "reminder"
+  },
+  "page-decisions": {
+   "name": "Decisions",
+   "heading": "Decisions",
+   "say": "Everything that waits for your answer, in one list. Answer one and Rouh carries on.",
+   "lesson": "decision"
+  },
+  "page-your-part": {
+   "name": "Your part",
+   "heading": "Your part",
+   "say": "Things only you can do, such as signing in somewhere, that some of Rouh's work is waiting for.",
+   "lesson": "yourpart"
+  },
+  "page-guide": {
+   "name": "Guide",
+   "heading": "Guide",
+   "say": "Short lessons that take you through Rouh one step at a time. Start with the first, and tick each as you go."
+  },
+  "page-rules": {
+   "name": "Rules",
+   "heading": "Rules",
+   "say": "How Rouh behaves, in your own words: each rule is followed in every chat, and you can change or switch off any of them.",
+   "lesson": "rule"
+  },
+  "page-goals": {
+   "name": "Goals",
+   "heading": "Goals",
+   "say": "What you want to reach, and the plan Rouh keeps to get there with you.",
+   "lesson": "goal"
+  },
+  "page-quests": {
+   "name": "Quests",
+   "heading": "Quests",
+   "say": "Long pieces of work that Rouh carries on by itself over days, a little at a time.",
+   "lesson": "quest"
+  },
+  "page-control-room": {
+   "name": "Control room",
+   "heading": "Control room",
+   "say": "What you pinned, each with where you left off and what is next.",
+   "lesson": "pin"
+  },
+  "page-thoughts": {
+   "name": "Thoughts",
+   "heading": "Thoughts",
+   "say": "Your own thoughts, kept in your words, each looked into by Rouh.",
+   "lesson": "thought"
+  },
+  "page-approvals": {
+   "name": "Approvals",
+   "heading": "Approvals",
+   "say": "Emails and messages Rouh wrote for you, waiting for your yes before they are sent.",
+   "lesson": "gates"
+  },
+  "page-receipts": {
+   "name": "Receipts",
+   "heading": "Receipts",
+   "say": "What Rouh did for you, kept as proof: what was sent, booked or changed, and when."
+  },
+  "page-sources": {
+   "name": "Sources",
+   "heading": "Sources",
+   "say": "The pages and documents Rouh read to answer you, so you can check them.",
+   "lesson": "research"
+  },
+  "page-live": {
+   "name": "Live",
+   "heading": "Live",
+   "say": "Shared spaces where you work with other people's Rouhs, and how far each is trusted."
+  },
+  "page-home": {
+   "name": "Home",
+   "heading": "Home",
+   "say": "The lights and devices at home that Rouh can switch for you.",
+   "lesson": "lights"
+  },
+  "page-offline": {
+   "name": "Offline",
+   "heading": "Offline",
+   "say": "What this phone or computer keeps for when there is no connection."
+  },
+  "page-boxes": {
+   "name": "Boxes",
+   "heading": "Boxes",
+   "say": "Places that collect things for you, such as files sent in, each opened on its own.",
+   "lesson": "box"
+  },
+  "page-live-browser": {
+   "name": "Live browser",
+   "heading": "Live browser",
+   "say": "The web browser Rouh uses for you. Watch what it does, and take it over when it asks.",
+   "lesson": "browser"
+  },
+  "page-public-pages-and-tasks": {
+   "name": "Public pages and tasks",
+   "heading": "Public pages and tasks",
+   "say": "The pages and tasks you made public or shared, and who can open each.",
+   "lesson": "shared"
+  }
+ },
  "stages": [
   {
    "id": "meet",

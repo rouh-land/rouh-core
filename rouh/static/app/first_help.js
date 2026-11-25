@@ -101,8 +101,17 @@ function whatSync(h3, button, said) {
   if (!said.hidden) said.textContent = plain;
 }
 
+/** Whether the help icons are on (`rouh/help_spots.py`): then a page's name has its ? from them, with
+    the same plain line, and this one steps aside. */
+function helpSpotsOn() {
+  try {
+    var node = document.getElementById('rouhHelpSpots');
+    return !!(node && JSON.parse(node.textContent || '{}').on);
+  } catch (err) { return false; }
+}
+
 function whatSetUp() {
-  if (!helpOn('page_what')) return;
+  if (!helpOn('page_what') || helpSpotsOn()) return;
   document.querySelectorAll('.run-heading > h3').forEach(function (node, at) {
     var h3 = /** @type {HTMLElement} */ (node);
     var head = /** @type {HTMLElement} */ (h3.parentElement);

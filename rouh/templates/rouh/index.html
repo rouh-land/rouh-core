@@ -510,6 +510,7 @@ with {% asset %}, which gives it its hashed address.
         {{ FIRST_STEPS|json_script:"rouhFirstSteps" }}
         {{ RUN_BRIEF|json_script:"rouhRunBrief" }}
         {{ FIRST_HELP|json_script:"rouhFirstHelp" }}
+        {{ HELP_SPOTS|json_script:"rouhHelpSpots" }}
         {{ NEW_OWNER|json_script:"rouhNewOwner" }}
         {{ BUILD_PROOF|json_script:"rouhBuildProof" }}
         {# Change something here, pressed by its link in the menu (`rouh/build_proof.py`, point_change). #}
@@ -2425,6 +2426,19 @@ with {% asset %}, which gives it its hashed address.
                   </div>
                 </form>
                 <p id="meCardSaid" class="settings-help" role="status" hidden></p>
+              </div>
+            </section>
+            {% comment %} Help on the screen (`rouh/help_spots.py`, app/help_spots.js): the small ?
+                 beside Rouh's own words, how many this person has read, and the two ways to put them
+                 all away or bring them all back. Shown only while help icons are on. {% endcomment %}
+            <section class="setting-card" id="helpSpotsCard" aria-labelledby="helpSpotsHead" hidden>
+              <h4 id="helpSpotsHead">Help on the screen</h4>
+              <p class="settings-help">A small ? beside Rouh's own words says what each is, with a link to the Guide. Got it puts that one away, on every device.</p>
+              <p id="helpSpotsCount" class="help-spots-count" role="status"></p>
+              <div class="help-spots-bar" aria-hidden="true"><i id="helpSpotsBar"></i></div>
+              <div class="setting-actions">
+                <button type="button" id="helpSpotsAgain" class="ctl small">Show help again</button>
+                <button type="button" id="helpSpotsHide" class="ctl small">Hide all help</button>
               </div>
             </section>
           </div>

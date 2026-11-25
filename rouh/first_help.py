@@ -30,6 +30,7 @@ from __future__ import annotations
 
 import logging
 import re
+from collections.abc import Iterator, Mapping
 
 log = logging.getLogger("rouh.first_help")
 
@@ -41,39 +42,28 @@ GENES: dict[str, tuple[str, tuple[str, ...]]] = {
     "select_ask": ("Ask Rouh about words you select on Rouh's own pages", ("asked",)),
 }
 
-#: What each of Rouh's own pages is for, by the name its heading says, for somebody who has never
-#: seen it. Plain words, no Rouh terms.
-PLAIN: dict[str, str] = {
-    "Metabolism": "The work Rouh does in the background for you: each job it was asked to do, as a run you can "
-                  "open, watch and stop. New run starts one.",
-    "Anatomy": "How your Rouh is set up: your account, your connections such as Google, how it behaves, and what "
-               "it costs. Change a setting here.",
-    "Synapse": "Rouh's memory of your things: emails, documents, meetings and notes it has read, which it searches "
-               "when you ask it something.",
-    "Mutations": "New abilities Rouh is trying out. Each is on trial: keep it, turn it off, or tell Rouh how to "
-                 "change it.",
-    "Clockwork": "Your reminders, and the work Rouh does at a set time, such as a morning brief. Add one by asking "
-                 "Rouh in the chat.",
-    "Decisions": "Everything that waits for your answer, in one list. Answer one and Rouh carries on.",
-    "Your part": "Things only you can do, such as signing in somewhere, that some of Rouh's work is waiting for.",
-    "Guide": "Short lessons that take you through Rouh one step at a time. Start with the first, and tick each as "
-             "you go.",
-    "Rules": "How Rouh behaves, in your own words: each rule is followed in every chat, and you can change or "
-             "switch off any of them.",
-    "Goals": "What you want to reach, and the plan Rouh keeps to get there with you.",
-    "Quests": "Long pieces of work that Rouh carries on by itself over days, a little at a time.",
-    "Control room": "What you pinned, each with where you left off and what is next.",
-    "Thoughts": "Your own thoughts, kept in your words, each looked into by Rouh.",
-    "Approvals": "Emails and messages Rouh wrote for you, waiting for your yes before they are sent.",
-    "Receipts": "What Rouh did for you, kept as proof: what was sent, booked or changed, and when.",
-    "Sources": "The pages and documents Rouh read to answer you, so you can check them.",
-    "Live": "Shared spaces where you work with other people's Rouhs, and how far each is trusted.",
-    "Home": "The lights and devices at home that Rouh can switch for you.",
-    "Offline": "What this phone or computer keeps for when there is no connection.",
-    "Boxes": "Places that collect things for you, such as files sent in, each opened on its own.",
-    "Live browser": "The web browser Rouh uses for you. Watch what it does, and take it over when it asks.",
-    "Public pages and tasks": "The pages and tasks you made public or shared, and who can open each.",
-}
+class _Plain(Mapping):
+    """What each of Rouh's own pages is for, by the name its heading says, for somebody who has never
+    seen it: the Guide's help spots with a `heading` (`rouh/help_spots.py`), read whenever asked, so the
+    plain line and the help icon beside a page's name are one sentence in one place (25 November 2026)."""
+
+    def _now(self) -> dict[str, str]:
+        from . import help_spots
+
+        return help_spots.plain()
+
+    def __getitem__(self, name: str) -> str:
+        return self._now()[name]
+
+    def __iter__(self) -> Iterator[str]:
+        return iter(self._now())
+
+    def __len__(self) -> int:
+        return len(self._now())
+
+
+#: What each of Rouh's own pages is for, by the name its heading says. Plain words, no Rouh terms.
+PLAIN: Mapping[str, str] = _Plain()
 
 #: The words of a question that only frame it ("What does ... mean, on the ... page?", select_ask's own),
 #: left out when the Guide's lessons are matched.
@@ -109,7 +99,7 @@ def for_page(who) -> dict:
     """What `#rouhFirstHelp` tells the page: which are on, the plain lines while `page_what` is,
     the words a question carries while `guide_search` is, and how much a selection may hold."""
     on = on_for(who)
-    return {"on": on, "plain": PLAIN if "page_what" in on else {},
+    return {"on": on, "plain": dict(PLAIN) if "page_what" in on else {},
             "stop": stop_words() if "guide_search" in on else [],
             "select": {"least": SELECT_LEAST, "most_words": SELECT_MOST_WORDS}}
 

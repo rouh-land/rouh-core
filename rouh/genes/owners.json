@@ -4097,6 +4097,25 @@
     "rouh/web/first_help.py"
    ]
   },
+  "help-spots": {
+   "name": "Help icons beside Rouh's own words",
+   "what": "A small ? beside a word of Rouh's own (the orb, the canvas, Clockwork, Synapse, Mutations, the Incubator, a run, Notifications, every page's name) says in one sentence what it is, with the Guide's tip about it. Got it puts that one away on every device; a few show at once, and Hide all help and Show help again are in About you.",
+   "switch": "help_spots",
+   "signals": {
+    "events": {
+     "opened": "You opened a help icon and read what that word of Rouh's means",
+     "got_it": "You pressed Got it on a help icon, so it is put away on every device",
+     "guide": "You followed a help icon to the Guide's tip about it",
+     "hid_all": "You put away every help icon at once",
+     "shown_again": "You brought every help icon back, in About you"
+    }
+   },
+   "files": [
+    "rouh/help_spots.py",
+    "rouh/web/help_spots.py",
+    "rouh/static/app/help_spots.js"
+   ]
+  },
   "n54-key-clean": {
    "name": "A pasted key is cleaned",
    "what": "An AI key pasted with its quotes, its name, export or Bearer is taken out of them, and an Anthropic or OpenAI key pasted in the other company's box is kept as its own company's, saying so, on the Models page and the first run's key screen.",

@@ -30,7 +30,7 @@
   'use strict';
 
   var H = {
-    open: false, page: '', lesson: '', from: '', data: null, error: '', loading: false, seq: 0,
+    open: false, page: '', lesson: '', from: '', data: null, error: '', loading: false, seq: 0, aim: '',
     // Which stages are open on the path, by id; a lesson whose save failed, with its words.
     stages: {}, failed: {}, arrived: false, said: '',
     // The address a press inside this page asked for: arriving there, Back is the browser's own.
@@ -305,6 +305,7 @@
     if (tipX) { body.appendChild(footBar(tipX)); }
     body.scrollTop = top;
     if (H.lesson) { hookReading(); reading(); }
+    aimNow();
     if (keep) {
       var back = body.querySelector('[data-k="' + keep + '"]');
       if (back) { back.focus({ preventScroll: true }); }
@@ -1094,6 +1095,8 @@
     // A tip in sections, each a heading, its words, a picture and a legend of colours and marks.
     (l.sections || []).forEach(function (sc, i) {
       var h = k(el('h4', 'hh-h2', sc.title), 'section-' + i);
+      // Focusable by the page alone, so a help icon's link can land on it and a redraw keeps it there.
+      h.setAttribute('tabindex', '-1');
       wrap.appendChild(h);
       (sc.text || []).forEach(function (t) { wrap.appendChild(rich('p', 'hh-para', t, l.id, used)); });
       if (sc.image) { wrap.appendChild(picture(sc.image, 'hh-secfig', true)); }
@@ -1523,6 +1526,7 @@
     place();
     draw();
     if (placeKey() !== was || H.back) { settle(); }
+    aimNow();
     load();
   }
   function hidden() { H.open = false; }
@@ -1540,7 +1544,28 @@
     goBack();
   }, true);
 
-  window.RouhHandholding = { shown: shown, hidden: hidden, reload: load };
+  /* A help icon's Read more in the Guide (app/help_spots.js) opens a tip at the section it is about:
+     `aim` names the section's heading before the tip is shown, and the first drawing of that tip that
+     has it brings it to the top and gives it the focus. A tip without that heading is opened at its top. */
+  function aim(title) { H.aim = String(title || ''); }
+  function aimNow() {
+    if (!H.aim || !H.lesson || !H.data) { return; }
+    var want = H.aim;
+    H.aim = '';
+    // After the layer has come forward and taken the focus for itself (`handholdingOpen`).
+    setTimeout(function () {
+      var body = $('handholdingBody');
+      var found = body ? Array.prototype.filter.call(body.querySelectorAll('h4.hh-h2'), function (h) {
+        return String(h.textContent || '').trim() === want;
+      })[0] : null;
+      if (!found) { return; }
+      found.setAttribute('tabindex', '-1');
+      found.scrollIntoView({ block: 'start' });
+      found.focus({ preventScroll: true });
+    }, 60);
+  }
+
+  window.RouhHandholding = { shown: shown, hidden: hidden, reload: load, aim: aim };
 
   var xb = $('handholdingClose');
   if (xb) { xb.addEventListener('click', function () { if (host().close) { host().close(); } }); }
