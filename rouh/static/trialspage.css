@@ -354,6 +354,7 @@ a.tr-stat:hover { border-color: var(--ink-2); }
 .tr-msg { padding: 10px 12px; border-radius: 12px; font-size: 15px; line-height: 1.45; max-width: 94%; }
 .tr-msg-owner { align-self: flex-end; background: var(--accent-soft); }
 .tr-msg-rouh { align-self: flex-start; background: var(--surface-2); }
+.tr-msg-guest { align-self: flex-start; background: var(--surface-2); border: 1px solid var(--line); }
 .tr-msg-verdict { align-self: center; color: var(--ink-2); font-size: 13px; text-align: center; }
 .tr-msg-who { font-size: 12px; color: var(--ink-2); margin-bottom: 2px; }
 .tr-thinking { font-size: 14px; color: var(--ink-2); font-style: italic; }
@@ -825,3 +826,24 @@ a.tr-stat:hover { border-color: var(--ink-2); }
 @media (prefers-reduced-motion: reduce) {
   .tr *, .tr *::before, .tr *::after { animation: none !important; transition: none !important; }
 }
+
+/* Sharing a test run (`rouh/trialshare.py`): its own Share, beside the crumbs, and the panel under them. */
+.tr-try-bar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 16px; margin-bottom: 12px; }
+.tr-try-bar .tr-crumbs { margin-bottom: 0; }
+.tr-share-b { min-height: 44px; }
+.tr-share { margin-bottom: 18px; }
+.tr-share-add { display: grid; gap: 6px; }
+.tr-share-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.tr .tr-share-row .tr-input { flex: 1 1 220px; width: auto; min-height: 44px; }
+.tr .tr-share-row .tr-share-role, .tr .tr-share-person .tr-share-role { flex: 0 0 auto; width: auto; min-height: 44px; }
+.tr-share-row .tr-btn { min-height: 44px; }
+.tr-share-tick { display: inline-flex; align-items: center; gap: 10px; min-height: 44px; font-size: 15px; cursor: pointer; flex: 1 1 260px; }
+.tr-share-tick input { width: 20px; height: 20px; accent-color: var(--accent); flex: none; }
+.tr-share-people { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.tr-share-person { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 10px; padding: 8px 0; border-top: 1px solid var(--line); }
+.tr-share-person .tr-btn { min-height: 44px; }
+.tr-share-who { display: grid; flex: 1 1 200px; min-width: 0; overflow-wrap: anywhere; }
+.tr-share-who .tr-cap { margin-top: 0 !important; }
+.tr-share-said:empty { display: none; }
+.tr-share-said { font-size: 14px; overflow-wrap: anywhere; }
+.tr-share .tr-h3 { margin-top: 10px; }

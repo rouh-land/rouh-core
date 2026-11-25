@@ -49,7 +49,7 @@ from . import (apple_contacts, artifacts, asking, browser_handoff, browsing, cal
                worklabel)
 from .one_client import OneClient, OneRefused, OneUnavailable, describe_entries
 from . import incubator as _incubator
-from . import signups, tenancy
+from . import signups, tenancy, trialshare
 from . import unrestricted
 from .google_api import doc_edits
 from .tree import describe_tree
@@ -3626,7 +3626,10 @@ class ToolRegistry:
                 "What goes public is the task's built pages, as they are on disk, "
                 "each with a link of its own and no Ask AI on it; never its notes, "
                 "its chat or anything else in the workspace. A step written as notes "
-                "on Rouh has no built page and cannot be published this way.",
+                "on Rouh has no built page and cannot be published this way.\n"
+                "A testing run (its address /evolution/testing/63, or \"testing run 63\") is "
+                "published the same way, as task: its one link, read only, showing the run as it "
+                "is each time it is opened: its steps, screenshots and problems.",
                 {
                     "type": "object",
                     "properties": {
@@ -3677,7 +3680,8 @@ class ToolRegistry:
                 "says what publishing would put out and whether the task's notes or "
                 "pages hold money, health detail or private contact details, each of "
                 "which needs its own yes. If the person wants a link, put it on the "
-                "screen with show_on_screen; never read it out.",
+                "screen with show_on_screen; never read it out. A testing run is checked "
+                "the same way: pass its address, /evolution/testing/63, as task.",
                 {
                     "type": "object",
                     "properties": {
@@ -3729,6 +3733,12 @@ class ToolRegistry:
                 "- Use the address they said, or the one on that contact's card. If you "
                 "are not sure which address, ask; never guess one.\n"
                 "- For a link anybody can open, use publish_task instead.\n"
+                "- A testing run is shared the same way: pass its address, "
+                "/evolution/testing/63 (or \"testing run 63\"), as task. They see the run live, "
+                "never a copy: its steps, screenshots and problems. view reads it; edit also "
+                "lets them add notes to its problems, which appear in each problem's "
+                "discussion. Sharing it again changes what they may do; taking it away is the "
+                "Share panel on the run's own page.\n"
                 "Say in your reply that the email went, and to whom. Never read a link out.",
                 {
                     "type": "object",
@@ -15453,6 +15463,9 @@ class ToolRegistry:
                   "false": "off", "no": "off"}.get(access, access)
         if access not in ("on", "off"):
             return "Refused. access is on, to make it public, or off, to take it down."
+        run = trialshare.named(args.get("task"))
+        if run is not None:
+            return await self._publish_trial(run, access, sharing.agreed(args.get("agreed_to")), emit)
         got = await self._shared_scope(args)
         if isinstance(got, str):
             return got
@@ -15595,20 +15608,28 @@ class ToolRegistry:
             return ("Nothing was shared: that is not an email address. Ask the person for "
                     "it exactly as it is.")
         page = str(args.get("page") or "").strip()
-        got = await self._shared_scope({"task": args.get("task"),
-                                        "pages": [page] if page else None})
-        if isinstance(got, str):
-            return got
-        who, root, work, chosen, whole = got
-        if whole:
-            target = taskshare.PREFIX + work["rel"]
-        elif len(chosen) == 1:
-            target = chosen[0]["rel"]
+        run = trialshare.named(args.get("task")) or trialshare.named(page)
+        if run is not None:
+            # A testing run, shared the way a task is (`rouh/trialshare.py`).
+            who = await self._trial_who()
+            if isinstance(who, str):
+                return who
+            root, target = self._workspace(), trialshare.rel_of(run)
         else:
-            return ("Nothing was shared: name one page of it, or leave page out to share "
-                    "the whole task.")
+            got = await self._shared_scope({"task": args.get("task"),
+                                            "pages": [page] if page else None})
+            if isinstance(got, str):
+                return got
+            who, root, work, chosen, whole = got
+            if whole:
+                target = taskshare.PREFIX + work["rel"]
+            elif len(chosen) == 1:
+                target = chosen[0]["rel"]
+            else:
+                return ("Nothing was shared: name one page of it, or leave page out to share "
+                        "the whole task.")
         try:
-            rel, title = await asyncio.to_thread(sharing.shareable, root, target)
+            rel, title = await asyncio.to_thread(sharing.shareable, root, target, who)
         except (pages.Refused, OSError) as exc:
             return f"Nothing was shared: {exc}"
         owner = await asyncio.to_thread(
@@ -15640,11 +15661,118 @@ class ToolRegistry:
 
     async def _check_task_sharing(self, args, emit):
         """Whether a task's pages are public, and their links. Changes nothing."""
+        run = trialshare.named(args.get("task"))
+        if run is not None:
+            return await self._trial_sharing_report(run)
         got = await self._shared_scope({"task": args.get("task")})
         if isinstance(got, str):
             return got
         who, root, work, chosen, _ = got
         return await asyncio.to_thread(self._sharing_report, who, root, work, chosen)
+
+    # --- a testing run, shared the way a task is (`rouh/trialshare.py`) ---------------------
+
+    async def _trial_who(self):
+        """The speaker whose testing runs these are, or the sentence why not."""
+        from .tenancy import Tenancy, speaker
+
+        who = speaker() or await asyncio.to_thread(Tenancy().only_person)
+        if who is None:
+            return ("I cannot tell whose testing run this is: nobody is signed in to this "
+                    "conversation and this install has more than one account. Nothing was changed.")
+        return who
+
+    async def _trial_sharing_report(self, run: int) -> str:
+        """Whether a testing run's link is public, and who it is shared with. Changes nothing."""
+        from . import pages
+
+        who = await self._trial_who()
+        if isinstance(who, str):
+            return who
+        rel = trialshare.rel_of(run)
+        try:
+            _, title = await asyncio.to_thread(sharing.shareable, self._workspace(), rel, who)
+        except (pages.Refused, OSError) as exc:
+            return str(exc)
+
+        def report() -> str:
+            base = getattr(self.cfg, "public_url", "")
+            row = self.shares.state(who, rel)
+            out = [f"{title} ({trialshare.address(run)})."]
+            if row:
+                out.append("Its link is public: anyone who has it can read the run without signing "
+                           f"in, read only: {sharing.link_for(base, row['token'])}")
+            else:
+                out.append("It is not public: only the person, and the people it is shared with, "
+                           "can open it.")
+            people = [p for p in self.guests.everyone(who) if p["rel"] == rel]
+            if people:
+                out.append("Shared by email:")
+                out += [f"- {p['email']}, {_access_said(rel, p['role'])}"
+                        + ("" if p["joined"] else ", who has not opened it yet") for p in people]
+            else:
+                out.append("It is not shared with anybody by email.")
+            if not row:
+                found = sharing.sensitive_text(trialshare.readable(who, run))
+                if found:
+                    out.append("Making it public needs its own yes first for: "
+                               + "; ".join(_found_said(kind, found[kind]) for kind in sharing.KINDS
+                                           if kind in found)
+                               + ". Name it out loud before asking whether to publish.")
+            out.append("What is shared is the run as it is now, live: its steps, screenshots and "
+                       "problems, never the person's other runs, decisions or talk with Rouh. If "
+                       "the person wants a link, put it on the screen; never read it out.")
+            return "\n".join(out)
+        return await asyncio.to_thread(report)
+
+    async def _publish_trial(self, run: int, access: str, agreed: set[str], emit) -> str:
+        """A testing run's one link made public, or taken down again, on the person's word."""
+        from . import pages
+
+        who = await self._trial_who()
+        if isinstance(who, str):
+            return who
+        rel = trialshare.rel_of(run)
+        try:
+            _, title = await asyncio.to_thread(sharing.shareable, self._workspace(), rel, who)
+        except (pages.Refused, OSError) as exc:
+            return f"Nothing was changed: {exc}"
+        if access == "off":
+            if await asyncio.to_thread(self.shares.stop, who, rel):
+                log.info("sharing: %s is not public any more, from the assistant", rel)
+                return (f"{title} is not public any more: its link stopped letting strangers in "
+                        "just now. The people it is shared with by email still open it. The link "
+                        "stays the same, so making it public again brings it back. A copy somebody "
+                        "already saved cannot be taken back.")
+            return f"{title} was not public, so nothing changed."
+        if await asyncio.to_thread(self.shares.state, who, rel) is None:
+            found = await asyncio.to_thread(
+                lambda: sharing.sensitive_text(trialshare.readable(who, run)))
+            asked = [kind for kind in sharing.KINDS if kind in found and kind not in agreed]
+            if asked:
+                return ("Nothing was published. The testing run holds what is never made public "
+                        "without its own yes: "
+                        + "; ".join(_found_said(kind, found[kind]) for kind in asked)
+                        + ". Tell the person in plain words what it is and where, and ask whether "
+                        "they are happy for anyone with the link to read it. Only if they say yes "
+                        "to that point itself, call publish_task again with agreed_to "
+                        + json.dumps(sorted(agreed | set(asked))) + ".")
+        row = await asyncio.to_thread(self.shares.share, who, rel, title)
+        log.info("sharing: %s is public, from the assistant", rel)
+        link = sharing.link_for(getattr(self.cfg, "public_url", ""), row["token"])
+        spec = {"title": f"Testing run {run} is public",
+                "description": f"the public link to {title}, which anyone who has it can read "
+                               "without signing in",
+                "blocks": [{"block": "text", "text": (
+                    "Anyone who is sent this link can read the testing run, as it is each time they "
+                    "open it, without signing in: its steps, screenshots and problems, read only. "
+                    "Your other runs, decisions and talk with Rouh are not shared.")},
+                    {"block": "link", "text": title, "href": link}]}
+        card_id, spec = await asyncio.to_thread(self._keep, spec)
+        await emit({"type": "ui", "spec": spec})
+        return (f"{title} is public now: anyone who is sent the link can read it without signing "
+                f"in, read only, and so can anybody they forward it to. {link}\nThe link is on the "
+                f"screen, on card {card_id}. Say that; never read a link out.")
 
     def _sharing_report(self, who, root, work, chosen) -> str:
         return (self._public_report(who, root, work, chosen)
@@ -17649,6 +17777,11 @@ def _access_said(rel: str, role: str) -> str:
         return ("can decide: they decide for the person there, by email, and change its "
                 "pages with Ask AI; money, sending, publishing and committing the person stay "
                 "the person's")
+    from . import trialshare
+
+    if role == sharing.EDIT and trialshare.is_trial(rel):
+        return ("can edit: they read it and add notes to its problems, which appear in each "
+                "problem's discussion on the person's page")
     if role == sharing.EDIT:
         return ("can edit: they can change its pages, and its subtasks' pages, with Ask AI"
                 if taskshare.is_task(rel) else "can edit: they can change it with Ask AI")

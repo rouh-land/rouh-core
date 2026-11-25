@@ -24,6 +24,11 @@ what that is, and what it never is). Its link is read only. Shared with one
 person it is read or changed as the owner said, as a page is (since 13
 October 2026: `role_for`).
 
+**Or one testing run** (since 25 November 2026, `rouh/trialshare.py`): the
+same rows, named `_trial/<n>`, served live from the run's own rows as a page of
+Rouh's own with no script; its link is read only, and a person given edit may
+add notes to its problems.
+
 **No Ask AI, unless the owner says a visitor may change the page.** A link is
 read-only by default (`VIEW`), and a read-only link serves the page and stops,
 for the two reasons that held on 23 September 2026 and still hold for it: a
@@ -177,7 +182,7 @@ def share_base(fallback: str = "") -> str:
 SUFFIX = ".html"
 
 
-def shareable(root, rel: str) -> tuple[str, str]:
+def shareable(root, rel: str, who=None) -> tuple[str, str]:
     """The page `rel` names and its title, or `pages.Refused` saying why not.
 
     Exactly `pages.py`'s own rules, through `pages.check`, so a path that could
@@ -185,10 +190,16 @@ def shareable(root, rel: str) -> tuple[str, str]:
     suffix is checked as the address was written as well as after the links in
     it were followed, which is the same pairing `pages.read` does. The one
     rule, for the Share panel and the assistant's tools alike.
+
+    A testing run (`_trial/<n>`, since 25 November 2026, `rouh/trialshare.py`)
+    is rows in the database rather than a place on disk, so it is looked up as
+    `who`'s own, and refused with nobody to ask about.
     """
-    from . import pages, taskshare
+    from . import pages, taskshare, trialshare
 
     rel = str(rel or "")
+    if trialshare.is_trial(rel):
+        return trialshare.shareable(who, rel)
     if taskshare.is_task(rel):
         # A task or a subtask, since 12 October 2026 (`rouh/taskshare.py`).
         return taskshare.shareable(root, rel)
@@ -327,21 +338,32 @@ def sensitive(root, files: list[tuple[str, str]]) -> dict[str, dict]:
                 raw = fh.read(SCAN_MAX)
         except OSError:
             continue
-        text = readable_text(raw, rel.lower().endswith(SUFFIX))
-        for kind in KINDS:
-            matched = [m.group(0).strip() for pattern in _LOOKS[kind]
-                       for m in pattern.finditer(text)]
-            if not matched:
-                continue
-            have = out.setdefault(kind, {"where": [], "found": []})
-            if where not in have["where"]:
-                have["where"].append(where)
-            for word in matched:
-                if len(have["found"]) >= EXAMPLES:
-                    break
-                if word.lower() not in (w.lower() for w in have["found"]):
-                    have["found"].append(word)
+        _scan(readable_text(raw, rel.lower().endswith(SUFFIX)), where, out)
     return out
+
+
+def sensitive_text(pairs: list[tuple[str, str]]) -> dict[str, dict]:
+    """`sensitive` over text that is not a file: `(the words, where to say they are)` pairs, as a
+    testing run's steps and problems are (`trialshare.readable`). The same answer."""
+    out: dict[str, dict] = {}
+    for raw, where in pairs:
+        _scan(readable_text(str(raw or "")[:SCAN_MAX], False), where, out)
+    return out
+
+
+def _scan(text: str, where: str, out: dict[str, dict]) -> None:
+    for kind in KINDS:
+        matched = [m.group(0).strip() for pattern in _LOOKS[kind] for m in pattern.finditer(text)]
+        if not matched:
+            continue
+        have = out.setdefault(kind, {"where": [], "found": []})
+        if where not in have["where"]:
+            have["where"].append(where)
+        for word in matched:
+            if len(have["found"]) >= EXAMPLES:
+                break
+            if word.lower() not in (w.lower() for w in have["found"]):
+                have["found"].append(word)
 
 
 def clean_token(raw: str) -> str:
@@ -390,9 +412,10 @@ def role_for(rel: str, raw, person: bool = False) -> str:
     edit depending on my ask" (`rouh/taskshare.py`). A page has no decisions, so
     deciding on one is editing it.
     """
-    from . import taskshare
+    from . import taskshare, trialshare
 
-    if taskshare.is_task(rel) and not person:
+    if (taskshare.is_task(rel) or trialshare.is_trial(rel)) and not person:
+        # A testing run's link is read only too (`rouh/trialshare.py`).
         return VIEW
     role = role_of(raw)
     if role == DECIDE and not (person and taskshare.is_task(rel)):
@@ -420,10 +443,13 @@ def _read_at(share: dict | None) -> dict | None:
     None when its path now holds a different page than the one that was
     shared, which is never served in its place (`pageplaces.where`).
     """
-    from . import pageplaces, taskshare
+    from . import pageplaces, taskshare, trialshare
 
     if share is None:
         return None
+    if trialshare.is_trial(share["rel"]):
+        # A testing run is rows, not a place on disk, and never moves.
+        return share
     if taskshare.is_task(share["rel"]):
         return {**share, "rel": taskshare.reading(share["rel"], pageplaces.ROOT)}
     rel = pageplaces.reading(share["rel"])

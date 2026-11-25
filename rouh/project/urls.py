@@ -485,6 +485,8 @@ urlpatterns = [
     path(sharing.ROUTE.lstrip("/") + "<str:token>/undo", guests.LINK["undo"]),
     path(sharing.ROUTE.lstrip("/") + "<str:token>/type", guests.LINK["type"]),
     path(sharing.ROUTE.lstrip("/") + "<str:token>/option", guests.LINK["option"]),
+    # A shared testing run's screenshots (`rouh/trialshare.py`).
+    path(sharing.ROUTE.lstrip("/") + "<str:token>/shot/<int:step>", guests.link_trial_shot),
     path("join/<str:token>", guests.join),
     path("shared", guests.shared_list),
     # Who is opening it, said by rouh.land (`rouh/landshare.py`): before `shared/<token>`.
@@ -497,6 +499,9 @@ urlpatterns = [
     path("shared/<str:token>/threads/<int:thread_id>", guests.SHARED["thread"]),
     path("shared/<str:token>/undo", guests.SHARED["undo"]),
     path("shared/<str:token>/type", guests.SHARED["type"]),
+    # A testing run shared with a person: its screenshots, and their notes on its problems.
+    path("shared/<str:token>/shot/<int:step>", guests.shared_trial_shot),
+    path("shared/<str:token>/note", guests.trial_note),
     # Comments on a page shared with a person. Not under `/p/`: a visitor to a
     # link is nobody, with no name to put on a comment (`rouh/comments.py`).
     path("shared/<str:token>/comments", comments.for_shared),

@@ -68,7 +68,7 @@ from django.middleware.csrf import get_token
 from django.shortcuts import render
 
 from rouh import (askai, comments, mailer, modeldefaults, pagehistory, pages,
-                  sharing, taskshare)
+                  sharing, taskshare, trialshare)
 from rouh.config import config
 from rouh.tenancy import GUEST_ORG, Identity
 
@@ -144,6 +144,12 @@ LAND_SAID = ("To view it you need a rouh.land account for {email}. If you have n
              "the address), then open what was shared. Opening the link alone creates nothing.")
 
 
+def _what(rel) -> str:
+    """What a share is, in the words a letter and a door say it: a task, a testing run or a page."""
+    return ("a task" if taskshare.is_task(rel) else
+            "a testing run" if trialshare.is_trial(rel) else "a page")
+
+
 def _letter(owner: str, share: dict, has_account: bool, message: str = "") -> mailer.Letter:
     """The invitation, or the note to somebody who already has an account.
 
@@ -151,7 +157,7 @@ def _letter(owner: str, share: dict, has_account: bool, message: str = "") -> ma
     shared and the link to it, as Google Drive puts the line its sharer typed
     (fr_55056f9ffcc2).
     """
-    what = "a task" if taskshare.is_task(share["rel"]) else "a page"
+    what = _what(share["rel"])
     title = share["title"] or what
     edit = sharing.can_edit(share["role"])
     decide = share["role"] == sharing.DECIDE
@@ -160,6 +166,10 @@ def _letter(owner: str, share: dict, has_account: bool, message: str = "") -> ma
                "Rouh's AI" if edit else "read it, its pages, its notes and its subtasks")
         if decide:
             can += f", and decide for {owner} there by email"
+    elif what == "a testing run":
+        can = ("read it, step by step with its screenshots and the problems it met, and add your "
+               "notes to its problems" if edit else
+               "read it, step by step with its screenshots and the problems it met")
     else:
         can = ("read it, ask Rouh's AI about it, and change it" if edit
                else "read it and ask Rouh's AI about it")
@@ -376,7 +386,7 @@ async def meetings(request: HttpRequest):
         return refuse("With a meeting's guests is switched off.", 400)
     try:
         rel, title = await asyncio.to_thread(sharing.shareable, config.assistant_repo,
-                                             str(asked.get("rel") or ""))
+                                             str(asked.get("rel") or ""), me)
     except (pages.Refused, OSError) as exc:
         return refuse(str(exc), 404)
     people = await asyncio.to_thread(_people, me, rel)
@@ -432,7 +442,7 @@ async def invite(request: HttpRequest):
     asked = body_of(request)
     try:
         rel, title = await asyncio.to_thread(sharing.shareable, config.assistant_repo,
-                                             str(asked.get("rel") or ""))
+                                             str(asked.get("rel") or ""), me)
     except (pages.Refused, OSError) as exc:
         return refuse(str(exc), 404)
     email = sharing.clean_email(asked.get("email"))
@@ -584,7 +594,7 @@ async def shared_in(request: HttpRequest):
 
 
 def _shared_door_page(request, share, then: str):
-    what = ("a task" if taskshare.is_task(share["rel"]) else "a page") if share else ""
+    what = _what(share["rel"]) if share else ""
     role = share["role"] if share else ""
     access = ("Can decide" if role == sharing.DECIDE else "Can edit" if role and sharing.can_edit(role)
               else "Can view") if share else ""
@@ -869,7 +879,9 @@ async def _reader(request, kind: str, token: str, task: bool = False) -> Reader 
         return None
     else:
         found = await asyncio.to_thread(_for_guest, request, token)
-    if found is not None and taskshare.is_task(found.rel) != task:
+    if found is not None and (taskshare.is_task(found.rel) != task
+                              or trialshare.is_trial(found.rel)):
+        # A testing run is read on its own view (`trial_view`), with no page and no Ask AI.
         return None
     return found
 
@@ -887,6 +899,13 @@ async def reader_view(request: HttpRequest, kind: str, token: str):
     """The reader's page: a bar, and the shared page in a frame with Ask AI."""
     if request.method not in ("GET", "HEAD"):
         return HttpResponse(status=405, headers={"Allow": "GET, HEAD"})
+    if kind == "shared":
+        held = await _trial_held(request, token)
+        if held is not None:
+            await asyncio.to_thread(_opened, request, token)
+            return await trial_response(request, held[0], f"/shared/{token}", can_note=held[1],
+                                        home="/shared", said=_noted_said(request),
+                                        said_at=_number(request.GET.get("p")))
     reader = await _reader(request, kind, token)
     if reader is None and kind == "shared":
         reader = await _reader(request, kind, token, task=True)
@@ -925,6 +944,109 @@ async def reader_view(request: HttpRequest, kind: str, token: str):
     if kind == "p":
         response["X-Robots-Tag"] = "noindex, nofollow, noarchive"
     return response
+
+
+# --- a testing run, for a reader who is not its owner (`rouh/trialshare.py`) -----------------
+
+
+async def _trial_held(request, token: str) -> tuple[dict, bool] | None:
+    """The testing run a `/shared/<token>` names, for the person signed in, and whether they may
+    add notes to it: their level now, through the one permission (`task_access.level_of_share`).
+    None when it is not a testing run, or not theirs."""
+    if not request.user.is_authenticated:
+        return None
+
+    def find():
+        from rouh import share_ends, task_access
+
+        share_ends.before_open(token)
+        share = _store().find(token)
+        if share is None or not trialshare.is_trial(share["rel"]):
+            return None
+        if not sharing.Guests.belongs_to(share, request.user):
+            return None
+        return share, sharing.can_edit(task_access.level_of_share(share))
+    return await asyncio.to_thread(find)
+
+
+def _trial_public(token: str) -> dict | None:
+    """The testing run a public `/p/<token>` names, while it is public."""
+    found = _rt().shares.find(token)
+    return found if found is not None and trialshare.is_trial(found["rel"]) else None
+
+
+def _noted_said(request) -> str:
+    return {"1": "Your note was added. The owner sees it in that problem's discussion.",
+            "0": "Write something first: the note was empty."}.get(str(request.GET.get("noted") or ""), "")
+
+
+async def trial_response(request, share: dict, base: str, *, can_note: bool, home: str,
+                         said: str = "", said_at: int = 0) -> HttpResponse:
+    """A shared testing run, as it is now, for somebody it lets in."""
+    from . import views
+
+    owner = await asyncio.to_thread(views._owner_called, share["owner_id"])
+    csrf = get_token(request) if can_note else ""
+    try:
+        body = await asyncio.to_thread(trialshare.view, share, base, owner=owner,
+                                       can_note=can_note, home=home, csrf=csrf, said=said,
+                                       said_at=said_at)
+    except (pages.Refused, OSError):
+        return HttpResponse("This testing run is not there any more.", status=404,
+                            content_type="text/plain", headers=trialshare.HEADERS)
+    response = HttpResponse(body, content_type=pages.TYPES[".html"])
+    for name, value in trialshare.HEADERS.items():
+        response[name] = value
+    if base.startswith(sharing.ROUTE):
+        response["X-Robots-Tag"] = "noindex, nofollow, noarchive"
+    return response
+
+
+async def trial_shot(request: HttpRequest, kind: str, token: str, step: int):
+    """One step's screenshot of a shared testing run, to whoever the run lets in."""
+    from django.http import FileResponse
+
+    if request.method not in ("GET", "HEAD"):
+        return HttpResponse(status=405, headers={"Allow": "GET, HEAD"})
+    if kind == "p":
+        share = await asyncio.to_thread(_trial_public, token)
+    else:
+        held = await _trial_held(request, token)
+        share = held[0] if held else None
+    path = await asyncio.to_thread(trialshare.shot, share, step) if share else None
+    if path is None:
+        return _not_here(kind)
+    response = FileResponse(open(path, "rb"), content_type="image/jpeg")
+    for name, value in NO_STORE.items():
+        response[name] = value
+    response["X-Content-Type-Options"] = "nosniff"
+    return response
+
+
+@only("POST")
+async def trial_note(request: HttpRequest, token: str):
+    """A note added by a person a testing run is shared with to edit, on one of its problems,
+    from the plain form under it. Back to the run, at that problem, saying it was added."""
+    held = await _trial_held(request, token)
+    if held is None:
+        return _not_here("shared")
+    share, can_note = held
+    if not can_note:
+        return refuse("This testing run is shared with you to read.", 403)
+    try:
+        problem = int(str(request.POST.get("problem") or "")[:9])
+    except ValueError:
+        return refuse("That is not a problem of this testing run.", 400)
+    from rouh import trials
+
+    text = str(request.POST.get("text") or "")
+    if not text.strip():
+        return HttpResponseRedirect(f"/shared/{token}?noted=0&p={problem}#problem-{problem}", status=303)
+    try:
+        await asyncio.to_thread(trialshare.note, share, request.user.email, problem, text)
+    except (trials.Refused, pages.Refused) as exc:
+        return refuse(str(exc), 400)
+    return HttpResponseRedirect(f"/shared/{token}?noted=1&p={problem}#problem-{problem}", status=303)
 
 
 def _opened(request, token: str) -> None:
@@ -1155,5 +1277,15 @@ def routes(kind: str):
 
 SHARED = routes("shared")
 LINK = routes("p")
+
+
+async def shared_trial_shot(request: HttpRequest, token: str, step: int):
+    """GET /shared/<token>/shot/<step>: a testing run's screenshot, for a person it is shared with."""
+    return await trial_shot(request, "shared", token, step)
+
+
+async def link_trial_shot(request: HttpRequest, token: str, step: int):
+    """GET /p/<token>/shot/<step>: a testing run's screenshot, while its link is public."""
+    return await trial_shot(request, "p", token, step)
 
 __all__ = ["invite", "uninvite", "join", "shared_in", "shared_back", "shared_list", "not_shared_page", "SHARED", "LINK"]

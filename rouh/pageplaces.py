@@ -283,7 +283,8 @@ def _referenced() -> set[str]:
                 .values_list("rel", flat=True))
     # A shared task names its folder and not a page, and follows its own
     # moves (`rouh/taskshare.py`).
-    return {r for r in rels if r and not r.startswith("_task/")}
+    # A testing run is rows in the database and never moves (`rouh/trialshare.py`).
+    return {r for r in rels if r and not r.startswith(("_task/", "_trial/"))}
 
 
 def _names(rel: str) -> bool:

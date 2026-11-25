@@ -1487,7 +1487,10 @@ def _talk_context(who, p) -> tuple[str, str | None]:
                 shot = base64.b64encode(path.read_bytes()).decode("ascii")
     lines += ["", "The discussion so far:"]
     for n in d.get("thread") or []:
-        lines.append(f"{'‹owner›' if n['who'] == 'owner' else 'Rouh'}: {n['text']}")
+        reader = n["who"].startswith("guest:") and n["who"][len("guest:"):]
+        # A note from somebody the testing run is shared with (`rouh/trialshare.py`), in their own words.
+        lines.append(f"{'‹owner›' if n['who'] == 'owner' else ('A person it is shared with, ' + reader) if reader else 'Rouh'}: "
+                     f"{n['text']}")
     return "\n".join(lines), shot
 
 

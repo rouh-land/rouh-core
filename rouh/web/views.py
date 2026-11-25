@@ -1769,14 +1769,14 @@ async def option_action(root, me, org_id: str, doc: str, asked: dict,
 # the only address that answers a stranger, with exactly one page - the one
 # whose token was in the address - and only while that page is public.
 
-def _shareable(rel: str) -> tuple[str, str]:
+def _shareable(rel: str, me=None) -> tuple[str, str]:
     """The page `rel` names and its title, or Refused saying why not.
 
     The rule is `sharing.shareable`, one copy of it for this panel and for
     the assistant's own `publish_task`: a page, and exactly what `pages.py`
-    would serve a signed-in person.
+    would serve a signed-in person; or a task, or one of `me`'s testing runs.
     """
-    return sharing.shareable(config.assistant_repo, rel)
+    return sharing.shareable(config.assistant_repo, rel, me)
 
 
 def _inherited(me, rel: str) -> list[dict]:
@@ -1797,7 +1797,7 @@ def _share_state(me, rel: str, title: str = "") -> dict:
     the panel asks (`Shares.link`), because it is the same link either way:
     whether it is public, and who it is shared with, is only who it lets in.
     """
-    from rouh import mailer, taskshare
+    from rouh import mailer, taskshare, trialshare
 
     from . import guests as guests_web
 
@@ -1806,7 +1806,8 @@ def _share_state(me, rel: str, title: str = "") -> dict:
         "rel": rel,
         # A task or a subtask, which the panel says in its own words: its
         # link is read only, and a person may be given either (`rouh/taskshare.py`).
-        "kind": "task" if taskshare.is_task(rel) else "page",
+        "kind": ("task" if taskshare.is_task(rel) else
+                 "testing run" if trialshare.is_trial(rel) else "page"),
         "title": row.get("title") or title,
         "public": bool(row.get("public")),
         # The path and not the whole address. The browser puts `base` in front
@@ -1833,7 +1834,7 @@ async def _share_read(request: HttpRequest):
     if me is None:
         return refuse("Sign in to Rouh first.", 401)
     try:
-        rel, title = await asyncio.to_thread(_shareable, request.GET.get("rel", ""))
+        rel, title = await asyncio.to_thread(_shareable, request.GET.get("rel", ""), me)
     except (pages.Refused, OSError) as exc:
         return refuse(str(exc), 404)
     return answer(await asyncio.to_thread(_share_state, me, rel, title), headers=NO_STORE)
@@ -1854,7 +1855,7 @@ async def _share_set(request: HttpRequest):
     # it was.
     role = sharing.role_of(asked["role"]) if "role" in asked else None
     try:
-        rel, title = await asyncio.to_thread(_shareable, str(asked.get("rel") or ""))
+        rel, title = await asyncio.to_thread(_shareable, str(asked.get("rel") or ""), me)
     except (pages.Refused, OSError) as exc:
         return refuse(str(exc), 404)
     shares = _rt().shares
@@ -1930,7 +1931,7 @@ async def public_page(request: HttpRequest, token: str):
     - A share whose page has since gone is a 404 rather than a 500, and the
       row stays so the person can still see it in their list and take it down.
     """
-    from rouh import taskshare
+    from rouh import taskshare, trialshare
 
     found = await asyncio.to_thread(_rt().shares.opened, token)
     if found is None:
@@ -1940,6 +1941,9 @@ async def public_page(request: HttpRequest, token: str):
         me = await sync_to_async(who)(request)
         if me is not None and (str(me.user_id), str(me.org_id)) == (found["owner_id"],
                                                                     found["org_id"]):
+            if trialshare.is_trial(found["rel"]):
+                # A testing run's own page, in Evolution.
+                return HttpResponseRedirect(trialshare.address(trialshare.number_of(found["rel"])))
             # A task's link is its folder, and its address in Rouh is that
             # folder's under `/task/`, a subtask's included.
             mine = taskshare.folder_of(found["rel"]) or found["rel"]
@@ -1961,6 +1965,12 @@ async def public_page(request: HttpRequest, token: str):
         from . import guests
 
         return await asyncio.to_thread(guests.not_shared_page, request)
+    if trialshare.is_trial(found["rel"]):
+        # A testing run, read only, as it is now (`rouh/trialshare.py`).
+        from . import guests
+
+        return await guests.trial_response(request, found, sharing.ROUTE + found["token"],
+                                           can_note=False, home="")
     if taskshare.is_task(found["rel"]):
         return await _task_response(found, request.GET.get("at", ""),
                                     sharing.ROUTE + found["token"], PUBLIC_HEADERS)

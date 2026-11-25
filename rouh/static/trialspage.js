@@ -90,7 +90,7 @@
     return a;
   }
   var HOME = '/evolution/testing';
-  function call(path, body) {
+  function call(path, body, whole) {
     var init = { credentials: 'same-origin', cache: 'no-store' };
     // A read that never answers is said, never left as "Opening…" for ever (Vesela, trial 20). Rouh's
     // answer in a discussion and its draft of a tester take longer, and wait longer.
@@ -103,7 +103,7 @@
       init.headers = { 'Content-Type': 'application/json' };
       init.body = JSON.stringify(body);
     }
-    return fetch(API + path, init).then(function (r) {
+    return fetch(whole ? path : API + path, init).then(function (r) {
       clearTimeout(timer);
       if (r.status === 401) { location.href = '/login'; return null; }
       return r.json().catch(function () { return null; }).then(function (j) {
@@ -1394,9 +1394,13 @@
     }
     var t = d.trial, name = t.persona_name;
     moved((t.job_name || upper(t.subject)) + ', test run ' + t.number);
-    root.appendChild(crumbs(t.job ? [['Dashboard', HOME]].concat(t.request ? [['Job ' + t.request.number + ': ' + t.request.title, HOME + '/job/' + t.request.number]] : [])
+    var bar = el('div', 'tr-try-bar');
+    bar.appendChild(crumbs(t.job ? [['Dashboard', HOME]].concat(t.request ? [['Job ' + t.request.number + ': ' + t.request.title, HOME + '/job/' + t.request.number]] : [])
         .concat([['Journey: ' + t.job_name, HOME + (t.request ? '/job/' + t.request.number : '/journey/' + t.job)], ['Test run ' + t.number]])
       : [['Dashboard', HOME], ['Test run ' + t.number]]));
+    bar.appendChild(shareButton(t));
+    root.appendChild(bar);
+    if (S.share && S.share.n === t.number) { root.appendChild(sharePanel(t)); }
     var going = t.state === 'queued' || t.state === 'running';
     var walk = t.walk || [];
     var found = t.found || [];
@@ -1436,6 +1440,161 @@
     // Asking for another review is the start form's, on the dashboard (Petar, 22 November 2026, third round).
     if (!going && found.length) { root.appendChild(fixBar(t)); }
     setTimeout(markHere, 0);
+  }
+
+  /* ---- sharing a test run (`rouh/trialshare.py`), the way a task is shared ----
+     The person, 25 November 2026: "this report for a testing run I want someone to share and read and at a later
+     point control that". The app's own Share panel is on the canvas, under this layer, so the run has its own: the
+     same rows and the same routes (`/api/share`, `/api/share/invite`, `/api/share/uninvite`), the run named
+     `_trial/<n>`. A person given Can view reads the run as it is each time they open it; Can edit also lets them add
+     notes to its problems, which come into each problem's discussion here. */
+  var LEVEL = { view: 'Can view', edit: 'Can edit' };
+  function shareRel(t) { return '_trial/' + t.number; }
+  function shareButton(t) {
+    var open = !!(S.share && S.share.n === t.number);
+    var b = button('tr-btn tr-btn-s tr-outline tr-share-b', open ? 'Close sharing' : 'Share');
+    b.setAttribute('aria-expanded', open ? 'true' : 'false');
+    b.setAttribute('aria-controls', 'tr-share');
+    b.addEventListener('click', function () {
+      if (open) { S.share = null; draw(); return; }
+      S.share = { n: t.number, state: null, said: '', err: '', busy: '', email: '', role: 'view', notify: true };
+      draw();
+      call('/api/share?rel=' + encodeURIComponent(shareRel(t)), undefined, true).then(function (j) {
+        if (S.share && S.share.n === t.number) { S.share.state = j; draw(); focusShare(); }
+      }, function (e) { if (S.share) { S.share.err = String(e.message || e); draw(); } });
+    });
+    return b;
+  }
+  function focusShare() { setTimeout(function () { var f = document.getElementById('tr-share-email'); if (f) { f.focus(); } }, 0); }
+  function shareDo(t, path, body, said) {
+    var sh = S.share;
+    sh.busy = path; sh.err = ''; sh.said = ''; draw();
+    return call(path, body, true).then(function (j) {
+      if (S.share !== sh) { return; }
+      sh.busy = '';
+      // The invite and uninvite answer with the people; the link's switch with the whole state.
+      if (j.path !== undefined) { sh.state = j; }
+      else if (sh.state) { sh.state.people = j.people || sh.state.people; }
+      sh.said = (typeof said === 'function' ? said(j) : said) || '';
+      draw();
+    }, function (e) { if (S.share === sh) { sh.busy = ''; sh.err = String(e.message || e); draw(); } });
+  }
+  function sharePanel(t) {
+    var sh = S.share, st = sh.state;
+    var box = el('section', 'tr-panel tr-share');
+    box.id = 'tr-share';
+    box.setAttribute('aria-labelledby', 'tr-share-h');
+    var h = el('h2', 'tr-h2', 'Share test run ' + t.number);
+    h.id = 'tr-share-h';
+    box.appendChild(h);
+    box.appendChild(el('p', 'tr-dim', 'They see this run as it is each time they open it: its steps, screenshots and problems. ' +
+      'Your decisions and your talk with Rouh stay yours.'));
+    if (!st) {
+      box.appendChild(el('p', sh.err ? 'tr-err-words' : 'tr-loading', sh.err || 'Reading who has it…'));
+      return box;
+    }
+    // Add a person.
+    var f = el('form', 'tr-share-add');
+    var lab = el('label', 'tr-label', 'Share with a person, by email');
+    lab.htmlFor = 'tr-share-email';
+    f.appendChild(lab);
+    var row = el('div', 'tr-share-row');
+    var email = el('input', 'tr-input');
+    email.type = 'email'; email.id = 'tr-share-email'; email.autocomplete = 'email';
+    email.placeholder = 'name@example.com'; email.value = sh.email || ''; email.required = true;
+    email.addEventListener('input', function () { sh.email = email.value; });
+    row.appendChild(email);
+    var role = el('select', 'tr-input tr-share-role');
+    role.setAttribute('aria-label', 'What they can do');
+    ['view', 'edit'].forEach(function (k) { var o = el('option', '', LEVEL[k]); o.value = k; role.appendChild(o); });
+    role.value = sh.role || 'view';
+    role.addEventListener('change', function () { sh.role = role.value; });
+    row.appendChild(role);
+    var go = button('tr-btn tr-primary', sh.busy === '/api/share/invite' ? 'Sharing…' : 'Share');
+    go.type = 'submit'; go.disabled = !!sh.busy;
+    row.appendChild(go);
+    f.appendChild(row);
+    f.appendChild(el('p', 'tr-cap', 'Can view reads it. Can edit also adds notes to its problems, which you see in each problem’s discussion.'));
+    var mailless = st.can_mail === false;
+    var tick = el('label', 'tr-share-tick');
+    var cb = el('input');
+    cb.type = 'checkbox'; cb.checked = !mailless && sh.notify !== false; cb.disabled = mailless;
+    cb.addEventListener('change', function () { sh.notify = cb.checked; });
+    tick.appendChild(cb);
+    tick.appendChild(el('span', '', mailless ? 'No email can be sent from this Rouh, so tell them yourself' : 'Email them the link'));
+    f.appendChild(tick);
+    f.addEventListener('submit', function (e) {
+      e.preventDefault();
+      if (!email.value.trim()) { email.focus(); return; }
+      var to = email.value.trim();
+      shareDo(t, '/api/share/invite', { rel: shareRel(t), email: to, role: role.value, notify: cb.checked && !mailless },
+        function (j) { sh.email = ''; return j.said || ('Shared with ' + to + '.'); });
+    });
+    box.appendChild(f);
+    // What the last press did, right under the form, where a phone still shows it.
+    var status = el('p', sh.err ? 'tr-err-words' : 'tr-share-said', sh.err || sh.said || '');
+    status.setAttribute('role', 'status');
+    box.appendChild(status);
+    // Who has it.
+    var people = st.people || [];
+    box.appendChild(el('h3', 'tr-h3', people.length ? 'Who has it (' + people.length + ')' : 'Who has it'));
+    if (!people.length) {
+      box.appendChild(el('p', 'tr-dim', 'Only you. Nobody else has been given this run yet.'));
+    } else {
+      var list = el('ul', 'tr-share-people');
+      people.forEach(function (p) {
+        var li = el('li', 'tr-share-person');
+        var who = el('div', 'tr-share-who');
+        who.appendChild(el('span', 'tr-strong', p.email));
+        who.appendChild(el('span', 'tr-cap', p.opened ? 'Opened it ' + day(p.opened) : p.joined ? 'Has opened it' : 'Has not opened it yet'));
+        li.appendChild(who);
+        var lv = el('select', 'tr-input tr-share-role');
+        lv.setAttribute('aria-label', 'What ' + p.email + ' can do');
+        ['view', 'edit'].forEach(function (k) { var o = el('option', '', LEVEL[k]); o.value = k; lv.appendChild(o); });
+        lv.value = p.role === 'view' ? 'view' : 'edit';
+        lv.disabled = !!sh.busy;
+        lv.addEventListener('change', function () {
+          shareDo(t, '/api/share/invite', { rel: shareRel(t), email: p.email, role: lv.value, notify: false },
+            p.email + ' ' + (lv.value === 'edit' ? 'can now add notes to its problems.' : 'can now only read it.'));
+        });
+        li.appendChild(lv);
+        var rm = button('tr-btn tr-btn-s', 'Remove');
+        rm.setAttribute('aria-label', 'Stop sharing with ' + p.email);
+        rm.disabled = !!sh.busy;
+        rm.addEventListener('click', function () {
+          shareDo(t, '/api/share/uninvite', { rel: shareRel(t), token: p.token },
+            p.email + ' cannot open it any more. Their link stopped working just now.');
+        });
+        li.appendChild(rm);
+        list.appendChild(li);
+      });
+      box.appendChild(list);
+    }
+    // The one link.
+    box.appendChild(el('h3', 'tr-h3', 'Link'));
+    var linkRow = el('div', 'tr-share-row');
+    var pub = el('label', 'tr-share-tick');
+    var pcb = el('input');
+    pcb.type = 'checkbox'; pcb.checked = !!st.public; pcb.disabled = !!sh.busy;
+    pcb.addEventListener('change', function () {
+      shareDo(t, '/api/share', { rel: shareRel(t), public: pcb.checked },
+        pcb.checked ? 'Anyone with the link can read it now, without signing in.' :
+          'The link is not public any more: only you and the people above can open it.');
+    });
+    pub.appendChild(pcb);
+    pub.appendChild(el('span', '', 'Anyone with the link can read it, without signing in'));
+    linkRow.appendChild(pub);
+    var url = (st.base || location.origin) + (st.path || '');
+    var copy = button('tr-btn tr-btn-s', 'Copy link');
+    copy.addEventListener('click', function () {
+      var done = function () { sh.said = st.public ? 'Link copied. Anyone who has it can read the run.' :
+        'Link copied. It opens only for you and the people above, until you make it public.'; draw(); };
+      if (navigator.clipboard && navigator.clipboard.writeText) { navigator.clipboard.writeText(url).then(done, function () { sh.said = url; draw(); }); }
+      else { sh.said = url; draw(); }
+    });
+    linkRow.appendChild(copy);
+    box.appendChild(linkRow);
+    return box;
   }
 
   /* The strip marks the step being read, and on a phone keeps that step's button in sight. */
@@ -2663,11 +2822,13 @@
     box.appendChild(th);
     var list = el('ol', 'tr-msgs');
     (p.thread || []).forEach(function (n) {
-      var li = el('li', 'tr-msg tr-msg-' + (n.kind === 'verdict' ? 'verdict' : n.who));
+      // A note from somebody the test run is shared with to edit is under their address (`rouh/trialshare.py`).
+      var reader = String(n.who || '').indexOf('guest:') === 0 ? String(n.who).slice(6) : '';
+      var li = el('li', 'tr-msg tr-msg-' + (n.kind === 'verdict' ? 'verdict' : reader ? 'guest' : n.who));
       if (n.kind === 'verdict') {
         li.appendChild(el('span', '', n.text + ' · ' + day(n.at)));
       } else {
-        li.appendChild(el('div', 'tr-msg-who', (n.who === 'owner' ? 'You' : 'Rouh') + ' · ' + day(n.at)));
+        li.appendChild(el('div', 'tr-msg-who', (n.who === 'owner' ? 'You' : reader ? reader + ', who it is shared with' : 'Rouh') + ' · ' + day(n.at)));
         li.appendChild(prose(n.text));
       }
       list.appendChild(li);

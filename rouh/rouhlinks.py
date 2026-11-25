@@ -287,6 +287,10 @@ async def _route(tools, who, path: str, query: dict, fragment: str) -> Got | Non
     if found:
         return await _api(who, "/api/quests" + (f"/{found.group(2)}" if found.group(2) else ""),
                           "quest", title=f"quest {found.group(2)}" if found.group(2) else "quests")
+    # One testing run, Evolution's (`rouh/trialshare.py`), and the old address it had.
+    found = re.fullmatch(re.escape(addressing.EVOLUTION) + r"/(?:testing|trials)/(\d{1,9})/?", path)
+    if found:
+        return await _testing_run(tools, who, int(found.group(1)))
     if path.rstrip("/") == addressing.CONTROL:
         return await _api(who, "/api/control", "control", title="the Control Room")
     if path.rstrip("/") == addressing.BRIEF:
@@ -324,6 +328,34 @@ async def _route(tools, who, path: str, query: dict, fragment: str) -> Got | Non
         return Got(True, "This is Rouh's front page. It shows nothing by itself: nothing on it "
                          "names a chat, a task or a page.", title="the front page")
     return None
+
+
+async def _testing_run(tools, who, number: int) -> Got:
+    """One testing run as text, the speaker's own (`trials.one` is scoped to them), with who it
+    is shared with, as its page's Share panel says it."""
+    from . import trials, trialshare
+
+    def text():
+        try:
+            body = trialshare.as_text(who, number)
+        except trials.Refused:
+            return None
+        rel = trialshare.rel_of(number)
+        shares, guests = getattr(tools, "shares", None), getattr(tools, "guests", None)
+        lines = []
+        row = shares.state(who, rel) if shares is not None else None
+        lines.append("Its link is public, read only." if row else "It is not public.")
+        people = [p for p in (guests.everyone(who) if guests is not None else []) if p["rel"] == rel]
+        lines.append("Shared by email with: " + ", ".join(f"{p['email']} ({p['role']})" for p in people)
+                     if people else "It is not shared with anybody by email.")
+        return body + "\n\nSharing: " + " ".join(lines)
+
+    got = await asyncio.to_thread(text)
+    if got is None:
+        return Got(False, f"There is no testing run {number} for this person. Say so; do not guess "
+                          "what it holds.", title=f"no testing run {number}", kind="trial")
+    # The testers' words are generated text about Rouh's own screens, kept as data.
+    return Got(True, untrusted.wrap(got, SOURCE["data"]), title=f"testing run {number}", kind="trial")
 
 
 async def _tool(tools, name: str, args: dict, kind: str, source: str, *, title: str) -> Got:
