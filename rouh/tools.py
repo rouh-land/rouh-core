@@ -288,6 +288,25 @@ RUN_AGENT_PROPERTY = {
 }
 
 
+#: How a request goes to a job: at once, in the person's words, with no looking into it first. Petar, 25 November
+#: 2026: a wrong-chat bug report waited through about eight lookups (job_status, read_rouh_log) before the fix job
+#: started, though the job could have found the same itself; "you should be able to pass the job as requested by
+#: me to the claude code run and it should be able to do it entirely on its own. and that should be the default
+#: behavior." Until then these tools said "describe it fully, the worker cannot ask you anything", which read as
+#: "diagnose it first". Every start tool says this instead (`selfcheck/own.py`, `hand_over_at_once`).
+HAND_OVER = (
+    "Call it as soon as you know the work goes here. Pass on what the person asked for, in their own "
+    "words, with the context the conversation already holds (chat ids, task numbers, what they saw, "
+    "a file if they named one). The job investigates, finds the cause and does the work on its own, "
+    "with the code, the logs and the runs in front of it, so do not read logs, job states, code or "
+    "the workspace first to make the brief better: looking into it is the job's work.")
+#: What a start tool's brief field asks for.
+HAND_OVER_BRIEF = (
+    "What the person asked for, in their own words as far as possible, plus the context the "
+    "conversation already holds (chat ids, task numbers, what they saw). Not a diagnosis: "
+    "the job finds out the rest itself.")
+
+
 #: Who pays for Codex: the subscription unless the person asks for the API key.
 BILLING_PROPERTY = {
     "type": "string",
@@ -2821,7 +2840,7 @@ class ToolRegistry:
                 "Fix or change this server or Rouh itself, and nothing else: a "
                 "service, a setting, a fault or a log to dig through on this machine. "
                 "It starts a run of the one program, which works unattended to the end, "
-                "and returns at once with an id; say that you have started it. In the "
+                "and returns at once with an id; say that you have started it. " + HAND_OVER + " In the "
                 "containers that run has no sudo on this machine; it reaches the person's own "
                 "servers by ssh where they are set up for it, with whatever access "
                 "each one gives its key. For a change to Rouh's own code, improve_myself is the "
@@ -2839,8 +2858,7 @@ class ToolRegistry:
                         "agent": RUN_AGENT_PROPERTY,
                         "task": {
                             "type": "string",
-                            "description": "The full instruction for the worker. Be specific; "
-                            "it cannot ask you a follow-up question.",
+                            "description": HAND_OVER_BRIEF,
                         },
                         "title": {"type": "string", "description": "Four or five words for the card."},
                         "repo": {
@@ -3019,8 +3037,11 @@ class ToolRegistry:
             "read_rouh_log",
             "Read Rouh's own log - the core's, which run_command cannot see from the worker - by "
             "words, time range and level, with every password, token, Authorization header, "
-            "cookie and API key masked. Use it to find out why something failed: a connection "
-            "that stopped working, a sync, a job, an error the person saw. words: every one must "
+            "cookie and API key masked. Use it when the person asks why something failed and wants "
+            "the answer from you: a connection that stopped working, a sync, a job, an error they saw. "
+            "When it is going to be fixed or changed by a job (improve_myself, delegate_task, "
+            "assistant_job), do not read the log first: start the job, which reads it itself. "
+            "words: every one must "
             "be in the entry (case does not matter), e.g. 'icloud 401' or 'rouh.contacts'. "
             "since/until: '2h', '30m', '1d', or a time like 2026-11-19T14:00 on the person's "
             "clock. level: the lowest level wanted (INFO, WARNING, ERROR). logger: a logger's "
@@ -12223,7 +12244,7 @@ class ToolRegistry:
             "to the screen by itself, whether a page, changed files or only an "
             "answer, and you are told so you can say it, in the conversation it "
             "was asked in, General included. Say in one short "
-            "sentence that you have handed it over. Answer quick things "
+            "sentence that you have handed it over. " + HAND_OVER + " Answer quick things "
             "yourself when they take seconds and make or change nothing. "
             "Fixing this server or Rouh itself is delegate_task.",
             {
@@ -12232,11 +12253,7 @@ class ToolRegistry:
                     "model": RUN_MODEL_PROPERTY,
                     "request": {
                         "type": "string",
-                        "description": (
-                            "What the person asked for, as close to their own "
-                            "words as you can, plus everything they said that "
-                            "the job will need. The job cannot ask you anything."
-                        ),
+                        "description": HAND_OVER_BRIEF,
                     },
                     "title": {
                         "type": "string",
@@ -12331,8 +12348,7 @@ class ToolRegistry:
             "runs in containers). Do NOT "
             "call deploy_myself afterwards: a change that landed is already live or "
             "is already reported as not live, and outside General you are told "
-            "which and what was pushed. Describe the change fully, including "
-            "which file if you know it, because the worker cannot ask you anything.",
+            "which and what was pushed. " + HAND_OVER,
             {
                 "type": "object",
                 "properties": {
@@ -12340,7 +12356,7 @@ class ToolRegistry:
                     "agent": RUN_AGENT_PROPERTY,
                     "change": {
                         "type": "string",
-                        "description": "The whole change, in as much detail as you have.",
+                        "description": HAND_OVER_BRIEF,
                     },
                     "title": {"type": "string", "description": "Four or five words."},
                     "files": {
@@ -16354,13 +16370,12 @@ class ToolRegistry:
             "Start a run in the one program: Claude Code working in the person's workspace, "
             "under the program's rules on what it may do, which a terminal can take over. "
             "Only when the person asks for it there by name ('in one', 'as a run', 'in the "
-            "program'); otherwise work goes where it always does. Returns the run's id at once.",
+            "program'); otherwise work goes where it always does. Returns the run's id at once. "
+            + HAND_OVER,
             {
                 "type": "object",
                 "properties": {
-                    "brief": {"type": "string", "description": (
-                        "What the person asked for, in their own words as far as possible, with "
-                        "everything they said that the run will need. It cannot ask you anything.")},
+                    "brief": {"type": "string", "description": HAND_OVER_BRIEF},
                     "title": {"type": "string", "description": "Four or five words for the run."},
                     "agent": {"type": "string", "enum": ["claude", "codex"], "description": (
                         "Which agent does the work. Leave it out: it is Claude Code, unless "

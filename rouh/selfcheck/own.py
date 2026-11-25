@@ -878,3 +878,83 @@ def no_local_addresses_in_mail() -> None:
         for marker, needs in exits.items():
             if _re.search(r"[\"']" + _re.escape(marker), src):
                 expect(needs in src, f"{rel} sends mail ({marker}) without {needs}")
+
+
+@check("own", "work going to a job is handed over at once, not looked into first",
+       "every start tool (improve_myself, delegate_task, assistant_job, one_start) says to pass the person's "
+       "words on at once and leave the investigating to the job, none says the worker cannot ask so the brief "
+       "must be complete, read_rouh_log says not to read the log first when a job will fix it, and a chat turn "
+       "that can start a job is told the same by its rules, with only a lookup that decides where the work goes "
+       "allowed before it")
+def hand_over_at_once() -> None:
+    """Petar, 25 November 2026: a wrong-chat bug report waited through about eight lookups (job_status,
+    read_rouh_log) before the fix job started. "You should be able to pass the job as requested by me to the
+    claude code run and it should be able to do it entirely on its own. and that should be the default
+    behavior." The tools had said "describe the change fully, the worker cannot ask you anything", which
+    read as "diagnose it first" (`tools.HAND_OVER`)."""
+    import inspect
+    import re as _re
+
+    from rouh import prompting, reading, ruledefaults, rules, tools
+
+    reg = tools.ToolRegistry.__new__(tools.ToolRegistry)
+    reg._defs, reg._handlers, reg._meta = [], {}, {}
+    reg._declare_improve_myself()
+    reg._declare_assistant_job()
+    reg._one_tools()
+    reg._declare_run_command = lambda: None
+    defs = {d["name"]: d for d in reg._defs}
+    briefs = {"improve_myself": "change", "assistant_job": "request", "one_start": "brief"}
+    for name, field in briefs.items():
+        d = defs.get(name)
+        expect(d is not None, f"{name} was not declared")
+        expect(tools.HAND_OVER in d["description"], f"{name} does not say to hand the work over at once")
+        said = d["input_schema"]["properties"][field]["description"]
+        expect(said == tools.HAND_OVER_BRIEF, f"{name}'s {field} asks for more than the person's words: {said!r}")
+    build = inspect.getsource(tools.ToolRegistry._build)
+    at = build.index('"delegate_task",')
+    expect("HAND_OVER" in build[at:at + 2500] and "HAND_OVER_BRIEF" in build[at:at + 2500],
+           "delegate_task does not say to hand the work over at once")
+    source = inspect.getsource(tools)
+    for nudge in ("cannot ask you anything", "cannot ask you a follow-up", "Describe the change fully"):
+        expect(nudge not in source.replace(tools.__doc__ or "", "").split("HAND_OVER = (")[1],
+               f"a tool still says {nudge!r}, which reads as: diagnose it before handing it over")
+    log_at = source.index('"read_rouh_log",')
+    expect("do not read the log first: start the job" in " ".join(source[log_at:log_at + 1500].split()).replace('" "', ""),
+           "read_rouh_log still reads as the thing to do before a fix job")
+
+    # The rules a chat turn that can start a job is told, put together as the prompt is.
+    doc = ruledefaults.fallback()
+    placed = []
+    for i, r in enumerate(doc["rules"]):
+        if "chats" not in rules.reach(r) or not r.get("place"):
+            continue
+        placed.append({"id": f"r{i}", "key": r["key"], "title": r.get("title") or r["key"], "text": r["text"],
+                       "when": rules.when_of(r), "place": r["place"], "group": r.get("group") or "",
+                       "fills": "{" in r["text"], "on": True, "made_at": i})
+    every = reading._reads_of({**reading.DEFAULTS})
+    for have, must in ((frozenset({"assistant_job", "improve_myself", "delegate_task", "read_rouh_log",
+                                   "job_status", "run_command"}), "where-work-goes"),
+                       (frozenset({"improve_myself", "delegate_task", "read_rouh_log", "job_status"}),
+                        "no-workspace")):
+        situation = prompting.Situation(tools=have, provider="claude", flags=frozenset())
+        keys = {r["key"] for r in placed if rules.in_chat(r, situation)}
+        expect(must in keys, f"a turn with {sorted(have)} is not told {must}")
+        text = ""
+        for part in ("cached", "turn"):
+            got = prompting.Prompt(situation, part, {}, placed=[r for r in placed if r["place"].get("part", "cached")
+                                                               == part and rules.in_chat(r, situation)],
+                                   allow=lambda r: reading.rule_told(r, every))
+            said, _segs = got.finish(say=lambda t: t)
+            text += said
+        flat = " ".join(text.split())
+        expect(_re.search(r"hand (it|those) over at once", flat, _re.I),
+               f"a turn with {sorted(have)} is not told to hand work over at once")
+        expect("do not read logs, job states" in flat, f"a turn with {sorted(have)} is not told not to look first")
+        expect("cannot ask you" not in flat, f"a turn with {sorted(have)} is told the job cannot ask, so diagnose")
+    rule = next(r for r in doc["rules"] if r["key"] == "where-work-goes")
+    flat = " ".join(rule["text"].split())
+    expect("The only lookup allowed before handing over is one that decides where the work goes" in flat,
+           "where-work-goes does not keep the one lookup that decides where the work goes")
+    expect("before you say how a job stands, still look at it first" in flat,
+           "where-work-goes no longer keeps looking at a job before reporting on it")
