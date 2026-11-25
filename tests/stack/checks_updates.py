@@ -513,5 +513,44 @@ def updates_stuck(s: Stack) -> None:
         raise Failed(_DONE["stuck"])
 
 
-smoke.FINAL.update({"updates.press", "updates.ride", "updates.security-database-frontier", "updates.stuck"})
-smoke.LIMIT.update({"updates.press": 3600, "updates.ride": 2700, "updates.security-database-frontier": 5400})
+@check("updates.history-rewrite")
+def updates_rewrite(s: Stack) -> None:
+    """Shared main's history rewritten (task 98, step 98-26: a real name out of every public commit),
+    every released commit with a new id and the map published on history-map: the next update follows
+    it, rather than stopping at "not a continuation of shared main"."""
+    updates_sensitive(s)
+    r = s.run("standins", """set -e
+cd /tmp/rel
+git rev-list --reverse HEAD > /tmp/before
+FILTER_BRANCH_SQUELCH_WARNING=1 git -c user.name=Rouh -c user.email=rouh@localhost filter-branch -f \
+  --msg-filter 'sed "s/^Stack release/Stack Release/"' HEAD >/dev/null 2>&1
+git rev-list --reverse HEAD > /tmp/after
+(echo "old new"; paste -d' ' /tmp/before /tmp/after) > /tmp/commit-map
+git -C /tmp/git/rouh-core.git fetch -q /tmp/rel +HEAD:refs/heads/main
+rm -rf /tmp/map && git init -q -b history-map /tmp/map && cp /tmp/commit-map /tmp/map/commit-map
+git -C /tmp/map add commit-map && git -C /tmp/map -c user.name=Rouh -c user.email=rouh@localhost commit -qm "The map"
+git -C /tmp/git/rouh-core.git fetch -q /tmp/map +history-map:refs/heads/history-map
+cat /tmp/commit-map
+""", timeout=300)
+    expect(r.returncode == 0, f"shared main could not be rewritten: {(r.stderr or r.stdout)[-600:]}")
+    moved = {old: new for old, _, new in (line.partition(" ") for line in r.stdout.strip().splitlines()[1:]) if old != new}
+    expect(len(moved) >= 5, f"the rewrite gave too few commits new ids: {moved}")
+    r6 = _release(s, 6, "printf 'After the rewrite.\\n' > docs/stack-release-6.md")
+    _post_again(s, "/api/settings/updates/now", {})
+    _drive(s, "the update after the rewrite")
+    after = _until_updated(s, r6, 1800, "the update after the rewrite")
+    _healthy(s)
+    rows = {row["master"]: row for row in after["ledger"]["changes"]}
+    expect(not set(moved) & set(rows), f"the ledger still names old ids: {sorted(set(moved) & set(rows))}")
+    expect(set(moved.values()) & set(rows), f"the ledger does not name the new ids: {sorted(rows)}")
+    expect(rows.get(r6, {}).get("status") == "copied", f"the change after the rewrite was not copied: {rows.get(r6)}")
+    files = s.run("core", "cat /code/docs/stack-release-6.md").stdout
+    expect("After the rewrite" in files, f"the release after the rewrite is not in the code: {files}")
+    said = s.manage("from rouh import code_evolution as e\nprint(e.ledger().get('history_rewritten'))")
+    expect("'to'" in said, f"the ledger does not say it followed the rewrite: {said[-300:]}")
+
+
+smoke.FINAL.update({"updates.press", "updates.ride", "updates.security-database-frontier", "updates.stuck",
+                    "updates.history-rewrite"})
+smoke.LIMIT.update({"updates.press": 3600, "updates.ride": 2700, "updates.security-database-frontier": 5400,
+                    "updates.history-rewrite": 2700})
