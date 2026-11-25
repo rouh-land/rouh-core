@@ -9,6 +9,9 @@
     POST /api/rouh-land/account/confirm a Connected Rouh in no account asks rouh.land, again, to
                                         email the owner the link that confirms their email and makes
                                         their rouh.land account (step 176-16). An administrator's.
+    GET  /api/rouh-land/account/delete  what deleting the rouh.land account would remove, asked of
+                                        rouh.land; POST {email} deletes it, and this Rouh becomes
+                                        Independent (task 98, gap G22). An administrator's.
 
 Reading is anybody's signed in.
 """
@@ -56,3 +59,25 @@ async def confirm(request: HttpRequest):
     except birth.Refused as exc:
         return refuse(str(exc), 400)
     return answer(got, headers=NO_STORE)
+
+
+async def deletion(request: HttpRequest):
+    """GET what deleting the rouh.land account would remove, as rouh.land says it; POST
+    `{"email": ...}` deletes it, and this Rouh becomes Independent (task 98, gap G22). An
+    administrator's. POST answers what GET /api/rouh-land/account does, with `said`."""
+    me = await sync_to_async(who)(request)
+    if me is None:
+        return refuse("Sign in to Rouh first.", 401)
+    if request.method == "GET":
+        try:
+            return answer(await sync_to_async(birth.account_deletion)(me), headers=NO_STORE)
+        except birth.Refused as exc:
+            return refuse(str(exc), 400)
+    if request.method != "POST":
+        return HttpResponseNotAllowed(["GET", "POST"])
+    try:
+        got = await sync_to_async(birth.delete_land_account)(me, str(body_of(request).get("email") or ""))
+    except birth.Refused as exc:
+        return refuse(str(exc), 400)
+    page = await sync_to_async(landaccount.page)(me)
+    return answer({**page, "said": got.get("said", "")}, headers=NO_STORE)

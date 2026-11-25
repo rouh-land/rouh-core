@@ -1,2 +1,5 @@
 /* You, Your account, the rouh.land account card (`landaccountpage.js`): its look is Your Rouh's,
    in birthpage.css (`.yr-*`), since both are step 141-17's one design. */
+
+/* Your data, then the rouh.land account (task 98, G22): two cards, the page's own gap between them. */
+#landAccountBody { display: grid; gap: 12px; }

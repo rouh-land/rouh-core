@@ -24,6 +24,7 @@ from django.urls import path, re_path
 from rouh import addressing, askai, filelinks, genes, onebridge, pages, picturelinks, sharing
 from rouh.web import agent_instructions as agent_instructions_web
 from rouh.web import link as link_web
+from rouh.web import your_data as your_data_web
 from rouh.web import anatomy as anatomy_web
 from rouh.web import lean as lean_web
 from rouh.web import gates as gates_web
@@ -427,6 +428,9 @@ urlpatterns = [
     path("api/rouh-land/account", landaccount_web.page),
     path("api/rouh-land/account/check", landaccount_web.check),
     path("api/rouh-land/account/confirm", landaccount_web.confirm),
+    path("api/rouh-land/account/delete", landaccount_web.deletion),
+    # Your data in plain formats, one zip (`rouh/web/your_data.py`, task 98, gap G22).
+    path("api/your-data/export", your_data_web.export),
     # Signing in, from the signed-in side (`rouh/web/signin.py`): Anatomy, You, Account.
     path("api/sign-in/me", signin_web.me_state),
     path("api/sign-in/email", signin_web.change_email),

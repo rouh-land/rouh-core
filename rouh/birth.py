@@ -424,6 +424,16 @@ def disconnected(row) -> float | None:
     return None
 
 
+def account_deleted(row) -> bool:
+    """Whether this Rouh is disconnected because its rouh.land account was deleted from here (G22)."""
+    if disconnected(row) is None:
+        return False
+    for h in reversed(row.history or []):
+        if h.get("what") == "disconnected":
+            return "was deleted from here" in str(h.get("said") or "")
+    return False
+
+
 def _owner_of(org: str) -> dict:
     """Who owns this Rouh: its organisation's first administrator, as their name says it (7 November
     2026, 141-17: "Owner, shown apart, never part of its name, never sent"). Only ever shown to the
@@ -497,6 +507,7 @@ def page(who) -> dict:
         "connected_words": _when(row.connected_at, who), "checked_words": _when(row.checked_at, who),
         "key_dead_words": _when(row.key_dead_at, who) if row.key_dead_at else "",
         "disconnected_words": _when(disconnected(row), who) if disconnected(row) is not None else "",
+        "account_deleted": account_deleted(row),
         "pending": ({"request": p.get("request", ""), "due_words": _when(p.get("due_at"), who),
                      "said": p.get("said", "")} if p.get("public") else None),
         "warnings": list((row.card or {}).get("warnings") or []) if isinstance(row.card, dict) else [],
@@ -947,6 +958,55 @@ def disconnect(who) -> dict:
     return {"ok": True, "said": f"{row.name} is not connected to rouh.land now. Gene Pool sharing has stopped. "
                                 f"You still sign in here with {email or 'your email'}, and your rouh.land account "
                                 "stays until you delete it there."}
+
+
+def account_deletion(who) -> dict:
+    """What deleting this Rouh's rouh.land account would remove, as rouh.land says it in its signed
+    answer (task 98, gap G22): the account's email, its Rouhs, its passkeys, the genes shared, and
+    whether it may be deleted from here at all (an administrator's account may not). Asked of
+    rouh.land each time, so the page says what is really there."""
+    _admin(who)
+    row = current(str(who.org_id))
+    if row is None or not row.registry_id or not in_account(row):
+        raise Refused("This Rouh is not in a rouh.land account.")
+    got = _call(row.registry_url, row.registry_key, "GET", "api/account/delete", None, seed=_seed_of(row),
+                public=row.daily_public, rouh_id=row.registry_id)
+    rouhs = [str(n)[:80] for n in (got.get("rouhs") or []) if isinstance(n, str)][:50]
+    return {"email": _cut(got.get("email") or "", 254), "rouhs": rouhs, "others": [n for n in rouhs if n != row.name],
+            "passkeys": int(got.get("passkeys") or 0), "shared": int(got.get("shared") or 0),
+            "admin": bool(got.get("admin")), "rouh_name": row.name}
+
+
+def delete_land_account(who, email: str) -> dict:
+    """Delete this Rouh's rouh.land account, and what rouh.land holds for it, then be Independent
+    (task 98, gap G22). The account's email, typed back by the page from what it showed, is sent so
+    rouh.land deletes only the account the person saw. This Rouh keeps its name, its keys and
+    everything on this machine; its owner keeps signing in here with the email they have."""
+    _admin(who)
+    org = str(who.org_id)
+    row = current(org)
+    if row is None or not row.registry_id or not in_account(row):
+        raise Refused("This Rouh is not in a rouh.land account.")
+    email = str(email or "").strip().lower()[:254]
+    if "@" not in email:
+        raise Refused("Say which account: its email is missing.")
+    got = _call(row.registry_url, row.registry_key, "POST", "api/account/delete", {"email": email},
+                seed=_seed_of(row), public=row.daily_public, rouh_id=row.registry_id)
+    if not got.get("deleted"):
+        raise Refused("rouh.land did not say the account was deleted.")
+    now = _now()
+    payload = (row.card or {}).get("payload") if isinstance(row.card, dict) else {}
+    payload = {k: v for k, v in (payload or {}).items() if k != "account"}
+    _m().RouhBirth.objects.filter(id=row.id).update(registry_id="", connected_at=None, error="",
+                                                    card={"payload": payload}, updated_at=now)
+    _m().PoolMembership.objects.filter(org_id=org, status="member").update(status="left", updated_at=now)
+    from . import signin
+
+    mine = signin.primary(_m().User.objects.filter(pk=who.user_id).first())
+    _event(row, "disconnected", f"Your rouh.land account, {email}, was deleted from here. {row.name} is "
+                                f"{INDEPENDENT} now: Gene Pool sharing stopped, and it keeps its name and keys.")
+    return {"ok": True, "said": f"Your rouh.land account, {email}, is deleted. {row.name} is an {INDEPENDENT} now "
+                                f"and keeps working here. You still sign in here with {mine or 'your email'}."}
 
 
 # --- a new key -------------------------------------------------------------------------------------

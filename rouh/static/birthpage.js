@@ -445,7 +445,8 @@
     } else if (k === 'stopped') {
       b('Stopped by rouh.land'); t((r.key_dead_words ? ' ' + r.key_dead_words : '') + '. It still works here.');
     } else if (k === 'disconnected') {
-      b('Disconnected'); t((r.disconnected_words ? ' ' + r.disconnected_words : '') + '. Your rouh.land account is still there.');
+      b('Disconnected'); t((r.disconnected_words ? ' ' + r.disconnected_words : '') + (r.account_deleted
+        ? '. Your rouh.land account was deleted; connecting again makes a new one.' : '. Your rouh.land account is still there.'));
     }
     s.appendChild(lede);
 

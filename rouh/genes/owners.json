@@ -2054,6 +2054,14 @@
     "rouh/comments_in_docs.py"
    ]
   },
+  "your-data": {
+   "name": "Your data, in plain formats",
+   "what": "The owner's data downloaded from You, Your account as one zip in formats other programs open without Rouh: chats as Markdown and JSON, contacts as vCards and CSV, tasks as CSV and JSON with the workspace's documents, the file store's files as they are, and settings as JSON, never a password, key or token (task 98, gap G22).",
+   "files": [
+    "rouh/data_export.py",
+    "rouh/web/your_data.py"
+   ]
+  },
   "moving-in": {
    "name": "Moving a Rouh in",
    "what": "An existing Rouh, on a server or in another stack, exported as one bundle (its database, its encryption and Django keys, its data directory and workspace) and brought into a fresh stack before its first start, every saved login still opening.",
