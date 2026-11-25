@@ -584,6 +584,14 @@ def _limited(queryset, limit):
     return queryset if limit < 0 else queryset[:limit]
 
 
+def _limited_none(limit) -> bool:
+    """Whether a `_limited` limit is no limit at all: every message, which is how a chat but General is sent."""
+    try:
+        return int(limit) < 0
+    except (TypeError, ValueError):
+        return False
+
+
 def _room(limit, used: int):
     """What is left of a `_limited` limit once `used` rows have been taken.
 
@@ -1757,10 +1765,11 @@ class Memory:
     def history(self, session_id: str, limit: int = 40,
                 before: int | None = None, *,
                 limit_of: Callable[[str], int] | None = None,
-                lean: bool = True, files=None, turn: bool = False) -> list[dict]:
+                lean: bool = True, files=None, turn: bool = False, window: bool = False) -> list[dict]:
         """The last `limit` messages, oldest first, in Anthropic message shape.
 
-        `turn` is a chat's turn asking (`brain`, `luna`, `compat`), which obeys the history row's switch in the
+        `window` sends it from where its window starts with its summary, as a turn does (`chat_window`), for
+        the panel that sizes it. `turn` is a chat's turn asking (`brain`, `luna`, `compat`), which obeys the history row's switch in the
         strip's panel (`reading.history_on`; Petar, 25 November 2026): off, the chat's own earlier messages are
         left out and only the parent chats a fork carries, each by its own switch, are sent.
 
@@ -1812,19 +1821,41 @@ class Memory:
         2026 (`context_editing.lean`); `files` is the attachment store, which
         names where a file is saved in its line. With it, every finished case's entry
         (somebody else's message and Rouh's whole working record of it) is sent as one
-        line with a link to the case, since 25 November 2026 (`case_lines.shorten`).
+        line with a link to the case, since 25 November 2026 (`case_lines.shorten`), and every long tool
+        call before this turn shortened (`context_editing.short_calls`). A chat sent whole (`limit` below
+        zero) on "Chat history: summary" is sent from where its window starts, with its running summary
+        in front (`rouh/chat_window.py`).
         """
-        msgs = self._window(session_id, limit, before=before, limit_of=limit_of)
+        # A chat set to "Chat history: summary" (the default; `rouh/chat_window.py`) is sent from where its
+        # window starts, with its running summary in front: a turn's asking only, as the panel's switch is.
+        # Never for an exchange answered again from in front of the window: that is asked whole, from where
+        # it was asked.
+        win = None
+        on = True
         if turn:
             from . import reading
 
-            if not reading.history_on(session_id):
-                own = self._window(session_id, limit, before=before, depth=forks.DEEP)
-                msgs = msgs[:max(0, len(msgs) - len(own))]
+            on = reading.history_on(session_id)
+        if (turn or window) and on and lean and _limited_none(limit):
+            from . import chat_window
+
+            win = chat_window.now(session_id)
+            if win is not None and before is not None and before <= win.since:
+                win = None
+        msgs = self._window(session_id, limit, before=before, limit_of=limit_of,
+                            since=win.since if win else None)
+        if not on:
+            own = self._window(session_id, limit, before=before, depth=forks.DEEP)
+            msgs = msgs[:max(0, len(msgs) - len(own))]
         msgs = repair_history(msgs)
         if lean:
             msgs, _did = context_editing.lean(msgs, store=files)
             msgs, _cases = case_lines.shorten(msgs)
+            msgs, _calls = context_editing.short_calls(msgs)
+        if win is not None:
+            from . import chat_window
+
+            msgs = chat_window.with_summary(msgs, win.text)
         return msgs
 
     def carried_sent(self, session_id: str, limit: int, *,
@@ -1842,13 +1873,14 @@ class Memory:
             return []
         sent, _did = context_editing.lean(repair_history(whole), store=files)
         carried, _cases = case_lines.shorten(sent[:max(0, len(sent) - len(own))])
+        carried, _calls = context_editing.short_calls(carried)
         return carried
 
     def _window(self, session_id: str, limit, *, before: int | None = None,
                 upto: int | None = None, depth: int = 0,
                 limit_of: Callable[[str], int] | None = None,
                 carry: bool = False, off: frozenset | set | None = None,
-                mute: bool = False) -> list[dict]:
+                mute: bool = False, since: int | None = None) -> list[dict]:
         """`history` before it is repaired: this chat's turns, and what it carries.
 
         `upto` is a message of this chat, and cuts it off after the exchange
@@ -1873,6 +1905,9 @@ class Memory:
                      .annotate(exchange=_exchange()))
                 if before is not None:
                     q = q.filter(exchange__lt=before)
+                if since:
+                    # Where this chat's window starts (`chat_window`): only ever this chat's own rows.
+                    q = q.filter(exchange__gte=since)
                 q = _on_stage(q, session_id)
                 if upto is not None:
                     edge = (TranscriptMessage.objects.filter(id=upto).annotate(ex=_exchange())

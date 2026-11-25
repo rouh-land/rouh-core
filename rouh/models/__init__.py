@@ -27,7 +27,7 @@ from .prompt_parts import PromptPart
 from .llmlog import LLMCallMakeup, LLMPiece, LLMRequest
 from .memory import (AppState, ChatFolder, Event, Fact, LegacySession, OpenTurn,
                      RecallTimeline, RouteTimeline, ScreenCard, Spend, ToolLine, TranscriptMessage, TurnRecord)
-from .objects import (Artifact, ArtifactVersion, Chat, ChatFork, ChatMessage, ContentFile,
+from .objects import (Artifact, ArtifactVersion, Chat, ChatFork, ChatMessage, ChatSummary, ContentFile,
                       Link, ObjectRow, Project, Run, SubtaskNote, Task, TaskAnswer, TaskChange,
                       TaskToken, TelegramFork,
                       TelegramReply, UploadedFile)
@@ -87,7 +87,7 @@ __all__ = [
     "LLMCallMakeup", "LLMPiece", "LLMRequest",
     "AppState", "ChatFolder", "Event", "Fact", "LegacySession", "OpenTurn", "RecallTimeline", "RouteTimeline", "ScreenCard",
     "Spend", "ToolLine", "TranscriptMessage", "TurnRecord",
-    "Artifact", "ArtifactVersion", "Chat", "ChatFork", "ChatMessage", "ContentFile", "Link",
+    "Artifact", "ArtifactVersion", "Chat", "ChatFork", "ChatMessage", "ChatSummary", "ContentFile", "Link",
     "ObjectRow", "Project", "Run", "SubtaskNote", "Task", "TaskAnswer", "TaskChange", "TaskToken",
     "TelegramFork", "TelegramReply",
     "UploadedFile",

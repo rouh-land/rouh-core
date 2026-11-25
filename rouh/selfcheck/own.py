@@ -1009,3 +1009,48 @@ def tools_have_short_lines() -> None:
     missing = sorted({t.name for t in entries} - named)
     expect(not missing, f"tools missing from the catalogue: {missing[:5]}")
     expect(toolsearch.shorten(first).count("incubator_") >= 8, "the names-only list lost a family's names")
+
+
+@check("own", "an old chat is sent as its newest messages and a summary, and old tool calls short",
+       "25 November 2026 (task 182): every chat but General was sent whole on every message, old tool "
+       "calls and all. Now a chat's window keeps its newest turns and anything still open, and the turn's "
+       "own context carries a cache mark.")
+def chat_window_and_short_calls() -> None:
+    """Petar, 25 November 2026: "let's do 1,2,3 with one modification in 1" - a window plus a summary
+    (`chat_window`), old tool calls shortened as old results are (`context_editing.short_calls`), and more of
+    each call read from the cache (`promptcache.marked`). Holds the parts that need no database."""
+    from rouh import context_editing, promptcache
+    from rouh.chat_window import KEEP_TOKENS, KEEP_TURNS, Exchange, cut, with_summary
+
+    long = {"type": "tool_use", "id": "toolu_A", "name": "case_report",
+            "input": {"outcome": "done", "summary": "a" * 3000}}
+    history = [{"role": "user", "content": "hi"}, {"role": "assistant", "content": [long]},
+               {"role": "user", "content": [{"type": "tool_result", "tool_use_id": "toolu_A", "content": "ok"}]}]
+    sent, did = context_editing.short_calls(history)
+    args = sent[1]["content"][0]["input"]
+    expect(did["calls"] == 1 and args["outcome"] == "done", "a long old call was not shortened")
+    expect(context_editing.CALL_MARK in args["summary"] and "call:toolu_A" in args["_kept_out"],
+           "a shortened call does not say how to read it whole")
+    expect(history[1]["content"][0]["input"]["summary"] == "a" * 3000, "the stored call was changed")
+    again, _ = context_editing.short_calls(sent)
+    expect(again[1]["content"][0] == sent[1]["content"][0], "a shortened call is not the same every time")
+
+    def ex(i, tokens, opened=False):
+        return Exchange(id=i, messages=[{"role": "user", "content": "q"}], tokens=tokens, open=opened)
+
+    chat = [ex(i * 10, 3000) for i in range(1, 31)]
+    at = cut(chat, 0)
+    kept = [e for e in chat if e.id >= at]
+    expect(sum(e.tokens for e in kept) >= KEEP_TOKENS and len(kept) >= KEEP_TURNS,
+           "the window keeps less than its newest turns")
+    expect(cut([ex(e.id, e.tokens, opened=e.id == 50) for e in chat], 0) == 50,
+           "something still open was put in the summary")
+    expect(cut(chat, 250) == 250, "the window moved backwards")
+    first = with_summary([{"role": "user", "content": "hello"}], "S")[0]["content"]
+    expect(first[0]["text"].endswith("S]") and first[1]["text"] == "hello", "the summary is not in front")
+
+    msgs = [{"role": "user", "content": "a"}, {"role": "assistant", "content": "b"},
+            {"role": "user", "content": "c"}, {"role": "system", "content": "this turn's context"}]
+    marked = promptcache.marked(msgs, anchor=2, earlier=0, held=promptcache.LONG)
+    expect(isinstance(marked[3]["content"], list) and marked[3]["content"][-1].get("cache_control"),
+           "the turn's own context is not marked for the cache on the first request")

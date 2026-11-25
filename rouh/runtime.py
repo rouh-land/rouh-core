@@ -1507,6 +1507,29 @@ converter = triage.Converter(
     enabled=False,
 )
 
+class ChatWindowSweep:
+    """Every ten minutes, the chats gone quiet have their windows moved and their summaries brought up to
+    date (`rouh/chat_window.py`, task 182): only a chat quiet longer than the prompt cache keeps it, and
+    never in front of a reply."""
+
+    task: asyncio.Task | None = None
+
+    @classmethod
+    def start(cls) -> None:
+        from . import chat_window
+
+        if cls.task is None or cls.task.done():
+            cls.task = asyncio.create_task(chat_window.sweeping(files))
+
+    @classmethod
+    async def stop(cls) -> None:
+        if cls.task is not None:
+            cls.task.cancel()
+            with contextlib.suppress(asyncio.CancelledError, Exception):
+                await cls.task
+            cls.task = None
+
+
 class GeneTherapySweep:
     """The converter's beat, as something that can be stopped.
 
@@ -8110,6 +8133,8 @@ async def startup() -> None:
     # work that is finished is the bug this beat now also exists to stop
     # (`triage.settle`).
     GeneTherapySweep.start()
+    # A quiet chat's window moved and its summary written, never in front of a reply (`rouh/chat_window.py`).
+    ChatWindowSweep.start()
     # Reminders, repeating jobs and goal steps set for a time: a row that fell due while
     # this process was down is said a few seconds from now, late and saying
     # so, and every other one at its time (`rouh/reminders.py`). Each on its
@@ -8625,6 +8650,7 @@ async def shutdown() -> None:
     await TreeFeed.stop()
     await ConflictFeed.stop()
     await GeneTherapySweep.stop()
+    await ChatWindowSweep.stop()
     await timekeeper.stop()
     await pulse.stop()
     await desk.stop()

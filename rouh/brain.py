@@ -1555,10 +1555,14 @@ class Brain:
         earlier = _turn_before(messages, anchor)
         held = await asyncio.to_thread(_cache_hold, session_id)
         system_messages = True
+        # The turn's own context is marked on the first request, so the second reads it back
+        # (`promptcache.marked`); once without, if the API refuses a mark on a system message.
+        mark_context = True
 
         def on_wire(window: list, to: str) -> list:
             return promptcache.marked(_context_on_wire(window, to, system_messages), anchor,
-                                      earlier if held is promptcache.LONG else None, held=held)
+                                      earlier if held is promptcache.LONG else None, held=held,
+                                      context=mark_context)
 
         restarts = 0
         stopped = False
@@ -1928,6 +1932,14 @@ class Brain:
                         request["messages"] = on_wire(messages, asked)
                         log.warning("%s: its thinking was bound to an earlier window; "
                                     "asking again without it", asked)
+                        continue
+                    if (mark_context and system_messages and takes_system_messages(asked)
+                            and retrying.is_cache_mark_refused(exc)):
+                        # A mark on the turn's context, a system message, refused: it goes unmarked, as
+                        # before 25 November 2026, for the rest of the turn.
+                        mark_context = False
+                        request["messages"] = on_wire(messages, asked)
+                        log.warning("%s: %s; the turn's context goes unmarked", asked, exc)
                         continue
                     if system_messages and retrying.is_system_message_refused(exc):
                         # This model takes no system message inside `messages` after all: the

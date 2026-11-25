@@ -5,7 +5,8 @@ make it not include stuff that is pointless in including. maybe tool calls but t
 fetched by ai if it decides it needs to". So since that day, in every chat (General, a fork with what it
 carries of its parent, a task's chat and a step's), what goes to the model of an earlier turn is:
 
-- every tool call whole, its name and its arguments, so the model knows what it did;
+- every tool call with its name and its arguments, so the model knows what it did, and since 25 November
+  2026 a long one shortened, each long argument cut to its first words (`short_calls`, task 182);
 - every tool result of 400 characters or more as a stub (`stub`): the tool's name, a line of what was there
   (its size, and its first line when it is Rouh's own words), and the id to get it back with, the
   `tool_use_id` of the call. The stub IS the tool_result, so every tool_use still has its tool_result and
@@ -266,6 +267,87 @@ def lean(history: list, *, store=None, min_body: int = MIN_BODY) -> tuple[list, 
                 did["files"] += 1
             fresh.append(block)
         out.append(dict(message, content=fresh))
+    return out, did
+
+
+#: An earlier tool call whose arguments come to this many characters or more is sent shortened (`short_calls`).
+CALL_MOST = 600
+#: What of each long argument is kept, in characters.
+CALL_KEEP = 160
+#: The id a whole earlier call is recalled by: this, then the call's own id.
+CALL_ID = "call:"
+#: The words every shortened argument has, and only those: how a call already shortened is known.
+CALL_MARK = "of this argument kept out of the context"
+
+
+def _short_value(value, keep: int):
+    """One argument of a call, shortened: a long string cut, a long list or object as its JSON cut. Returns
+    it and whether anything was cut."""
+    if isinstance(value, str):
+        if len(value) <= keep + 80 or CALL_MARK in value:
+            return value, False
+        return value[:keep].rstrip() + f" [... {len(value) - keep:,} more characters {CALL_MARK}]", True
+    if isinstance(value, (dict, list)):
+        try:
+            raw = json.dumps(value, ensure_ascii=False)
+        except (TypeError, ValueError):
+            return value, False
+        if len(raw) <= keep + 80:
+            return value, False
+        return raw[:keep].rstrip() + f" [... {len(raw) - keep:,} more characters {CALL_MARK}]", True
+    return value, False
+
+
+def short_call(block: dict) -> tuple[dict, int]:
+    """An earlier tool call as it is sent: its name and id whole, each long argument cut to its first words
+    and the call's id to get it back whole with (`recall_result`, "call:<id>"). The same for the same stored
+    call, always, so the prompt cache reads it back. Returns it and the characters that saved."""
+    args = block.get("input")
+    if not isinstance(args, dict):
+        return block, 0
+    try:
+        size = len(json.dumps(args, ensure_ascii=False))
+    except (TypeError, ValueError):
+        return block, 0
+    if size < CALL_MOST:
+        return block, 0
+    fresh, cut = {}, False
+    for key, value in args.items():
+        fresh[key], one = _short_value(value, CALL_KEEP)
+        cut = cut or one
+    if not cut:
+        return block, 0
+    fresh["_kept_out"] = (f"This earlier call is shortened to save room. Call {RECALL} with id "
+                          f'"{CALL_ID}{block.get("id") or ""}" to read it whole.')
+    out = dict(block)
+    out["input"] = fresh
+    return out, max(0, size - len(json.dumps(fresh, ensure_ascii=False)))
+
+
+def short_calls(history: list) -> tuple[list, dict]:
+    """The earlier turns with every long tool call shortened (`short_call`), the way their results are stubs
+    (`lean`): Petar, 25 November 2026 (task 182), of a case chat whose 121 old calls - case reports and job
+    briefs from October - were 83,200 tokens of every message. Only Rouh's own calls, stored as dictionaries;
+    a call of Anthropic's own (a web search) is short and goes as it is. The caller's list and its messages
+    are never changed: they are the database's."""
+    out: list = []
+    did = {"calls": 0, "characters": 0}
+    for message in history:
+        blocks = _blocks_of(message)
+        if blocks is None or message.get("role") != "assistant":
+            out.append(message)
+            continue
+        fresh, changed = [], False
+        for block in blocks:
+            if isinstance(block, dict) and block.get("type") == "tool_use":
+                short, freed = short_call(block)
+                if short is not block:
+                    changed = True
+                    did["calls"] += 1
+                    did["characters"] += freed
+                block = short
+            fresh.append(block)
+        out.append(dict(message, content=fresh) if changed else message)
     return out, did
 
 

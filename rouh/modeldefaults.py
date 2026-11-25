@@ -288,6 +288,11 @@ USES: tuple[Use, ...] = (
     Use("general_summary", "Chats", "General's running summary",
         "Folds what fell out of General's window of newest messages into one running summary, told in every "
         "General turn.", purposes=("general_summary",)),
+    # Petar, 25 November 2026 (task 182, step 182-21): every other chat sent as its newest messages and a running
+    # summary of the rest, chosen in the strip's panel (`rouh/chat_window.py`).
+    Use("chat_summary", "Chats", "Chats' running summaries",
+        "Folds a chat's older messages into one running summary, sent in front of its newest ones, once the "
+        "chat has been quiet for an hour.", purposes=("chat_summary",)),
     Use("chat_title", "Chats", "Chat titles",
         "Names a chat from its first exchange, in an emoji and a few words.",
         purposes=("chat_title",)),

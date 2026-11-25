@@ -63,6 +63,7 @@ says in plain words what the chat is about.
 from __future__ import annotations
 
 import html
+import json
 import logging
 import re
 from dataclasses import dataclass, field
@@ -78,7 +79,7 @@ log = logging.getLogger("rouh.reading")
 DEFAULTS = {"mode": "full", "memory": True, "rules": True, "rouh_tools": True, "llm_tools": True, "off": [],
             "task": True, "others": False, "subtasks": "none", "picked": [], "steps_what": "all",
             "step_histories": False, "parent_task": True, "parent_task_history": False, "fork_history": True,
-            "parents": {}, "history": True}
+            "parents": {}, "history": True, "history_form": "summary"}
 #: The three modes, as the selector at the top of Chat Options names them.
 MODES = ("full", "simple", "custom")
 MODE_NAMES = {"simple": "Simple chat", "full": "Full Rouh Capabilities", "custom": "Custom"}
@@ -99,7 +100,10 @@ SWITCH_KEYS = ("memory", "rules", "rouh_tools", "llm_tools", "off")
 TOOL_KEYS = ("rouh_tools", "llm_tools")
 #: What the chat is about: set in the strip's panel, never by a mode, kept with the chat.
 CONTENT_KEYS = ("task", "others", "subtasks", "picked", "steps_what", "step_histories", "parent_task",
-                "parent_task_history", "fork_history", "parents", "history")
+                "parent_task_history", "fork_history", "parents", "history", "history_form")
+#: How the chat's own history is sent when it is on (`rouh/chat_window.py`, Petar, 25 November 2026): its
+#: newest messages whole and a running summary of the rest, the default for every chat, or every message.
+HISTORY_FORMS = ("summary", "full")
 SUBTASKS = ("none", "all", "some")
 #: Of each subtask that is read: everything, its notes (.md) only, or its pages (.html) only.
 STEPS_WHAT = ("all", "md", "html")
@@ -168,6 +172,8 @@ def settings(chat_id: str, who=None) -> dict:
         got["subtasks"] = "none"
     if got["steps_what"] not in STEPS_WHAT:
         got["steps_what"] = "all"
+    if got["history_form"] not in HISTORY_FORMS:
+        got["history_form"] = "summary"
     got["picked"] = [str(x) for x in got.get("picked") or []][:200]
     got["parents"] = _parents_of(got.get("parents"))
     got["off"] = sorted({str(x) for x in got.get("off") or []})[:500]
@@ -275,6 +281,9 @@ def put(chat_id: str, change: dict, who=None) -> dict:
                 now[k] = v
         elif k == "steps_what":
             if v in STEPS_WHAT:
+                now[k] = v
+        elif k == "history_form":
+            if v in HISTORY_FORMS:
                 now[k] = v
         elif k == "picked":
             now[k] = [str(x) for x in (v or [])][:200]
@@ -706,6 +715,7 @@ def _carried_tokens(chat_id: str, chain: list[tuple[str, int]]) -> dict[str, int
         mine, _did = context_editing.lean(repair_history(memory._window(chat_id, limit, depth=forks.DEEP)),
                                           store=store)
         mine, _cases = case_lines.shorten(mine)
+        mine, _calls = context_editing.short_calls(mine)
         got[""] = counted(mine)
         if len(_CARRIED) > 500:
             _CARRIED.clear()
@@ -728,17 +738,23 @@ def _case_items(chat_id: str) -> list[Item]:
     from .memory import repair_history
     from .models.memory import TranscriptMessage
 
+    from . import chat_window
+
     limit = chatkinds.profile(chat_id).history
     own = TranscriptMessage.objects.filter(session_id=chat_id).aggregate(
         last=Max("id"), live=Count("id", filter=Q(live=True)))
     if not own["live"]:
         return []
-    key = (chat_id, own["last"], own["live"], limit)
+    # On "Chat history: summary", only the cases still in the window are sent as cases; the rest are in the
+    # summary (`chat_window`).
+    win = chat_window.now(chat_id) if limit < 0 else None
+    since = win.since if win else None
+    key = (chat_id, own["last"], own["live"], limit, since)
     msgs = _SENT_OWN.get(key)
     if msgs is None:
         memory, store = _runtime()
-        msgs, _did = context_editing.lean(repair_history(memory._window(chat_id, limit, depth=forks.DEEP)),
-                                          store=store)
+        msgs, _did = context_editing.lean(repair_history(memory._window(chat_id, limit, depth=forks.DEEP,
+                                                                        since=since)), store=store)
         if len(_SENT_OWN) > 50:
             _SENT_OWN.clear()
         _SENT_OWN[key] = msgs
@@ -1250,7 +1266,6 @@ GROUPS = (
     ("cases", "Cases handled in this chat", "Messages from your contacts and what Rouh did with each"),
 )
 
-
 def _plural(n: int, one: str, many: str = "") -> str:
     return f"{n} {one if n == 1 else (many or one + 's')}"
 
@@ -1416,6 +1431,37 @@ def last_turn(chat_id: str) -> dict | None:
 # the count". The panel counted only what the strip chooses. Now it also says, always, what else goes with
 # every message: Rouh's instructions, the tool list, the context added for each message and the chat's own
 # history, split by what it is made of, and at its foot the total.
+
+def history_forms(chat_id: str, s: dict) -> dict:
+    """How the chat's history is sent when it is on, for its row (Petar, 25 November 2026: "I should be able to
+    select in the context options to send the full text or the summary, summary being default"): {"form":
+    "summary" or "full", "forms": [{"id", "name", "tokens"}], "form_said": a line}, or {} for a chat the choice
+    is not for (General, which has its own window and summary; a fork; an incognito chat; a shared room).
+    Sized by `chat_window.sizes`: Summary as it is sent once the summary is written, Full text whole."""
+    from . import chat_window
+
+    try:
+        got = chat_window.sizes(chat_id, _runtime()[1])
+    except Exception:  # noqa: BLE001 - a size is never worth the panel
+        log.exception("chat %s's history could not be sized each way", chat_id)
+        return {}
+    if not got.get("applies"):
+        return {}
+    form = s.get("history_form") if s.get("history_form") in HISTORY_FORMS else "summary"
+    if form == "full":
+        said = "Every message of this chat, whole."
+    elif got.get("summary_now"):
+        said = (f"The newest messages whole, and {_plural(int(got.get('covered') or 0), 'earlier exchange')} "
+                "as a short summary.")
+    elif int(got.get("summary") or 0) < int(got.get("full") or 0):
+        said = ("The newest messages whole and the older ones as a short summary, written once this chat has "
+                "been quiet for an hour. Until then it is sent whole.")
+    else:
+        said = "Short enough to send whole: a summary starts once it grows past about 24k tokens."
+    return {"form": form, "form_said": said,
+            "forms": [{"id": "summary", "name": "Summary", "tokens": int(got.get("summary") or 0)},
+                      {"id": "full", "name": "Full text", "tokens": int(got.get("full") or 0)}]}
+
 
 #: What goes with each message, by part, in the panel's order.
 SENT_PARTS = (
@@ -1657,12 +1703,16 @@ def _history(chat_id: str, defs: list) -> dict:
                                                                        live=Count("id", filter=Q(live=True)))
         marks.append((c, n["last"], n["live"]))
     names = frozenset(str(d.get("name")) for d in defs if isinstance(d, dict) and d.get("name"))
-    key = (chat_id, limit, tuple(marks), tuple(sorted(off)), hash(names))
+    from . import chat_window
+
+    win = chat_window.now(chat_id)
+    key = (chat_id, limit, tuple(marks), tuple(sorted(off)), hash(names), win)
     got = _SENT.get(key)
     if got is None:
         memory, store = _runtime()
         limit_of = (lambda c: chatkinds.profile(c).history)
-        msgs = memory.history(chat_id, limit, limit_of=limit_of, files=store)
+        # As a turn sends it: from where its window starts, with its summary, on "summary" (`chat_window`).
+        msgs = memory.history(chat_id, limit, limit_of=limit_of, files=store, window=True)
         carried = memory.carried_sent(chat_id, limit, limit_of=limit_of, files=store, off=off) if chain else []
         msgs = msgs[len(carried):]
         if store is not None:
@@ -1741,7 +1791,7 @@ def sent_now(chat_id: str, got: list[Item], who=None, s: dict | None = None) -> 
     own = _history(chat_id, defs)
     parts = own["parts"]
     rows["history"] = {"tokens": sum(p["tokens"] for p in parts.values()), "messages": own["messages"],
-                       "on": bool(s.get("history", True)),
+                       "on": bool(s.get("history", True)), **history_forms(chat_id, s),
                        "parts": [{"key": k, "label": n, "tokens": parts[k]["tokens"], "count": parts[k]["count"],
                                   "items": parts[k]["items"]} for k, n in HISTORY_PARTS if parts[k]["tokens"]]}
     reads = sum(i.sent for i in got if i.on and not i.elsewhere)

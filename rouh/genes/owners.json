@@ -502,6 +502,7 @@
    "files": [
     "rouh/chatkinds.py",
     "rouh/general_summary.py",
+    "rouh/chat_window.py",
     "rouh/reading.py",
     "rouh/toolsides.py",
     "rouh/tokencount.py",

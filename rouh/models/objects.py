@@ -293,6 +293,30 @@ class Chat(models.Model):
         ]
 
 
+class ChatSummary(models.Model):
+    """A chat's running summary and where its window starts (`rouh/chat_window.py`, task 182, step 182-21).
+
+    A chat set to "Chat history: summary" (the default) is sent its messages from the exchange `since` on,
+    whole, with `text` in front of them: what was said before, written by the use "chat_summary". The window
+    moves only when the chat has been quiet longer than the prompt cache keeps it, so it never breaks the
+    cache of a conversation in use. `checked_at` is when the window was last looked at, so a quiet chat is
+    looked at once, not every sweep. No row: the chat is sent whole, as before.
+    """
+
+    chat_id = models.TextField(primary_key=True)
+    #: The exchange (`COALESCE(root, id)` of a transcript row) the window starts at; 0 is none yet.
+    since = models.BigIntegerField(default=0)
+    text = models.TextField(blank=True, default="")
+    #: How many exchanges and estimated tokens the summary covers, for the panel.
+    exchanges = models.IntegerField(default=0)
+    covered_tokens = models.IntegerField(default=0)
+    at = models.FloatField(default=0)
+    checked_at = models.FloatField(default=0)
+
+    class Meta:
+        db_table = "chat_summary"
+
+
 class ChatFork(models.Model):
     """A chat that hangs off a point in another chat (`rouh/forks.py`).
 

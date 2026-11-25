@@ -13,8 +13,12 @@ makes it work at that length: a window of its newest messages
 (`rouh/context_editing.py`), and the prompt cache (`rouh/promptcache.py`).
 
 **Every other chat** - a topic, a task's thread, the chat an email is handled
-in, a fork - is about one thing, and is sent whole: every message it has.
-Nothing is summarised. Since 17 November 2026 every chat, General too, is sent
+in, a fork - is about one thing. Until 25 November 2026 it was sent whole:
+every message it has. Since then (task 182) a chat on "Chat history: summary",
+the default, is sent its newest messages whole and a running summary of the
+rest, moved only once the chat has been quiet an hour (`rouh/chat_window.py`);
+"Full text" in the strip's panel sends every message, as before. A fork is
+still sent whole. Since 17 November 2026 every chat, General too, is sent
 the tool results of its earlier turns as stubs the model can recall whole
 (`context_editing.lean`, `recall_result`); only General's budget stubs more. The prompt cache stays, because it changes what a request costs
 and never what it says. A fork carries the chat it came off the way that chat
@@ -340,9 +344,10 @@ def _sent_whole(chat_id: str | None) -> str:
     if is_general(chat_id):
         return ("That is General cut down to its newest messages, with its old "
                 "tool results trimmed.")
-    return ("Nothing in it was cut to make it fit: every chat but General is "
-            "always sent whole. It needs compacting, which Rouh does not do yet, "
-            "so carry on in a new chat for now.")
+    return ("Nothing in it was cut to make it fit. If its history is set to Full "
+            "text in What this chat reads, setting it to Summary sends its older "
+            "messages as a short summary once the chat has been quiet for an hour; "
+            "otherwise carry on in a new chat for now.")
 
 
 def too_long(chat_id: str | None, model: str, sent: int = 0, holds: int = 0) -> str:

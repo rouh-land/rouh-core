@@ -284,6 +284,22 @@ def shorten(history: list) -> tuple[list, dict]:
     return out, did
 
 
+def open_at(history: list) -> list[int]:
+    """Where each entry of a case still being handled starts in this conversation: a case found, at one of
+    the steps of a run (`chat_window` keeps these out of a summary). A note whose case is not found is not
+    open: an old one would otherwise hold a chat's window back for ever."""
+    found = entries(history)
+    if not found:
+        return []
+    try:
+        cases = _cases_for([note for _i, _j, note in found])
+    except Exception:  # noqa: BLE001 - not known to be open
+        log.exception("the cases in a chat's history could not be looked up")
+        return []
+    return [i for i, _j, note in found
+            if (case := cases.get(_digest(note))) is not None and not _finished(case)]
+
+
 def sized(history: list) -> dict:
     """What a conversation's case entries come to as they are sent, for the strip's panel (`reading`):
     {"short": entries sent as one line, "short_tokens", "whole": entries sent whole (a case still being

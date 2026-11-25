@@ -1316,7 +1316,8 @@ class ToolRegistry:
             "sometimes its first line, and an id - to keep the conversation small, and a picture or PDF "
             "the person attached before their last message is a line too. Give the id the stub names "
             "(a tool call's id such as toolu_01AbC, or file: and a file's id) and this gives back exactly "
-            "what came back then, or shows the file again. Prefer it to calling the tool again: it is "
+            "what came back then, or shows the file again. A long earlier call of yours is shortened the "
+            "same way, its long arguments cut: call:<its id> gives the call back whole. Prefer it to calling the tool again: it is "
             "instant, free and the same words. Results of this turn are already whole. Reading changes "
             "nothing. A long result comes in parts: call again with the offset it gives.",
             {

@@ -10,10 +10,14 @@ it is billed in full.
 Caching is a prefix match, and only at the blocks marked with `cache_control`
 (a breakpoint). So the whole of this is two rules.
 
-- Mark the right blocks. Four places at most, the most the API allows: the
-  end of the system prompt (which caches the tools with it), the end of the
+- Mark the right blocks, in the order a request is made of, from what changes
+  least to what changes most: the built-in instructions with the tools, then a
+  chat's summary and its history (`rouh/chat_window.py`), then this message's
+  own context. Four places at most, the most the API allows: the end of the
+  system prompt (which caches the tools with it), the end of the
   conversation as it stood when the turn began, the same point of the turn
-  before, and the newest message of each request. The first is shared by
+  before, and the newest message of each request, which on a turn's first
+  request is its own context. The first is shared by
   every turn and every chat; the second is written once a turn and read by
   each of its round trips and by the next turn; the third is where the next
   turn finds it, because the API looks back only 20 blocks from a mark for an
@@ -64,7 +68,7 @@ MOST = 4
 
 
 def marked(messages: list, anchor: int | None = None, earlier: int | None = None,
-           held: dict = BRIEF) -> list:
+           held: dict = BRIEF, context: bool = True) -> list:
     """The conversation as one request carries it, with its breakpoints.
 
     `anchor` is the index of the last message the turn began with: the
@@ -81,7 +85,12 @@ def marked(messages: list, anchor: int | None = None, earlier: int | None = None
 
     The newest message is only marked when it is a user message, which is a
     list of plain blocks this process built: the person's words or a round of
-    tool results. After a `pause_turn` the newest is the model's own reply,
+    tool results; or, with `context`, the system message that carries this
+    turn's own context, which is the newest message of a turn's first request
+    (`brain.turn_context`). Marked there, the first request writes it to the
+    cache and the second reads it back; until 25 November 2026 it had no mark,
+    so every turn's second request wrote it again (25,287 tokens on request
+    823010, task 182). After a `pause_turn` the newest is the model's own reply,
     and the API puts a breakpoint after a server tool's results by itself.
 
     Returns a new list. The messages that carry a mark are copies; every
@@ -93,7 +102,7 @@ def marked(messages: list, anchor: int | None = None, earlier: int | None = None
         wanted[earlier] = held
     if anchor is not None and 0 <= anchor < len(out):
         wanted[anchor] = held
-    if out and _role(out[-1]) == "user":
+    if out and (_role(out[-1]) == "user" or (context and _role(out[-1]) == "system")):
         wanted.setdefault(len(out) - 1, BRIEF)
     for index, mark in wanted.items():
         out[index] = _with_mark(out[index], mark)

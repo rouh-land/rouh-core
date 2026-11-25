@@ -82,7 +82,8 @@ import { shared } from 'app/shared.js';
                          items?: {label: string, tokens: number, at?: number}[] }} SentPart */
 /** One row of what goes with each message (rouh/reading.py `sent_now`).
     @typedef {{ key: string, title: string, sub: string, tokens: number, parts?: SentPart[], loaded?: number,
-               named?: number, known?: boolean, messages?: number, on?: boolean }} SentRow */
+               named?: number, known?: boolean, messages?: number, on?: boolean, form?: string, form_said?: string,
+               forms?: {id: string, name: string, tokens: number}[] }} SentRow */
 /** @typedef {{ rows: SentRow[], reads: number, parents?: number, total: number, request: number | null, own: boolean }} SentView */
 
 var btn = /** @type {HTMLButtonElement | null} */ ($('readingBtn'));
@@ -221,10 +222,13 @@ function paintStrip(d) {
   // (Petar, 25 November 2026): the strip is always there to open it.
   var sent = d && d.sent && d.sent.total ? d.sent.total : 0;
   if (sent) bits.push(kTokens(sent) + ' tokens a message');
-  strip.hidden = !d || (!d.incognito && !bits.length);
+  var rows = !!(d && d.sent && d.sent.rows && d.sent.rows.length);
+  strip.hidden = !d || (!d.incognito && !bits.length && !rows);
   if (strip.hidden) { if (cpop && !cpop.hidden) openContent(false); return; }
   // Incognito, or nothing to choose and nothing sent to show: a quiet line, never a press that opens an empty panel.
-  var quiet = !groups.length && !sent;
+  // A breakdown with nothing in it yet (a new Rouh that has asked no model anything, its history switched off)
+  // still opens, so the history's switch can be turned back on.
+  var quiet = !groups.length && !sent && !rows;
   strip.disabled = quiet;
   strip.classList.toggle('quiet', quiet);
   words.textContent = '';
@@ -534,6 +538,22 @@ function sentPaint(d) {
       b.insertBefore(sizeTag(r.tokens), b.lastChild);
       var hb = el('div', 'reading-group');
       hb.appendChild(b);
+      // How it is sent while on (rouh/reading.py `history_forms`, rouh/chat_window.py): its newest messages and
+      // a summary of the rest, the default, or every message, each with its size.
+      if (r.forms && r.forms.length && r.on !== false) {
+        var fm = el('div', 'content-more history-form');
+        fm.appendChild(el('p', '', 'Sent as'));
+        var bar = seg('history_form', r.form || 'summary', 'How this chat\'s history is sent',
+          r.forms.map(function (f) { return [f.id, f.name + ' · ' + tokensSaid(f.tokens)]; }));
+        r.forms.forEach(function (f, i) {
+          var fb = /** @type {HTMLElement} */ (bar.children[i]);
+          fb.title = 'About ' + Math.round(f.tokens).toLocaleString() + ' tokens with each message'
+            + (f.id === 'summary' ? ', once the summary is written' : '');
+        });
+        fm.appendChild(bar);
+        if (r.form_said) fm.appendChild(el('span', 'history-form-said', r.form_said));
+        hb.appendChild(fm);
+      }
       if (r.parts && r.parts.length) hb.appendChild(opener('s:history', r.title, r.parts));
       list.appendChild(hb);
       return;
@@ -1165,7 +1185,7 @@ var MODE_SETS = /** @type {Record<string, Record<string, any>>} */ ({
   full: { memory: true, rules: true, rouh_tools: true, llm_tools: true, off: [] }
 });
 /** What the chat is about (rouh/reading.py `CONTENT_KEYS`): set in the strip's panel, never by a mode. */
-var CONTENT_KEYS = ['history', 'task', 'others', 'subtasks', 'picked', 'steps_what', 'step_histories', 'parent_task',
+var CONTENT_KEYS = ['history', 'history_form', 'task', 'others', 'subtasks', 'picked', 'steps_what', 'step_histories', 'parent_task',
                     'parent_task_history', 'fork_history', 'parents'];
 
 /** What the panel will say once this change is saved, as far as it can be told without the server: the
@@ -1200,6 +1220,12 @@ function guess(d, wanted) {
         rows: was.rows.map(function (r) { return r === hist ? Object.assign({}, r, { on: !!wanted.history }) : r; })
       });
     }
+  }
+  if (d.sent && wanted.history_form) {
+    var was2 = d.sent;
+    g.sent = Object.assign({}, was2, { rows: was2.rows.map(function (r) {
+      return r.key === 'history' ? Object.assign({}, r, { form: wanted.history_form }) : r;
+    }) });
   }
   if (d.tree && wanted.parents) {
     g.tree = d.tree.map(function (c) {

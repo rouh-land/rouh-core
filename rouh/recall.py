@@ -85,6 +85,16 @@ def find_result(chat_id: str, call_id: str) -> tuple[str, object, bool] | None:
     return None
 
 
+def find_call(chat_id: str, call_id: str) -> dict | None:
+    """An earlier tool call, as stored, in a chat in reach, or None (`context_editing.short_calls`)."""
+    for chat, upto in chain(chat_id):
+        for raw in _rows(chat, upto, call_id):
+            for b in _blocks(raw):
+                if isinstance(b, dict) and b.get("type") == "tool_use" and b.get("id") == call_id:
+                    return b
+    return None
+
+
 def find_file(chat_id: str, att_id: str) -> dict | None:
     """The marker of a file the person attached, in a chat in reach, or None."""
     for chat, upto in chain(chat_id):
@@ -112,6 +122,14 @@ def answer(chat_id: str, which: str, offset: int = 0, store=None):
                 f"attached earlier, shown again below.")
         return untrusted.Blocks([{"type": "text", "text": said},
                                  attachments.marker(record) if record else dict(marker)], said=said)
+    if which.startswith("call:"):
+        call = find_call(chat_id, which[len("call:"):])
+        if call is None:
+            return f"No tool call {which} is in this chat or in the conversation it carries."
+        args = json.dumps(call.get("input"), ensure_ascii=False, indent=1)
+        head = f"The earlier call of {call.get('name') or 'a tool'} ({which}), with its arguments whole:"
+        return f"{head}\n{args[:PART]}" + (f"\n[Cut at {PART:,} characters of {len(args):,}.]"
+                                           if len(args) > PART else "")
     got = find_result(chat_id, which)
     if got is None:
         return (f"No tool result {which} is in this chat or in the conversation it carries. Use the id the stub "
