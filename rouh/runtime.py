@@ -66,7 +66,7 @@ from .google_audit import WriteLog
 from .google_oauth import GoogleAuth
 from .google_store import GoogleStore
 from .mailboxes import MailboxAuth, MailboxStore
-from . import dbwork
+from . import dbwork, devices
 from . import gates
 from . import code_update
 from . import modelstandard, turntrace
@@ -3557,7 +3557,8 @@ async def switch_chat(chat_id: str, tabs, tip: str | None = None, *,
     """
     if isinstance(tabs, Session):
         tabs = [tabs]
-    tabs = [tab for tab in (tabs or []) if not tab.closed]
+    # A device stays in its own chat (`rouh/devices.py`): nothing moves it.
+    tabs = [tab for tab in (tabs or []) if not tab.closed and getattr(tab, "device", None) is None]
     # The chats these tabs are leaving: an incognito one ends when nobody is in it any more.
     leaving = {tab.session_id for tab in tabs if tab.session_id and tab.session_id != chat_id}
 
@@ -5673,6 +5674,9 @@ class Session:
         #: What this socket asked for that runs beside it rather than in its
         #: way: an inbox card waiting on Gmail must not hold up the microphone.
         self.errands: set[asyncio.Task] = set()
+        #: A device of the person's own on its key (`rouh/devices.py`), or None for a browser tab: it
+        #: stays in its own chat and may send only the voice's messages.
+        self.device: dict | None = None
 
     # --- plumbing -----------------------------------------------------------
 
@@ -5822,7 +5826,12 @@ class Session:
             return
         # Said aloud, which is how a thought kept in this turn says it came (`rouh/thoughts.py`).
         thoughts.HOW.set("voice")
-        await self.box_if_asked(asked)
+        if self.device is not None:
+            # Heard by a device in a room, from anybody in it: marked so, and never a way to open a box
+            # (`rouh/devices.py`).
+            asked = f"{devices.HEARD} {asked}"
+        else:
+            await self.box_if_asked(asked)
         await self.start_turn(asked, answer_now=now, heard="voice")
 
     async def box_if_asked(self, words: str) -> None:
@@ -6072,6 +6081,9 @@ class Session:
         except json.JSONDecodeError:
             return
         kind = msg.get("type")
+        if self.device is not None and kind not in devices.ALLOWED_IN:
+            # A device has its voice and nothing else (`rouh/devices.py`).
+            return
         ask = msg.get("ask")
         if isinstance(ask, int) and not isinstance(ask, bool) and ask > self.asked:
             self.asked = ask
@@ -6086,6 +6098,9 @@ class Session:
             # down - the person carries a phone and leaves a desktop open,
             # and neither should go dead because of the other.
             asked = str(msg.get("chat") or "")[:200]
+            if self.device is not None:
+                # A device is always in its own chat, whatever it names.
+                asked = self.device["chat"]
             self.session_id = (asked if await asyncio.to_thread(chat_is_there, asked)
                                else await asyncio.to_thread(memory.ensure_session))
             # And the strip of forks it had laid out around that chat, which
@@ -6216,8 +6231,9 @@ class Session:
             await self.state(self.state_now())
             # Beside the tab's own messages rather than in front of them: a
             # press made the moment the conversation is drawn is answered at
-            # once, not after every list has been read.
-            self.errand(self.after_ready())
+            # once, not after every list has been read. A device is sent none of them.
+            if self.device is None:
+                self.errand(self.after_ready())
 
         elif kind == "ping":
             await self.emit({"type": "pong"})

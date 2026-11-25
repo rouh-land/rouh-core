@@ -4303,6 +4303,14 @@
     "rouh/management/commands/import_agent.py",
     "rouh/genes/manifests/agent-import.json"
    ]
+  },
+  "devices": {
+   "name": "Devices",
+   "what": "A device of the person's own, the robot first, talking to Rouh on a key of its own through the voice, kept to its own Robot chat.",
+   "files": [
+    "rouh/devices.py",
+    "rouh/management/commands/device.py"
+   ]
   }
  }
 }

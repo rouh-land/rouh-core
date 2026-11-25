@@ -13,6 +13,12 @@ How the socket closed is said by its close code, and the page reads two of them.
 1012, WebSocket's own "Service Restart", is Rouh going down on purpose to start again: uvicorn closes every socket with it when systemd stops the process, as every deploy does, so the page says Evolving until it is back rather than Reconnecting (`CONN_WORDS` in `rouh/static/app/socket.js`).
 Any other close, a dead network or a crash among them, is Reconnecting.
 
+**A device on a key of its own** (`rouh/devices.py`, since 25 November 2026: the robot of task 122) opens the same socket with no cookie and `Authorization: Bearer <key>` on the upgrade, the key made by `manage.py device add`.
+A key that is unknown or revoked is closed with 4401.
+A device is put in its own chat (`robot-<user id>`) whatever its `hello` names, and nothing moves it out; it may send only `hello`, `ping`, `set_mode`, `speech_start`, `speech_end`, `interrupt`, `dictation` and `get_state`, with its microphone as binary frames, and anything else is dropped unanswered.
+It is sent only `ready` (cut to `session_id`, `voice`, `voice_reply`, `ears`, `state`, `asked`, `now`), `mode`, `state`, `turn_end`, `stt`, `assistant_delta`, `assistant_done`, `assistant_retract`, `audio_start`, `audio_end`, `dictation`, `stopped`, `error` and `pong`, with the spoken answer as binary frames.
+What it heard is asked with `[Heard by the robot]` in front of it, so the chat can tell somebody in the room from the person typing.
+
 ## Audio formats
 
 - **Up (browser to server):** raw PCM, 16-bit signed, little endian, mono, 16000 Hz.

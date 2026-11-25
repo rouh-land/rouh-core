@@ -61,8 +61,14 @@ class _Wire:
         self.who = None
         #: This browser is in demo mode's preview (`rouh/demo.py`).
         self.preview = False
+        #: A device on its own key (`rouh/devices.py`): sent only what its voice needs.
+        self.device = None
 
     async def send_text(self, text: str) -> None:
+        if self.device is not None:
+            text = self._for_device(text)
+            if text is None:
+                return
         if "\u2039" in text or "\\u2039" in text:
             from rouh import owner
 
@@ -71,6 +77,22 @@ class _Wire:
         if text is None:
             return
         await self._consumer.send(text_data=text)
+
+    @staticmethod
+    def _for_device(text: str) -> str | None:
+        """What a device is sent of a message: the voice's messages, `ready` cut to what it needs."""
+        from rouh import devices
+
+        try:
+            got = json.loads(text)
+        except (ValueError, TypeError):
+            return None
+        kind = got.get("type") if isinstance(got, dict) else None
+        if kind not in devices.ALLOWED_OUT:
+            return None
+        if kind == "ready":
+            return json.dumps(devices.ready_for_device(got))
+        return text
 
     async def _demo(self, text: str) -> str | None:
         """Outside demo mode, every demo copy taken out of the lists it would be in
@@ -103,6 +125,10 @@ class RouhSocket(AsyncWebsocketConsumer):
 
     async def connect(self) -> None:
         user = self.scope.get("user")
+        device = None
+        if user is None or not getattr(user, "is_authenticated", False):
+            # A device of the person's own, on its key rather than a cookie (`rouh/devices.py`).
+            device, user = await self._device()
         if user is None or not getattr(user, "is_authenticated", False):
             await self.accept()
             await self.close(code=SIGN_IN_AGAIN)
@@ -129,17 +155,46 @@ class RouhSocket(AsyncWebsocketConsumer):
         set_speaker(me)
         wire = _Wire(self)
         wire.who = me
+        wire.device = device
         # Demo mode's preview is this browser's alone (`rouh/demo.py`).
         from rouh import demo
 
         wire.preview = (self.scope.get("cookies") or {}).get(demo.PREVIEW_COOKIE) == "1"
         session = runtime.Session(wire)
         session.me = me
+        session.device = device
         session.demo_preview = wire.preview
         self.session = session
         runtime.Hub.sockets.add(session)
-        log.info("tab connected as %s (%d open)", me.name if me else "nobody",
-                 len(runtime.Hub.sockets))
+        log.info("%s connected as %s (%d open)", f"device {device['name']}" if device else "tab",
+                 me.name if me else "nobody", len(runtime.Hub.sockets))
+
+    async def _device(self):
+        """(the device, its person's account) for a key on the upgrade, or (None, None)."""
+        import asyncio
+
+        from rouh import devices
+
+        key = devices.bearer(self.scope.get("headers"))
+        if not key:
+            return None, None
+
+        def look():
+            from rouh.models import User
+
+            rec = devices.who(key)
+            if rec is None:
+                return None, None
+            account = User.objects.filter(pk=rec["user_id"], org_id=rec["org_id"], is_active=True).first()
+            if account is None or getattr(account, "is_guest", False):
+                return None, None
+            rec = dict(rec, chat=devices.ensure_chat(rec))
+            return rec, account
+
+        got = await asyncio.to_thread(look)
+        if got[0] is None:
+            log.info("websocket refused: a device key that is not live")
+        return got
 
     async def receive(self, text_data=None, bytes_data=None) -> None:
         if self.session is None:
