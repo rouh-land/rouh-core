@@ -30,7 +30,8 @@
     "permissions": [
       "Unrestricted lets the owner's own chats and runs do what they ask without a decision (Cloudflare, commands, self-change and deploy, mail, Slack, Drive, unclassified tools); money above the caps, deleting for good and access for outsiders still ask",
       "only the owner's own press on the Permissions page changes it, and nothing in the conversation's header shows or changes it; no tool, model turn, schedule or mail can",
-      "with nothing saved it is Unrestricted, permanently; a row taken away after a flip trips back to Restricted"
+      "with nothing saved it is Unrestricted, permanently; a row taken away after a flip trips back to Restricted",
+      "the machine's graphics card, which the machine puts in the worker (rouh access gpu), opens only to the owner's own runs while it is Unrestricted; the one program starts every other run locked out of its device files (one/hardware.py), and each run is told in its instructions what it reaches and to use it rather than fall back"
     ],
     "accounts": [],
     "tables": [

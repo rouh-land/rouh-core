@@ -918,6 +918,7 @@ urlpatterns = [
     path("internal/trials", trials_web.internal),
     path("internal/objecttree", objecttreeapi.internal_objecttree),
     path("internal/agent-instructions", agent_instructions_web.internal),
+    path("internal/run-hardware", agent_instructions_web.internal_hardware),
     path("internal/boxes/collect", boxes.collect),
     path("internal/boxes/shredded", boxes.shredded),
     path("internal/wipe-test-jobs", views.wipe_test_jobs),

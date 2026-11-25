@@ -14,6 +14,8 @@ INSTALL-LINUX.md done by hand, and nothing stopped a stack that failed its check
     linux_stack.py restore [NAME] [--dir DIR]           a nightly copy of the database put back (the newest)
     linux_stack.py import BUNDLE [--dir DIR] [--release FILE]
                                                        an existing Rouh brought into a fresh stack
+    linux_stack.py hardware [--dir DIR] [--recreate]   this machine's graphics card put in (or taken
+                                                       out of) the stack in use, in place
 
 An update, in this order; nothing is started before the last step, and a failure anywhere before
 it changes nothing:
@@ -93,6 +95,70 @@ MAX_OWN_STACK = 50 * 1024 * 1024
 CLEAN_ENV = {k: v for k, v in os.environ.items() if k in ("PATH", "HOME", "XDG_RUNTIME_DIR", "DOCKER_HOST", "DOCKER_CONFIG", "DOCKER_CONTEXT")}
 
 
+#: The graphics card's device files a machine gives Rouh's worker (task 191, step 191-04): AMD's
+#: compute (ROCm) and every card's render nodes. NVIDIA's need its container toolkit, not files.
+GPU_DEVICES = ("/dev/kfd", "/dev/dri")
+
+
+def gpu_devices(dev: str = "/dev") -> list[str]:
+    """The card's device files this machine has."""
+    return [p for p in (d.replace("/dev", dev, 1) for d in GPU_DEVICES) if os.path.exists(p)]
+
+
+def gpu_groups(paths: list[str]) -> list[str]:
+    """The groups that may open them (render, video), by number, as the worker's user gets them."""
+    gids: set[int] = set()
+    for p in paths:
+        files = [p]
+        if os.path.isdir(p):
+            files = [os.path.join(p, n) for n in os.listdir(p) if not os.path.isdir(os.path.join(p, n))]
+        for f in files:
+            try:
+                gid = os.stat(f).st_gid
+            except OSError:
+                continue
+            if gid:
+                gids.add(gid)
+    return [str(g) for g in sorted(gids)]
+
+
+def add_hardware(stack: dict, *, on: bool, dev: str = "/dev") -> str:
+    """The worker given this machine's graphics card, or not, in a resolved stack, in place: its
+    device files and the groups that open them. The machine does this, never the Rouh's own stack
+    file, which the stack check refuses any device (stackpolicy.py). Which runs may open the card is
+    the one program's (one/hardware.py): only the owner's own, while the switch is Unrestricted.
+    Returns what it did, in words."""
+    worker = (stack.get("services") or {}).get("worker")
+    if not isinstance(worker, dict):
+        return "This stack has no worker, so there is nothing to give the graphics card to."
+    found = gpu_devices(dev)
+    ours = {d.replace("/dev", dev, 1) for d in GPU_DEVICES} | set(GPU_DEVICES)
+    devices = [d for d in worker.get("devices") or []
+               if not (isinstance(d, dict) and (d.get("source") in ours or d.get("target") in GPU_DEVICES))]
+    groups = [str(g) for g in worker.get("group_add") or []]
+    card_groups = gpu_groups(found)
+    groups = [g for g in groups if g not in card_groups]
+    if on and found:
+        for path in found:
+            target = "/dev" + path[len(dev):] if path.startswith(dev) else path
+            devices.append({"source": path, "target": target, "permissions": "rwm"})
+        groups += card_groups
+    if devices:
+        worker["devices"] = devices
+    else:
+        worker.pop("devices", None)
+    if groups:
+        worker["group_add"] = groups
+    else:
+        worker.pop("group_add", None)
+    if not found:
+        return "This machine has no graphics card files (/dev/kfd, /dev/dri), so the worker has none."
+    if not on:
+        return "The graphics card is not given to Rouh's worker (ROUH_GPU=0; rouh access gpu on gives it)."
+    return (f"The graphics card is given to Rouh's worker ({', '.join(found)}, groups {', '.join(card_groups) or 'none'}); "
+            "only the owner's own runs open it, while the switch is Unrestricted.")
+
+
 class Stop(Exception):
     """Nothing changed, for this reason."""
 
@@ -153,6 +219,19 @@ class Machine:
         cur.write_bytes(data)
 
     # ------------------------------------------------------------ Compose
+
+    def setting(self, key: str, default: str = "") -> str:
+        """One line of the settings file, without its quotes; ``default`` when it has none."""
+        try:
+            text = self.settings.read_text()
+        except OSError:
+            return default
+        got = re.findall(rf"(?m)^{re.escape(key)}=(.*)$", text)
+        return got[-1].strip().strip("'\"") if got else default
+
+    def gpu_on(self) -> bool:
+        """Whether the machine gives the worker its graphics card: yes unless ROUH_GPU=0."""
+        return self.setting("ROUH_GPU", "1") != "0"
 
     def profiles(self) -> list[str]:
         """``--profile edge`` when the owner turned a domain of their own on (``rouh domain``, task
@@ -313,6 +392,8 @@ class Machine:
             if good is not None and not self.policy_check(guard, self.own_good, good, ref):
                 chosen = ("last-good", good)
         source, stack = chosen or ("release", ref)
+        # The machine's own hardware, which no stack file may ask for (task 191, step 191-04).
+        say(add_hardware(stack, on=self.gpu_on()))
         self.stack_file.write_text(json.dumps(stack, indent=1))
         os.chmod(self.stack_file, 0o600)
         applied = {"source": source, "release": r["version"], "refused": refused, "at": int(time.time())}
@@ -550,6 +631,37 @@ def prepare_only(m: Machine, release_file: str | None) -> int:
     m.reference.write_text(new["compose"])
     run(m.compose(m.reference, "pull", "--quiet"), check=True)
     m.prepare(new)
+    return 0
+
+
+def hardware_cmd(m: Machine, recreate: bool) -> int:
+    """The graphics card put in, or taken out of, the stack in use, in place, keeping everything
+    else in it; with ``--recreate`` the worker started again on it (every run in it is carried on)."""
+    if not m.stack_file.is_file():
+        raise Stop("there is no stack in use here yet: run update first")
+    stack = json.loads(m.stack_file.read_text())
+    before = json.dumps(stack, sort_keys=True)
+    said = add_hardware(stack, on=m.gpu_on())
+    say(said)
+    if json.dumps(stack, sort_keys=True) == before:
+        say("The stack in use already says so; nothing changed.")
+        return 0
+    backup = m.stack_file.with_name(f"stack.json.before-hardware-{time.strftime('%Y%m%d-%H%M%S')}")
+    shutil.copy2(m.stack_file, backup)
+    tmp = m.stack_file.with_name("stack.json.new")
+    tmp.write_text(json.dumps(stack, indent=1))
+    os.chmod(tmp, 0o600)
+    os.replace(tmp, m.stack_file)
+    say(f"The stack in use is changed; the one before is {backup.name}.")
+    if not recreate:
+        say("The worker takes it when it is next started (rouh update, or this again with --recreate).")
+        return 0
+    r = run(m.compose(m.stack_file, "up", "--detach", "--no-deps", "worker"), timeout=900)
+    if r.returncode:
+        say("The worker could not be started on it: "
+            + (r.stderr or r.stdout).decode(errors="replace").strip()[-300:])
+        return 1
+    say("The worker was started again with it.")
     return 0
 
 
@@ -1004,6 +1116,8 @@ def main(argv: list[str] | None = None) -> int:
     imp = sub.add_parser("import")
     imp.add_argument("bundle", help="a bundle made by manage.py export_rouh (rouh/bundle.py)")
     imp.add_argument("--release", help="a signed release file, instead of rouh.land's newest")
+    hw = sub.add_parser("hardware", help="this machine's graphics card put in the stack in use, or taken out (ROUH_GPU=0)")
+    hw.add_argument("--recreate", action="store_true", help="and start the worker again on it")
     a = ap.parse_args(argv)
     root = Path(a.dir).expanduser().resolve()
     # Docker's -v takes "folder:folder:ro", so a colon or a comma in the folder's name would be read as more.
@@ -1018,7 +1132,8 @@ def main(argv: list[str] | None = None) -> int:
         return {"update": lambda: update(m, a.release), "apply": lambda: apply(m), "back": lambda: back(m),
                 "status": lambda: status(m), "restore": lambda: restore(m, a.name),
                 "prepare": lambda: prepare_only(m, a.release),
-                "import": lambda: import_cmd(m, a.bundle, a.release)}[a.cmd]()
+                "import": lambda: import_cmd(m, a.bundle, a.release),
+                "hardware": lambda: hardware_cmd(m, a.recreate)}[a.cmd]()
     except Stop as e:
         say(str(e))
         return 1

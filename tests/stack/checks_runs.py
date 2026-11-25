@@ -243,6 +243,76 @@ print(c.recv(100).split(b"\\r\\n")[0].decode())
         s.run("core", f"{GRANT} revoke all")
 
 
+@check("runs.hardware")
+def runs_hardware(s: Stack) -> None:
+    """The machine's graphics card for the owner's own runs only (task 191, step 191-04). The stack
+    has no card, so each part is proved on its own: the machine's step puts the card's device files
+    and groups into the worker of a resolved stack and takes them out again (linux_stack.py,
+    add_hardware); the stack's own worker locks a process out of a device file with Landlock and
+    leaves every other file open (one/hardware.py, the lock every run not given the card starts
+    under); and with a card written down as present, the core gives it to no run it cannot vouch is
+    the owner's, Permissions lists it, and such a run is told it gets none of it."""
+    r = s.py("core", """
+import json, os, sys, tempfile
+sys.path.insert(0, "/code/deploy/container")
+import linux_stack as ls
+dev = tempfile.mkdtemp()
+open(os.path.join(dev, "kfd"), "w").close()
+os.makedirs(os.path.join(dev, "dri")); open(os.path.join(dev, "dri", "renderD128"), "w").close()
+stack = {"services": {"worker": {"image": "x", "group_add": ["5"]}, "core": {"image": "y"}}}
+said = ls.add_hardware(stack, on=True, dev=dev)
+w = stack["services"]["worker"]
+print("ON", json.dumps(sorted(d["target"] for d in w.get("devices") or [])), "core" in stack["services"] and "devices" not in stack["services"]["core"])
+ls.add_hardware(stack, on=True, dev=dev)
+print("AGAIN", len(w.get("devices") or []))
+ls.add_hardware(stack, on=False, dev=dev)
+print("OFF", "devices" in w, w.get("group_add"))
+""")
+    out = r.stdout + r.stderr
+    expect('ON ["/dev/dri", "/dev/kfd"] True' in out, f"the machine's step did not give the worker the card's files: {out[-400:]}")
+    expect("AGAIN 2" in out, f"the machine's step, run twice, did not leave the card's files once: {out[-400:]}")
+    expect("OFF False ['5']" in out, f"the machine's step did not take the card out again, or took the worker's own group: {out[-400:]}")
+    r = s.py("worker", """
+import importlib.util, os
+spec = importlib.util.spec_from_file_location("h", "/code/one/hardware.py")
+h = importlib.util.module_from_spec(spec); spec.loader.exec_module(h)
+pid = os.fork()
+if pid == 0:
+    h.lock_out(["/dev/full"])
+    said = []
+    for path, mode in (("/dev/full", os.O_RDWR), ("/dev/null", os.O_RDWR), ("/etc/hostname", os.O_RDONLY)):
+        try:
+            os.close(os.open(path, mode)); said.append(path + " open")
+        except OSError as e:
+            said.append(path + " refused")
+    print("LOCK", ", ".join(said), flush=True)
+    os._exit(0)
+os.waitpid(pid, 0)
+""")
+    out = r.stdout + r.stderr
+    expect("LOCK /dev/full refused, /dev/null open, /etc/hostname open" in out,
+           f"the worker's lock did not refuse just the device file: {out[-400:]}")
+    fake = ('{"gpu": {"cards": [{"name": "Stack graphics card", "vendor": "AMD"}], "nodes": ["/dev/kfd", "/dev/dri"], '
+            '"compute": true, "usable": true, "openable": ["/dev/kfd"]}, "at": 0}')
+    s.run("worker", "cp /run/one/hardware.json /run/one/hardware.json.kept 2>/dev/null; "
+                    f"printf '%s' '{fake}' > /run/one/hardware.json.new && mv /run/one/hardware.json.new /run/one/hardware.json")
+    try:
+        out = s.manage("""
+import asyncio
+from rouh import run_access
+print("GIVEN", asyncio.run(run_access.hardware_for("stack-nobody")))
+print("ITEM", [(i["key"], i["applies"], i["ready"]) for i in run_access.items(None) if i["key"] == "gpu"])
+print("TOLD", asyncio.run(run_access.reach_text("stack-nobody")).splitlines()[2][:60])
+""")
+        expect("GIVEN ([]," in out, f"the core gave the card to a run it does not know: {out[-400:]}")
+        expect("ITEM [('gpu', True, True)]" in out, f"Permissions does not list the card that is here: {out[-400:]}")
+        expect("TOLD This run gets nothing past the standing rules" in out,
+               f"a run that is not the owner's was not told it gets none of it: {out[-400:]}")
+    finally:
+        s.run("worker", "if [ -f /run/one/hardware.json.kept ]; then mv /run/one/hardware.json.kept /run/one/hardware.json; "
+                        "else rm -f /run/one/hardware.json; fi")
+
+
 @check("runs.switch-from-setup")
 def runs_switch_from_setup(s: Stack) -> None:
     """Standing access a fresh Rouh sets up itself, with no command on a Mac (task 191): the GitHub

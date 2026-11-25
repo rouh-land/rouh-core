@@ -720,16 +720,20 @@ def _record_issue(issue_model, org: str, *, run_id: str, via: str, task_id: str,
         log.warning("what run %s was told could not be written down", run_id, exc_info=True)
 
 
-def issue(org: str, *, run_id: str, via: str, task: str = "", who=None) -> str:
+def issue(org: str, *, run_id: str, via: str, task: str = "", who=None, reach: str = "") -> str:
     """The text for a run that is starting, written down against the run, and returned.
 
     A worker's brief leaves Rouh here, past the place model requests have their marks filled
     in, so the owner's marks (`rouh/owner.py`: "Ask ‹owner› a question only when ...") are
-    filled in here, for `who` when it is known and else for the person this context is for."""
+    filled in here, for `who` when it is known and else for the person this context is for.
+    ``reach`` is what this run reaches (`run_access.reach_text`), last, so the rules before it
+    stay the same text for every run."""
     from . import owner
 
     _, _, _, Issue = _models()
     text, task_id = _assemble_for_run(org, task)
+    if reach.strip():
+        text = text.rstrip("\n") + "\n\n" + reach.strip() + "\n"
     text = owner.say(text, who)
     _record_issue(Issue, org, run_id=run_id, via=via, task_id=task_id, text=text)
     return text

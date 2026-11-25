@@ -977,6 +977,8 @@
       case "run.started": return ["Started", b.branch ? `on its own branch, ${b.branch}` : (b.cwd || "")];
       case "run.restarted": return ["Started again", b.why];
       case "run.instructions": return ["Instructions", b.what || ""];
+      // The machine's graphics card, given as the run started or locked out (one/hardware.py).
+      case "run.hardware": return ["Graphics card", b.given && b.given.length ? "given to this run" : `locked out${b.why ? `: ${b.why}` : ""}`, b.given && b.given.length ? "good" : ""];
       // A box the person named for this run, put in its folder; never what is in it.
       case "run.boxes": return ["Handed boxes", `${(b.numbers || []).map((n) => `box ${n}`).join(", ")}, as files in .secrets`, "person"];
       case "run.boxes-shredded": return ["Boxes shredded", b.shredded ? `${b.shredded} file${b.shredded === 1 ? "" : "s"} overwritten and deleted` : "nothing was left to shred", "good"];

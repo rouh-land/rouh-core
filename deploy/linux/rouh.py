@@ -784,17 +784,17 @@ def cmd_access(a) -> int:
     import machine
 
     nightly_now = timer_state()[0] if systemd() else False
-    now = {"host": machine.host_on(), "nightly": bool(nightly_now)}
+    now = {"host": machine.host_on(), "nightly": bool(nightly_now), "gpu": machine.gpu_on()}
     if a.which:
         if a.which not in now or a.to not in ("on", "off"):
-            raise Stop("Say which and how: rouh access host on|off, or rouh access nightly on|off.")
+            raise Stop("Say which and how: rouh access host|nightly|gpu on|off.")
         picked = dict(now, **{a.which: a.to == "on"})
     else:
         heading("What this machine gives Rouh")
         say(*machine.summary(), "")
         if not can_ask():
             machine._draw(now)
-            say("Change one: rouh access host on|off, or rouh access nightly on|off.")
+            say("Change one: rouh access host|nightly|gpu on|off.")
             return 0
         picked = machine.toggles(now)
     if picked["host"] != now["host"] or setting("ROUH_STANDING_HOST") not in ("0", "1"):
@@ -805,6 +805,11 @@ def cmd_access(a) -> int:
         say(standing.ensure(force=picked["host"]))
     if picked["nightly"] != now["nightly"]:
         timer(on=picked["nightly"])
+    if picked["gpu"] != now["gpu"]:
+        set_settings(ROUH_GPU="1" if picked["gpu"] else "0")
+        need_docker()
+        # The stack in use changed in place, and the worker started again on it (linux_stack.py).
+        stack_tool("hardware", "--recreate")
     if picked == now:
         say("Nothing changed.")
     return 0
@@ -925,8 +930,8 @@ def main(argv: list[str] | None = None) -> int:
     rl.add_argument("--default", action="store_true")
     rl.add_argument("--off", action="store_true")
     sub.add_parser("doctor", help="check this server, and say what to fix")
-    ac = sub.add_parser("access", help="what this machine gives Rouh's runs: the host login, nightly updates")
-    ac.add_argument("which", nargs="?", choices=["host", "nightly"])
+    ac = sub.add_parser("access", help="what this machine gives Rouh's runs: the host login, nightly updates, the graphics card")
+    ac.add_argument("which", nargs="?", choices=["host", "nightly", "gpu"])
     ac.add_argument("to", nargs="?", choices=["on", "off"])
     un = sub.add_parser("uninstall", help="remove Rouh: Keep my data, or Wipe my data")
     un.add_argument("--keep", dest="how", action="store_const", const="keep", help=argparse.SUPPRESS)

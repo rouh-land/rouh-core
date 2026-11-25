@@ -521,6 +521,60 @@ def five_items_only_for_the_owner() -> None:
            "a stranger's run at the owner's server did not trip the tripwire")
 
 
+@check("unrestricted", "only the owner's own run gets the graphics card, and each run is told what it reaches",
+       "with a graphics card in the worker and the switch Unrestricted, the one program is told to give the "
+       "card to the owner's own live run with their words and to lock every other run out of it (a "
+       "process's, an ended one, one with no words, a contact's mail run, one Rouh does not know); the "
+       "owner's run is told to use what it reaches rather than fall back, and the others that they get "
+       "none of it (task 191, step 191-04)", needs_db=True)
+def hardware_only_for_the_owner() -> None:
+    import json
+    import os
+    import tempfile
+
+    from rouh import run_access
+    from rouh.models import MailAsk, MailCase
+
+    who = _owner()
+    _set_mode(who, "unrestricted")
+    _run("check-hw-owner", who)
+    _run("check-hw-process", who, made_by="process:check")
+    _run("check-hw-ended", who, state="done")
+    _run("check-hw-nowords", who, words="")
+    _run("check-hw-mail", who)
+    whose = {"user_id": str(who.user_id), "org_id": str(who.org_id or "")}
+    case, _ = MailCase.objects.get_or_create(key="rouh-check-hw", defaults={
+        **whose, "message_id": "<hw@rouh-check.example>", "thread_id": "hw-thread",
+        "sender": "someone@outside.example", "sender_name": "Someone"})
+    MailAsk.objects.get_or_create(case=case, ident="hw", defaults={
+        **whose, "work": [{"kind": "job", "ref": "check-hw-mail"}]})
+    folder = tempfile.mkdtemp(prefix="rouh-check-one-")
+    with open(os.path.join(folder, "hardware.json"), "w") as fh:
+        json.dump({"gpu": {"cards": [{"name": "Check graphics card", "vendor": "AMD"}],
+                           "nodes": ["/dev/kfd", "/dev/dri"], "compute": True, "usable": True}}, fh)
+    before = os.environ.get("ROUH_ONE_SOCKET")
+    os.environ["ROUH_ONE_SOCKET"] = os.path.join(folder, "one.sock")
+    try:
+        given, why = asyncio.run(run_access.hardware_for("check-hw-owner"))
+        expect(given == [run_access.GPU], f"the owner's own live run was not given the card: {why}")
+        for run in ("check-hw-process", "check-hw-ended", "check-hw-nowords", "check-hw-mail", "check-hw-nobody"):
+            given, why = asyncio.run(run_access.hardware_for(run))
+            expect(given == [], f"{run} was given the card")
+        told = asyncio.run(run_access.reach_text("check-hw-owner"))
+        expect("take the obstacle away yourself" in told and "Check graphics card" in told,
+               f"the owner's run is not told what it reaches: {told[:300]}")
+        told = asyncio.run(run_access.reach_text("check-hw-mail"))
+        expect("gets nothing past the standing rules" in told and "Check graphics card" not in told,
+               f"a contact's run is not told it gets none of it: {told[:300]}")
+        item = [i for i in run_access.items(who) if i["key"] == run_access.GPU]
+        expect(item and item[0]["ready"] and item[0]["applies"], f"Permissions does not list the card: {item}")
+    finally:
+        if before is None:
+            os.environ.pop("ROUH_ONE_SOCKET", None)
+        else:
+            os.environ["ROUH_ONE_SOCKET"] = before
+
+
 @check("unrestricted", "a mode written behind the press trips back to Restricted",
        "a mode row that says Unrestricted without the seal of the owner's press reads as Restricted, "
        "is written back as Restricted, and leaves a flip by the tripwire", needs_db=True)

@@ -248,6 +248,30 @@ def fetch_instructions(rouh_url: str, *, run_id: str, task: str = "",
     return text
 
 
+def fetch_hardware(rouh_url: str, *, run_id: str, timeout: float = INSTRUCTIONS_TIMEOUT) -> dict:
+    """What of the machine's hardware Rouh gives a run as it starts (`one/hardware.py`):
+    {"hardware": ["gpu"] or [], "why": ...}. Raises when Rouh does not answer."""
+    import urllib.parse
+    import urllib.request
+
+    if not rouh_url:
+        raise RuntimeError("no address for Rouh is set (ONE_ROUH_URL)")
+    url = f"{rouh_url}/internal/run-hardware?{urllib.parse.urlencode({'run': run_id})}"
+    headers = {}
+    key = _rouh_worker_key()
+    if key:
+        headers["X-Rouh-Worker-Key"] = key
+    opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
+    try:
+        with opener.open(urllib.request.Request(url, headers=headers), timeout=timeout) as reply:
+            got = json.loads(reply.read().decode("utf-8") or "{}")
+    except (OSError, ValueError) as exc:
+        raise RuntimeError(f"Rouh could not be reached at {rouh_url} ({exc})") from None
+    if not got.get("ok"):
+        raise RuntimeError(str(got.get("error") or "Rouh answered with nothing"))
+    return got
+
+
 def _post_rouh(rouh_url: str, path: str, body: dict, timeout: float) -> dict:
     """POST JSON to Rouh on this machine, never through a proxy, with the worker's key in the
     containers; the answer, or a RuntimeError saying why there is none. The body is never logged."""

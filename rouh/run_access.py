@@ -160,6 +160,7 @@ def items(who) -> list[dict]:
             free = f"GitHub as {have['github']}, from your standing token, added on the way out; no run sees it."
         out.append({"key": key, "name": NAMES[key], "restricted": restricted, "unrestricted": free,
                     "ready": ready, "why": why, "until": until, "applies": applies, "fix": fix})
+    out.append(_gpu_item())
     return out
 
 
@@ -186,6 +187,167 @@ def proxy_state() -> dict:
 
 def _proxy_url() -> str:
     return (os.environ.get("ROUH_KEYPROXY_URL") or "http://keyproxy:8080").rstrip("/")
+
+
+# --- the machine's hardware -------------------------------------------------------------------
+#
+# Petar, 25 November 2026 (task 191, step 191-04): his own runs under Unrestricted use the machine's
+# hardware, starting with the graphics card, and never stop at "the container was not started with
+# it". The machine puts the card in the worker (`deploy/container/linux_stack.py`, `hardware`); the
+# one program writes what it found (`one/hardware.py`, hardware.json beside its socket) and asks,
+# as each run starts, whether that run may open it (`hardware_for`, the same rule as the runs file);
+# every other run is locked out of the card's device files by the kernel.
+
+GPU = "gpu"
+#: Shown beside the five on Permissions; never one of the key proxy's items.
+HARDWARE = (GPU,)
+NAMES[GPU] = "The graphics card"
+
+
+def _one_folder() -> str:
+    return os.path.dirname(os.environ.get("ROUH_ONE_SOCKET", "") or "/run/one/one.sock") or "/run/one"
+
+
+def hardware_state() -> dict:
+    """What the one program found in the worker (`one/hardware.py`): {"gpu": {...} or None}."""
+    try:
+        with open(os.path.join(_one_folder(), "hardware.json"), encoding="utf-8") as fh:
+            got = json.load(fh)
+        return got if isinstance(got, dict) else {}
+    except (OSError, ValueError):
+        return {}
+
+
+def gpu_name(state: dict | None = None) -> str:
+    gpu = (state if state is not None else hardware_state()).get("gpu") or {}
+    names = [str(c.get("name") or "") for c in gpu.get("cards") or [] if c.get("name")]
+    return ", ".join(dict.fromkeys(names)) or ("the graphics card" if gpu else "")
+
+
+async def hardware_for(run: str) -> tuple[list[str], str]:
+    """(["gpu"] or [], why not) for a run the one program is starting. Fails closed."""
+    try:
+        if not (hardware_state().get("gpu")):
+            return [], "there is no graphics card in the worker"
+        kind, free, why = await free_now(run)
+    except Exception:  # noqa: BLE001 - nothing given is the safe answer
+        log.exception("whether run %s may use the graphics card could not be read", run)
+        return [], "it could not be read"
+    _soon()
+    return ([GPU], "") if free else ([], why)
+
+
+def _soon() -> None:
+    """Write the runs file again just after a run starts, so its first connections are its own
+    (191-04: a run refused mozart in its first seconds, before the 15-second write named it)."""
+    if _state["task"] is None:
+        return
+
+    async def later():
+        for wait in (2.0, 5.0):
+            await asyncio.sleep(wait)
+            await sync_once()
+
+    try:
+        asyncio.get_running_loop().create_task(later(), name="run-access-soon")
+    except RuntimeError:
+        pass
+
+
+def _gpu_item() -> dict:
+    state = hardware_state()
+    gpu = state.get("gpu") or {}
+    name = gpu_name(state)
+    if not gpu:
+        return {"key": GPU, "name": NAMES[GPU], "restricted": "No run uses it.",
+                "unrestricted": "Your runs use this machine's graphics card.",
+                "ready": False, "applies": False, "fix": None, "until": None,
+                "why": "No graphics card is in Rouh's worker here."}
+    ready = bool(gpu.get("usable"))
+    return {"key": GPU, "name": NAMES[GPU],
+            "restricted": "Every run is locked out of it.",
+            "unrestricted": f"Your runs use {name}, in Rouh's worker; every other run stays locked out of it.",
+            "ready": ready, "applies": True, "fix": None, "until": None,
+            "why": "" if ready else ("The card's files are in the worker, but its user may not open them: "
+                                     "the machine has to give the worker their groups (rouh update does).")}
+
+
+# --- what a run is told it reaches -------------------------------------------------------------
+
+
+def _alias(server: dict) -> str:
+    """The name a run reaches a standing server by in its ssh settings: a new Rouh's own host is
+    ``rouh-host`` (`deploy/linux/standing.py`), the others their own names."""
+    name = str(server.get("name") or "")
+    return "rouh-host" if name == "host" else name
+
+
+async def reach_text(run: str) -> str:
+    """What this run reaches, for the end of its agent instructions: the owner's Unrestricted run is
+    told each thing and to use it to take an obstacle away; every other run is told in one line
+    what it does not get, so it never tries. Never raises."""
+    from . import unrestricted
+
+    try:
+        kind, free, why = await free_now(run)
+    except Exception:  # noqa: BLE001
+        log.exception("what run %s reaches could not be worked out", run)
+        return ""
+    if not free:
+        return ("## What this run reaches\n\n"
+                f"This run gets nothing past the standing rules ({why.rstrip('.')}): ports 80 and 443 to public "
+                "servers, public GitHub, and none of the owner's servers or the machine's graphics card. "
+                "When the work needs more, say so with request_from_rouh and carry on with the rest.")
+    have = standing()
+    servers = have["servers"]
+    lines = ["## What this run reaches",
+             "",
+             "The owner's switch is Unrestricted and this is one of their own runs, so it reaches all of "
+             "the below. Use it. When something stands in the way of the work - a device, a package, a "
+             "setting, a permission, a container started without something - take the obstacle away "
+             "yourself with what is here, then carry on and say in your report what you changed. Never "
+             "answer \"I can't change that from here\" or fall back to a slower way while one of these "
+             "would remove the obstacle.",
+             "",
+             "- **The internet**: any public server, on any port, through the key proxy."]
+    if have["github"]:
+        lines.append("- **GitHub as the owner**: run `/code/bin/rouh-github setup` once, then git and gh work as "
+                     "them. `rouh-github status` may say no grant is open: the switch's access is per run and "
+                     "works anyway.")
+    host = servers.get("host")
+    if host:
+        lines.append(f"- **The machine Rouh runs on**: `ssh {_alias(host)}` logs in as the owner's admin "
+                     "account, and `sudo -n` works there with no password: root on the machine. Docker and "
+                     "Rouh's containers, the stack's settings, the drivers and devices, packages: all of it is "
+                     "reachable. A container's settings change only when it is recreated, and recreating the "
+                     "worker ends every run in it for a minute (they are carried on): do that last, after "
+                     "your work is committed.")
+    for key in ("rouh-land", "relay"):
+        if key in servers:
+            lines.append(f"- **{NAMES[key]}**: `ssh {_alias(servers[key])}`" +
+                         (" (then sudo)." if key == "rouh-land" else " (as root)."))
+    state = hardware_state()
+    gpu = state.get("gpu") or {}
+    if gpu:
+        files = ", ".join(f"`{p}`" for p in gpu.get("nodes") or [])
+        lines.append(f"- **The graphics card**: {gpu_name(state)}, in this worker ({files}), open to this run "
+                     "and locked to every run that is not the owner's. Use it for training and other heavy "
+                     "compute rather than the processor.")
+        if gpu.get("compute") and any(str(c.get("vendor")) == "AMD" for c in gpu.get("cards") or []):
+            lines.append("  `rouh-gpu setup` puts PyTorch for this very card in place once, for every run, and "
+                         "`~/.local/bin/gpu-python` then runs Python on it (`torch.cuda` is the card); `rouh-gpu status` and "
+                         "`rouh-gpu check` say how it stands. It knows the cards ROCm does not list (an RX 5000, "
+                         "RDNA1, needs PyTorch 1.13 for ROCm 5.2 with `HSA_OVERRIDE_GFX_VERSION=10.3.0`; today's "
+                         "builds fault on it), so use it rather than installing PyTorch by hand.")
+    elif host:
+        lines.append("- **No graphics card is in this worker.** If the machine has one (`ssh "
+                     f"{_alias(host)} ls /dev/dri /dev/kfd`), it is the machine that gives it to the worker: "
+                     "rouh update, or rouh access gpu on, on that machine.")
+    lines += ["",
+              "If the key proxy refuses one of these in the first seconds of the run, wait ten seconds and "
+              "try again: Rouh names a new run to the proxy just after it starts.",
+              "Still asked in every mode: " + "; ".join(unrestricted.STILL_ASKS.values()) + "."]
+    return "\n".join(lines)
 
 
 # --- a run's token ----------------------------------------------------------------------------
@@ -301,9 +463,28 @@ def _kind_of(scope) -> str:
     return str(getattr(scope, "kind", "") or "unknown")
 
 
+async def free_now(run: str) -> tuple[str, bool, str]:
+    """(kind, free, why not) for one run the one program vouches for: free when it is the owner's
+    own live run, with his words behind it, while the switch is Unrestricted. The one rule behind
+    the five items in the runs file and the machine's hardware (`hardware_for`)."""
+    from . import job_gateway, unrestricted
+
+    scope, why = await asyncio.to_thread(job_gateway.scope_of, run)
+    kind = _kind_of(scope) if scope is not None else "unknown"
+    if scope is None:
+        return kind, False, why or "Rouh does not know this run"
+    if kind != "owner":
+        return kind, False, "only the owner's own runs get it"
+    # The program (the door, or the launch) knows the run by the kernel's process tree: as good
+    # as its token.
+    scope.verified = True
+    why = await unrestricted.for_job(scope)
+    return kind, why == "", why
+
+
 async def entries(doors: list[dict]) -> dict:
     """{password hash: entry} for the key proxy, from the program's live runs."""
-    from . import job_gateway, unrestricted
+    from . import unrestricted
 
     out = {}
     owner_mode = await asyncio.to_thread(unrestricted.owner_mode)
@@ -315,13 +496,7 @@ async def entries(doors: list[dict]) -> dict:
             out[h] = {"run": "", "kind": "program", "free": False}
             continue
         run = str(d.get("run") or "")
-        scope, _why = await asyncio.to_thread(job_gateway.scope_of, run)
-        kind = _kind_of(scope) if scope is not None else "unknown"
-        free = False
-        if scope is not None and kind == "owner":
-            # The door knows the run by the kernel's process tree: as good as its token.
-            scope.verified = True
-            free = (await unrestricted.for_job(scope)) == ""
+        kind, free, _why = await free_now(run)
         entry = {"run": run, "kind": kind, "free": free}
         if free:
             entry["gets"] = list(ITEMS)
@@ -514,5 +689,6 @@ def last() -> dict:
     return dict(_state["last"])
 
 
-__all__ = ["ITEMS", "NAMES", "entries", "items", "last", "now", "proxy_state", "seal", "seal_ok",
+__all__ = ["GPU", "HARDWARE", "ITEMS", "NAMES", "entries", "free_now", "hardware_for", "hardware_state",
+           "reach_text", "items", "last", "now", "proxy_state", "seal", "seal_ok",
            "standing", "start", "sync_once", "trip", "verify", "write_runs"]

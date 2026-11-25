@@ -411,8 +411,12 @@ class Documents:
 
     def agent_argv(self, run_id: str, cwd: str, agent_args: list[str], *, space: str,
                    engine: str = "claude", hook_key: str = "",
-                   api_key_file: str = "", browser_port: int = 0) -> list[str]:
+                   api_key_file: str = "", browser_port: int = 0,
+                   hardware: tuple[str, ...] | list[str] = ()) -> list[str]:
         """The command that becomes the run's agent, as the run's own user.
+
+        ``hardware`` is what Rouh gave the run as it started (`one/hardware.py`): with no
+        ``gpu`` in it the run is locked out of the machine's graphics card.
 
         The hook key is passed on only for a Codex run: Claude Code's hooks
         carry it in the settings file the program writes, mode 600, and putting
@@ -437,9 +441,13 @@ class Documents:
             key.append(f"--api-key-file={api_key_file}")
         if browser_port:
             key.append(f"--browser-port={int(browser_port)}")
+        if hardware:
+            key.append(f"--hardware={','.join(hardware)}")
         return self.asuser_argv("agent", "--cwd", cwd, "--run", run_id,
                                 "--engine", engine, "--binary", self.s.agent_binary(engine),
                                 *key, "--", *agent_args, user=self._sp(space).user)
 
-    def shell_argv(self, run_id: str, cwd: str, *, space: str) -> list[str]:
-        return self.asuser_argv("shell", "--cwd", cwd, "--run", run_id, user=self._sp(space).user)
+    def shell_argv(self, run_id: str, cwd: str, *, space: str,
+                   hardware: tuple[str, ...] | list[str] = ()) -> list[str]:
+        more = [f"--hardware={','.join(hardware)}"] if hardware else []
+        return self.asuser_argv("shell", "--cwd", cwd, "--run", run_id, *more, user=self._sp(space).user)

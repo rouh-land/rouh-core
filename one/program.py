@@ -313,6 +313,13 @@ async def serve(settings: Settings, *, phone: Any = None, meter: CpuMeter | None
 
         state = await asyncio.to_thread(shell.write_state, settings.socket)
         (log.info if state["on"] else log.warning)("rouh's shell: %s", state["said"])
+    # The machine's graphics card, if the machine put it in this worker, written down for the core:
+    # the Permissions page and what a run is told it reaches (one/hardware.py).
+    from . import hardware as _hardware
+
+    found = await asyncio.to_thread(_hardware.write_state, os.path.dirname(settings.socket) or ".")
+    if found.get("gpu"):
+        log.info("the machine's graphics card is here: %s", ", ".join(c["name"] for c in found["gpu"]["cards"]) or "found")
     socket_server = await serve_socket(program, settings.socket)
     app = make_app(program)
     # wsproto rather than uvicorn's websockets implementation, which is built

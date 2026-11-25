@@ -853,10 +853,12 @@ class Runs(_RunInteraction):
                                    "billing": pays})
         self.list.append("run.credentials", run=run_id,
                          body={"stamp": self._credential_stamp(run)})
+        hardware = await self._hardware(run)
         await self._hold(run_id, self.docs.agent_argv(run_id, cwd, args, space=space,
                                                       engine=engine, hook_key=key,
                                                       api_key_file=key_file,
-                                                      browser_port=int(run.get("browser_port") or 0)))
+                                                      browser_port=int(run.get("browser_port") or 0),
+                                                      hardware=hardware))
         if engine == "codex":
             self._spawn(self._prove_governed(run_id))
 
@@ -925,6 +927,26 @@ class Runs(_RunInteraction):
             if run["state"] in ENDED and run.get("boxes") and not run.get("boxes_shredded"):
                 await self._shred_boxes(run)
 
+    async def _hardware(self, run: dict[str, Any]) -> list[str]:
+        """The machine's hardware this run may use, from Rouh as it starts (`one/hardware.py`):
+        ["gpu"] for the owner's own run while the switch is Unrestricted, else nothing. Asked only
+        when the worker has a graphics card; a Rouh that does not answer gives nothing, so the run
+        is locked out of the card. Said in the list either way."""
+        from . import hardware
+
+        if not hardware.nodes():
+            return []
+        run_id = run["id"]
+        try:
+            got = await asyncio.to_thread(agents.fetch_hardware, self.s.rouh_url, run_id=run_id)
+            given, why = [g for g in got.get("hardware") or [] if g == hardware.GPU], str(got.get("why") or "")
+        except Exception as exc:  # noqa: BLE001 - fails closed: no card, and said
+            given, why = [], f"Rouh could not be asked ({exc})"[:300]
+        self.list.append("run.hardware", run=run_id, body={
+            "what": "given the graphics card" if given else "locked out of the graphics card",
+            "given": given, "why": why})
+        return given
+
     async def _instructions(self, run: dict[str, Any]) -> str:
         """The agent instructions this run starts with, from Rouh, and where they came from.
 
@@ -990,7 +1012,9 @@ class Runs(_RunInteraction):
         run_id = run["id"]
         where = await self._checkout(run)
         self.list.append("run.started", run=run_id, body=where)
-        await self._hold(run_id, self.docs.shell_argv(run_id, where["cwd"], space=run["space"]))
+        hardware = await self._hardware(run)
+        await self._hold(run_id, self.docs.shell_argv(run_id, where["cwd"], space=run["space"],
+                                                      hardware=hardware))
 
     async def _hold(self, run_id: str, argv: list[str]) -> None:
         env = {"PATH": os.environ.get("PATH", "/usr/bin:/bin"), "HOME": os.environ.get("HOME", "/"),

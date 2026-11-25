@@ -6,7 +6,10 @@
     GET  /api/agent-instructions/issued[?id=]     the latest runs and what each was given
 
     GET  /internal/agent-instructions?run=&via=&task=   this machine only: the text for a run
-                                                        that is starting, written down against it
+                                                        that is starting, written down against it,
+                                                        ending with what that run reaches
+    GET  /internal/run-hardware?run=                    this machine only: the machine's hardware
+                                                        a starting run may use (`rouh/run_access.py`)
 
 Until 30 October 2026 these were the addresses of a page of their own, Agent instructions, where
 the statements were kept. Since then every one is a rule on the Rules page, whose Agent switch says
@@ -93,11 +96,11 @@ async def issued(request: HttpRequest):
     return answer({"issued": await sync_to_async(ai.issued)(me.org_id)}, headers=NO_STORE)
 
 
-def _for_a_run(run: str, via: str, task: str) -> str:
+def _for_a_run(run: str, via: str, task: str, reach: str = "") -> str:
     from rouh import agent_instructions as ai
     from rouh.modeldefaults import org_now
 
-    return ai.issue(org_now(), run_id=run, via=via, task=task)
+    return ai.issue(org_now(), run_id=run, via=via, task=task, reach=reach)
 
 
 @csrf_exempt
@@ -109,10 +112,30 @@ async def internal(request: HttpRequest):
     run = str(request.GET.get("run") or "")[:80]
     via = str(request.GET.get("via") or "")[:60]
     task = str(request.GET.get("task") or "")[:200]
+    # What this very run reaches (task 191, step 191-04): its runs told only the rules never knew
+    # the switch gave them the host's login, and said "I can't change that from here".
+    from rouh import run_access
+
+    reach = await run_access.reach_text(run) if run else ""
     try:
-        text = await sync_to_async(_for_a_run)(run, via, task)
+        text = await sync_to_async(_for_a_run)(run, via, task, reach)
     except Exception as exc:  # noqa: BLE001 - said to the program, which starts the run anyway
         log.exception("the agent instructions for run %s could not be made", run)
         return answer({"ok": False, "error": f"The agent instructions could not be read: {exc}"},
                       status=500)
     return answer({"ok": True, "text": text}, headers=NO_STORE)
+
+
+@csrf_exempt
+@only("GET")
+async def internal_hardware(request: HttpRequest):
+    """A run starting on this machine: which of the machine's hardware it may use (`one/runs.py`,
+    `_hardware`). Only the owner's own run while the switch is Unrestricted gets the graphics card;
+    the program locks every other run out of it."""
+    if not from_this_machine(request):
+        return answer({"ok": False, "error": "Only this machine may use this address."}, status=403)
+    from rouh import run_access
+
+    run = str(request.GET.get("run") or "")[:80]
+    given, why = await run_access.hardware_for(run) if run else ([], "no run was named")
+    return answer({"ok": True, "hardware": given, "why": why}, headers=NO_STORE)

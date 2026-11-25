@@ -69,6 +69,21 @@ def _clean_env(extra: dict | None, command) -> dict:
     return env
 
 
+def _hardware_hold(args) -> str:
+    """Lock the run out of the machine's graphics card unless Rouh gave it the card as it started
+    (`one/hardware.py`); "" when it may start, else why not. The last thing before it becomes its
+    agent or shell, so the lock holds for the agent and everything it starts."""
+    # By its path, as asuser.py loads this file: it runs as a script under ``python -I``.
+    import importlib.util
+
+    spec = importlib.util.spec_from_file_location(
+        "one.hardware", os.path.join(os.path.dirname(os.path.abspath(__file__)), "hardware.py"))
+    hardware = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(hardware)
+    given = [g for g in str(getattr(args, "hardware", "") or "").split(",") if g]
+    return hardware.hold(given)
+
+
 def agent(args, command) -> int:
     """Become the run's agent - Claude Code or Codex - with nothing of the program's environment.
 
@@ -125,6 +140,10 @@ def agent(args, command) -> int:
     rest = list(args.rest)
     if rest and rest[0] == "--":
         rest = rest[1:]
+    why = _hardware_hold(args)
+    if why:
+        command.sys.stderr.write(f"one: {why}\r\n")
+        return 126
     command.os.execve(binary, [binary, *rest], env)
     return 127  # pragma: no cover
 
@@ -189,5 +208,9 @@ def shell(args, command) -> int:
     sh = command.pwd.getpwuid(command.os.getuid()).pw_shell or "/bin/bash"
     if not command.os.path.exists(sh) or sh.endswith("nologin") or sh.endswith("false"):
         sh = "/bin/bash"
+    why = _hardware_hold(args)
+    if why:
+        command.sys.stderr.write(f"one: {why}\r\n")
+        return 126
     command.os.execve(sh, [sh, "-l"], env)
     return 127  # pragma: no cover

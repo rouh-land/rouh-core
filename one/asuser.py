@@ -1207,6 +1207,9 @@ def main(argv: list[str] | None = None) -> int:
     #: Only a run Rouh fills the vault's card into (the nightly feature run,
     #: `rouh/nightly_feature.py`): the port its browser opens DevTools on.
     p.add_argument("--browser-port", type=int, default=0)
+    #: The machine's hardware Rouh gave this run as it started (`one/hardware.py`): "gpu", or
+    #: nothing, which locks the run out of the graphics card's device files.
+    p.add_argument("--hardware", default="")
     p.add_argument("rest", nargs=argparse.REMAINDER)
     p.set_defaults(fn=agent)
 
@@ -1214,6 +1217,7 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--cwd", required=True)
     p.add_argument("--run", required=True)
     p.add_argument("--term", default="xterm-256color")
+    p.add_argument("--hardware", default="")
     p.set_defaults(fn=shell)
 
     p = sub.add_parser("transcript")

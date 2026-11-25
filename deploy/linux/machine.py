@@ -14,6 +14,10 @@ The choices, each one line of the settings file (``~/rouh/.env``):
   what it had (on).
 - **Rouh updates itself every night** (the systemd timer of ``rouh update --on``). Security fixes
   arrive by themselves, after a backup, going back by itself if unhealthy. On either way.
+- **Your runs may use this machine's graphics card** (``ROUH_GPU``, 1 or 0; task 191, step 191-04).
+  The card's device files go into Rouh's worker (`linux_stack.py`, ``add_hardware``), and the one
+  program lets only the owner's own runs open them, while Permissions is Unrestricted. On either
+  way: it gives no login and no file of the machine. Shown only on a machine that has a card.
 
 ``ROUH_DEDICATED`` (yes or no) records the answer, so ``rouh access`` can say what was chosen.
 ``rouh access`` shows the switches again and changes them, at any time.
@@ -47,7 +51,13 @@ NIGHTLY = Choice(
     "by itself if it is not healthy. Security fixes arrive without you. Off: Rouh updates only when "
     "you run rouh update.",
     True, True)
-CHOICES = (HOST, NIGHTLY)
+GPU = Choice(
+    "gpu", "Your runs may use this machine's graphics card",
+    "Training and other heavy work you ask for runs on the card instead of the processor. Only your "
+    "own jobs open it, and only while Permissions is Unrestricted; every other job is locked out of "
+    "it. It gives no login and no file of this machine.",
+    True, True)
+CHOICES = (HOST, NIGHTLY, GPU)
 
 DEDICATED_LEDE = ("Rouh's own jobs can be given more of this machine when nothing else lives on it. "
                   "Each choice below has its own switch, and you can change any of them later with: rouh access")
@@ -65,8 +75,24 @@ def host_on() -> bool:
     return setting("ROUH_STANDING_HOST", "1") != "0"
 
 
+def gpu_on() -> bool:
+    """Whether the worker is given the machine's graphics card: yes unless ROUH_GPU=0."""
+    return setting("ROUH_GPU", "1") != "0"
+
+
+def has_gpu() -> bool:
+    import os
+
+    return os.path.exists("/dev/kfd") or os.path.isdir("/dev/dri")
+
+
+def shown() -> tuple[Choice, ...]:
+    """The choices this machine has: the graphics card's only where there is one."""
+    return tuple(c for c in CHOICES if c is not GPU or has_gpu())
+
+
 def _draw(picked: dict[str, bool]) -> None:
-    for i, c in enumerate(CHOICES, 1):
+    for i, c in enumerate(shown(), 1):
         state = "On " if picked[c.key] else "Off"
         say(f"  {BOLD}{i}  [{state}]  {c.name}{RESET}", f"     {DIM}{c.means}{RESET}", "")
 
@@ -79,11 +105,11 @@ def toggles(picked: dict[str, bool]) -> dict[str, bool]:
         got = ask(f"Type a number to switch it, or press Enter to keep these: ").strip()
         if not got:
             return picked
-        if got.isdigit() and 1 <= int(got) <= len(CHOICES):
-            c = CHOICES[int(got) - 1]
+        if got.isdigit() and 1 <= int(got) <= len(shown()):
+            c = shown()[int(got) - 1]
             picked[c.key] = not picked[c.key]
             continue
-        say(f"Type 1 to {len(CHOICES)}, or press Enter.")
+        say(f"Type 1 to {len(shown())}, or press Enter.")
 
 
 def ask_dedicated() -> bool:
@@ -96,6 +122,8 @@ def ask_dedicated() -> bool:
 
 def save(dedicated: bool | None, picked: dict[str, bool]) -> None:
     values = {"ROUH_STANDING_HOST": "1" if picked["host"] else "0"}
+    if "gpu" in picked:
+        values["ROUH_GPU"] = "1" if picked["gpu"] else "0"
     if dedicated is not None:
         values["ROUH_DEDICATED"] = "yes" if dedicated else "no"
     set_settings(**values)
@@ -106,7 +134,7 @@ def at_install(assume_yes: bool = False) -> dict[str, bool]:
     not dedicated: the host login off, nightly updates on. An install whose settings file already
     says (a second ``rouh install``) keeps what it says, and is not asked again."""
     if setting("ROUH_STANDING_HOST") in ("0", "1"):
-        return {"host": host_on(), "nightly": True}
+        return {"host": host_on(), "nightly": True, "gpu": gpu_on()}
     if assume_yes or not can_ask():
         picked = defaults(False)
         save(False, picked)

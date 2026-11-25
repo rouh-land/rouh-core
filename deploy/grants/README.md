@@ -108,6 +108,19 @@ A standing line written before this into the account's own keys is moved out of 
 
 `rouh-open` keeps itself up to date: once a day, before it does anything, it asks GitHub (no sign-in) for main's `rouh-open`, and when that one is newer it runs `install-from-mac.sh` unattended (the host's part with `sudo -n` only, never stopping for a password) and carries on as the new one. `rouh-open update` does the same at once; nobody needs to run it. `ROUH_OPEN_SELF_UPDATE=0` turns it off.
 
+### The machine's hardware: the graphics card
+
+Petar, 25 November 2026 (task 191, step 191-04), after one of his runs said "the container can't access it (no /dev/dri or /dev/kfd) and I can't change that from here, so I'm continuing on the CPU": under Unrestricted his own runs use the machine's hardware, and never stop at "the container was not started with it".
+
+- **The machine gives the card to the worker**, never the Rouh: `linux_stack.py` (`add_hardware`) adds `/dev/kfd` and `/dev/dri` and the groups that open them to the worker of the stack in use, at every update, when the machine has them and `ROUH_GPU` is not `0` in the settings file. `rouh access gpu on|off` changes it and starts the worker again on it; `linux_stack.py hardware [--recreate]` does the same to a stack in use in place (mozart, whose stack is kept by hand). The Rouh's own stack file still may ask for no device (`stackpolicy.py`).
+- **Only the owner's own runs open it.** All runs are one Linux user, so the one program starts every run locked out of the card's device files by the kernel (Landlock, `one/hardware.py`) unless Rouh says, as it starts, that it is the owner's own live run while the switch is Unrestricted (`/internal/run-hardware`, `run_access.hardware_for`, the same rule as the runs file). A run Rouh could not be asked about is locked out. The lock is made as the run starts and holds for its life. The run's page says which ("Graphics card: given to this run", or "locked out" and why).
+- **The software**: `rouh-gpu setup` puts PyTorch for the card in the worker's home once, for every run, and `~/.local/bin/gpu-python` runs Python on it. For an RDNA1 card (RX 5000, gfx1010 to gfx1012, like mozart's RX 5500 XT), which ROCm does not list, that is PyTorch 1.13.1 for ROCm 5.2 on Python 3.10 with `HSA_OVERRIDE_GFX_VERSION=10.3.0`: today's ROCm builds fault on such a card even with the override, and Ubuntu's own crash on it.
+- **NVIDIA** is not covered yet: its cards need the NVIDIA container toolkit on the machine, not only device files, and no Rouh machine has one to prove it on.
+
+### What a run is told it reaches
+
+Every run's agent instructions end with what that very run reaches (`run_access.reach_text`): the owner's Unrestricted run is told each item - the internet, GitHub as the owner, the host's ssh and its sudo, rouh.land and the relay where they are, the graphics card - and to use them to take an obstacle away rather than report it and fall back; any other run is told in one line that it gets none of it. Rouh also writes the runs file again two and five seconds after a run starts, so its first connections are its own.
+
 ## The owner's own servers: rouh.land, the relay and the host
 
 Petar, 2 November 2026: "lets fix the missing permissions by adding them to the "rouh-open 8" command. also let's add ssh admin@203.0.113.20 sudo rouh-land-admin grant in it too."

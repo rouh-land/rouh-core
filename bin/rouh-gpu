@@ -1,0 +1,216 @@
+#!/usr/bin/env python3
+"""rouh-gpu: the machine's graphics card for a run, set up once, in one command.
+
+Task 191, step 191-04 (Petar, 25 November 2026): under Unrestricted his own runs use the machine's
+hardware rather than stop at "the container can't access it". The machine puts the card in the
+worker (`deploy/container/linux_stack.py`, `hardware`), and only the owner's own runs may open it
+(`one/hardware.py`). What is left is the software, and for some cards that is the hard part: the
+RX 5500 on mozart (gfx1012, RDNA1) is on no list of ROCm's, today's PyTorch for ROCm faults on it
+even with the usual override, and Ubuntu's own build crashes on it. What works, proved on mozart
+on 25 November 2026, is PyTorch 1.13.1 for ROCm 5.2 on Python 3.10, its HIP library's
+executable-stack flag cleared for today's glibc, with ``HSA_OVERRIDE_GFX_VERSION=10.3.0``.
+
+    rouh-gpu status   the card, whether this run may open it, and which way of setting it up fits
+    rouh-gpu setup    PyTorch for this card in ~/.local/share/rouh-gpu, once for every run, and
+                      ``~/.local/bin/gpu-python``, which runs Python on it with what it needs
+    rouh-gpu check    a matrix product on the card, checked against the processor's
+
+Standard library only. Nothing here needs root or changes the machine.
+"""
+from __future__ import annotations
+
+import argparse
+import contextlib
+import fcntl
+import glob
+import os
+import pathlib
+import shutil
+import struct
+import subprocess
+import sys
+
+HOME = pathlib.Path(os.environ.get("HOME") or "/home/rouh")
+SHARE = HOME / ".local" / "share" / "rouh-gpu"
+LAUNCHER = HOME / ".local" / "bin" / "gpu-python"
+
+#: RDNA1 (gfx1010, gfx1011, gfx1012), by PCI device id: Navi 10, Navi 14 and Navi 12.
+RDNA1 = {"7310", "7312", "731f", "7340", "7341", "7347", "734f", "7360", "7362"}
+
+#: Each way of setting a card up: its Python, its PyTorch, where from, and what it needs set.
+RECIPES = {
+    "rocm5.2-rdna1": {
+        "about": "PyTorch 1.13.1 for ROCm 5.2 on Python 3.10, told the card is gfx1030 (RDNA1 cards: "
+                 "today's ROCm builds fault on them, this one runs)",
+        "python": "3.10", "packages": ["torch==1.13.1+rocm5.2", "numpy<2"],
+        "index": "https://download.pytorch.org/whl/rocm5.2",
+        "env": {"HSA_OVERRIDE_GFX_VERSION": "10.3.0"}, "clear_execstack": True},
+    "rocm7.2": {
+        "about": "PyTorch for ROCm 7.2 on Python 3.12 (AMD cards ROCm lists)",
+        "python": "3.12", "packages": ["torch"], "index": "https://download.pytorch.org/whl/rocm7.2",
+        "env": {}, "clear_execstack": False},
+}
+
+
+def cards() -> list[dict]:
+    out = []
+    for render in sorted(glob.glob("/sys/class/drm/renderD*")):
+        dev = pathlib.Path(render) / "device"
+
+        def read(name: str) -> str:
+            with contextlib.suppress(OSError):
+                return (dev / name).read_text().strip()
+            return ""
+        out.append({"render": f"/dev/dri/{os.path.basename(render)}", "vendor": read("vendor")[2:],
+                    "device": read("device")[2:], "name": read("product_name")})
+    return out
+
+
+def recipe_for(found: list[dict]) -> tuple[str, str]:
+    """(recipe, why) for the first AMD card here; ("", why) when none fits."""
+    amd = [c for c in found if c["vendor"] == "1002"]
+    if not amd:
+        if found:
+            return "", "this card is not AMD's; only AMD cards are set up here so far"
+        return "", "there is no graphics card in this worker"
+    if not os.path.exists("/dev/kfd"):
+        return "", "the card is here but not its compute device, /dev/kfd: the machine must give it (rouh access gpu on)"
+    if amd[0]["device"] in RDNA1:
+        return "rocm5.2-rdna1", f"an RDNA1 card ({amd[0]['vendor']}:{amd[0]['device']})"
+    return "rocm7.2", f"an AMD card ({amd[0]['vendor']}:{amd[0]['device']})"
+
+
+def openable() -> tuple[bool, str]:
+    for path in ["/dev/kfd", *sorted(glob.glob("/dev/dri/renderD*"))]:
+        try:
+            os.close(os.open(path, os.O_RDWR | os.O_CLOEXEC))
+        except FileNotFoundError:
+            continue
+        except OSError as e:
+            return False, f"{path}: {e.strerror}"
+    return True, ""
+
+
+def status(_a) -> int:
+    found = cards()
+    if not found:
+        print("No graphics card is in this worker. If the machine has one, the machine gives it: "
+              "rouh access gpu on (or rouh update) there; the owner's runs can do that over ssh.")
+        return 1
+    for c in found:
+        print(f"Card: {c['name'] or 'graphics card'} ({c['vendor']}:{c['device']}), {c['render']}")
+    ok, why = openable()
+    print("This run may open it." if ok else
+          f"This run is locked out of it ({why}): only the owner's own runs open it, while Permissions is Unrestricted.")
+    recipe, said = recipe_for(found)
+    if recipe:
+        ready = (SHARE / recipe / "ready").exists()
+        print(f"Set up with: {recipe}, for {said}: {RECIPES[recipe]['about']}." +
+              (f" Ready: run {LAUNCHER}." if ready and LAUNCHER.exists() else " Not set up yet: rouh-gpu setup."))
+    else:
+        print(f"Nothing to set up: {said}.")
+    return 0 if ok else 1
+
+
+def run(cmd: list[str], **kw) -> None:
+    print("+ " + " ".join(cmd), flush=True)
+    subprocess.run(cmd, check=True, **kw)
+
+
+def clear_execstack(folder: pathlib.Path) -> int:
+    """The executable-stack flag off every library in ``folder`` (``patchelf --clear-execstack``):
+    ROCm 5's HIP library asks for one, and glibc 2.41 and later refuse to load it."""
+    done = 0
+    for p in folder.rglob("*.so*"):
+        if not p.is_file() or p.is_symlink():
+            continue
+        with open(p, "r+b") as f:
+            head = f.read(64)
+            if head[:4] != b"\x7fELF" or head[4] != 2:
+                continue
+            phoff, = struct.unpack_from("<Q", head, 32)
+            size, count = struct.unpack_from("<HH", head, 54)
+            for i in range(count):
+                f.seek(phoff + i * size)
+                kind, flags = struct.unpack("<II", f.read(8))
+                if kind == 0x6474E551 and flags & 1:
+                    f.seek(phoff + i * size + 4)
+                    f.write(struct.pack("<I", flags & ~1))
+                    done += 1
+    return done
+
+
+def setup(a) -> int:
+    recipe, said = (a.recipe, "asked for") if a.recipe else recipe_for(cards())
+    if not recipe:
+        print(f"Nothing to set up: {said}.")
+        return 1
+    r = RECIPES[recipe]
+    SHARE.mkdir(parents=True, exist_ok=True)
+    target = SHARE / recipe
+    with open(SHARE / ".lock", "w") as lock:
+        fcntl.flock(lock, fcntl.LOCK_EX)     # two runs at once: the second waits, then finds it ready
+        if not (target / "ready").exists():
+            print(f"Setting up {recipe} for {said}: {r['about']}. Several GB; once for every run.", flush=True)
+            tools = SHARE / "tools"
+            if not (tools / "bin" / "uv").exists():
+                run([sys.executable, "-m", "venv", str(tools)])
+                run([str(tools / "bin" / "pip"), "install", "-q", "uv"])
+            env = dict(os.environ, UV_PYTHON_INSTALL_DIR=str(SHARE / "python"))
+            uv = str(tools / "bin" / "uv")
+            run([uv, "python", "install", r["python"]], env=env)
+            shutil.rmtree(target, ignore_errors=True)
+            run([uv, "venv", "-q", "--seed", "--python", r["python"], str(target)], env=env)
+            run([str(target / "bin" / "pip"), "install", "-q", "--no-cache-dir", *r["packages"],
+                 "--extra-index-url", r["index"]])
+            if r["clear_execstack"]:
+                n = sum(clear_execstack(p) for p in target.glob("lib/python*/site-packages/torch/lib"))
+                print(f"Cleared the executable-stack flag in {n} librar{'y' if n == 1 else 'ies'}.")
+            (target / "ready").write_text(recipe + "\n")
+    LAUNCHER.parent.mkdir(parents=True, exist_ok=True)
+    lines = ["#!/bin/sh", f"# Written by rouh-gpu setup: Python with PyTorch on this machine's graphics card ({recipe})."]
+    lines += [f"export {k}={v}" for k, v in r["env"].items()]
+    lines += [f'exec "{target}/bin/python" "$@"', ""]
+    LAUNCHER.write_text("\n".join(lines))
+    LAUNCHER.chmod(0o755)
+    print(f"Ready. Run Python on the card with: {LAUNCHER} your_script.py")
+    print(f"Its pip: {target}/bin/pip install <package>   (torch.cuda is the card, as on any ROCm build)")
+    return 0
+
+
+CHECK = """
+import torch, time
+assert torch.cuda.is_available(), "PyTorch sees no card"
+a = torch.randn(2048, 2048, device="cuda"); b = torch.randn(2048, 2048, device="cuda")
+c = a @ b; torch.cuda.synchronize()
+err = float((c.cpu() - a.cpu() @ b.cpu()).abs().max())
+t = time.time()
+for _ in range(20): c = a @ b
+torch.cuda.synchronize()
+print(f"{torch.cuda.get_device_name(0)}: a 2048 x 2048 product matches the processor's (largest difference {err:.4f}), "
+      f"{20 * 2 * 2048 ** 3 / (time.time() - t) / 1e12:.2f} TFLOPS")
+assert err < 0.05, "the card's answer is wrong"
+"""
+
+
+def check(_a) -> int:
+    if not LAUNCHER.exists():
+        print("Not set up yet: rouh-gpu setup.")
+        return 1
+    return subprocess.run([str(LAUNCHER), "-c", CHECK]).returncode
+
+
+def main() -> int:
+    ap = argparse.ArgumentParser(prog="rouh-gpu", description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    sub = ap.add_subparsers(dest="cmd", required=True)
+    sub.add_parser("status").set_defaults(fn=status)
+    s = sub.add_parser("setup")
+    s.add_argument("--recipe", choices=sorted(RECIPES), help="this way, whatever card is here")
+    s.set_defaults(fn=setup)
+    sub.add_parser("check").set_defaults(fn=check)
+    a = ap.parse_args()
+    return a.fn(a)
+
+
+if __name__ == "__main__":
+    sys.exit(main())

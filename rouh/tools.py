@@ -627,8 +627,10 @@ def _access_section() -> dict:
         from . import run_access, unrestricted
 
         mode = unrestricted.owner_mode()
-        ready = [i["name"] for i in run_access.items(None) if i["ready"]]
-        missing = [f"{i['name']} ({i['why']})" for i in run_access.items(None) if not i["ready"]]
+        # What this Rouh does not have at all (rouh.land, the relay, a graphics card) is not missing.
+        items = [i for i in run_access.items(None) if i.get("applies", True)]
+        ready = [i["name"] for i in items if i["ready"]]
+        missing = [f"{i['name']} ({i['why']})" for i in items if not i["ready"]]
         switch = {"mode": mode.said(), "ready": ready, "not_ready": missing,
                   "last_write": run_access.last()}
         human += (f" The switch is {mode.said()}: while it is Unrestricted the owner's own live runs "
