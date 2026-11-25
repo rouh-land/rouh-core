@@ -663,15 +663,28 @@ with {% asset %}, which gives it its hashed address.
          writing. {% endcomment %}
     <div class="sb-under" id="sbUnder">
       <a id="generalRow" class="sb-row sb-do" data-nav="rouh" data-inapp
-              title="Rouh, the chat that is always there">
+              title="General Chat, the chat that is always there">
         <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="none"
              stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
           <circle cx="12" cy="12" r="3.8"/>
           <path d="M16.8 14.8C17.4 17.4 21.0 14.9 21.4 17.4M12.0 17.6C10.0 19.4 14.0 21.2 12.0 22.8M7.2 14.8C4.6 14.0 5.0 18.4 2.6 17.4M7.2 9.2C6.6 6.6 3.0 9.1 2.6 6.6M12.0 6.4C14.0 4.6 10.0 2.8 12.0 1.2M16.8 9.2C19.4 10.0 19.0 5.6 21.4 6.6"/>
         </svg>
-        <span class="sb-row-name">Rouh</span>
+        <span class="sb-row-name">Chat</span>
         <span class="sb-row-dot" id="generalBadge" hidden></span>
       </a>
+      {% comment %} Robot, beside Chat (Petar, 26 November 2026, task 122): "next to that link,
+           let's add another link: robot and when we click it a new chat "Robot Chat" appears
+           with all the rules for the robot." The person's Robot chat, made the first time
+           (`rouh/robotchat.py`, POST /api/robot/chat), opened every time after. {% endcomment %}
+      <button id="robotRow" class="sb-row sb-do" type="button" data-nav="robot"
+              title="Robot Chat: talk to Rouh's robot body">
+        <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="none"
+             stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="5" y="8" width="14" height="10" rx="2.5"/>
+          <path d="M12 8V4.5M9.5 13h.01M14.5 13h.01M3 12v3M21 12v3"/>
+        </svg>
+        <span class="sb-row-name">Robot</span>
+      </button>
       {% comment %} Feedback, Gene therapy from 12 October to 23 November 2026, when Petar
            made it Feedback again: "Where the Gene therapy link/button is now, put a
            Feedback button. It opens the same side panel as today." The same row in the

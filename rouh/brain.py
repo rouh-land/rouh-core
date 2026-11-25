@@ -595,6 +595,13 @@ def _incubator_block(chat_id: str = "") -> str:
     return incubator.prompt_block(chat_id)
 
 
+def _robot_block(chat_id: str = "") -> str:
+    """In the Robot chat, its rules: speak, and who may be speaking; "" in any other (`rouh/robotchat.py`)."""
+    from . import robotchat
+
+    return robotchat.prompt_block(chat_id)
+
+
 def _gene_offers_block(chat: str) -> str:
     """Mutations' kept genes on offer (`rouh/evolution.py`), for a turn the person
     started: never a note of Rouh's own, an unattended turn, the heartbeat's or a mail's."""
@@ -1152,6 +1159,8 @@ class Brain:
                 (70, "The open Synapse dataset", "rouh/synapse/chat.py", lambda: _synapse_block(chat)),
                 # The Incubator's own chat says that it is, and what its list holds (`rouh/incubator.py`).
                 (75, "The Incubator's chat", "rouh/incubator.py", lambda: _incubator_block(chat)),
+                # The Robot chat's rules: spoken answers, and anyone in the home may be speaking (`rouh/robotchat.py`).
+                (76, "The Robot chat", "rouh/robotchat.py", lambda: _robot_block(chat)),
                 # The meeting library's meetings the person may read.
                 (80, "The meeting library", "rouh/synapse/meetings.py", _meetings_block),
                 # What the person's message found in Synapse Master (`rouh/synapse/messageseeds.py`).

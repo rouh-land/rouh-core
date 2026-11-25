@@ -4720,8 +4720,12 @@ function threadName(chat) {
   // and the model still writes one from what is said in it, which is why the
   // row carries that underneath rather than instead. It was called General
   // until 30 September 2026, when Petar asked for it to be Rouh; the code
-  // and the server still call its role General.
-  if (chat.id === CHATS.general) return 'Rouh';
+  // and the server still call its role General. Since 26 November 2026 it is
+  // General Chat, and its row in the navigation is Chat (Petar: "rename the
+  // Rouh link to "Chat" in the navigation. And the default title should say
+  // General Chat.").
+  if (chat.id === CHATS.general) return 'General Chat';
+  if (String(chat.id || '').indexOf('robot-') === 0) return 'Robot Chat';
   // A task's own conversation is called what the task is called, because it
   // is the task. Another chat put under the task is not, and keeps its own
   // title: two chats both called "Jarvis" could not be told apart.
@@ -5741,6 +5745,7 @@ function runsRowPaint() {
     });
   });
   if ($('generalRow')) $('generalRow').addEventListener('click', function () { openGeneral(true); });
+  if ($('robotRow')) $('robotRow').addEventListener('click', openRobot);
 })();
 
 /* A chat or a task, on one line.
@@ -5863,6 +5868,24 @@ function openGeneral(alone) {
   // left scrolled to: that is what pressing Rouh is for (fr_5fcd2acebed7).
   scrollDown(true);
   focusTheBox();
+}
+
+/* Robot in the navigation: the person's Robot chat, made the first time and opened every time
+   after (`rouh/robotchat.py`). It is a chat like any other once it is open. */
+function openRobot() {
+  var csrf = /(?:^|;\s*)rouh_csrftoken=([^;]+)/.exec(document.cookie || '');
+  fetch('/api/robot/chat', { method: 'POST', credentials: 'same-origin',
+    headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrf ? decodeURIComponent(csrf[1]) : '' },
+    body: '{}' })
+    .then(function (r) { return r.ok ? r.json() : null; })
+    .then(function (j) {
+      if (!j || !j.chat) return;
+      openThread(chatById(j.chat) || { id: j.chat, title: j.title || 'Robot Chat' }, true);
+      sidebarDone();
+      if (narrow()) setPane('chat');
+      focusTheBox();
+    })
+    .catch(function () {});
 }
 
 function focusTheBox() {

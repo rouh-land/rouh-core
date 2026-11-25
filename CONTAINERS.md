@@ -272,6 +272,7 @@ Every gene in `rouh/genes/owners.json` and every page Rouh serves that no row ab
 | `page.mutations` | Evolution, Mutations, and the gene log | untested | works | its pages, the month and the gene log | not checked |
 | `page.gene-pool` | Evolution, the Gene Pool | untested | works | its pages, and what this Rouh shares and is offered | not checked |
 | `page.incubator` | Evolution, the Incubator: every idea for a new gene or a mutation | untested | works | its page, an idea added there is listed and opens whole, its category changed | not checked |
+| `chat.robot` | Robot in the navigation opens the person's Robot Chat, a chat with the robot's own rules (task 122) | untested | works | the Robot row is on the page; `POST /api/robot/chat` makes `robot-<user>` titled Robot Chat, and a second press answers with the same chat | not checked |
 | `page.nightly-run` | Evolution, the nightly run's own page: its schedule, switch, nights and rules | untested | works | its page, and its caps and nights read | not checked |
 | `page.trials` | Evolution, Trials: a made-up person tries each change, and the problems they hit | untested | works | its pages, a trial started and a step refused without a tester, and the list of problems | not checked |
 | `page.trusted-contacts` | Trusted contacts, their levels and grants (capabilities, delegation) | untested | works | its page, its grants page, and every grant there is to give | not checked |

@@ -388,6 +388,29 @@ def page_loads(s: Stack) -> None:
     expect(not bad, "pages of the navigation did not open: " + "; ".join(bad))
 
 
+@check("chat.robot")
+def chat_robot(s: Stack) -> None:
+    """Robot in the navigation (task 122): its row is on the page, and POST /api/robot/chat makes the
+    person's Robot chat once and answers with the same one after (`rouh/robotchat.py`)."""
+    code, body, _ = s.get("/")
+    expect(code == 200 and 'id="robotRow"' in body, "the navigation has no Robot row")
+    token = next((c.split("=", 1)[1] for c in (x.strip() for x in s.cookie.split(";"))
+                  if c.startswith("rouh_csrftoken=")), "")
+    got = []
+    for _ in range(2):
+        req = urllib.request.Request(s.url + "/api/robot/chat", data=b"{}", method="POST", headers={
+            "Cookie": s.cookie, "Content-Type": "application/json", "X-CSRFToken": token,
+            "Referer": s.url + "/"})
+        try:
+            with urllib.request.urlopen(req, timeout=30) as r:
+                got.append(json.loads(r.read().decode()))
+        except urllib.error.HTTPError as e:
+            raise Failed(f"/api/robot/chat answered {e.code}: {e.read().decode()[:300]}")
+    expect(str(got[0].get("chat", "")).startswith("robot-") and got[0].get("title") == "Robot Chat",
+           f"the Robot chat was not made: {got[0]}")
+    expect(got[1].get("chat") == got[0].get("chat"), f"a second press made another chat: {got}")
+
+
 @check("chat-turn")
 def chat_turn(s: Stack) -> None:
     text, _ = s.say("Hello from the stack test")

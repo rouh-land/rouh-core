@@ -11223,8 +11223,11 @@ button.tc-fold[aria-expanded="true"]::before { transform: rotate(45deg); top: 7p
   top: var(--fold-under-top, auto); bottom: auto;
   height: auto; padding: 0 var(--sb-pad);
   grid-auto-rows: auto;
-  grid-template-columns: 1fr 1fr; gap: 4px;
+  /* Chat, Robot and Feedback, the three on one line (Robot since 26 November 2026), each as wide
+     as its word, so Feedback is never cut to "Fee..." on a phone. */
+  grid-template-columns: repeat(3, auto); justify-content: start; gap: 4px;
 }
+.sb-under .sb-row { padding-inline: 8px; gap: 8px; }
 /* The links end above the row and scroll above it, and never past it or
    under it: the room for the row is kept below the scroller rather than at
    the end of what it scrolls (`--fold-nav-room`, from `placeFold`). The

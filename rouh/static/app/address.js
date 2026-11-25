@@ -852,7 +852,7 @@ function addrTitle() {
   var chat = CHATS && CHATS.active ? chatById(CHATS.active) : null;
   if (!chat) return place ? place + ' - Rouh' : 'Rouh';
   var general = chat.id === CHATS.general;
-  var talk = general ? 'Rouh Chat' : threadName(chat);
+  var talk = general ? 'General Chat' : threadName(chat);   // Rouh Chat until 26 November 2026
   if (chat.task && !general) return talk + ' - Rouh';
   if (!place || place === talk) return general ? talk : talk + ' - Rouh';
   return talk + ' | ' + place;

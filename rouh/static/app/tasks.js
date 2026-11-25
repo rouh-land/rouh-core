@@ -1599,8 +1599,8 @@ function railPaint() {
   if (dot && row) {
     var fresh = !!general && general.id !== CHATS.active && threadUnread(general);
     dot.hidden = !fresh;
-    row.title = fresh ? 'Rouh, with something new in it'
-                      : 'Rouh, the chat that is always there';
+    row.title = fresh ? 'General Chat, with something new in it'
+                      : 'General Chat, the chat that is always there';
   }
 }
 
