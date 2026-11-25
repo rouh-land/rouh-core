@@ -244,6 +244,28 @@ def notes(since: str, commit: str) -> list[str]:
 # --- publishing ----------------------------------------------------------------------------------
 
 
+def as_now(commit: str) -> str:
+    """The published release as rouh-core's main calls it now. After a rewrite of main's history
+    (task 98, step 98-26) the release rouh.land still names is an old id that no new commit
+    contains, and nothing would ever be released again: the map published beside main says what
+    it became (``code_evolution.follow_rewrite``, which also brings this Rouh's update records along)."""
+    from . import code_evolution, code_update
+
+    now = code_evolution.current(commit)
+    if not commit or now != commit:
+        return now
+    up = _git("rev-parse", "--verify", "-q", UPSTREAM).stdout.strip()
+    if up and not _contains(up, commit):
+        with contextlib.suppress(Exception):
+            repo = code_evolution.master_repo()
+            if not repo.exists():
+                repo.parent.mkdir(parents=True, exist_ok=True)
+                code_update._git("init", "--bare", "-q", str(repo), cwd=repo.parent, check=True)
+            if code_evolution.follow_rewrite(repo, commit):
+                return code_evolution.current(commit)
+    return commit
+
+
 def published() -> dict:
     """The release rouh.land serves now, or {} for none."""
     from . import code_update
@@ -303,11 +325,12 @@ def once(now: float | None = None, *, force: bool = False) -> dict:
     if not force and now - float(s.get("tried_at") or 0) < EVERY:
         return s
     rel = published()
-    point, why = candidate(points, str(rel.get("commit") or ""), now)
+    since = as_now(str(rel.get("commit") or ""))
+    point, why = candidate(points, since, now)
     if point is None:
         return _save(tried_at=now, said=f"No new release: {why}.", looked_at=now)
     try:
-        got = publish(point, str(rel.get("commit") or ""))
+        got = publish(point, since)
     except Exception as exc:  # noqa: BLE001 - said, and tried again tomorrow
         log.warning("the release could not be published: %s", exc)
         return _save(tried_at=now, said=f"The release of {point['commit'][:12]} could not be published: {exc}",
@@ -390,7 +413,7 @@ def publish_by_hand(commit: str = "", now: float | None = None) -> dict:
     """Publish `commit` (or the newest that qualifies) as the release now. {"said", "commit"}."""
     now = now or time.time()
     rel = published()
-    since = str(rel.get("commit") or "")
+    since = as_now(str(rel.get("commit") or ""))
     if commit:
         up = _git("rev-parse", "--verify", "-q", UPSTREAM).stdout.strip()
         full = _git("rev-parse", "--verify", "-q", commit + "^{commit}").stdout.strip()
