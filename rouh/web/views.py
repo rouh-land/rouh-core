@@ -939,6 +939,28 @@ def _first_help(request: HttpRequest) -> dict:
         return {"on": []}
 
 
+def _new_owner(request: HttpRequest) -> dict:
+    """Which of night 54's four genes for a first-time user are on here (`rouh/new_owner.py`)."""
+    from rouh import new_owner
+
+    try:
+        return new_owner.for_page(who(request))
+    except Exception:
+        log.warning("new_owner: not read for the page", exc_info=True)
+        return {"on": []}
+
+
+def _build_proof(request: HttpRequest) -> dict:
+    """Which of night 54's four genes for building Rouh faster are on here (`rouh/build_proof.py`)."""
+    from rouh import build_proof
+
+    try:
+        return build_proof.for_page(who(request))
+    except Exception:
+        log.warning("build_proof: not read for the page", exc_info=True)
+        return {"on": []}
+
+
 def _newcomer(request: HttpRequest) -> dict:
     """Which of night 51's four genes for a newcomer are on here, and what they need (`rouh/newcomer.py`)."""
     from rouh import newcomer
@@ -1018,6 +1040,10 @@ def _page_for(request: HttpRequest) -> HttpResponse:
         "RUN_BRIEF": _run_brief(request),
         # Sign-in's capitals, the Guide answering, What is this page, Ask Rouh on a selection (`rouh/first_help.py`).
         "FIRST_HELP": _first_help(request),
+        # A pasted key cleaned, how to get a key, Show me around, page names as links (`rouh/new_owner.py`).
+        "NEW_OWNER": _new_owner(request),
+        # A run's pictures and screens, Change something here (`rouh/build_proof.py`).
+        "BUILD_PROOF": _build_proof(request),
         # Say it more simply, under an answer (`rouh/say_plainer.py`).
         "PLAINER": _plainer(request),
         # The open orb's music: Rouh's own, or the Cornfield Chase arrangement where its switch is on.

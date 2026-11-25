@@ -88,11 +88,12 @@ ALLOWED: dict[str, frozenset[str]] = {
     # one place a person keeps their own list, so it is the one place that may.
     # Putting one away stops it as well: the person is done with it.
     # "transcript" is the Read tab: the run's own transcript as a conversation,
-    # which only reads.
+    # which only reads. "proof" is what a run saw while proving its change, its
+    # pictures and the screens its design check covered (one/proof.py); it only reads.
     "browser": frozenset({
         "hello", "ping", "runs", "run", "tree", "tail", "questions", "start", "stop", "say",
         "attach", "detach", "take", "give", "input", "resize", "scroll", "mouse", "answer",
-        "archive", "devices", "spaces", "add_space", "processes", "transcript",
+        "archive", "devices", "spaces", "add_space", "processes", "transcript", "proof",
     }),
     # "tail", the list as it grows, is how Rouh hears a job it started
     # finish and puts the result on its screen (stage 5); it only reads.
@@ -122,7 +123,7 @@ ALLOWED: dict[str, frozenset[str]] = {
     "voice": frozenset({
         "hello", "ping", "runs", "run", "tree", "tail", "questions", "start", "stop", "say",
         "answer", "take", "give", "spaces", "codex_key", "archive", "calls", "claude_signin",
-        "codex_signin", "shell", "run_logs", "run_doors", "run_token_check", "door_attempts",
+        "codex_signin", "shell", "run_logs", "run_doors", "run_token_check", "door_attempts", "proof",
     }),
     "phone": frozenset({"hello", "ping", "answer"}),
     # A run's own processes, known by the kernel's process tree (one/peers.py), whatever token

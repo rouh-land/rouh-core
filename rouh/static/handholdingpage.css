@@ -521,6 +521,13 @@ a.hh-quiet, a.hh-main { text-decoration: none; }
 .hh-ov-next-k { font-size: 12.5px; font-weight: 700; color: var(--accent); }
 .hh-ov-next-t { font-size: 15px; font-weight: 700; line-height: 1.3; overflow-wrap: anywhere; }
 .hh-ov-next-s { font-size: 12.5px; color: var(--dim); }
+/* Show me around (`rouh/new_owner.py`, show_around): quiet beside the next tip, which stays the primary. */
+.hh-ov-tour {
+  justify-self: start; min-height: 44px; padding: 0 14px; border-radius: 10px; border: 1px solid var(--line);
+  background: transparent; color: var(--text); font: inherit; font-size: 14px; font-weight: 600; cursor: pointer;
+}
+.hh-ov-tour:hover { border-color: var(--accent); }
+.hh-ov-tour:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 @container hhbody (max-width: 560px) {
   .hh-overview { grid-template-columns: minmax(0, 1fr); }
   .hh-ov-next { width: 100%; }

@@ -12298,3 +12298,84 @@ body.cot-open { overflow: hidden; }
 .ou-tablebox { overflow-x: auto; }
 .ou-ltable tbody th { overflow-wrap: anywhere; }
 .ou-ltable tbody th small { margin-left: 0; }
+
+/* No key yet? How to get one, under a company with no key (`rouh/new_owner.py`, key_steps). */
+.prov-how { flex-basis: 100%; margin: 2px 0 0; }
+.prov-how > summary {
+  display: inline-flex; align-items: center; min-height: 44px; cursor: pointer; color: var(--accent);
+  font-size: 13.5px; font-weight: 600; list-style: none;
+}
+.prov-how > summary::-webkit-details-marker { display: none; }
+.prov-how > summary::before { content: "\203A"; display: inline-block; width: 1em; transition: transform .15s; }
+.prov-how[open] > summary::before { transform: rotate(90deg); }
+.prov-how > summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 4px; }
+.prov-how-body { padding: 2px 0 6px 1em; }
+.prov-how-steps { margin: 0 0 8px; padding-left: 1.2em; display: grid; gap: 4px; font-size: 13.5px; line-height: 1.45; color: var(--text); }
+.prov-how-open { display: inline-flex; align-items: center; gap: 4px; min-height: 44px; color: var(--accent); font-size: 13.5px; font-weight: 600; }
+
+/* Show me around (`rouh/new_owner.py`, show_around): a ring around one part of the screen, and a card
+   beside it with one sentence, Back and Next. */
+.tour-ring {
+  position: fixed; z-index: 9000; pointer-events: none; border-radius: 12px;
+  border: 2px solid var(--accent); box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.45);
+  transition: top .2s, left .2s, width .2s, height .2s;
+}
+.tour-card {
+  position: fixed; z-index: 9001; padding: 12px 14px 14px; border-radius: 14px; border: 1px solid var(--line);
+  background: var(--panel); color: var(--text); box-shadow: var(--shadow);
+}
+.tour-head { display: flex; align-items: center; justify-content: space-between; }
+.tour-count { font-size: 12.5px; color: var(--dim); font-variant-numeric: tabular-nums; }
+.tour-x {
+  width: 44px; height: 44px; margin: -10px -10px -6px 0; border: 0; border-radius: 10px; background: transparent;
+  color: var(--dim); font-size: 22px; cursor: pointer;
+}
+.tour-x:hover { color: var(--text); }
+.tour-x:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+.tour-title { margin: 2px 0 4px; font-size: 16px; font-weight: 700; }
+.tour-says { margin: 0 0 12px; font-size: 14px; line-height: 1.45; }
+.tour-btns { display: flex; justify-content: flex-end; gap: 8px; }
+.tour-btns .ctl { min-height: 44px; min-width: 72px; }
+@media (prefers-reduced-motion: reduce) { .tour-ring { transition: none; } }
+
+/* Rouh's own pages named in an answer (`rouh/new_owner.py`, page_links), drawn as a task's number is. */
+.b-text a.page-ref {
+  color: var(--text); text-decoration: none; border-radius: 2px;
+  border-bottom: 1px solid color-mix(in srgb, var(--accent) 55%, transparent);
+}
+.b-text a.page-ref:hover, .b-text a.page-ref:focus-visible { background: var(--accent-soft); border-bottom-color: var(--accent); }
+
+/* The pictures a run took, and See it live (`rouh/build_proof.py`, run_pictures and run_screens). */
+.run-proof { display: grid; gap: 10px; margin: 8px 0 2px; }
+.run-proof[hidden] { display: none; }
+.run-proof-head { margin: 0 0 6px; font-size: 12.5px; font-weight: 700; color: var(--dim); }
+.run-proof-row { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 4px; }
+.run-proof-pic {
+  flex: none; width: 112px; height: 72px; padding: 0; border-radius: 8px; overflow: hidden; cursor: zoom-in;
+  border: 1px solid var(--line); background: var(--bg);
+}
+.run-proof-pic img { width: 100%; height: 100%; object-fit: cover; object-position: top left; display: block; }
+.run-proof-pic:hover { border-color: var(--accent); }
+.run-proof-pic:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.run-proof-live .run-proof-row { flex-wrap: wrap; overflow: visible; }
+.run-proof-screen { min-height: 44px; }
+.run-proof-view {
+  width: min(1200px, calc(100vw - 24px)); max-height: calc(100vh - 24px); padding: 0; border-radius: 14px;
+  border: 1px solid var(--line); background: var(--panel); color: var(--text);
+}
+.run-proof-view::backdrop { background: rgba(0, 0, 0, 0.6); }
+.run-proof-bar { display: flex; align-items: center; gap: 6px; padding: 8px 10px; border-bottom: 1px solid var(--line); }
+.run-proof-bar .ctl { min-width: 44px; min-height: 44px; font-size: 18px; }
+.run-proof-name { flex: 1; min-width: 0; font-size: 13px; color: var(--dim); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.run-proof-big { display: block; max-width: 100%; max-height: calc(100vh - 100px); margin: 0 auto; object-fit: contain; }
+
+/* Change something here (`rouh/build_proof.py`, point_change): what is under the pointer is ringed,
+   and a bar at the top says what to do. */
+html.pointing, html.pointing * { cursor: crosshair !important; }
+.point-lit { outline: 2px solid var(--accent) !important; outline-offset: 2px; }
+.point-bar {
+  position: fixed; z-index: 9002; top: 12px; left: 50%; transform: translateX(-50%); max-width: calc(100vw - 32px);
+  display: flex; align-items: center; gap: 12px; padding: 6px 6px 6px 14px; border-radius: 12px;
+  border: 1px solid var(--accent); background: var(--panel); color: var(--text); box-shadow: var(--shadow); font-size: 14px;
+}
+.point-bar .ctl { min-height: 44px; cursor: pointer !important; }

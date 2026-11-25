@@ -1176,7 +1176,14 @@ async def company_key(request: HttpRequest, company: str, how: bool = False) -> 
             return await asyncio.to_thread(_render, request, "key", status=400, problem=f"Paste your {c['name']} key again.",
                                            **{**values, "state": ""})
     else:
-        key = "".join((request.POST.get("key") or "").split())
+        # A key pasted with what was around it, or into the other company's box, is cleaned and
+        # checked as its own company's (`rouh/new_owner.py`, key_clean); off, it is what was typed.
+        from rouh import new_owner
+
+        own, key, _moved = await asyncio.to_thread(new_owner.tidy, company, request.POST.get("key") or "", user)
+        if own in COMPANIES and own != company:
+            company, c = own, COMPANIES[own]
+            values.update(company=company, c=c, state=states.get(company, ""))
         shape = _shape(company, key)
         if shape:
             return await asyncio.to_thread(_render, request, "key", status=400, problem=shape, **values)

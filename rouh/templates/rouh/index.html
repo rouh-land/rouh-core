@@ -510,6 +510,10 @@ with {% asset %}, which gives it its hashed address.
         {{ FIRST_STEPS|json_script:"rouhFirstSteps" }}
         {{ RUN_BRIEF|json_script:"rouhRunBrief" }}
         {{ FIRST_HELP|json_script:"rouhFirstHelp" }}
+        {{ NEW_OWNER|json_script:"rouhNewOwner" }}
+        {{ BUILD_PROOF|json_script:"rouhBuildProof" }}
+        {# Change something here, pressed by its link in the menu (`rouh/build_proof.py`, point_change). #}
+        <button id="pointChangeBtn" type="button" hidden>Change something here</button>
         {{ PLAINER|json_script:"rouhPlainer" }}
         <script>
         /* The group to show before anything is painted: the one holding the page
@@ -1932,6 +1936,8 @@ with {% asset %}, which gives it its hashed address.
           <div id="oneCodex" class="run-codex" hidden></div>
           {# The files a landing took, opened from "N files changed" (`rouh/run_head.py`, run_files). #}
           <ul id="oneFiles" class="run-files" aria-label="Files this run changed" hidden></ul>
+          {# The pictures it took and the screens it changed (`rouh/build_proof.py`, run_pictures and run_screens). #}
+          <div id="oneProof" class="run-proof" hidden></div>
           {# Its twin on the other agent, the same brief, compared (`rouh/run_desk.py`, run_twin). #}
           <div id="oneTwin" class="run-twin" hidden>
             <p id="oneTwinSay"></p>

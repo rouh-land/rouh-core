@@ -499,6 +499,15 @@
     return a;
   }
 
+  /* Whether Show me around is on (`rouh/new_owner.py`, show_around), from `#rouhNewOwner`. */
+  var AROUND = (function () {
+    try {
+      var node = document.getElementById('rouhNewOwner');
+      var got = node ? JSON.parse(node.textContent || '{}') : {};
+      return Array.isArray(got.on) && got.on.indexOf('show_around') >= 0;
+    } catch (e) { return false; }
+  }());
+
   /* ---- Your path: progress and the next tip, a search, then the stages, each closed until pressed ---- */
 
   /* The Guide's search reads a question (`rouh/first_help.py`, guide_search): when no tip has every word
@@ -607,6 +616,13 @@
     fill.style.width = (list.length ? Math.round(done * 100 / list.length) : 0) + '%';
     bar.appendChild(fill);
     top.appendChild(bar);
+    // Show me around (`rouh/new_owner.py`, show_around): a tour of the screen, drawn by app/new_owner.js.
+    if (AROUND) {
+      var tour = k(button('Show me around the screen', 'hh-ov-tour', function () {
+        window.dispatchEvent(new CustomEvent('rouh:show-around'));
+      }), 'ov-tour');
+      top.appendChild(tour);
+    }
     box.appendChild(top);
     var nx = nextTip();
     if (!nx) {

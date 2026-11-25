@@ -4092,6 +4092,123 @@
     "rouh/first_help.py",
     "rouh/web/first_help.py"
    ]
+  },
+  "n54-key-clean": {
+   "name": "A pasted key is cleaned",
+   "what": "An AI key pasted with its quotes, its name, export or Bearer is taken out of them, and an Anthropic or OpenAI key pasted in the other company's box is kept as its own company's, saying so, on the Models page and the first run's key screen.",
+   "switch": "key_clean",
+   "signals": {
+    "events": {
+     "cleaned": "You pasted an AI key with something around it, or in the other company's box, and it was kept as the key it is"
+    }
+   },
+   "files": [
+    "rouh/new_owner.py",
+    "rouh/web/new_owner.py",
+    "rouh/static/app/new_owner.js"
+   ]
+  },
+  "n54-key-steps": {
+   "name": "No key yet? How to get one",
+   "what": "Each company with no key on the Models page has a closed No key yet? How to get one, with its steps and a link to where its keys are made.",
+   "switch": "key_steps",
+   "signals": {
+    "events": {
+     "opened": "You opened No key yet? How to get one under a company on the Models page"
+    }
+   },
+   "files": [
+    "rouh/new_owner.py",
+    "rouh/web/new_owner.py",
+    "rouh/static/app/new_owner.js"
+   ]
+  },
+  "n54-show-around": {
+   "name": "Show me around",
+   "what": "Show me around, on the Guide, points at each part of Rouh's screen in turn with one plain sentence, with Back, Next and Done.",
+   "switch": "show_around",
+   "signals": {
+    "events": {
+     "started": "You pressed Show me around the screen on the Guide",
+     "finished": "You went through every stop of Show me around and pressed Done"
+    }
+   },
+   "files": [
+    "rouh/new_owner.py",
+    "rouh/web/new_owner.py",
+    "rouh/static/app/new_owner.js"
+   ]
+  },
+  "n54-page-links": {
+   "name": "Rouh's pages named in an answer open with a press",
+   "what": "The name of one of Rouh's own pages in Rouh's answer is a link that opens it, with what it is for as its title.",
+   "switch": "page_links",
+   "signals": {
+    "events": {
+     "opened": "You pressed the name of one of Rouh's pages in its answer, and the page opened"
+    }
+   },
+   "files": [
+    "rouh/new_owner.py",
+    "rouh/web/new_owner.py",
+    "rouh/static/app/new_owner.js"
+   ]
+  },
+  "n54-brief-workspace": {
+   "name": "A run's brief reaches the workspace from where it runs",
+   "what": "In the containers, a run of Rouh's code that writes into the workspace is told the workspace copy it can reach and the commands that work there, instead of a path it does not have.",
+   "switch": "brief_workspace",
+   "signals": {
+    "events": {
+     "briefed": "A run of Rouh's code you or the night started was told how to reach your workspace from where it runs"
+    }
+   },
+   "files": [
+    "rouh/build_proof.py",
+    "rouh/web/build_proof.py",
+    "rouh/static/app/build_proof.js"
+   ]
+  },
+  "n54-run-pictures": {
+   "name": "The pictures a run took",
+   "what": "A run's head shows the pictures it took while proving its change, kept by the one program as its checkout goes, each a press from full size.",
+   "switch": "run_pictures",
+   "signals": {
+    "events": {
+     "seen": "You opened a run whose head showed the pictures it took",
+     "opened": "You pressed one of the pictures a run took, and it opened full size"
+    }
+   },
+   "files": [
+    "rouh/build_proof.py",
+    "rouh/web/build_proof.py",
+    "rouh/static/app/build_proof.js",
+    "one/proof.py"
+   ]
+  },
+  "n54-run-screens": {
+   "name": "See it live",
+   "what": "Once a run's work is saved, its head lists the screens its design check covered, each a press that opens it here.",
+   "switch": "run_screens",
+   "signals": {
+    "events": {
+     "opened": "You pressed a screen under See it live on a run's head, and it opened"
+    }
+   },
+   "files": [
+    "rouh/build_proof.py",
+    "rouh/web/build_proof.py",
+    "rouh/static/app/build_proof.js",
+    "one/proof.py"
+   ]
+  },
+  "n54-point-change": {
+   "files": [
+    "rouh/build_proof.py",
+    "rouh/web/build_proof.py",
+    "rouh/static/app/build_proof.js",
+    "rouh/genes/manifests/n54-point-change.json"
+   ]
   }
  }
 }

@@ -136,6 +136,14 @@ async def settings_models_keys(request: HttpRequest):
         return refuse(NOT_ADMIN, 403, **(await sync_to_async(now)()))
     sent = body_of(request)
     provider = str(sent.get("provider") or "").strip().lower()
+    # A key pasted with what was around it, or into the other company's box, is cleaned and kept as
+    # its own company's (`rouh/new_owner.py`, key_clean); off, it is what was typed.
+    from rouh import new_owner
+
+    said_moved = ""
+    if str(sent.get("key") or "").strip():
+        provider, sent["key"], said_moved = await sync_to_async(new_owner.tidy)(provider, sent.get("key"), me)
+        sent["provider"] = provider
     if provider in providerkeys.CHAT_OWN:
         # This Rouh's own Anthropic or OpenAI key: checked and kept the way the first run does it,
         # in the keys folder the key proxy reads, and given to Rouh's calls at once (no restart).
@@ -156,7 +164,7 @@ async def settings_models_keys(request: HttpRequest):
         from rouh import runtime
 
         await runtime.announce_model_defaults()
-        return answer({"ok": True, **(await sync_to_async(now)())})
+        return answer({"ok": True, **(await sync_to_async(now)()), **({"said": said_moved} if said_moved else {})})
     try:
         await sync_to_async(providerkeys.save)(me.org_id, str(sent.get("provider") or ""),
                                                str(sent.get("key") or ""),

@@ -16,11 +16,14 @@ repository, and the answer comes from git rather than from a name written down.
 """
 from __future__ import annotations
 
+import logging
 import os
 import posixpath
 from functools import lru_cache
 
 from . import gitutil
+
+log = logging.getLogger("rouh.workspace_repo")
 
 
 @lru_cache(maxsize=32)
@@ -120,4 +123,13 @@ def code_run_note() -> str:
 
     if run_prefix():
         return ""
-    return CODE_RUN_NOTE.format(space=config.workspace_space)
+    # In the containers the run is in the worker, which reaches the workspace's main and not
+    # Rouh's own copy (`rouh/build_proof.py`, brief_workspace).
+    try:
+        from . import build_proof
+
+        here = build_proof.container_note()
+    except Exception:  # noqa: BLE001 - the note that always stood
+        log.exception("brief_workspace: the note for the containers could not be written")
+        here = ""
+    return here or CODE_RUN_NOTE.format(space=config.workspace_space)

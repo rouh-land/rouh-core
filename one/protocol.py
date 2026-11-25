@@ -57,7 +57,7 @@ QUEUE_LIMIT = 20_000
 #: the connection's next message is not held up behind them. A browser's
 #: messages arrive one after another, and the first read of a long transcript
 #: would otherwise hold up the keys typed into a run's terminal on the same page.
-IN_ITS_OWN_TIME = frozenset({"transcript", "calls", "run_logs"})
+IN_ITS_OWN_TIME = frozenset({"transcript", "calls", "run_logs", "proof"})
 
 CONSOLE = {"id": "console", "name": "the server's own terminal", "surface": "terminal"}
 
@@ -465,6 +465,11 @@ class Client:
         except (TypeError, ValueError):
             raise ValueError("say after how many days") from None
         return await self.p.runs.trim_logs(days, dry=bool(m.get("dry", True)), by=self.device_id)
+
+    async def _do_proof(self, m):
+        """What a run saw while it proved its change: its pictures and the screens its design
+        check covered (`one/proof.py`); it only reads."""
+        return await asyncio.to_thread(self.p.runs.proof, self._run_id(m))
 
     async def _do_retitle(self, m):
         """Give a run another title, and another brief when one is sent: only from a terminal."""

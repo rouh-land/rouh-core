@@ -1,0 +1,42 @@
+{
+  "id": "n54-point-change",
+  "name": "Change something here",
+  "title": "Change something here: press a thing on Rouh's screen, and Start a run opens on Rouh's own code with where it is already in the brief",
+  "aliases": [
+    "change something here",
+    "point at it",
+    "change this",
+    "fix this on the screen",
+    "point and change"
+  ],
+  "group": "evolution",
+  "route": "/metabolism",
+  "icon": "<path d=\"M5 3.5l12.5 7-5.5 1.5-2 5.5z\"/><path d=\"M13.5 14.5l5 5\"/>",
+  "attaches_to": [],
+  "maturity": "lab",
+  "switch": "point_change",
+  "signals": {
+    "events": {
+      "pointed": "You pressed Change something here, then the thing on the screen you wanted changed",
+      "started": "You started the run Change something here opened, about the thing you pressed"
+    }
+  },
+  "nav": {
+    "place": "list",
+    "opens": "press",
+    "press": "pointChangeBtn",
+    "order": 45
+  },
+  "touches": {
+    "permissions": [
+      "starts a run of Rouh's own code, from Start a run, only when you press Start"
+    ],
+    "accounts": [],
+    "tables": [],
+    "jobs": [],
+    "remove": "Turn the switch point_change off on its row in Evolution, Mutations, and Change something here is gone from the menu and Alt+Shift+C does nothing; to remove it for good revert night 54's commit (rouh/build_proof.py, rouh/web/build_proof.py, rouh/static/app/build_proof.js, #pointChangeBtn and #oneProof in rouh/templates/rouh/index.html, the run_proof and point styles in rouh/static/app.css, this manifest)."
+  },
+  "uses": {
+    "tools": []
+  }
+}

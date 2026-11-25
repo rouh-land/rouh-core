@@ -2269,6 +2269,7 @@ class Runs(_RunInteraction):
                     self.list.append("checkout.kept", run=run_id, body={"cwd": cwd, "why": why})
                     return
                 self._keep_debug_log(run_id, run.get("own") or f"{cwd}/.one")
+                await asyncio.to_thread(self._keep_proof, run)
                 got = await self.docs.remove(cwd, run.get("branch"), space=run["space"])
                 gone = cwd
             else:
@@ -2284,11 +2285,40 @@ class Runs(_RunInteraction):
                 if run.get("flow") != "in place" and time.time() - ended < self.SCRATCH_KEEP:
                     return
                 self._keep_debug_log(run_id, own)
+                await asyncio.to_thread(self._keep_proof, run)
                 got = await self.docs.remove_folder(gone, space=run["space"])
             if got.get("ok"):
                 self.list.append("checkout.removed", run=run_id, body={"cwd": gone})
         except Exception:
             log.exception("could not tidy away run %s's checkout", run_id)
+
+    def _proof_since(self, run: dict[str, Any]) -> float:
+        from .listfile import epoch
+
+        at = run.get("started_at") or run.get("requested_at")
+        try:
+            return float(epoch(at)) if at else 0.0
+        except Exception:  # noqa: BLE001 - every picture of the checkout, rather than none
+            return 0.0
+
+    def _keep_proof(self, run: dict[str, Any]) -> None:
+        """What the run saw, its pictures and the screens its design check covered, outlive its
+        checkout (`one/proof.py`), for Rouh's run_pictures and run_screens."""
+        from . import proof
+
+        cwd = run.get("cwd")
+        if cwd:
+            proof.keep(cwd, self.p.terminals.folder(run["id"]) / proof.KEPT, self._proof_since(run))
+
+    def proof(self, run_id: str) -> dict[str, Any]:
+        """What the run saw: from its checkout while it is there, else from what was kept."""
+        from . import proof
+
+        run = self.views.runs.get(run_id)
+        if not run:
+            raise RunError(f"there is no run {run_id!r}")
+        cwd = run.get("cwd") if run.get("checkout") != "removed" else None
+        return proof.read(cwd, self.p.terminals.folder(run_id) / proof.KEPT, self._proof_since(run))
 
     def _keep_debug_log(self, run_id: str, own: str) -> None:
         """Claude Code's own debug log, when there is one, outlives the checkout.

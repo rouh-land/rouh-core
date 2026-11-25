@@ -3922,3 +3922,33 @@ print(json.dumps({"page": sorted(page["on"]), "plain": "Metabolism" in page["pla
     expect('"guide_answers", "guide_search", "page_what", "select_ask"' in out and '"plain": true' in out
            and '"stop": true' in out and '"reminders": ["reminder"]' in out and '"start": [true]' in out,
            f"the first help genes were not told as they should be: {out[-500:]}")
+
+
+@check("gene.new-owner")
+def new_owner(s: Stack) -> None:
+    """The page is told which of the four are on; a pasted key is cleaned and kept as its own company's."""
+    out = core_py(s, _owner_py("""
+from rouh import new_owner
+page = new_owner.for_page(who)
+print(json.dumps({"page": sorted(page["on"]), "steps": sorted(page["steps"]), "tour": len(page["tour"]),
+    "pages": "Metabolism" in [p["name"] for p in page["pages"]],
+    "moved": list(new_owner.tidy("openai", 'export ANTHROPIC_API_KEY="sk-ant-api03-abc"', who)[:2]),
+    "whole": new_owner.clean("Abc123==")}))
+"""))
+    expect('"key_clean", "key_steps", "page_links", "show_around"' in out and '"anthropic", "google", "openai", "xai"' in out
+           and '"pages": true' in out and '"moved": ["anthropic", "sk-ant-api03-abc"]' in out and '"whole": "Abc123=="' in out,
+           f"the new owner genes were not told as they should be: {out[-500:]}")
+
+
+@check("gene.build-proof")
+def build_proof(s: Stack) -> None:
+    """A run of Rouh's code is told the workspace copy the worker reaches; the page is told which are on."""
+    out = core_py(s, _owner_py("""
+from rouh import build_proof, workspace_repo
+page = build_proof.for_page(who)
+note = workspace_repo.code_run_note()
+print(json.dumps({"page": sorted(page["on"]), "code": page["code"], "clone": "git clone -q /workspace-origin/workspace.git" in note,
+    "old": "/srv/spaces/workspace" in note}))
+"""))
+    expect('"brief_workspace", "point_change", "run_pictures", "run_screens"' in out and '"clone": true' in out
+           and '"old": false' in out, f"the build proof genes were not told as they should be: {out[-500:]}")

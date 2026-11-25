@@ -1141,6 +1141,8 @@ function oneRenderHead() {
   $('oneSayText').placeholder = ended ? 'Carry it on with a message' : 'Send it a message';
   oneTypingNote(run);
   oneTabsPaint(run);
+  // What it saw, and See it live (`rouh/build_proof.py`, app/build_proof.js).
+  window.dispatchEvent(new CustomEvent('rouh:run-head', { detail: run }));
 }
 
 /* What Codex spent inside this run, under its heading (`one/codex_usage.py`).
@@ -10736,7 +10738,11 @@ function keySave(provider, key, then) {
     if (answer.out && answer.out.tiers) MODELS.data = answer.out;
     modelsDraw();
     if (!answer.ok) settingsSay(answer.out.error || 'That was not saved.', 'bad');
-    else if (then) then();
+    else {
+      // A key that was another company's was kept as that company's (key_clean): say so.
+      if (answer.out && answer.out.said) settingsSay(answer.out.said, 'good');
+      if (then) then();
+    }
   }).catch(function () {
     MODELS.saving = false;
     modelsDraw();
@@ -19513,7 +19519,7 @@ export { applyObjects, applyWorkspace, ASK, askDelete, askFromPage, askPageNow, 
   controlViewing, copyText, CRUMB_HOME, crumbLevels, delPlanned, drawCrumb, drawUnder,
   goalsClose, goalsOpen, goalsTake, goalsViewing, goNow, growToLines, locFind, locPermission,
   memoryAddress, memoryClose, memoryHeard, memoryOpen, memoryViewing, MEMORY, modelsLoad, movedTell, moveOpen, moveSend, askTaskName, OBJ, ONE, oneClose,
-  oneIsOpen, oneOpen, oneOwnerPaint, oneViewing, openOwner, openTaskThread, openUnder,
+  oneIsOpen, oneOpen, oneOwnerPaint, oneSend, oneStartOpen, oneViewing, openOwner, openTaskThread, openUnder,
   ownerWords, pageUrl, pinMark, pinnedRuns, POLICY_MEANS, projectById, projectParts,
   projectsClose, projectsOpen, projectsViewing, railChats, railName, remindersClose,
   remindersOpen, remindersViewing, renderProjects, renderThreads, ROWMENU, rowMenuShow,

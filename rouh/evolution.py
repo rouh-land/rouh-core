@@ -1440,6 +1440,8 @@ def mutation_brief(g, r) -> str:
 
     folder = nightly_feature.task_folder() or "rouh/assistant/94.nightly-rouh-feature-run"
     return "\n".join([
+        # How to reach `<workspace>/...` from the run's checkout, as the night is told it.
+        *([note, ""] if (note := workspace_repo.code_run_note()) else []),
         f"‹Owner› asked, in Evolution, Mutations, for a new version of the gene “{g.name}” (key "
         f"`{g.key}`, version {g.version}, switch `{g.switch or 'none'}`, kind {g.kind or 'not sorted'}). "
         f"This run is mutation request {r.id}, started the moment ‹he› asked, so that ‹he› does not "

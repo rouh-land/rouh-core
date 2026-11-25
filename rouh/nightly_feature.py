@@ -562,7 +562,7 @@ def brief_for(row, folder: str, earlier: list, rule: str = "", tonight: str = ""
     lines = [
         f"You are night {row.number} of the nightly Rouh feature run.",
         "",
-        *([workspace_repo.code_run_note(), ""] if workspace_repo.code_run_note() else []),
+        *([note, ""] if (note := workspace_repo.code_run_note()) else []),
         f"Read `{workspace_repo.for_code_run(folder)}/run.md` and follow it exactly. ‹owner› has authorised "
         "everything in it, including signing up for services and paying for them without "
         f"asking, up to {NIGHT_CAP:.0f} dollars and at most {MOST_SERVICES} services this night.",
@@ -1163,7 +1163,7 @@ def undo_brief(row, folder: str, services: list) -> str:
                        + (" (its login is kept: read it with nightly_login)" if s.login_sealed else "")
                        for s in services) or "- none were signed up for with nightly_signup"
     return "\n".join([
-        *([workspace_repo.code_run_note(), ""] if workspace_repo.code_run_note() else []),
+        *([note, ""] if (note := workspace_repo.code_run_note()) else []),
         f"‹owner› rejected night {row.number} of the nightly Rouh feature run, "
         f"“{row.feature or 'nothing built'}”, and asked for it to be undone. Its switch"
         + (f" `{row.switch}` is already off." if row.switch else " was never registered."),
