@@ -149,12 +149,35 @@ def reconcile_ledger() -> None:
     save(doc)
 
 
+def stuck(rows: list[dict]) -> dict | None:
+    """Where this Rouh's update is stuck (task 98, gap G20, 25 November 2026), or None.
+
+    The walk stops at the first change it cannot take and every later change waits for it
+    (``hold_after``), so a Rouh can sit behind one change for good, security fixes too. This says which
+    change that is, why, how many wait behind it and how many of all those are security fixes, for the
+    "Your Rouh is stuck" sign on Meta, Changes; the owner's Unstuck press (``code_update.unstuck``)
+    is the way out. Nothing here takes or skips a change."""
+    for i, row in enumerate(rows):
+        if row.get("status") in TAKEN:
+            continue
+        if row.get("status") != "waiting":
+            return None
+        behind = [r for r in rows[i + 1:] if r.get("status") not in TAKEN]
+        security = [r for r in [row, *behind] if r.get("security") or r.get("urgent")]
+        return {"master": row.get("master"), "purpose": row.get("purpose") or "", "reason": row.get("reason") or "",
+                "since": row.get("at"), "tries": int(row.get("tries") or 0), "put_back": was_put_back(row),
+                "security_itself": bool(row.get("security") or row.get("urgent")),
+                "behind": len(behind), "security": len(security),
+                "security_purposes": [r.get("purpose") or "" for r in security][:5]}
+    return None
+
+
 def shown() -> dict:
     doc = ledger()
     rows = doc.get("changes", [])
     counts = {k: sum(r.get("status") == k for r in rows) for k in STATUS}
     return {"installed": doc.get("installed"), "through": doc.get("through"), "seen": doc.get("seen"),
-            "counts": counts, "waiting": counts["waiting"] + counts["depends"],
+            "counts": counts, "waiting": counts["waiting"] + counts["depends"], "stuck": stuck(rows),
             "changes": [{k: r.get(k) for k in ("master", "purpose", "status", "reason", "urgent", "point", "at")}
                         | {"status_label": STATUS.get(r.get("status"), "Not taken yet")} for r in rows]}
 

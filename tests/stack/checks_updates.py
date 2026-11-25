@@ -11,6 +11,9 @@ built from that same code, as GitHub's tarball of a commit is (`git archive`, wh
                     protected core makes it an undo point, Rouh starts again, and General says so
     updates.ride    Ride along, for a Connected Rouh: a second release is taken by itself at a quiet
                     moment, with no press
+    updates.stuck   Your Rouh is stuck: while the update waits behind a change it cannot take, Meta,
+                    Changes names it, counts what waits behind it and the security fixes among them,
+                    and offers Unstuck from the protected core (checked at that check's stop)
 
 Every update is a run of its own (19 November 2026, `code_update.start_run`), which drives the walk
 with its tools `update_status`, `update_step` and `update_done` (rouh/worker_mcp.py). The stack's
@@ -93,7 +96,7 @@ def _browser(s: Stack, phase: str, expected: list[str] | None = None) -> None:
                     await call("browser_navigate", url=s.url + "/?chat=conversation")
                     await call("browser_wait_for", time=3)
                     general = await call("browser_snapshot")
-                    result_words = "needs a frontier model" if phase == "frontier-wait" else "Adapted for this Rouh:"
+                    result_words = "needs a frontier model" if phase in ("frontier-wait", "stuck") else "Adapted for this Rouh:"
                     expect("Rouh's update:" in general and result_words in general,
                            "General did not visibly explain the update's result")
     try:
@@ -465,7 +468,18 @@ def updates_sensitive(s: Stack) -> None:
                f"a change after the waiting one did not wait for it: {rows[later]}")
     expect(((result.get("last") or {}).get("stopped_at") or {}).get("master") == r3,
            f"the update does not say where it stopped: {result.get('last')}")
+    # Your Rouh is stuck (task 98, gap G20): the sign names the change, counts what waits and the security
+    # fixes among them, and the protected core offers Unstuck. The press itself is the owner's only.
     _browser(s, "frontier-wait", ["Not taken yet", "needs a frontier model", "Urgent security update"])
+    try:
+        stuck = result.get("stuck") or {}
+        expect((stuck.get("where") or {}).get("master") == r3 and stuck["where"].get("behind") == 2
+               and stuck["where"].get("security", 0) >= 1 and stuck.get("can") and not stuck.get("why_not"),
+               f"the stuck sign's facts are wrong: {stuck}")
+        _browser(s, "stuck", ["Your Rouh is stuck", "security fix", "Unstuck"])
+        _DONE["stuck"] = ""
+    except Failed as exc:
+        _DONE["stuck"] = str(exc)[:900]
     s.manage("from rouh import modeldefaults,relay\no=relay.owner().org_id\n"
              "modeldefaults.put(o,'code_adapt',tier='smart',by='stack')")
     _post_again(s, "/api/settings/updates/now", {})
@@ -490,5 +504,14 @@ def updates_sensitive(s: Stack) -> None:
     _browser(s, "security-and-database", ["Adapted for this Rouh", "Stack release 3", "Stack release 4"])
 
 
-smoke.FINAL.update({"updates.press", "updates.ride", "updates.security-database-frontier"})
+@check("updates.stuck")
+def updates_stuck(s: Stack) -> None:
+    """Read where updates.security-database-frontier, which runs just before, stood at its stop."""
+    if "stuck" not in _DONE:
+        raise Failed("updates.security-database-frontier did not reach the stop where this Rouh is stuck")
+    if _DONE["stuck"]:
+        raise Failed(_DONE["stuck"])
+
+
+smoke.FINAL.update({"updates.press", "updates.ride", "updates.security-database-frontier", "updates.stuck"})
 smoke.LIMIT.update({"updates.press": 3600, "updates.ride": 2700, "updates.security-database-frontier": 5400})

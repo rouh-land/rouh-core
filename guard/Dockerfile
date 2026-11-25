@@ -11,7 +11,8 @@
 #
 #   docker buildx build -f guard/Dockerfile -t rouh-guard .
 #
-# Built from the top of the repository; only guard/ is read (guard/Dockerfile.dockerignore).
+# Built from the top of the repository; only guard/ and bin/rouh-catch-up are read
+# (guard/Dockerfile.dockerignore).
 
 ARG PYTHON_IMAGE=python:3.12.15-slim-trixie
 FROM ${PYTHON_IMAGE}
@@ -20,6 +21,8 @@ ARG GUARD_LEVEL=dev
 RUN apt-get update && apt-get -y upgrade && rm -rf /var/lib/apt/lists/*
 
 COPY --chown=root:root guard /opt/rouh-guard
+# The catch-up the Unstuck button runs (rouh_guard/unstuck.py): the core's own copy, never the Rouh's.
+COPY --chown=root:root bin/rouh-catch-up /opt/rouh-guard/bin/rouh-catch-up
 RUN find /opt/rouh-guard -name __pycache__ -prune -exec rm -rf {} + \
  && rm -rf /opt/rouh-guard/policy/fixtures \
  && chmod -R a+rX,go-w /opt/rouh-guard \

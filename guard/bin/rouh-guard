@@ -8,6 +8,10 @@
     rouh-guard undo N       put /code back to undo point N
     rouh-guard propose SHA [WHY]   check a commit of /code and, if it passes, run it
     rouh-guard verify WHO   what the start scripts ask before they run /code (core)
+    rouh-guard unstuck      the owner's Unstuck: a copy of the database, then rouh-catch-up --stuck,
+                            in the background; rouh-guard status says how it goes (unstuck.py)
+    rouh-guard unstuck-restore NAME   with the core stopped, the database as it was before that
+                            Unstuck (NAME is its time, in rouh-guard status)
     rouh-guard upstream     the Creator Rouh's push: on or off, what was pushed (upstream.py)
     rouh-guard upstream-key the Creator Rouh's key for rouh-core, made once in the guard's own
                             volume; prints only its public half, for a deploy key on rouh-core
@@ -56,6 +60,17 @@ def main(argv: list[str]) -> int:
     elif cmd == "propose" and len(argv) in (2, 3):
         reply = ask({"op": "propose", "commit": argv[1], "why": argv[2] if len(argv) == 3 else "",
                      "by": "a person, in the guard container"})
+    elif cmd == "unstuck" and len(argv) == 1:
+        reply = ask({"op": "unstuck", "by": "a person, in the guard container"}, 60)
+    elif cmd == "unstuck-restore" and len(argv) == 2:
+        from rouh_guard import unstuck
+
+        try:
+            print(unstuck.restore(argv[1]))
+            return 0
+        except (ValueError, OSError) as exc:
+            print(f"rouh-guard: {exc}", file=sys.stderr)
+            return 1
     elif cmd == "upstream":
         reply = ask({"op": "upstream", "fetch": True}, 300)
     elif cmd == "upstream-key":

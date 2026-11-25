@@ -13,6 +13,9 @@
     {"op": "update_step"}                     core 1.1: bring the Rouh's update step to the newest
                                               release's now, exactly, when it cannot copy files
                                               exactly itself (updatestep.py); it also looks by itself
+    {"op": "unstuck", "by"}                   core 1.2: the owner's Unstuck press on Meta, Changes: a copy
+                                              of the database, then rouh-catch-up --stuck (unstuck.py),
+                                              answered at once; status()["unstuck"] says how it goes
 
 A reply is {"ok": true, ...}, or {"ok": false, "refused": "<a sentence>"} when the core says no,
 or {"ok": false, "error": "<a sentence>"} when it could not do it. Within contract 1 an op or a
@@ -63,16 +66,19 @@ def _gene(req: dict) -> dict:
 
 
 class Server:
-    def __init__(self, path: str, changes=None, doctor=None, upstream=None, update_step=None):
+    def __init__(self, path: str, changes=None, doctor=None, upstream=None, update_step=None, unstuck=None):
         self.path = path
         self.changes = changes
         self.doctor = doctor
         self.upstream = upstream
         self.update_step = update_step
+        self.unstuck = unstuck
 
     def status(self) -> dict:
         out = {"ok": True, "version": VERSION, "contracts": CONTRACTS,
                "features": {"master_changes": 1, "database_rehearsal": 1, "exact_copies": 1, "update_step": 2}}
+        if self.unstuck is not None:
+            out["features"]["unstuck"] = 1
         if self.changes is not None:
             out.update(self.changes.status())
         if self.doctor is not None:
@@ -81,6 +87,8 @@ class Server:
             out["upstream"] = self.upstream.status()
         if self.update_step is not None:
             out["update_step"] = self.update_step.status()
+        if self.unstuck is not None:
+            out["unstuck"] = self.unstuck.status()
         return out
 
     async def answer(self, req: dict) -> dict:
@@ -108,6 +116,10 @@ class Server:
             if self.update_step is None:
                 return {"ok": False, "refused": "this protected core has no update step to bring up to date"}
             return {"ok": True, **await self.update_step.once()}
+        if op == "unstuck":
+            if self.unstuck is None:
+                return {"ok": False, "refused": "this protected core cannot unstick this Rouh"}
+            return await self.unstuck.start(by=str(req.get("by") or "the Rouh")[:80])
         if op == "undo":
             return await self.changes.undo(req.get("point"), by=str(req.get("by") or "the Rouh")[:80])
         if op == "verify":

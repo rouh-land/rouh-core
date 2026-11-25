@@ -12,13 +12,20 @@
    Its first card is Rouh's updates (task 140, step 140-18, `rouh/code_update.py`, from
    `/api/settings/updates`): how this Rouh takes new releases of Rouh (Ride along, Update when I
    press, My own path), the version it has and the newest, what is new, the button that updates it
-   now, and how the last update went. */
+   now, and how the last update went.
+
+   Above it, only when it is so, "Your Rouh is stuck" (task 98, gap G20, 25 November 2026,
+   `code_update.stuck_public`): the change the update stopped at, why, how many wait behind it and
+   whether security fixes are among them, with Unstuck, the owner's press that has the protected core
+   bring this Rouh to the newest release as one undo point (guard/rouh_guard/unstuck.py). */
 (function () {
   'use strict';
 
   var C = { open: false, data: null, busy: false, error: '', said: '', confirm: 0, timer: 0 };
   /* Rouh's updates: their own answer, apart from the protected core's, so either can be slow. */
-  var U = { data: null, busy: false, error: '', said: '', loaded: false };
+  var U = { data: null, busy: false, error: '', said: '', loaded: false, ask: false };
+  /* Unstuck's own press: working, and what it said. */
+  var S = { busy: false, error: '', said: '', name: '' };
 
   function $(id) { return document.getElementById(id); }
   function el(tag, cls, text) {
@@ -167,6 +174,129 @@
     return 'A newer Rouh is ready.';
   }
 
+  function plural(n, one, many) { return n + ' ' + (n === 1 ? one : many); }
+
+  /* Your Rouh is stuck, and Unstuck. Drawn first, so the reason the updates are not moving is the
+     first thing read; after an Unstuck it says how that went, with what was left out. */
+  function drawStuck(page) {
+    var d = U.data;
+    var st = d && d.stuck;
+    if (!st) return;
+    var w = st.where, last = st.unstuck;
+    if (S.name && last && last.name === S.name) { S.said = ''; S.name = ''; }
+    var going = !!(last && last.going) || !!(S.name && w);
+    var done = !going && last && last.finished_at && !w;
+    var failed = !going && last && last.finished_at && !last.ok && w;
+    var s = card(going ? 'Unsticking your Rouh' : done ? (last.ok ? 'Your Rouh is unstuck' : 'Unstuck did not finish')
+      : 'Your Rouh is stuck');
+    s.classList.add('st-card');
+    if (!going && !done) s.classList.add('st-stuck');
+    s.setAttribute('aria-busy', going ? 'true' : 'false');
+    if (going) {
+      var g = el('p', 'st-lead', 'Working: ' + ((last && last.going && last.step) || 'copying the database first') + '…');
+      g.setAttribute('role', 'status');
+      s.appendChild(g);
+      s.appendChild(el('p', 'ch-sub', 'Rouh starts again on it once the protected core has checked it. This page comes back by itself.'));
+      page.appendChild(s);
+      return;
+    }
+    if (done) {
+      var lead = el('p', 'st-lead', last.ok ? 'It has the newest release, and updates come in again.' : (last.said || ''));
+      lead.setAttribute('role', 'status');
+      s.appendChild(lead);
+      if (last.ok) drawOutcome(s, last);
+      page.appendChild(s);
+      return;
+    }
+    var sec = w.security || 0;
+    var head = 'Updates stopped at one change that does not fit this Rouh, and ' +
+      plural(w.behind, 'later change waits', 'later changes wait') + ' behind it' +
+      (sec ? ', ' + plural(sec, 'security fix', 'security fixes') + ' among them.' : '.');
+    var lp = el('p', 'st-lead', head);
+    lp.setAttribute('role', 'status');
+    s.appendChild(lp);
+    var dl = el('dl', 'hb-ask-dl ch-dl st-dl');
+    [['Stuck at', w.purpose || short(w.master)],
+     ['Why', w.reason || 'It could not be taken.'],
+     ['Waiting', plural(w.behind, 'change', 'changes') + ' after it' + (w.since ? ', since ' + when(w.since) : '')]
+    ].forEach(function (row) { dl.appendChild(el('dt', '', row[0])); dl.appendChild(el('dd', '', row[1])); });
+    s.appendChild(dl);
+    if (sec) {
+      var sp = el('p', 'st-sec');
+      sp.appendChild(el('span', 'st-tag', 'Security'));
+      sp.appendChild(document.createTextNode(' ' + (w.security_itself ? 'The change it stopped at is a security fix. ' : '') +
+        plural(sec, 'security fix is', 'security fixes are') + ' not in this Rouh yet. Updates come in strictly in order, so none comes in around a stuck one.'));
+      s.appendChild(sp);
+    }
+    if (failed) s.appendChild(el('p', 'hb-say bad', 'The last Unstuck, ' + when(last.finished_at) + ', did not finish: ' + (last.said || '')));
+    s.appendChild(el('p', 'ch-sub', 'Unstuck brings in the newest release at once, keeps your own changes where they fit, and names anything ' +
+      'left out (it stays in the history). A copy of the database is taken first, and Put back undoes it.'));
+    var say = S.busy ? 'Starting Unstuck…' : (S.error || S.said);
+    if (say) s.appendChild(el('p', 'hb-say' + (S.error && S.error !== RESTARTING ? ' bad' : ''), say));
+    var acts = el('div', 'hb-actions cu-actions');
+    if (!st.admin) {
+      s.appendChild(el('p', 'cu-why', 'Only an administrator of this Rouh can press Unstuck.'));
+    } else if (U.ask === true) {
+      acts.appendChild(el('span', 'ch-ask', 'Bring this Rouh to the newest release now? It takes a few minutes, and Rouh starts again on it.'));
+      acts.appendChild(button('Unstuck now', 'primary', unstickNow));
+      acts.appendChild(button('Cancel', '', function () { U.ask = false; draw(); }));
+    } else {
+      var b = button('Unstuck', 'primary', function () { U.ask = true; S.error = ''; S.said = ''; draw(); });
+      b.disabled = !!st.why_not || S.busy;
+      if (st.why_not) b.setAttribute('aria-describedby', 'stWhyNot');
+      acts.appendChild(b);
+    }
+    s.appendChild(acts);
+    if (st.why_not && st.admin) {
+      var wn = el('p', 'cu-why', st.why_not);
+      wn.id = 'stWhyNot';
+      s.appendChild(wn);
+    }
+    if (st.by_hand && st.admin) {
+      var hand = el('div', 'st-hand');
+      [['On a Mac, in Terminal', st.by_hand.mac], ['On Linux, on the machine', st.by_hand.linux]].forEach(function (row) {
+        hand.appendChild(el('p', 'cu-sub-h', row[0]));
+        hand.appendChild(el('code', 'st-code', row[1]));
+      });
+      s.appendChild(hand);
+    }
+    page.appendChild(s);
+  }
+
+  function drawOutcome(s, last) {
+    var dl = el('dl', 'hb-ask-dl ch-dl st-dl');
+    var rows = [];
+    if (last.point) rows.push(['Undo point', String(last.point) + (last.before ? ' (Put back on ' + last.before + ' undoes it)' : '')]);
+    if (last.own) rows.push(['Yours kept', plural(last.own, 'change of its own', 'changes of its own')]);
+    var left = (last.dropped || []).concat(last.kept || []);
+    rows.push(['Left out', (last.dropped || []).length ? (last.dropped || []).join(', ') + ' (still in its history)' : 'Nothing']);
+    if ((last.kept || []).length) rows.push(['Kept as yours', last.kept.join(', ')]);
+    rows.forEach(function (row) { dl.appendChild(el('dt', '', row[0])); dl.appendChild(el('dd', '', row[1])); });
+    s.appendChild(dl);
+    if (!left.length && last.said) s.appendChild(el('p', 'ch-sub', last.said));
+  }
+
+  /* The press, apart from the updates card's own calls, so its answer is said on this card alone. */
+  function unstickNow() {
+    U.ask = false;
+    S.busy = true; S.error = ''; S.said = '';
+    draw();
+    fetch('/api/settings/updates/unstuck', { method: 'POST', credentials: 'same-origin', cache: 'no-store',
+      headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrfToken() }, body: '{}' })
+      .then(function (r) {
+        if (r.status === 401) { location.href = '/login'; return null; }
+        return r.json().catch(function () { return {}; }).then(function (j) {
+          S.busy = false;
+          if (j && j.mode) U.data = j;
+          if (!r.ok) S.error = (j && j.error) || 'That did not work. Try again.';
+          else { S.said = (j && j.said) || ''; S.name = (j && j.name) || ''; }
+          draw();
+          window.setTimeout(function () { loadUpdates(false); }, 4000);
+        });
+      })
+      .catch(function () { S.busy = false; S.error = unreachable(); draw(); });
+  }
+
   function drawUpdates(page) {
     var d = U.data;
     var s = card('Rouh’s updates');
@@ -234,7 +364,7 @@
     var acts = el('div', 'hb-actions cu-actions');
     if (d.admin && !d.makes_releases) {
       var can = !d.why_not && !U.busy;
-      var go = button('Update to the newest Rouh', 'primary', function () {
+      var go = button('Update to the newest Rouh', d.stuck && d.stuck.where ? '' : 'primary', function () {
         updatesCall('POST', '/api/settings/updates/now', {}).then(function () {
           window.setTimeout(function () { loadUpdates(false); }, 5000);
         });
@@ -393,6 +523,7 @@
     if (!d) {
       if (!C.error) page.appendChild(el('p', 'hb-empty', 'Asking the protected core…'));
     } else if (!d.guard || d.answering === false) {
+      drawStuck(page);
       drawUpdates(page);
       var s = card('Changes');
       s.appendChild(el('p', 'settings-help', d.said || ''));
@@ -400,6 +531,7 @@
     } else {
       drawDoctor(page, d);
       drawState(page, d);
+      drawStuck(page);
       drawUpdates(page);
       drawWaiting(page, d);
       drawPoints(page, d);

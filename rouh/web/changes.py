@@ -58,6 +58,8 @@ async def undo(request: HttpRequest):
 #                                         (?look=1 asks rouh.land now, also for a Rouh on its own)
 #     POST /api/settings/updates/mode     {mode}: ride, press or own; an administrator's press only
 #     POST /api/settings/updates/now      update to the newest release now; an administrator's only
+#     POST /api/settings/updates/unstuck  the owner's Unstuck: the protected core brings a stuck Rouh to
+#                                         the newest release (task 98, gap G20); an administrator's only
 
 
 @only("GET")
@@ -98,6 +100,21 @@ async def updates_now(request: HttpRequest):
         return refuse("Sign in first.", 401)
     try:
         started = await code_update.update(me, by="a press on Changes")
+    except code_update.Refused as exc:
+        return refuse(str(exc), 400, **(await asyncio.to_thread(code_update.public, me)))
+    return answer({"ok": True, **started, **(await asyncio.to_thread(code_update.public, me))}, headers=NO_STORE)
+
+
+@only("POST")
+@their_clock
+async def updates_unstuck(request: HttpRequest):
+    from rouh import code_update
+
+    me = await asyncio.to_thread(_signed_in, request)
+    if me is None:
+        return refuse("Sign in first.", 401)
+    try:
+        started = await asyncio.to_thread(code_update.unstuck, me)
     except code_update.Refused as exc:
         return refuse(str(exc), 400, **(await asyncio.to_thread(code_update.public, me)))
     return answer({"ok": True, **started, **(await asyncio.to_thread(code_update.public, me))}, headers=NO_STORE)

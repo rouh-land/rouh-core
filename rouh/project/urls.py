@@ -776,6 +776,7 @@ urlpatterns = [
     path("api/settings/updates", changes_web.updates),
     path("api/settings/updates/mode", changes_web.updates_mode),
     path("api/settings/updates/now", changes_web.updates_now),
+    path("api/settings/updates/unstuck", changes_web.updates_unstuck),
     # Connections, Phone: the address on the relay, on or off, and the phone's sign-in (`rouh/web/relay.py`).
     path("api/settings/phone", relay_web.page),
     path("api/settings/phone/on", relay_web.turn_on),

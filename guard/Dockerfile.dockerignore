@@ -1,6 +1,7 @@
 # What rouh-guard (guard/Dockerfile) is built from: the protected core's own
-# files and nothing else, an allow-list. No Rouh code.
+# files and the catch-up its Unstuck runs, an allow-list. No Rouh code.
 *
 !guard/
+!bin/rouh-catch-up
 guard/**/__pycache__
 guard/README.md

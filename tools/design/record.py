@@ -276,7 +276,10 @@ def _open(page, url: str, tries: int = 3) -> None:
     milliseconds, and the whole check died on it. A screen that never loads still fails."""
     for n in range(tries):
         try:
-            page.goto(url, wait_until="load", timeout=45000)
+            # The last try waits for the page's own content only: on a machine shared by many runs'
+            # worlds a stalled request can hold "load" back for minutes (25 November 2026). The settle
+            # wait and the checks (broken images among them) follow either way.
+            page.goto(url, wait_until="load" if n < tries - 1 else "domcontentloaded", timeout=45000)
             return
         except Exception as exc:  # noqa: BLE001 - Playwright's TimeoutError; anything else is raised on the last try
             if n == tries - 1 or "Timeout" not in type(exc).__name__:
@@ -303,8 +306,9 @@ def _sign_in(page, base: str, user: str, password: str) -> None:
     own = pw.first.locator("xpath=ancestor::form[1]//button[@type='submit']")
     (own if own.count() else page.locator("button[type=submit]:visible")).first.click()
     # Off the sign-in page as soon as the address changes; the page it lands on may take minutes to
-    # finish loading in a test world still indexing its workspace, so its load gets longer.
-    page.wait_for_url(lambda u: "/login" not in u, timeout=20000, wait_until="commit")
+    # finish loading in a test world still indexing its workspace (its panels also ask the server a
+    # lot at once), so its load gets longer.
+    page.wait_for_url(lambda u: "/login" not in u, timeout=60000, wait_until="commit")
     page.wait_for_load_state("load", timeout=300000)
 
 

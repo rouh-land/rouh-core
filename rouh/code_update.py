@@ -406,7 +406,91 @@ def public(who, *, look: bool = False) -> dict:
                 if r.get("status") in code_evolution.TAKEN} | {evolution.get("installed"), b.get("release")}
         out["whats_new"] = [] if out["up_to_date"] else whats_new(rel, here, have=have)
     out["why_not"] = why_not(b, rel, s)
+    out["stuck"] = stuck_public(evolution, out)
     return out
+
+
+# --- Your Rouh is stuck, and Unstuck (task 98, gap G20, 25 November 2026) -------------------------
+#
+# Released changes come in strictly in order, and the walk stops at the first one it cannot fit
+# (code_evolution.hold_after; letting later ones come in around it broke Rouhs on 19 November 2026,
+# so there is no lane that skips it, for security fixes either). Meta, Changes says so, as "Your Rouh is
+# stuck", and the owner's Unstuck press runs the catch-up in the protected core (guard/rouh_guard/unstuck.py):
+# a copy of the database, the newest release in place, this Rouh's own changes kept where they fit,
+# anything left out named and kept in its history, as one undo point that Put back reverses. Only the
+# owner presses it: no tool, schedule or walk of Rouh's asks for it.
+
+#: For a protected core older than 1.2, which has no Unstuck: the same, typed at the machine.
+UNSTUCK_BY_HAND = {
+    "mac": "curl -fsSL https://raw.githubusercontent.com/rouh-land/rouh-core/main/bin/rouh-catch-up-mac | bash -s stuck",
+    "linux": "docker exec \"$(docker ps -qf label=com.docker.compose.service=backup | head -1)\" /opt/rouh-guard/bin/rouh-backup now"
+             " && curl -fsSL https://raw.githubusercontent.com/rouh-land/rouh-core/main/bin/rouh-catch-up"
+             " | docker exec -i \"$(docker ps -qf label=com.docker.compose.service=guard | head -1)\" python3 -I - --stuck",
+}
+
+
+def _core() -> dict:
+    """The protected core's own word on Unstuck: whether it has it, and how the last one went."""
+    from . import guardface
+
+    if not guardface.here():
+        return {}
+    try:
+        got = guardface.ask("status", timeout=10)
+    except (guardface.Refused, guardface.Unavailable):
+        return {}
+    return {"version": got.get("version") or "", "can": (got.get("features") or {}).get("unstuck") == 1,
+            "unstuck": got.get("unstuck") or None}
+
+
+def stuck_public(evolution: dict, got: dict, core: dict | None = None) -> dict | None:
+    """The "Your Rouh is stuck" sign's facts, or None when nothing is stuck and no Unstuck is to be told."""
+    where = (evolution or {}).get("stuck")
+    core = _core() if core is None and (where or _guard()) else (core or {})
+    last = core.get("unstuck") or None
+    if last and not last.get("going") and not last.get("started_at"):
+        last = None
+    if not where and not (last and (last.get("going") or (last.get("finished_at") or 0) > time.time() - 7 * 86400)):
+        return None
+    out = {"where": where, "unstuck": last, "core": core.get("version") or "", "can": bool(core.get("can")),
+           "admin": bool(got.get("admin")), "why_not": ""}
+    if where:
+        updating = (got.get("run") or {}).get("going") or got.get("busy") or got.get("pending")
+        if updating:
+            out["why_not"] = "An update is going now; Unstuck waits until it has stopped."
+        elif last and last.get("going"):
+            out["why_not"] = "Unstuck is going now."
+        elif not _guard():
+            out["why_not"] = "This Rouh has no protected core beside it, so there is nothing to unstick it with here."
+        elif not core.get("can"):
+            out["why_not"] = (f"This Rouh's protected core ({core.get('version') or 'an older one'}) has no Unstuck yet; it comes "
+                              "with the next base update. Until then it can be done by hand, below.")
+            out["by_hand"] = UNSTUCK_BY_HAND
+    return out
+
+
+def unstuck(who, *, by: str = "a press on Changes") -> dict:
+    """The owner's Unstuck press: the protected core brings this Rouh to the newest release (unstuck.py).
+    Raises Refused with why not. Never called by Rouh itself."""
+    _admin(who)
+    from . import guardface
+
+    got = public(who)
+    st = got.get("stuck") or {}
+    if not st.get("where"):
+        raise Refused("Nothing is stuck: this Rouh's update is not waiting behind a change it cannot take.")
+    if st.get("why_not"):
+        raise Refused(st["why_not"])
+    try:
+        started = guardface.ask("unstuck", by=f"{getattr(who, 'name', '') or 'the owner'}, {by}"[:80], timeout=60)
+    except guardface.Refused as exc:
+        raise Refused(f"The protected core said no: {exc}") from None
+    except guardface.Unavailable as exc:
+        raise Refused(str(exc)) from None
+    where = st["where"]
+    log.info("unstuck: started by %s, stuck at %s behind %s changes", by, (where.get("master") or "")[:12], where.get("behind"))
+    return {"said": "Unstuck started. First a copy of the database, then the newest release, checked by the protected core. "
+                    "It takes a few minutes, and Rouh starts again on it.", "name": started.get("name")}
 
 
 def _run_public(s: dict) -> dict | None:
@@ -454,6 +538,13 @@ def said(got: dict) -> str:
     last = got.get("last") or {}
     if last:
         parts.append("Last time: " + note(last))
+    where = (got.get("stuck") or {}).get("where")
+    if where:
+        sec = where.get("security") or 0
+        parts.append(f"This Rouh is stuck at “{where['purpose']}”: it and the {where['behind']} "
+                     f"change{'s' if where['behind'] != 1 else ''} after it wait"
+                     + (f", {sec} of them security fix{'es' if sec != 1 else ''}" if sec else "") + ". Only the owner unsticks it, "
+                     "with Unstuck on Meta, Changes; Rouh never presses it.")
     return " ".join(parts)
 
 
@@ -467,6 +558,8 @@ def why_not(b: dict, rel: dict, s: dict | None = None) -> str:
         return "An update step is already going."
     if s.get("pending"):
         return "The last update is still with the protected core."
+    if _guard() and ((_core().get("unstuck") or {}).get("going")):
+        return "Unstuck is bringing this Rouh to the newest release; updates wait until it is done."
     if not _guard():
         return ("This Rouh has no protected core beside it: it runs on a server, where its code is "
                 "updated by land.sh.")

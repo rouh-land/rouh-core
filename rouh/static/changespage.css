@@ -65,3 +65,23 @@
 }
 .cu-run-link:hover { text-decoration-thickness: 2px; }
 .cu-run-link:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+/* Your Rouh is stuck (task 98, gap G20): the first card while the update waits behind a change it
+   cannot take. Its border is the warning colour, as the doctor's card is the bad one; the security
+   line carries a word, not a colour alone; the by-hand lines (an older protected core) scroll in
+   their own box on a phone rather than the page. */
+.st-card.st-stuck { border-color: var(--warn, var(--bad)); }
+.st-lead { font-size: 15px; font-weight: 600; margin: 2px 0 8px; overflow-wrap: anywhere; }
+.st-dl { margin: 0 0 4px; }
+.st-card > .ch-sub { margin: 8px 0 0; }
+.st-sec { margin: 8px 0 0; font-size: 13.5px; overflow-wrap: anywhere; }
+.st-tag {
+  display: inline-block; font-size: 11.5px; font-weight: 700; letter-spacing: .02em; text-transform: uppercase;
+  padding: 1px 6px; border-radius: var(--radius-s); border: 1px solid var(--warn, var(--bad)); color: var(--warn, var(--bad));
+}
+.st-card .ch-ask { flex: 1 1 100%; }
+.st-hand { margin-top: 10px; display: grid; gap: 2px; min-width: 0; }
+.st-code {
+  display: block; font-family: var(--mono); font-size: 12px; padding: 8px 10px; overflow-x: auto; white-space: pre;
+  border: 1px solid var(--line-soft); border-radius: var(--radius-s); max-width: 100%;
+}

@@ -31,20 +31,22 @@ def main() -> int:
     logging.basicConfig(level=logging.INFO, format="%(asctime)s guard %(message)s", stream=sys.stdout)
     log = logging.getLogger("rouh-guard")
     sock = os.environ.get("ROUH_GUARD_SOCKET", "/run/guard/guard.sock")
-    changes = doctor = upstream = step = None
+    changes = doctor = upstream = step = unstuck = None
     try:
         from . import changes as changes_mod
         from . import doctor as doctor_mod
         from . import updatestep as step_mod
         from . import upstream as upstream_mod
+        from . import unstuck as unstuck_mod
     except ImportError:
-        changes_mod = doctor_mod = upstream_mod = step_mod = None
+        changes_mod = doctor_mod = upstream_mod = step_mod = unstuck_mod = None
     if changes_mod is not None:
         changes = changes_mod.Changes.from_environment()
         doctor = doctor_mod.Doctor(changes)
         upstream = upstream_mod.Upstream(changes, doctor)
         step = step_mod.UpdateStep(changes)
-    server = Server(sock, changes=changes, doctor=doctor, upstream=upstream, update_step=step)
+        unstuck = unstuck_mod.Unstuck(changes)
+    server = Server(sock, changes=changes, doctor=doctor, upstream=upstream, update_step=step, unstuck=unstuck)
     log.info("the protected core %s starts", VERSION)
 
     async def run() -> None:
