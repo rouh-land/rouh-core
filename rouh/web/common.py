@@ -189,3 +189,81 @@ def file_response(path: str, content_type: str, *, chunk: int = 1 << 20):
     response = StreamingHttpResponse(chunks(), content_type=content_type)
     response["Content-Length"] = str(os.path.getsize(path))
     return response
+
+
+def _wanted_range(header: str, size: int) -> tuple[int, int] | None:
+    """The one byte range ``bytes=a-b`` asks for, clipped to the file, or None.
+
+    Only a single range is answered; several in one header, or one that is not
+    understood, is answered with the whole file, which the standard allows.
+    """
+    text = str(header or "").strip()
+    if not text.startswith("bytes=") or "," in text:
+        return None
+    first, sep, last = text[6:].strip().partition("-")
+    if not sep:
+        return None
+    try:
+        if first == "":
+            if not last:
+                return None
+            length = int(last)
+            if length <= 0:
+                return (size, size)
+            return (max(0, size - length), size - 1)
+        start = int(first)
+        end = int(last) if last else size - 1
+    except ValueError:
+        return None
+    if start >= size:
+        return (size, size)
+    if start < 0 or end < start:
+        return None
+    return (start, min(end, size - 1))
+
+
+def ranged_file_response(request, path: str, content_type: str, *, chunk: int = 1 << 20):
+    """A file off disk that a player may ask for a piece at a time.
+
+    A video's player asks for ``Range: bytes=...`` and Safari plays nothing it
+    is not answered 206 for (step 197-02, 25 November 2026). One range is
+    answered with exactly those bytes; no range, or one not understood, with
+    the whole file, and ``Accept-Ranges`` says pieces may be asked for.
+    """
+    import asyncio
+    import os
+
+    from django.http import HttpResponse, StreamingHttpResponse
+
+    size = os.path.getsize(path)
+    wanted = _wanted_range(request.headers.get("Range", ""), size)
+    if wanted is None:
+        response = file_response(path, content_type, chunk=chunk)
+        response["Accept-Ranges"] = "bytes"
+        return response
+    start, end = wanted
+    if start >= size:
+        response = HttpResponse(b"", status=416, content_type=content_type)
+        response["Content-Range"] = f"bytes */{size}"
+        response["Accept-Ranges"] = "bytes"
+        return response
+
+    async def chunks():
+        handle = await asyncio.to_thread(open, path, "rb")
+        try:
+            await asyncio.to_thread(handle.seek, start)
+            left = end - start + 1
+            while left > 0:
+                part = await asyncio.to_thread(handle.read, min(chunk, left))
+                if not part:
+                    break
+                left -= len(part)
+                yield part
+        finally:
+            await asyncio.to_thread(handle.close)
+
+    response = StreamingHttpResponse(chunks(), status=206, content_type=content_type)
+    response["Content-Length"] = str(end - start + 1)
+    response["Content-Range"] = f"bytes {start}-{end}/{size}"
+    response["Accept-Ranges"] = "bytes"
+    return response

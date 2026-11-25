@@ -40,7 +40,7 @@ from rouh.config import config, effort_for, luna_ready, model_name
 from rouh.version import BUILD, REVISION, VERSION, get_version
 from rouh.web.assets import ASSETS
 
-from .common import (answer, body_of, file_response, from_this_machine, methods, only, refuse,
+from .common import (answer, body_of, file_response, ranged_file_response, from_this_machine, methods, only, refuse,
                      who)
 from .offline import owner_of as offline_owner
 
@@ -1327,6 +1327,18 @@ async def workspace_page(request: HttpRequest, path: str = ""):
     from rouh import demo
 
     demo.PAGE_LENS.set(lens)
+    if os.path.splitext(path.lower())[1] in pages.MEDIA:
+        # A video or a sound, opened in a tab of its own while signed in: sent
+        # a piece at a time, as its player asks, rather than read whole.
+        try:
+            found = await asyncio.to_thread(pages.check, root, path, raw)
+        except (pages.Refused, OSError):
+            return _page_response("Not found.", "text/plain", status=404)
+        response = ranged_file_response(request, str(found),
+                                        pages.TYPES[os.path.splitext(found.name.lower())[1]])
+        for header, value in pages.HEADERS.items():
+            response[header] = value
+        return response
     try:
         if path in ("", "index.html"):
             # Whose "Others' tasks" switch the browser starts from (`rouh/task_origin.py`).
@@ -1498,7 +1510,8 @@ async def picture_link(request: HttpRequest, token: str, rel: str):
     was drawn for, which must still be a whole, active one of the same
     organisation, and the task it reads inside; the picture must pass every
     rule a file asked for by its own address does (`pages.check`), and be a
-    picture.
+    picture, or since 25 November 2026 a video, a sound or subtitles beside the
+    page (`pages.BY_ADDRESS`).
     """
     raw = (request.scope.get("raw_path") or b"").decode("latin-1") \
         if hasattr(request, "scope") else request.path
@@ -1519,9 +1532,13 @@ async def picture_link(request: HttpRequest, token: str, rel: str):
     except (pages.Refused, OSError):
         return nothing
     suffix = os.path.splitext(found.name.lower())[1]
-    if suffix not in pages.PICTURES or os.path.splitext(rel.lower())[1] not in pages.PICTURES:
+    if suffix not in pages.BY_ADDRESS or os.path.splitext(rel.lower())[1] not in pages.BY_ADDRESS:
         return nothing
-    response = file_response(str(found), pages.TYPES[suffix])
+    # A video, a sound or subtitles beside the page, which its player and its
+    # links fetch by this address too (`pages.MEDIA`); a player asks for a
+    # piece at a time.
+    response = ranged_file_response(request, str(found), pages.TYPES[suffix]) \
+        if suffix in pages.MEDIA else file_response(str(found), pages.TYPES[suffix])
     for header, value in picturelinks.HEADERS.items():
         response[header] = value
     return response

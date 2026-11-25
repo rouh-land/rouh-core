@@ -714,6 +714,56 @@ def page_pictures_linked() -> None:
         expect(False, "a token that ran out, or was changed, was taken")
 
 
+@check("own", "a page's video plays on the canvas and its file links open",
+       "a framed page names its <video>/<source> and its plain links to a video or subtitles by the same "
+       "signed addresses as its pictures, puts a <track>'s small .vtt in, never puts a video in, and "
+       "the address answers a player's Range with 206 (step 197-02's demo answered Not found.)")
+def page_video_linked() -> None:
+    import tempfile
+    from types import SimpleNamespace
+
+    from rouh import pages, picturelinks
+    from rouh.web.common import _wanted_range
+
+    task = "work/acme/19.pricing"
+    page = f"{task}/19-05.demo/index.html"
+    markup = ('<!doctype html><html><head><title>Demo</title></head><body>'
+              '<video controls poster="shot.jpg"><source src="demo.mp4" type="video/mp4">'
+              '<track kind="subtitles" src="demo.vtt" srclang="en"></video>'
+              '<a href="demo.mp4">the video</a> <a href="demo.srt">subtitles</a> <a href="#how">how</a>'
+              '</body></html>')
+    with tempfile.TemporaryDirectory() as root:
+        folder = Path(root, task, "19-05.demo")
+        folder.mkdir(parents=True)
+        (folder / "demo.mp4").write_bytes(b"\0" * 9_000_000)
+        (folder / "demo.vtt").write_text("WEBVTT\n\n00:00.000 --> 00:01.000\nHello\n")
+        (folder / "demo.srt").write_text("1\n00:00:00,000 --> 00:00:01,000\nHello\n")
+        (folder / "shot.jpg").write_bytes(b"\xff\xd8\xff" + b"\0" * 100)
+        Path(root, page).write_text(markup)
+        who = SimpleNamespace(user_id=7, org_id="org-a")
+        at = pages.ROUTE + page
+        linked, _ = pages.read(root, page, page, at, pictures=picturelinks.linker(who, page))
+        whole, _ = pages.read(root, page, page, at)
+        for name in ("demo.mp4", "demo.vtt", "demo.srt"):
+            pages.check(root, f"{task}/19-05.demo/{name}")
+    text = linked.decode("utf-8", "surrogateescape")
+    expect(len(linked) < 200_000, "the video was put into the page")
+    route = picturelinks.ROUTE
+    expect(text.count(f'src="{route}') == 1 and "/demo.mp4" in text.split(f'src="{route}', 1)[1].split('"', 1)[0],
+           "the <source> does not name the video by its own address")
+    expect(text.count(f'href="{route}') == 2, "the links to the video and subtitles were not given addresses")
+    expect('poster="' + route in text, "the poster is not named by its own address")
+    expect('src="data:text/vtt;' in text, "the <track>'s subtitles were not put in")
+    expect('href="#how"' in text, "a link to a place in the page was changed")
+    plain = whole.decode("utf-8", "surrogateescape")
+    expect('src="demo.mp4"' in plain and 'href="demo.mp4"' in plain,
+           "without a linker the video or its link was changed (or put in)")
+    expect(_wanted_range("bytes=0-1", 10) == (0, 1) and _wanted_range("bytes=5-", 10) == (5, 9)
+           and _wanted_range("bytes=-3", 10) == (7, 9) and _wanted_range("bytes=0-1,3-4", 10) is None
+           and _wanted_range("bytes=4-2", 10) is None and _wanted_range("bytes=0-99", 10) == (0, 9) and _wanted_range("bytes=20-", 10) == (10, 10),
+           "a Range header is read wrongly")
+
+
 @check("own", "a paused tester still runs a review the owner asked for",
        "pausing a tester, or all testing, holds back only the automatic tries a build or a nightly run "
        "starts: a review the owner asked for still starts, and the pause stays exactly as it was",

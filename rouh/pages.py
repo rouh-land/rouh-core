@@ -199,6 +199,19 @@ TYPES = {
     # is put in like a picture (`_Inliner`): the page is sandboxed with no
     # connect-src, so it could never fetch the file itself.
     ".glb": "model/gltf-binary",
+    # A video or a sound beside its page, and the subtitles that go with it.
+    # A framed page names them by addresses of their own, as it does its
+    # pictures (`MEDIA`, `rouh/picturelinks.py`): a video is far too large to
+    # put into a page. Until 25 November 2026 none of these was served, and
+    # the two-minute demo of step 197-02 sat in the workspace and answered
+    # "Not found." to its own page's player and to its own link.
+    ".mp4": "video/mp4",
+    ".webm": "video/webm",
+    ".mp3": "audio/mpeg",
+    ".vtt": "text/vtt; charset=utf-8",
+    # No browser shows a subtitle file of this kind as anything but a
+    # download, so it is sent as the plain text it is.
+    ".srt": "text/plain; charset=utf-8",
 }
 
 #: Scripts run, and the page is given an origin of its own; it may be framed
@@ -250,6 +263,19 @@ INLINE_PAGE_MAX = 15_000_000
 #: page, a PDF, or a script under a picture's name.
 PICTURES = (".png", ".jpg", ".jpeg", ".gif", ".svg", ".webp")
 IN_CSS = PICTURES + (".woff2",)
+#: A video or a sound, which is only ever named by its own address, never put
+#: into a page: a `<video>`, `<audio>` or `<source>` src. The player asks for it
+#: a piece at a time (`Range`), which is how Safari plays one at all.
+MEDIA = (".mp4", ".webm", ".mp3")
+#: A `<track>`'s subtitles, which are small and are put in: the browser loads
+#: subtitles only from the page's own origin, and a data: address counts as one.
+SUBTITLES = (".vtt",)
+#: What a plain link in a framed page may be given the address of its own for,
+#: opened in a tab of its own (`follow_script`): a video, a sound or subtitles.
+#: Never put in: a link to a data: address of a whole video goes nowhere.
+LINKED_FILES = MEDIA + SUBTITLES + (".srt",)
+#: Everything that may be fetched by an address of its own (`picturelinks`).
+BY_ADDRESS = PICTURES + LINKED_FILES
 STYLESHEETS = (".css",)
 SCRIPTS = (".js",)
 
@@ -529,6 +555,13 @@ def address_script() -> bytes:
     )
 
 
+def picturelinks_route() -> str:
+    """Where a picture, video or subtitles of a framed page is fetched by its own address."""
+    from .picturelinks import ROUTE as route
+
+    return route
+
+
 def follow_script() -> bytes:
     """A link followed inside the frame, handed to the page around it.
 
@@ -599,6 +632,12 @@ def follow_script() -> bytes:
     kind = FOLLOW_MESSAGE.encode("ascii")
     hashed = HASH_MESSAGE.encode("ascii")
     route = ROUTE.encode("ascii")
+    # A link to a page's video, sound or subtitles carries an address of its
+    # own (`LINKED_FILES`, `rouh/picturelinks.py`), which needs no sign-in, so
+    # it is opened in a tab of its own from inside the press, as another
+    # site's is: followed in the frame it would put a bare video where the
+    # page was, and handed up it would be read as a page.
+    own = picturelinks_route().encode("ascii")
     # And a task's Sources (`objectindex._sources_section`), which is a place in Rouh, not a page.
     mine = json.dumps([f"/{one}/" for one in OBJECT_ROUTES] + [addressing.SOURCES + "/"],
                       separators=(",", ":")).encode("ascii")
@@ -626,6 +665,9 @@ def follow_script() -> bytes:
         b"if(a.target&&a.target!=='_self')return;"
         b"e.preventDefault();jump(u.hash);return}"
         b"if(u.origin!==home.origin&&/^https?:$/.test(u.protocol)){e.preventDefault();"
+        b"try{window.open(u.href,'_blank','noopener,noreferrer')}catch(err){}"
+        b"return}"
+        b"if(u.origin===home.origin&&u.pathname.indexOf('" + own + b"')===0){e.preventDefault();"
         b"try{window.open(u.href,'_blank','noopener,noreferrer')}catch(err){}"
         b"return}"
         b"if(a.target&&a.target!=='_self')return;"
@@ -1176,7 +1218,7 @@ class _Inliner:
         return data
 
     def address(self, folder: str, ref: str, kinds: tuple[str, ...],
-                link: bool = False) -> str | None:
+                link: bool = False, only_link: bool = False) -> str | None:
         """A data: address holding the file ``ref`` names, read from ``folder``,
         or None to leave ``ref`` exactly as it was. With ``link``, and pictures
         linked for this page, the picture's own address instead."""
@@ -1184,11 +1226,15 @@ class _Inliner:
         if found is None:
             return None
         asked, target, suffix, fragment = found
-        if link and self.pictures is not None and suffix in PICTURES:
+        if link and self.pictures is not None and suffix in BY_ADDRESS:
             linked = self.pictures(asked)
             if linked:
-                self.linked += 1
+                if suffix in PICTURES:
+                    self.linked += 1
                 return linked + (f"#{fragment}" if fragment else "")
+        if only_link:
+            # A video, or a plain link: an address of its own or nothing.
+            return None
         data = self.take(target, ref)
         if data is None:
             return None
@@ -1303,10 +1349,12 @@ class _Inliner:
             found.setdefault(attr.group("name").lower(), attr)
         swaps: list[tuple[re.Match, str]] = []
 
-        def one(name: str, kinds: tuple[str, ...], link: bool = False) -> None:
+        def one(name: str, kinds: tuple[str, ...], link: bool = False,
+                only_link: bool = False) -> None:
             attr = found.get(name)
             if attr is not None and attr.group("value"):
-                new = self.address(self.folder, html.unescape(_value(attr)), kinds, link)
+                new = self.address(self.folder, html.unescape(_value(attr)), kinds, link,
+                                   only_link)
                 if new:
                     swaps.append((attr, new))
 
@@ -1323,6 +1371,14 @@ class _Inliner:
             srcset()
         elif tag == "source":
             srcset()
+            one("src", MEDIA, link=True, only_link=True)
+        elif tag in ("video", "audio"):
+            one("src", MEDIA, link=True, only_link=True)
+            one("poster", PICTURES, link=True)
+        elif tag == "track":
+            one("src", SUBTITLES)
+        elif tag == "a":
+            one("href", LINKED_FILES, link=True, only_link=True)
         elif tag == "image":
             one("href", PICTURES, link=True)
             one("xlink:href", PICTURES, link=True)

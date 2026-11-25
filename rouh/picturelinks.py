@@ -17,7 +17,8 @@ does (`rouh/filelinks.py`): a token signed with the server's secret, naming the
 account it was drawn for, its organisation, the task folder the page is in, and
 the day it was drawn. One token for all of a page's pictures, and the same one
 all day, so a page opened again is drawn from the browser's own copy. It reads
-only pictures (`pages.PICTURES`), only inside that one task, by the same rules a
+only pictures, and a page's videos, sounds and subtitles (`pages.BY_ADDRESS`,
+since 25 November 2026), only inside that one task, by the same rules a
 file asked for by its own address is read (`pages.check`), and it is checked
 again when it is used: the account must still be a whole, active one of the same
 organisation (`views.picture_link`).
