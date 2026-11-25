@@ -535,6 +535,10 @@ function ouPaintSide(u) {
     shown++;
     return b;
   };
+  // The spending limit first: what today and this month have cost against it.
+  var limit = box('Spending limit');
+  limit.classList.add('ou-limit');
+  ouLimit(limit);
   var plans = u.plans;
   if (plans && (plans.claude || plans.codex || plans.codex_on_key)) {
     var runs = [];
@@ -585,10 +589,145 @@ function ouPaintSide(u) {
     np.appendChild(p);
     ouNotCounted(np, u.total.not_counted);
   }
-  if (!shown) {
+  if (shown <= 1) {
     var none = el('p', 'ou-sideempty', 'Nothing is left out here: every call at this level was priced and paid per use.');
     side.appendChild(none);
   }
+}
+
+/* ---- the spending limit ------------------------------------------------------
+ *
+ * Petar, 25 November 2026, preparing the public release: "a spending limit". What Rouh paid per
+ * use today and this month against the organisation's limits, a warning near them, Allow more
+ * today when it has stopped at one, and the limits to change (`rouh/spending_limit.py`,
+ * /api/usage/limit). Everything is worked out on the server; this only draws it. */
+function ouMoney(d) {
+  return '$' + (d || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+function ouLimit(box, got) {
+  if (!got) {
+    box.appendChild(el('p', '', 'Reading the limit\u2026'));
+    fetch('/api/usage/limit', { credentials: 'same-origin' })
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (j) { if (j) ouLimit(box, j); else ouLimitFail(box); })
+      .catch(function () { ouLimitFail(box); });
+    return;
+  }
+  var title = box.querySelector('.ou-h');
+  box.textContent = '';
+  if (title) box.appendChild(title);
+  box.classList.toggle('ou-sidenote-warn', got.state !== 'ok');
+  // On a phone the side column is under everything: near or at the limit it comes first.
+  if (box.parentElement) box.parentElement.classList.toggle('ou-side-first', got.state !== 'ok');
+  [['day', 'Today', got.today, got.daily], ['month', 'This month', got.month, got.monthly]].forEach(function (r) {
+    var row = el('div', 'ou-lrow');
+    var off = !(r[3] > 0);
+    var share = off ? 0 : Math.min(1, r[2] / r[3]);
+    var over = !off && r[2] >= r[3];
+    var near = !off && !over && share >= (got.set.warn_at || 0.8);
+    var head = el('p', 'ou-lhead');
+    head.appendChild(el('span', 'ou-lname', r[1]));
+    var fig = el('span', 'ou-lfig', ouMoney(r[2]) + (off ? ', no limit' : ' of ' + ouMoney(r[3])));
+    head.appendChild(fig);
+    row.appendChild(head);
+    if (!off) {
+      var bar = el('div', 'ou-lbar' + (over ? ' over' : near ? ' near' : ''));
+      bar.setAttribute('aria-hidden', 'true');
+      var fill = el('span');
+      fill.style.width = Math.max(share * 100, share > 0 ? 2 : 0).toFixed(1) + '%';
+      bar.appendChild(fill);
+      row.appendChild(bar);
+      if (over || near) row.appendChild(el('p', 'ou-lstate', over ? 'Limit reached' : 'Near the limit'));
+    }
+    box.appendChild(row);
+  });
+  if (got.extra) box.appendChild(el('p', 'ou-lnote', ouMoney(got.extra) + ' more allowed for today, on both limits.'));
+  if (got.words) box.appendChild(el('p', 'ou-lwords', got.words));
+  var said = el('p', 'ou-capsaid');
+  said.setAttribute('role', 'status');
+  said.setAttribute('aria-live', 'polite');
+  var send = function (body, done, button) {
+    if (button) button.disabled = true;
+    fetch('/api/usage/limit', { method: 'POST', credentials: 'same-origin',
+      headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
+      .then(function (r) { return r.json().then(function (j) { return { ok: r.ok, j: j }; }); })
+      .then(function (res) {
+        if (!res.ok) { said.textContent = (res.j && res.j.error) || 'It could not be saved.'; return; }
+        ouLimit(box, res.j);
+        var again = box.querySelector('.ou-capsaid');
+        if (again) again.textContent = done;
+      })
+      .catch(function () { said.textContent = 'Rouh could not be reached. Try again.'; })
+      .then(function () { if (button) button.disabled = false; });
+  };
+  if (got.state === 'reached' && got.stops && got.can_change) {
+    var more = el('button', 'ou-btn ou-primary', 'Allow ' + ouMoney(got.more).replace('.00', '') + ' more today');
+    more.type = 'button';
+    more.addEventListener('click', function () {
+      send({ more: got.more }, 'Allowed. Rouh carries on until that is spent too.', more);
+    });
+    box.appendChild(more);
+  }
+  if (got.can_change) {
+    var change = el('details', 'ou-lchange');
+    if (box.dataset.open === '1') change.open = true;
+    change.addEventListener('toggle', function () { box.dataset.open = change.open ? '1' : ''; });
+    change.appendChild(el('summary', '', 'Change the limit'));
+    var form = el('form', 'ou-lform');
+    var field = function (key, label, unit, value) {
+      var id = 'ouLimit-' + key;
+      var f = el('div', 'ou-lfield');
+      var lab = el('label', '', label);
+      lab.setAttribute('for', id);
+      var input = /** @type {HTMLInputElement} */ (el('input', 'ou-capin'));
+      input.type = 'number'; input.min = '0'; input.step = 'any'; input.id = id; input.name = key;
+      input.value = String(value);
+      input.setAttribute('inputmode', 'decimal');
+      f.appendChild(lab); f.appendChild(input); f.appendChild(el('span', 'ou-capunit', unit));
+      form.appendChild(f);
+    };
+    field('daily', 'A day', 'dollars, 0 for none', got.set.daily);
+    field('monthly', 'A month', 'dollars, 0 for none', got.set.monthly);
+    field('expensive', 'Warn me about one call over', 'dollars', got.set.expensive);
+    var at = el('div', 'ou-lfield');
+    var atl = el('label', '', 'At the limit');
+    atl.setAttribute('for', 'ouLimit-at');
+    var sel = /** @type {HTMLSelectElement} */ (el('select', 'ou-capin ou-lselect'));
+    sel.id = 'ouLimit-at'; sel.name = 'at_limit';
+    [['stop', 'Stop and ask me'], ['warn', 'Only warn me']].forEach(function (o) {
+      var opt = /** @type {HTMLOptionElement} */ (el('option', '', o[1]));
+      opt.value = o[0];
+      if (got.set.at_limit === o[0]) opt.selected = true;
+      sel.appendChild(opt);
+    });
+    at.appendChild(atl); at.appendChild(sel);
+    form.appendChild(at);
+    var save = el('button', 'ou-btn', 'Save');
+    save.type = 'submit';
+    form.appendChild(save);
+    form.addEventListener('submit', function (e) {
+      e.preventDefault();
+      var f = /** @type {HTMLFormElement} */ (form);
+      var v = function (n) { return /** @type {HTMLInputElement} */ (f.elements.namedItem(n)).value; };
+      send({ daily: v('daily'), monthly: v('monthly'), expensive: v('expensive'), at_limit: v('at_limit') },
+        'Saved.', save);
+    });
+    change.appendChild(form);
+    box.appendChild(change);
+  } else {
+    box.appendChild(el('p', 'ou-lnote', 'An administrator sets the limit.'));
+  }
+  box.appendChild(el('p', 'ou-lnote', 'Counts what Rouh pays per use through your keys. Runs on your Claude or ' +
+    'ChatGPT plan are not in it.'));
+  box.appendChild(said);
+}
+
+function ouLimitFail(box) {
+  var title = box.querySelector('.ou-h');
+  box.textContent = '';
+  if (title) box.appendChild(title);
+  box.appendChild(el('p', '', 'The limit could not be read just now. Close this screen and open it again.'));
 }
 
 /* What the calls with no price most likely cost (Petar, 18 November 2026, task 182, step 182-05:
@@ -1404,6 +1543,25 @@ function wireOrbUsage() {
     if (!orbUsageOpen()) return;
     if (OU.thin) OU.thin();
   });
+  // A link to the screen itself, `?costs=1`: the spending limit's notices lead here
+  // (`rouh/spending_limit.py`). The orb opens over the whole screen, then the screen in it.
+  var open = function () {
+    orbExpand(true);
+    var tries = 0;
+    var wait = function () {
+      if (ORBX.state === 'open') { orbUsageShow(true); return; }
+      if (++tries < 40) setTimeout(wait, 100);
+    };
+    wait();
+  };
+  // The same from a notice's button, without leaving the page (app/notices.js).
+  window.addEventListener('rouh:costs', open);
+  var at = new URL(window.location.href);
+  if (at.searchParams.get('costs') === '1') {
+    at.searchParams.delete('costs');
+    try { history.replaceState(history.state, '', at.pathname + at.search + at.hash); } catch (e) { /* kept */ }
+    open();
+  }
 }
 
 export { orbUsageOpen, orbUsageShow, orbUsageUp, wireOrbUsage };

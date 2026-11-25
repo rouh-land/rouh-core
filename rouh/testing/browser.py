@@ -46,6 +46,11 @@ INSTALLATION = {
     "ROUH_OWN_MAILBOXES": "rouh@example.com,rou@example.com",
     "ROUH_MAIL_FROM": "noreply@example.com",
     "ROUH_DEFAULT_ZONE": "Europe/Athens",
+    # The spending limit a world starts with (`rouh/spending_limit.py`): far over what a long trial
+    # spends at the stand-in model's list prices, so no world is stopped by the $20 a new Rouh has.
+    # A check of the limit itself sets its own.
+    "ROUH_SPENDING_DAILY": "1000",
+    "ROUH_SPENDING_MONTHLY": "10000",
 }
 
 _NAME_THE_OWNER = r"""

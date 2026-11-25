@@ -257,6 +257,7 @@ urlpatterns = [
     path("api/usage/daily", views.usage_by_day),
     path("api/usage/level", views.usage_level),
     path("api/usage/guest-cap", views.usage_guest_cap),
+    path("api/usage/limit", views.usage_limit),
     path("api/usage/calls", views.usage_calls),
     path("api/usage/call", views.usage_call),
     path("api/turns/export", views.turns_export),

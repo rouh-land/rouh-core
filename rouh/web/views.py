@@ -147,7 +147,53 @@ async def machine_load_now(request: HttpRequest):
     # question asked twice (`rouh/costs.py`).
     with contextlib.suppress(Exception):
         snapshot["spend"] = await asyncio.to_thread(_rt().spend_now)
+    # Today's cost against the spending limit, for the readout (`rouh/spending_limit.py`).
+    with contextlib.suppress(Exception):
+        me = await sync_to_async(who)(request)
+        if me is not None and me.org_id:
+            from rouh import spending_limit
+
+            snapshot["limit"] = await asyncio.to_thread(
+                _limit_for_screen, spending_limit, me.org_id, bool(me.is_admin))
     return answer(snapshot)
+
+
+def _limit_for_screen(spending_limit, org_id: str, can_change: bool) -> dict:
+    from django.db import close_old_connections
+
+    close_old_connections()
+    return spending_limit.for_screen(org_id, can_change=can_change)
+
+
+@only("GET", "POST")
+async def usage_limit(request: HttpRequest):
+    """The organisation's spending limit (`rouh/spending_limit.py`): GET where it stands today and this
+    month; POST, for an administrator, changes it (daily, monthly, warn_at, expensive, at_limit) or,
+    with {"more": dollars}, lets today go on past it by that much."""
+    from rouh import spending_limit
+
+    me = await sync_to_async(who)(request)
+    if me is None:
+        return refuse("sign in first", 401)
+    if request.method == "POST":
+        if not me.is_admin:
+            return refuse("Only an administrator changes the spending limit.", 403)
+        got = body_of(request)
+        try:
+            if got.get("more") not in (None, ""):
+                await asyncio.to_thread(spending_limit.allow_more, me.org_id, got["more"])
+            else:
+                await asyncio.to_thread(
+                    spending_limit.put, me.org_id,
+                    **{k: got.get(k) for k in ("daily", "monthly", "warn_at", "expensive", "at_limit")})
+        except (TypeError, ValueError) as exc:
+            return refuse(str(exc) or "A limit is a number of dollars.", 400)
+    try:
+        shown = await asyncio.to_thread(_limit_for_screen, spending_limit, me.org_id, bool(me.is_admin))
+    except Exception as exc:
+        log.exception("the spending limit could not be read")
+        return refuse(f"the spending limit could not be read: {exc}", 500)
+    return answer(shown, headers=NO_STORE)
 
 
 #: What the drill-down may be asked, beside the period: the choices made on the way down.

@@ -443,7 +443,7 @@
    "id": "costs",
    "n": 2,
    "title": "What it costs to use Rouh",
-   "topics": "Your keys and your plans, what an answer costs, the cost screen, models, background work, memory, spending less",
+   "topics": "Your keys and your plans, what an answer costs, the cost screen, the spending limit, models, background work, memory, spending less",
    "lessons": [
     {
      "title": "Who you pay, and for what",
@@ -530,6 +530,28 @@
      ],
      "glyph": "chart",
      "id": "cost-screen"
+    },
+    {
+     "id": "spending-limit",
+     "title": "Set a spending limit",
+     "minutes": 2,
+     "summary": [
+      "Rouh keeps a limit on what it pays per use through your keys: one for a day and one for a month. A new Rouh starts at $20 a day and $300 a month. It tells you before it gets there, and stops rather than spend on quietly."
+     ],
+     "how": [
+      "Open What the models cost (the bars at the top of the orb opened over the whole screen). The Spending limit box at the right shows today and this month against each limit.",
+      "The orb's readout at the bottom right says what was spent today and the day's limit, such as $3.10 of $20.00.",
+      "Press Change the limit to set the dollars a day and a month (0 means no limit), and the call cost that earns a warning. Only an administrator can change it.",
+      "At 80% of either limit you get a notice. At the limit you get an alarm, on the phone too, and Rouh pauses everything it pays for per use, chats included, until midnight or the 1st of the month.",
+      "To carry on that day, press Allow $5 more today, or raise the limit. Or set At the limit to Only warn me, and Rouh carries on and tells you.",
+      "When one call is about to cost more than the warning figure ($1 unless you change it), Rouh tells you as it sends it.",
+      "Runs on your Claude or ChatGPT plan are not counted, because the plan pays for them. A run that pays by the token has its own cap."
+     ],
+     "open": {
+      "label": "What the models cost",
+      "href": "/?costs=1"
+     },
+     "glyph": "coins"
     },
     {
      "id": "models",

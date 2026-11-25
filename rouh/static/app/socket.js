@@ -1215,7 +1215,11 @@ function handleMessage(m) {
       if (m.chat_setup) chatSetupShow(m.chat_setup);
       // `lasting` is a failure the person has to act on - a chat grown past
       // what its model can read - and stays until they close it.
-      else notify(m.message || 'Something failed.', { tone: 'error', lasting: !!m.fatal || !!m.lasting });
+      // `costs`: refused at the spending limit (`rouh/spending_limit.py`), with the way to the
+      // screen where more is allowed for today or the limit raised.
+      else notify(m.message || 'Something failed.', { tone: 'error', lasting: !!m.fatal || !!m.lasting,
+        action: m.costs ? { label: 'Open What the models cost',
+          run: function () { window.dispatchEvent(new Event('rouh:costs')); } } : null });
       setBusy(false);
       if (m.fatal) setMic(true);
       break;

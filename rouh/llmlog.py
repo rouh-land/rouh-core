@@ -384,6 +384,11 @@ class _Recording:
         if not _is_model_call(request, self.provider):
             return await super().send(request, **kwargs)
         request = _owner_said(request)
+        # Rouh's own spending limit (`rouh/spending_limit.py`): at the limit, set to stop, the call
+        # is answered here with a refusal and never leaves this machine.
+        refused = await _over_limit(request, self.provider)
+        if refused is not None:
+            return refused
         entry = Entry(request, provider=self.provider)
         try:
             response = await super().send(request, **kwargs)
@@ -400,6 +405,33 @@ class _Recording:
             entry.took(response.content)
             entry.end()
         return response
+
+
+async def _over_limit(request, provider: str):
+    """The refusal for a call past the spending limit, or None to send it. Never raises."""
+    try:
+        from . import spending_limit
+
+        about_now = dict(_ABOUT.get() or {})
+        org = str(about_now.get("org_id") or "")
+        if not org:
+            who = _speaker()
+            org = str(getattr(who, "org_id", "") or "") if who is not None else ""
+        if not org:
+            org = await spending_limit.only_org()
+        try:
+            body = bytes(request.content)
+        except Exception:                           # noqa: BLE001 - a body sent as a stream
+            body = b""
+        said = await spending_limit.gate(org, body, str(about_now.get("purpose") or _case_use() or ""))
+        if said is None:
+            return None
+        log.info("a %s call for %s was not sent: the spending limit is reached", provider,
+                 about_now.get("purpose") or "no purpose")
+        return spending_limit.refusal(request, provider, said)
+    except Exception:                               # noqa: BLE001 - never worth a request
+        log.exception("the spending limit could not be checked; the call goes out")
+        return None
 
 
 def _owner_said(request):

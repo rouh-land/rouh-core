@@ -90,7 +90,7 @@ import re
 import time
 from types import SimpleNamespace
 
-from . import (attachments, chatkinds, citing, context_editing, costs, llmlog, modelstandard, replymode, retrying,
+from . import (attachments, chatkinds, citing, context_editing, costs, llmlog, modelstandard, replymode, retrying, spending_limit,
                toolsearch, turnmarks, worklabel)
 from .brain import (_first_of, _is_stopped, _let_it_finish, _said_timing, _shallow, _shows_files,
                     _split_sentences, _Stopped, _timed, _without_marks)
@@ -582,6 +582,9 @@ def should_retry(exc, *, attempt: int, said_anything: bool) -> bool:
 
 def friendly(exc) -> str:
     """The failure, in one sentence, for the screen and the voice."""
+    mine = spending_limit.words_of(exc)
+    if mine:
+        return mine
     status = retrying.status_of(exc)
     if is_out_of_credit(exc):
         return "My OpenAI account will not take the request: it has no credit left."
@@ -1108,7 +1111,9 @@ async def turn(brain, session_id: str, user_content, emit, on_sentence, model: s
                                 "message": chatkinds.too_long(session_id, model, *over)})
                     return "".join(now.full_text)
                 log.exception("the call to %s failed", model)
-                await emit({"type": "error", "message": friendly(exc), "fatal": False})
+                await emit({"type": "error", "message": friendly(exc), "fatal": False,
+                            "lasting": spending_limit.words_of(exc) is not None,
+                            "costs": spending_limit.words_of(exc) is not None})
                 return "".join(now.full_text)
 
         if stopped:

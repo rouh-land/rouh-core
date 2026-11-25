@@ -43,7 +43,7 @@ import logging
 import time
 from types import SimpleNamespace
 
-from . import (attachments, chatkinds, context_editing, costs, llm, llmlog, modelstandard, replymode,
+from . import (attachments, chatkinds, context_editing, costs, llm, llmlog, modelstandard, replymode, spending_limit,
                retrying, toolsearch, turnmarks)
 from .brain import (_first_of, _is_stopped, _let_it_finish, _said_timing, _split_sentences, _Stopped,
                     _timed, _without_marks)
@@ -225,6 +225,9 @@ def _failure(exc) -> bool:
 
 def friendly(exc, model: str) -> str:
     """The failure, in one sentence, for the screen and the voice."""
+    mine = spending_limit.words_of(exc)
+    if mine:
+        return mine
     who = PROVIDER_NAMES.get(provider_of(model), "The provider")
     status = retrying.status_of(exc)
     if status in (401, 403):
@@ -339,7 +342,9 @@ async def turn(brain, session_id: str, user_content, emit, on_sentence, model: s
                                 "message": chatkinds.too_long(session_id, model, *over)})
                     return "".join(now.full_text)
                 log.exception("the call to %s failed", model)
-                await emit({"type": "error", "message": friendly(exc, model), "fatal": False})
+                await emit({"type": "error", "message": friendly(exc, model), "fatal": False,
+                            "lasting": spending_limit.words_of(exc) is not None,
+                            "costs": spending_limit.words_of(exc) is not None})
                 return "".join(now.full_text)
         if stopped:
             break

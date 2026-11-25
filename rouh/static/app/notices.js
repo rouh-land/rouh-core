@@ -735,7 +735,10 @@ function follow(n, href) {
       // On a phone the bell is inside the navigation's drawer, which goes with the press like
       // after any other link followed from it, or it stays over the place just opened.
       sidebarDone();
-      goToAddress(link);
+      // What the models cost is a screen in the orb, not an address: the spending limit's notices
+      // open it there (`rouh/spending_limit.py`, `wireOrbUsage`).
+      if (/[?&]costs=1(&|#|$)/.test(link)) window.dispatchEvent(new Event('rouh:costs'));
+      else goToAddress(link);
     }
   } else {
     window.open(link, '_blank', 'noopener,noreferrer');

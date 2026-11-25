@@ -33,7 +33,7 @@ import anthropic
 
 from . import (attachments, chatkinds, citing, clock, context_editing, costs, demo, events,
                fetchfallback, heartbeat, keeping, llmlog, location, modelstandard, promptcache, replymode,
-               retrying, rouhlinks, senders, servercalls, telegram_chat, toolsearch, turnmarks, turntrace, untrusted,
+               retrying, rouhlinks, senders, servercalls, spending_limit, telegram_chat, toolsearch, turnmarks, turntrace, untrusted,
                worklabel)
 from . import memory as memory_mod
 from .config import (GOOGLE, PROVIDER_NAMES, XAI, effort_for, is_openai, luna_ready, model_name,
@@ -2029,7 +2029,9 @@ class Brain:
                     # like a chat past its window: it lasts until someone acts.
                     await emit({"type": "error", "message": _friendly(exc),
                                 "fatal": False,
-                                "lasting": retrying.capped(exc) is not False})
+                                "lasting": retrying.capped(exc) is not False
+                                or spending_limit.words_of(exc) is not None,
+                                "costs": spending_limit.words_of(exc) is not None})
                     return "".join(full_text)
 
             # The inner loop is one request and its retries; this is the turn.
@@ -2894,6 +2896,9 @@ def _friendly(exc: anthropic.APIStatusError) -> str:
     22 September 2026 an overloaded model reached the person as "The model call
     failed (200)", which reads as a bug in Rouh rather than a busy model.
     """
+    mine = spending_limit.words_of(exc)
+    if mine:
+        return mine
     if isinstance(exc, anthropic.RateLimitError):
         return "I'm being rate limited. Give me a moment."
     if isinstance(exc, anthropic.AuthenticationError):

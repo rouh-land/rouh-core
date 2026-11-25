@@ -2337,12 +2337,24 @@ function orbStatsPaint(v) {
   var spendEl = $('orbStatSpend'), spendRow = $('orbStatSpendRow');
   if (spendEl && spendRow) {
     var sp = v && v.spend;
-    var on = !!(sp && sp.today && sp.today.turns);
+    // Everything paid per use today against the day's spending limit, when there is one
+    // (`rouh/spending_limit.py`); the chat turns and their cache after it, as before.
+    var lim = v && v.limit;
+    var turns = !!(sp && sp.today && sp.today.turns);
+    var on = turns || !!(lim && lim.today > 0);
     spendRow.hidden = !on;
+    spendRow.className = 'orb-stat' + (lim && lim.state === 'reached' ? ' load-hot' : lim && lim.state === 'near' ? ' load-warm' : '');
     if (on) {
-      spendEl.textContent = sp.said.today + ' \u00b7 ' +
-        sp.today.turns + (sp.today.turns === 1 ? ' turn' : ' turns') + ' \u00b7 ' +
-        sp.said.cached + '% cached';
+      var parts = [];
+      if (lim) parts.push(lim.said.today + (lim.daily > 0 ? ' of ' + lim.said.daily : '') +
+        (lim.state === 'reached' ? ', ' + (lim.which === 'day' ? 'day' : 'month') + ' limit reached'
+          : lim.state === 'near' ? ', near the ' + (lim.which === 'day' ? 'day' : 'month') + ' limit' : ''));
+      if (turns) {
+        if (!lim) parts.push(sp.said.today);
+        parts.push(sp.today.turns + (sp.today.turns === 1 ? ' turn' : ' turns'));
+        parts.push(sp.said.cached + '% cached');
+      }
+      spendEl.textContent = parts.join(' \u00b7 ');
     }
   }
   // The memory line, in the colour of its ring in the corner: the number and
