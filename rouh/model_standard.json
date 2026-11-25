@@ -1212,6 +1212,14 @@
         ]
       }
     },
+    "contribution_review": {
+      "tier": "smart",
+      "why": "Tells you what a stranger's code really does before it can reach every Rouh: a weak reading could let a harmful change through.",
+      "order": {
+        "cheaper": ["openai", "anthropic", "google", "xai"],
+        "smart": ["anthropic", "openai", "google", "xai"]
+      }
+    },
     "decision_gate": {
       "tier": "smart",
       "why": "Decides whether a question may reach you at all: letting through one that did not need you, or keeping back one that did, both cost you.",

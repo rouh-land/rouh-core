@@ -663,6 +663,26 @@ async def _job_watch_loop() -> None:
         await asyncio.sleep(JOB_WATCH_EVERY)
 
 
+async def _contributions_loop() -> None:
+    """rouh-core's pull requests looked at every half hour on the Creator Rouh, each reviewed for
+    the owner, let onto Decisions once a week together and a security fix at once
+    (`rouh/contributions.py`, task 98, gap G11). Not the Creator Rouh, nothing is asked of GitHub."""
+    from . import contributions
+
+    await asyncio.sleep(240)
+    while True:
+        try:
+            if await asyncio.to_thread(contributions.here):
+                owner = await asyncio.to_thread(telegram.phone_owner, tenancy)
+                if owner is not None:
+                    got = await contributions.tick(owner)
+                    if got.get("reviewed") or got.get("released") or got.get("digest"):
+                        log.info("pull requests: %s", {k: v for k, v in got.items() if v})
+        except Exception:  # noqa: BLE001 - tried again on the next beat
+            log.exception("the look at rouh-core's pull requests failed")
+        await asyncio.sleep(contributions.EVERY)
+
+
 #: How often the core looks again whether the scrub of private reasoning still has work, after it
 #: stopped on an error (`rouh/reasoning_scrub.py`).
 REASONING_SCRUB_EVERY = 60 * 60
@@ -1160,6 +1180,17 @@ def _nightly_hooks() -> None:
 
 
 _nightly_hooks()
+
+
+def _contributions_hooks() -> None:
+    """The run that carries out an answer to a pull request (`rouh/contributions.py`)."""
+    from . import contributions, starting
+
+    contributions.hooks.start = lambda **fields: starting.start(
+        cfg=config, crew=crew, one=one, emit=Hub.broadcast, **fields)
+
+
+_contributions_hooks()
 
 
 def _job_gateway_hooks() -> None:
@@ -8218,6 +8249,8 @@ async def startup() -> None:
     asyncio.ensure_future(_offsite_loop())
     # Whether each scheduled job really ran and worked, said once a morning when not (`rouh/job_watch.py`).
     asyncio.ensure_future(_job_watch_loop())
+    # rouh-core's pull requests reviewed for the owner, on the Creator Rouh only (`rouh/contributions.py`).
+    asyncio.ensure_future(_contributions_loop())
     # The private reasoning already in the model request log scrubbed, minutes after start-up
     # and never in it (`rouh/reasoning_scrub.py`).
     asyncio.ensure_future(_reasoning_scrub_loop())

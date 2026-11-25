@@ -1,0 +1,39 @@
+{
+  "id": "contributions",
+  "name": "Contributions",
+  "title": "Contributions: every pull request to rouh-core reviewed for the owner in plain words, with four answers",
+  "aliases": [
+    "pull requests",
+    "contributions",
+    "contributors",
+    "review pull request",
+    "merge pull request",
+    "outside changes"
+  ],
+  "group": "machine",
+  "route": "/decisions",
+  "icon": "<circle cx=\"6\" cy=\"6\" r=\"2\"/><circle cx=\"6\" cy=\"18\" r=\"2\"/><circle cx=\"18\" cy=\"18\" r=\"2\"/><path d=\"M6 8v8\"/><path d=\"M18 16V9a3 3 0 0 0-3-3h-4\"/><path d=\"m13 4-2 2 2 2\"/>",
+  "attaches_to": [],
+  "maturity": "accepted",
+  "nav": {
+    "place": "none",
+    "opens": "address"
+  },
+  "touches": {
+    "permissions": [
+      "on the Creator Rouh only (the one that makes Rouh's releases): reads rouh-core's open pull requests, their files and their checks from GitHub's public API every half hour, unsigned",
+      "asks the Models setting Reviewing a pull request to describe each one, with the pull request's text read as data only",
+      "puts each reviewed pull request on Decisions, once a week together with one digest notice, a security fix at once",
+      "starts a run for each answer (merge, ask for changes, decline, rebuild our way), which reaches GitHub only as the owner through their grant"
+    ],
+    "accounts": [],
+    "tables": [],
+    "jobs": [
+      "the look at rouh-core's pull requests, every half hour (runtime._contributions_loop), and the weekly digest on Mondays from 09:00 on the owner's clock"
+    ],
+    "remove": "rouh/contributions.py, rouh/management/commands/contributions.py, ContributionSource in rouh/decision_sources.py, the loop and hooks in rouh/runtime.py, the use contribution_review in rouh/modeldefaults.py and rouh/model_standard.json, and this manifest. Answered decisions stay in History."
+  },
+  "uses": {
+    "tools": []
+  }
+}

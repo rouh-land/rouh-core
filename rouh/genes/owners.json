@@ -4238,6 +4238,19 @@
     "rouh/static/app/build_proof.js",
     "rouh/genes/manifests/n54-point-change.json"
    ]
+  },
+  "contributions": {
+   "name": "Contributions",
+   "what": "Every pull request to rouh-core reviewed for the owner in plain words, with four answers, and how outsiders contribute.",
+   "files": [
+    "rouh/contributions.py",
+    "rouh/management/commands/contributions.py",
+    "rouh/genes/manifests/contributions.json",
+    ".github/ISSUE_TEMPLATE/**",
+    ".github/pull_request_template.md",
+    ".github/CODEOWNERS",
+    "tools/github/**"
+   ]
   }
  }
 }

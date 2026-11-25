@@ -1105,7 +1105,8 @@ SOURCE_PLURAL = {"task": "Tasks", "goal": "Goal steps", "approval": "Heartbeat a
                  "contact_picks": "Contacts to pick on LinkedIn",
                  "after_meeting": "After meetings",
                  "mail": "Emails and messages", "casefix": "Check fixes", "delegate": "For you, from a delegate",
-                 "offline": "Done offline", "promise": "Promises in Slack"}
+                 "offline": "Done offline", "promise": "Promises in Slack",
+                 "contribution": "Pull requests to rouh-core"}
 
 
 def plural(kind: str) -> str:

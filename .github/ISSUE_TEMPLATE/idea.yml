@@ -1,0 +1,43 @@
+name: An idea
+description: Something Rouh could do, or do better. Start here before you write code for it.
+labels: ["idea"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you. Many new abilities are better as a gene, shared through the Gene Pool, than as a change to Rouh's core (CONTRIBUTING.md says why).
+        You get an answer before anybody builds anything, so nobody's time is wasted.
+  - type: textarea
+    id: problem
+    attributes:
+      label: What you want to be able to do
+      description: The situation, in plain words, as a person using Rouh would say it.
+    validations:
+      required: true
+  - type: textarea
+    id: idea
+    attributes:
+      label: Your idea
+      description: How Rouh could help. A sketch or a screenshot is welcome.
+    validations:
+      required: true
+  - type: dropdown
+    id: where
+    attributes:
+      label: Core or gene
+      description: Your guess is fine; we will say what we think.
+      options:
+        - "I am not sure"
+        - "A gene: some people would want it"
+        - "The core: it is broken or missing for everybody"
+    validations:
+      required: true
+  - type: dropdown
+    id: build
+    attributes:
+      label: Would you build it
+      options:
+        - "No, it is only an idea"
+        - "Yes, once you say it fits"
+    validations:
+      required: true

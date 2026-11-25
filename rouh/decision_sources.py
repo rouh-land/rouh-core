@@ -57,6 +57,9 @@ The sources, in the order the Decisions page groups them:
 - **casefix** - a run fixing the check behind a step he marked a false alarm that failed,
   or that would have had to loosen a safety rule (`case_fixes.py`): Try again starts a new
   fix run with his words, Leave it closes it.
+- **contribution** - a pull request to rouh-core, reviewed in plain words on the Creator Rouh
+  (`contributions.py`, task 98, gap G11): Merge, Ask for changes, Decline, or Rouh rebuilds it
+  our way, each carried out by a run; let on once a week together, a security fix at once.
 
 And each says whether its questions may reach the person at all (`gate`, `rouh/decision_gate.py`,
 Petar, 18 October 2026): only when work he asked for truly stopped without him and the answer
@@ -3659,10 +3662,153 @@ def clock_day(at: float, zone) -> str:
     return dt.datetime.fromtimestamp(at, zone).strftime("%-d %b") if at else ""
 
 
+class ContributionSource(Source):
+    """A pull request to rouh-core, reviewed in plain words, on the Creator Rouh only
+    (`rouh/contributions.py`, task 98, gap G11).
+
+    Petar, 25 November 2026: "I need to be reviewing them and understanding what people commit."
+    Four answers: Merge, Ask for changes (Rouh's suggested changes, or his own words), Decline,
+    and Rouh rebuilds it our way, crediting the contributor. Each is carried out by a run of its
+    own, bound to the commit that was reviewed. Let on once a week together, a security fix at once.
+    """
+
+    kind = "contribution"
+    label = "Pull request"
+    tag = "Pull request"
+    text_acts = True
+
+    def gate(self, who, ask):
+        from . import decision_gate as gate
+
+        return gate.let_through("Merging, declining or rebuilding a stranger's change to rouh-core publishes "
+                                "in ‹his› name, and only ‹he› reviews what goes in.")
+
+    def collect(self, who) -> list[Ask] | None:
+        from . import contributions
+
+        if not _owner(who) or not contributions.here():
+            return []
+        try:
+            rows = contributions.state()["prs"].values()
+        except Exception:
+            log.exception("decisions: the pull requests could not be read")
+            return None
+        return [self._ask(r) for r in sorted(rows, key=lambda r: int(r["number"])) if contributions.shown(r)]
+
+    @staticmethod
+    def _ask(r: dict) -> Ask:
+        from . import contributions as c
+
+        n, review = int(r["number"]), r.get("review") or {}
+        risk, checks = r.get("risk") or {}, r.get("checks") or {}
+        files = r.get("files") or []
+        genes = r.get("genes") or []
+        rec, rec_why = c.recommendation(r)
+        security = bool(r.get("security"))
+        what = review.get("what") or (f"Rouh could not write its review, so here are the sender's own words: "
+                                      f"{' '.join((r.get('body') or r.get('title') or '').split())[:600]}")
+        worries = review.get("worries") or []
+        prepared = [
+            {"part": "1", "label": "How risky", "hint": str(risk.get("level") or "unknown").capitalize(),
+             "text": " ".join((risk.get("why") or []) + worries) or "Nothing found."},
+            {"part": "2", "label": "Parts of Rouh it touches",
+             "hint": f"{len(genes)} gene{'s' if len(genes) != 1 else ''}",
+             "text": "; ".join(f"{g['name']} ({g['files']} file{'s' if g['files'] != 1 else ''})" for g in genes) or "None."},
+            {"part": "3", "label": "Tests", "hint": str(checks.get("state") or "unknown").capitalize(),
+             "text": "\n".join(checks.get("lines") or []) or "No checks were read."},
+            {"part": "4", "label": "Files it changes", "hint": f"{len(files)} file{'s' if len(files) != 1 else ''}",
+             "text": "\n".join(f"{f['path']} (+{f['add']} -{f['del']}, {f['status']})" for f in files[:60])
+                     + (f"\n... and {len(files) - 60} more" if len(files) > 60 else "")},
+        ]
+        if review.get("changes"):
+            prepared.append({"part": "5", "label": "Changes Rouh would ask for",
+                             "hint": f"{len(review['changes'])}", "text": "\n".join(f"- {x}" for x in review["changes"])})
+        url = r.get("url") or ""
+        if url:
+            prepared += [{"label": "The pull request on GitHub", "href": url},
+                         {"label": "Its changes, file by file", "href": url + "/files"},
+                         {"label": "Its checks", "href": url + "/checks"}]
+        options = [
+            {"id": "merge", "label": "Merge", "go": True,
+             "detail": "Rouh merges exactly the commit reviewed, through its own checks, keeping their commits and sign-offs."},
+            {"id": "changes", "label": "Ask for changes", "go": True,
+             "detail": "Rouh asks them on GitHub for the changes it suggests, or for what you write."},
+            {"id": "decline", "label": "Decline", "go": True,
+             "detail": "Rouh closes it with a kind comment saying why."},
+            {"id": "rebuild", "label": "Rouh rebuilds it our way", "go": True,
+             "detail": "Rouh takes the idea, writes it again to fit Rouh, credits them in the commit, and closes theirs."},
+        ]
+        size = f"{len(files)} file{'s' if len(files) != 1 else ''}, +{sum(f['add'] for f in files)} -{sum(f['del'] for f in files)}"
+        return Ask(
+            source_id=str(n), key=decisions.key_of("contribution", n, r.get("head")),
+            title=f"Pull request #{n}{' (security fix)' if security else ''}: {r.get('title')}",
+            question=what[:1600], about=f"By {r.get('author') or 'somebody'}, {size}.",
+            why=("Why they sent it: " + review["why"]) if review.get("why") else "",
+            then="Whichever you pick, a run carries it out and writes to them on GitHub. Your own words "
+                 "are what to ask them to change.",
+            context=f"rouh-core pull request #{n}", project="Rouh", batch="contributions",
+            options=options, recommended=rec, recommended_why=rec_why, allow_other=True,
+            answer_type="choice", urgency="now" if security else "whenever",
+            risk="publishing", risk_note="Merging or rebuilding puts code on rouh-core's main, which every new Rouh "
+                                         "installs; the other answers write to the contributor in public.",
+            prepared=prepared, asked_at=r.get("released_at"), kind="decision",
+            history=[{"at": r.get("first_seen"), "kind": "raised",
+                      "detail": f"Opened on GitHub by {r.get('author')}; reviewed at commit {str(r.get('head'))[:12]}."}],
+            yes_does=f"{c.LABELS[rec]}: a run does it for pull request #{n} and tells {r.get('author') or 'them'} on GitHub.",
+            wait_cost=("A security flaw stays open in every Rouh until it is fixed." if security
+                       else f"{r.get('author') or 'The contributor'} waits for an answer; nothing of Rouh's is held up."),
+            tags=["Security"] if security else [])
+
+    def settled(self, who, row) -> Settled | None:
+        from . import contributions
+
+        r = contributions.pr(row.source_id)
+        if r is None:
+            return Settled(decisions.WITHDRAWN, result="That pull request is not known here any more.")
+        if r.get("state") == "merged":
+            return Settled(decisions.WITHDRAWN, result="It was merged on GitHub.")
+        if r.get("state") == "closed":
+            return Settled(decisions.WITHDRAWN, result="It was closed on GitHub.")
+        if row.key != decisions.key_of("contribution", int(r["number"]), r.get("head")):
+            return Settled(decisions.WITHDRAWN, result="It has new commits, so Rouh reads it again.")
+        return None
+
+    async def apply(self, who, row, channel: str) -> Applied:
+        import asyncio
+
+        from . import contributions
+
+        answer = row.answer or {}
+        choice = (answer.get("choice") or [""])[0]
+        words = str(answer.get("text") or "").strip()
+        if not choice and words:
+            choice = "changes"
+        if choice not in contributions.OPTIONS:
+            return Applied(False, "Merge, Ask for changes, Decline, Rouh rebuilds it, or your own words.")
+        r = await asyncio.to_thread(contributions.pr, row.source_id)
+        if r is None or r.get("state") != "open":
+            return Applied(False, "That pull request is not open any more.")
+        if row.key != decisions.key_of("contribution", int(r["number"]), r.get("head")):
+            return Applied(False, "It has new commits since you read it, so Rouh reads it again first.")
+        if contributions.hooks.start is None:
+            return Applied(False, "Rouh cannot start runs here, so it cannot carry that out now.")
+        try:
+            got = await contributions.hooks.start(
+                brief=owner.say(contributions.brief_for(r, choice, words), who),
+                title=f"Pull request #{r['number']}: {contributions.LABELS[choice]}",
+                preset="improve_myself", org_id=str(who.org_id))
+        except Exception as exc:  # noqa: BLE001 - answerable again once a run can start
+            log.exception("the pull request's run could not be started")
+            return Applied(False, f"Its run could not be started: {exc}")
+        run_id = str((got or {}).get("id") or "")
+        await asyncio.to_thread(contributions.answered, r["number"], choice, words, run_id)
+        return Applied(True, f"{contributions.LABELS[choice]}: run {run_id} is doing it for pull request #{r['number']}.")
+
+
 _SOURCES: dict[str, Source] = {s.kind: s for s in (
     TaskSource(), GoalSource(), ApprovalSource(), MailSource(), RunSource(), GateSource(), JobSource(),
     ConflictSource(), DreamSource(), NightlySource(), GeneSource(), MeetingSource(), ContactPicksSource(), AfterMeetingSource(),
-    CaseFixSource(), DelegateSource(), OfflineSource(), PromiseSource())}
+    CaseFixSource(), DelegateSource(), OfflineSource(), PromiseSource(), ContributionSource())}
 
 
 def sources() -> dict[str, Source]:

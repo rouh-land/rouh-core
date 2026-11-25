@@ -588,6 +588,12 @@ USES: tuple[Use, ...] = (
     # Petar, 7 November 2026: "this is not a decision. This is a blocker action I need to do."
     # What waits on him is read once to tell a hands-on action from a choice, and an action's
     # page is written for someone who forgot everything (`rouh/actions.py`).
+    # Petar, 25 November 2026 (task 98, gap G11): every pull request to rouh-core reviewed for
+    # him in plain words before he decides (`rouh/contributions.py`).
+    Use("contribution_review", "Runs and helpers", "Reviewing a pull request",
+        "On the Rouh that makes Rouh's releases, reads each pull request sent to rouh-core and "
+        "writes your review of it: what it changes, why, what could go wrong, and what Rouh "
+        "recommends.", purposes=("contribution_review",)),
     Use("action_reader", "Goals and the brief", "Whether it is something only you can do",
         "Reads what waits on you once, tells a hands-on step only you can do from a choice, and "
         "writes the action's page: the steps with their links, how Rouh checks it, and the story "

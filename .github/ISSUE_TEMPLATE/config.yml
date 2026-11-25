@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: A security problem
+    url: https://github.com/rouh-land/rouh-core/security/advisories/new
+    about: Report it privately, never in a public issue (SECURITY.md).
+  - name: How changes get into Rouh
+    url: https://github.com/rouh-land/rouh-core/blob/main/CONTRIBUTING.md
+    about: Read this before you open a pull request.

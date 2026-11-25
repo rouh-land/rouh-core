@@ -1,0 +1,78 @@
+# Tests on every pull request, in GitHub's sandbox, with nothing to steal (CONTRIBUTING.md; task 98, gap G11).
+#
+# A pull request's code is a stranger's code, so this workflow is held to four rules:
+#
+#   1. It runs on `pull_request`, never `pull_request_target`: GitHub runs a pull request from a fork
+#      with a read-only token and hands it no secrets at all, whatever the workflow file says.
+#   2. It names no secret and no environment, and its token can only read the repository.
+#   3. Its checkout keeps no credential (persist-credentials: false), and nothing is pushed,
+#      published, signed or uploaded from here: the result is the check's pass or fail, and its log.
+#   4. Every action is pinned by its commit, as in Tests on main.
+#
+# What it runs is Tests on main's own check, short of the signing and the stack test: the quick
+# checks, the type check of the page, and the whole check a Rouh's code must pass on the newest
+# published base (public, so pulled without signing in), with the protected core built from the
+# pull request. The owner sees the result in Rouh's review of the pull request (rouh/contributions.py).
+
+name: Pull request tests
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pr-tests-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+env:
+  PREFIX: ghcr.io/${{ github.repository_owner }}
+
+jobs:
+  test:
+    name: Check the pull request
+    # The base workflow's own level branches are checked by base.yml.
+    if: ${{ !startsWith(github.head_ref, 'base-patch/') }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: The repository's own quick checks
+        run: |
+          set -euo pipefail
+          python3 -m compileall -q rouh one guard bin tools >/dev/null
+          python3 -m rouh.genes
+          python3 -m rouh.genes.owners check
+          python3 -m rouh.mail_replay
+          python3 -m rouh.llmguard
+          python3 -m rouh.hostguard
+          python3 -m rouh.capabilities check
+          python3 guard/policy/fixtures/check.py
+
+      - name: The page's types
+        run: tools/typecheck/check.sh
+
+      - name: The protected core from this pull request, and the newest published base
+        run: |
+          set -euo pipefail
+          docker build -q -f guard/Dockerfile -t rouh-guard:check .
+          docker pull -q "$PREFIX/rouh-base:latest"
+          docker run --rm --entrypoint cat "$PREFIX/rouh-base:latest" /opt/rouh-base/base.env
+
+      - name: The whole check, as a first start would run it
+        run: |
+          set -euo pipefail
+          docker volume create ci-guard >/dev/null
+          docker volume create ci-extra >/dev/null
+          docker run --rm --user 0:0 --network none -v ci-guard:/out \
+            --entrypoint /opt/rouh-guard/bin/rouh-guard-install rouh-guard:check /out
+          docker run --rm --user 0:0 -v ci-guard:/opt/rouh-guard:ro -v ci-extra:/extra -v "$PWD:/src:ro" \
+            --entrypoint python "$PREFIX/rouh-base:latest" -I /opt/rouh-guard/bin/rouh-code-install --extra-only /src
+          guard/bin/check-base.sh --base "$PREFIX/rouh-base:latest" --guard rouh-guard:check --code-dir . \
+            --extra-volume ci-extra --name rouh-pr-check | tee check.log
+          { echo "### The check of pull request #${{ github.event.pull_request.number }} at ${{ github.event.pull_request.head.sha }}"; echo; echo '```'; grep -E '^(ok|FAIL|gap|[0-9]+ passed)' check.log; echo '```'; } >> "$GITHUB_STEP_SUMMARY"

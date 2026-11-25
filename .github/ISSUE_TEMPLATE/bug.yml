@@ -1,0 +1,47 @@
+name: Something is broken
+description: A bug in Rouh that you can show happening.
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you for telling us. Please do not put a security problem here: see SECURITY.md and report it privately.
+        Leave out anything private: real names, addresses, mail, keys or tokens.
+  - type: textarea
+    id: what
+    attributes:
+      label: What went wrong
+      description: What you saw, in plain words. A screenshot helps.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: How to make it happen again
+      description: The steps, one per line, from a fresh page.
+      placeholder: |
+        1. Open ...
+        2. Press ...
+        3. See ...
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What you expected instead
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Which Rouh
+      description: The commit or version on the top bar's version chip, and Mac, Linux or another machine.
+      placeholder: "a1b2c3d4 on Linux"
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Anything else
+      description: Log lines or error messages, with anything private taken out.
+      render: text

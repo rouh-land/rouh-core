@@ -46,7 +46,7 @@ What the gate said of every question is a row of `decision_gate` (migration 0181
 | task | A done task asks nothing (its work is finished); one marked waiting that says nothing is kept back; every other question is read by the judge |
 | goal | An action only he can do gets through; a decision, or Rouh stuck, is read by the judge |
 | approval | Gets through only when what it runs spends, sends, publishes or cannot be undone |
-| run, job, offline, mail, delegate, promise | Get through: a run held on a hook, a job at its prompt or on a live-browser step, his own offline action, somebody's request for his permission, what a delegate may not decide, a late promise whose chase sends in his name |
+| run, job, offline, mail, delegate, promise, contribution | Get through: a pull request to rouh-core (merging or answering it publishes in his name, `contributions.py`), a run held on a hook, a job at its prompt or on a live-browser step, his own offline action, somebody's request for his permission, what a delegate may not decide, a late promise whose chase sends in his name |
 | casefix | Only a fix that would loosen a safety rule; one that did not work is Rouh's to look at again |
 | conflict | Only a clash that would lose his own words (`conflicts.his_words`) |
 | dream, nightly, genes, meeting, after_meeting | Kept back: Rouh's own housekeeping, a feature already live, genes kept in Mutations, its own preparation for a meeting, suggested work |

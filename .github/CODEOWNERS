@@ -1,0 +1,3 @@
+# Who must approve a change to each part of rouh-core before it can merge (CONTRIBUTING.md).
+# For now the owner reviews everything; trusted reviewers come later (task 98, gap G11).
+* @mgpepe
