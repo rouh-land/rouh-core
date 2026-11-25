@@ -384,6 +384,8 @@ class Item:
     #: Told by another part of the prompt (the parent task's background, a fork's carried conversation), so
     #: never in `block` and never counted against `BUDGET`: listed only for its size.
     elsewhere: bool = False
+    #: What its row in the strip's panel says under its title, when the group's own words are not enough.
+    words: str = ""
 
     @property
     def sent(self) -> int:
@@ -670,7 +672,7 @@ def _carried_tokens(chat_id: str, chain: list[tuple[str, int]]) -> dict[str, int
     General alone (`brain._general_summary_block`), so it is not part of it."""
     from django.db.models import Count, Max, Q
 
-    from . import attachments, chatkinds, context_editing, forks, tokencount
+    from . import attachments, case_lines, chatkinds, context_editing, forks, tokencount
     from .memory import repair_history
     from .models.memory import TranscriptMessage
 
@@ -700,11 +702,58 @@ def _carried_tokens(chat_id: str, chain: list[tuple[str, int]]) -> dict[str, int
             got[parent] = counted(sent)
         mine, _did = context_editing.lean(repair_history(memory._window(chat_id, limit, depth=forks.DEEP)),
                                           store=store)
+        mine, _cases = case_lines.shorten(mine)
         got[""] = counted(mine)
         if len(_CARRIED) > 500:
             _CARRIED.clear()
         _CARRIED[key] = got
     return got
+
+
+#: The chat's own messages as they are sent, by the chat and how far it has got: the cases are found in them.
+_SENT_OWN: dict = {}
+
+
+def _case_items(chat_id: str) -> list[Item]:
+    """The cases that were handled in this chat, as one row sized as they are sent (`case_lines`): a finished
+    case's entry as its one line, an open one's whole (Petar, 25 November 2026: count them "in their shortened
+    size, from now on, so nothing large in a chat is left uncounted"). [] when no case was handled here. Told
+    by the chat's own history, so never in `block` and never against `BUDGET`."""
+    from django.db.models import Count, Max, Q
+
+    from . import case_lines, chatkinds, context_editing, forks
+    from .memory import repair_history
+    from .models.memory import TranscriptMessage
+
+    limit = chatkinds.profile(chat_id).history
+    own = TranscriptMessage.objects.filter(session_id=chat_id).aggregate(
+        last=Max("id"), live=Count("id", filter=Q(live=True)))
+    if not own["live"]:
+        return []
+    key = (chat_id, own["last"], own["live"], limit)
+    msgs = _SENT_OWN.get(key)
+    if msgs is None:
+        memory, store = _runtime()
+        msgs, _did = context_editing.lean(repair_history(memory._window(chat_id, limit, depth=forks.DEEP)),
+                                          store=store)
+        if len(_SENT_OWN) > 50:
+            _SENT_OWN.clear()
+        _SENT_OWN[key] = msgs
+    got = case_lines.sized(msgs)
+    n = got["short"] + got["whole"]
+    if not n:
+        return []
+    label = _plural(n, "case") + (", one line each" if not got["whole"] else
+                                  f", {got['whole']} still being handled")
+    # What the row says under its title: how each kind is sent.
+    said = []
+    if got["short"]:
+        said.append(f"{got['short']} finished, each one line with a link to its whole record")
+    if got["whole"]:
+        said.append(f"{got['whole']} still being handled, sent whole")
+    return [Item(id=f"cases:{chat_id}", kind="cases", label=label, group="cases", on=True, elsewhere=True,
+                 words="; ".join(said).capitalize(),
+                 tokens=max(1, got["short_tokens"] + got["whole_tokens"]))]
 
 
 def chat_name(chat_id: str) -> str:
@@ -784,6 +833,10 @@ def items(chat_id: str, s: dict | None = None) -> tuple[object, list[Item], list
             got += _histories(parent, str(parent.number or ""), group="parent_task_history",
                               read=bool(s["parent_task_history"]))
     got += _fork_items(chat_id, s)
+    try:
+        got += _case_items(chat_id)
+    except Exception:  # noqa: BLE001 - a size is never worth the panel
+        log.exception("the cases handled in chat %s could not be sized", chat_id)
     for it in got:
         if not it.on:
             it.how = "off"
@@ -1179,6 +1232,7 @@ GROUPS = (
     ("step_histories", "Subtasks' chat histories", "What was said in the subtasks' own chats"),
     ("parent_task", "Parent task", "Its AGENTS.md, what it says this subtask is, and what its other subtasks sent up"),
     ("parent_task_history", "Parent task's chat history", "What was said in the parent task's chats"),
+    ("cases", "Cases handled in this chat", "Messages from your contacts and what Rouh did with each"),
 )
 
 
@@ -1201,12 +1255,17 @@ def content(chat_id: str, s: dict, got: list[Item], task, subs: list) -> dict:
                 continue
         elif not of:
             continue
-        on = bool(s[key]) if key != "steps" else s["subtasks"] != "none"
+        # The cases are always sent: a row that says their size, with no switch (`_case_items`).
+        on = True if key == "cases" else bool(s[key]) if key != "steps" else s["subtasks"] != "none"
         n = sum(i.sent for i in of)
         if not of and key != "steps":
             sub = "Nothing said in them yet"
+        elif key == "cases":
+            sub = of[0].words or sub
         g = {"key": key, "title": title, "sub": sub, "on": on, "tokens": n, "size": size_word(n) if of else "",
              "count": len(of), "outlined": sum(1 for i in of if i.how == "outline")}
+        if key == "cases":
+            g["locked"] = True
         if key == "parent_task" and of:
             g["title"] = f"Parent task: {of[0].label.removeprefix('Task ')}"
         groups.append(g)
@@ -1279,6 +1338,9 @@ def strip(chat_id: str, s: dict | None = None, got: list[Item] | None = None, ta
         cut = sum(1 for i in on if i.how == "outline")
         if cut:
             bits.append(f"{cut} as outlines")
+    cases = next((i for i in on if i.kind == "cases"), None)
+    if cases is not None:
+        bits.append(cases.label.split(",")[0])
     if chain:
         n, k = len(chain), sum(1 for i in chain if i.on)
         if not k:

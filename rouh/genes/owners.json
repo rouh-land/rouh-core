@@ -669,6 +669,7 @@
   "trusted-contacts": {
    "files": [
     "rouh/trusted.py",
+    "rouh/case_lines.py",
     "rouh/mail_cases.py",
     "rouh/mail_ledger.py",
     "rouh/mail_outbox.py",

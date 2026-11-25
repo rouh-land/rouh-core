@@ -316,6 +316,12 @@ Petar, 21 October 2026, after the audit of run 2be7789c (card 1796) found that a
 7. **Migration moved nothing.** Every holding with code behind it - the levels, the inbox reach, Clockwork, Memory, Shared task and Your calendar with its calendars - is read as a standing grant of its capability, exactly as before; task permissions were not touched; a grant made from words alone is kept, listed on Grants for review, and allows nothing. On the live server that day: 9 grant definitions, all with code behind them, 4 contact grant rows, 5 contacts with levels, and no grant made from words; no open ask carried a proposal in words, so nothing was put to the owner.
 The replay keeps `grants_as_data`.
 
+**A finished case is one line in the chat it worked in.**
+Petar, 25 November 2026 (task 182, step 182-19): a case works in the chat it belongs to, and its whole working record - the brief, the tool calls, their results - stayed there and was sent again with every later message of that chat (about 15,000 characters around a message of about 250; in a contact's case chat 55% of one $2.02 message).
+So in what is sent to the model, never in what is stored, each entry of a case at rest becomes one note: the case, who wrote it on which channel and when, their own words cut to about 300 characters, what Rouh did (its outcome, any job it started, its own last words) and the case's page, which `read_rouh_link` reads whole (`rouh/case_lines.py`, from `memory.Memory.history`).
+A case at one of the steps of a run (`case_state.IN_FLIGHT`) goes whole, so its own turns read exactly as before; the line is made only of what never changes, so the prompt cache still reads the chat back.
+The strip's panel counts the cases as they are sent ("Cases handled in this chat", `reading._case_items`); the screen still shows the chat as it was.
+
 ## What was removed
 
 - `rouh/word_review.py`, the word review, and its model use.

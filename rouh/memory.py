@@ -39,7 +39,8 @@ from django.db.models import (BigIntegerField, Case, Count, Max, Min, OuterRef, 
                               Sum, TextField, Value, When)
 from django.db.models.functions import Coalesce
 
-from . import attachments, citing, context_editing, conversations, forks, servercalls, turnmarks, turnrecords
+from . import (attachments, case_lines, citing, context_editing, conversations, forks, servercalls, turnmarks,
+               turnrecords)
 from .models.memory import (AppState, ChatFolder, Event, Fact, LegacySession, OpenTurn, RecallTimeline,
                             RouteTimeline,
                             ScreenCard, Spend, ToolLine, TranscriptMessage)
@@ -1805,12 +1806,15 @@ class Memory:
         tool result as a stub and every picture or PDF before the person's
         last message as a line, the way every chat is sent since 17 November
         2026 (`context_editing.lean`); `files` is the attachment store, which
-        names where a file is saved in its line.
+        names where a file is saved in its line. With it, every finished case's entry
+        (somebody else's message and Rouh's whole working record of it) is sent as one
+        line with a link to the case, since 25 November 2026 (`case_lines.shorten`).
         """
         msgs = repair_history(self._window(session_id, limit, before=before,
                                            limit_of=limit_of))
         if lean:
             msgs, _did = context_editing.lean(msgs, store=files)
+            msgs, _cases = case_lines.shorten(msgs)
         return msgs
 
     def carried_sent(self, session_id: str, limit: int, *,
@@ -1827,7 +1831,8 @@ class Memory:
         if len(whole) <= len(own):
             return []
         sent, _did = context_editing.lean(repair_history(whole), store=files)
-        return sent[:max(0, len(sent) - len(own))]
+        carried, _cases = case_lines.shorten(sent[:max(0, len(sent) - len(own))])
+        return carried
 
     def _window(self, session_id: str, limit, *, before: int | None = None,
                 upto: int | None = None, depth: int = 0,

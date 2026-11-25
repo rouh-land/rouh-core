@@ -65,7 +65,7 @@ import { shared } from 'app/shared.js';
 /** @typedef {{ id: string, title: string, text: string, source: string, locked: boolean, own?: boolean,
  *              on: boolean, off: boolean, with?: string, when?: string, live?: boolean, fills?: string }} ReadRule */
 /** @typedef {{ key: string, title: string, sub: string, on: boolean, tokens: number, size: string,
- *              count: number, outlined: number }} ContentGroup */
+ *              count: number, outlined: number, locked?: boolean }} ContentGroup */
 /** One chat of a fork's tree: a parent chat with its switch, or the chat itself (`self`), with no switch.
     @typedef {{ id: string, label: string, tokens: number, on: boolean, depth: number, self?: boolean }} TreeChat */
 /** @typedef {{ chat: string, kind: string, incognito: boolean, settings: Record<string, any>,
@@ -289,7 +289,7 @@ function sizeTag(n) {
 
 /** One choice of the strip's panel: a switch with its size beside it. @param {ContentGroup} g */
 function contentRow(g) {
-  var b = row('c:' + g.key, g.on, g.title, g.sub, 'content');
+  var b = row('c:' + g.key, g.on, g.title, g.sub, 'content', !!g.locked);
   if (g.size) b.insertBefore(sizeTag(g.tokens), b.lastChild);
   return b;
 }
@@ -1057,7 +1057,7 @@ function guess(d, wanted) {
   var g = /** @type {ReadView} */ (Object.assign({}, d, { settings: s, mode: s.mode }));
   if (d.content) {
     g.content = d.content.map(function (c) {
-      var on = c.key === 'steps' ? s.subtasks !== 'none' : !!s[c.key];
+      var on = c.locked ? c.on : c.key === 'steps' ? s.subtasks !== 'none' : !!s[c.key];
       return on === c.on ? c : Object.assign({}, c, { on: on });
     });
   }
