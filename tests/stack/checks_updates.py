@@ -428,6 +428,21 @@ def _local_sensitive(s: Stack) -> None:
 
 @check("updates.security-database-frontier")
 def updates_sensitive(s: Stack) -> None:
+    # Once only, as press and ride: updates.history-rewrite builds on it, and a second pass would
+    # make its local gene, its migration and release 3 again.
+    if "sensitive" in _DONE:
+        if _DONE["sensitive"]:
+            raise Failed(_DONE["sensitive"])
+        return
+    try:
+        _sensitive(s)
+        _DONE["sensitive"] = ""
+    except Exception as e:  # noqa: BLE001
+        _DONE["sensitive"] = str(e)[:900]
+        raise
+
+
+def _sensitive(s: Stack) -> None:
     updates_ride(s)
     # Older installations retain complete Git history. Their durable ledger is sufficient;
     # removing the snapshot marker must not restore the old "updated with git" block.
