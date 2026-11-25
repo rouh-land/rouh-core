@@ -1007,6 +1007,13 @@ def _build_proof(request: HttpRequest) -> dict:
         return {"on": []}
 
 
+def _mode_intro(request: HttpRequest) -> dict:
+    """The window a new Rouh shows once, about Unrestricted and Restricted (`rouh/mode_intro.py`)."""
+    from rouh import mode_intro
+
+    return mode_intro.for_page(who(request))
+
+
 def _help_spots(request: HttpRequest) -> dict:
     """The help icons beside Rouh's own words, and which this person put away (`rouh/help_spots.py`)."""
     from rouh import help_spots
@@ -1093,6 +1100,8 @@ def _page_for(request: HttpRequest) -> HttpResponse:
         "RUN_BRIEF": _run_brief(request),
         # Sign-in's capitals, the Guide answering, What is this page, Ask Rouh on a selection (`rouh/first_help.py`).
         "FIRST_HELP": _first_help(request),
+        # Once, at about the owner's tenth message: what Unrestricted means, and Restricted (`rouh/mode_intro.py`).
+        "MODE_INTRO": _mode_intro(request),
         # Help icons beside Rouh's own words, put away once read (`rouh/help_spots.py`).
         "HELP_SPOTS": _help_spots(request),
         # A pasted key cleaned, how to get a key, Show me around, page names as links (`rouh/new_owner.py`).

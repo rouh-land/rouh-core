@@ -2071,6 +2071,8 @@ function sendTyped(asFork) {
   input.value = '';
   growInput();
   endUtterance('typed', true);
+  // One more of the person's own messages, for whoever counts them (app/mode_intro.js).
+  document.dispatchEvent(new CustomEvent('rouh:said'));
   // The answer being written goes on being written above it.
   if (!steerId) closeAssistant();
   // The chips move from above the composer into the message, drawn from the

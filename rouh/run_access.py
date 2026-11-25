@@ -144,7 +144,7 @@ def items(who) -> list[dict]:
             fix = {"label": "Add it on Keys", "href": "/anatomy/connections/keys#github_runs"}
         elif key == "host" and key not in have["servers"]:
             ready, why = False, ("This machine's own login is put in by Rouh's setup on a Linux server "
-                                 "(rouh update does it). A Mac does not use it.")
+                                 "when you choose it (rouh access host on, on that server). A Mac does not use it.")
         elif key in ("rouh-land", "relay", "host") and key not in have["servers"]:
             ready, why = False, f"{NAMES[key]}'s standing login is not installed yet."
         until = None

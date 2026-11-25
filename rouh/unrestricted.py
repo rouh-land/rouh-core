@@ -17,7 +17,10 @@ registry, and every job gateway name for it is `NEVER` (`job_policy.NEVERS`). Ev
 of `models.PermissionModeFlip`, in the same transaction. It lasts some hours (it ends by itself and
 Restricted is back) or permanently; "until switched back" is still read from rows that have it, and
 is no longer offered, because permanently is the same thing. The page is the only place it is
-switched: nothing in the conversation's header shows or changes it since 21 November 2026.
+switched: nothing in the conversation's header shows or changes it since 21 November 2026. The one
+other place is the window a new Rouh shows once, at about the owner's tenth message
+(`rouh/mode_intro.py`, task 98, G1), whose Switch to Restricted is the same press through the same
+`OwnerPress.of`.
 
 **What Unrestricted does, for the owner's own chats and runs only** (`for_job`, `for_chat`):
 
@@ -330,8 +333,11 @@ def _why_not_here() -> str:
     return ""
 
 
-def flip(press: OwnerPress, mode: str, how: str = "", hours: float | None = None) -> Mode:
-    """Set the mode, on the owner's own press, and write the flip down. The only writer."""
+def flip(press: OwnerPress, mode: str, how: str = "", hours: float | None = None,
+         where: str = "the Permissions page") -> Mode:
+    """Set the mode, on the owner's own press, and write the flip down. The only writer. `where` is
+    the page the press was made on, in words: Permissions, or the window a new Rouh shows once
+    (`rouh/mode_intro.py`)."""
     if not isinstance(press, OwnerPress) or getattr(press, "who", None) is None:
         raise NotAPress("The mode is changed only by the owner's own press on the Permissions page.")
     why = _why_not_here()
@@ -360,7 +366,7 @@ def flip(press: OwnerPress, mode: str, how: str = "", hours: float | None = None
     who = press.who
     was = current(who)
     now = time.time()
-    by = "the owner on the Permissions page"
+    by = "the owner on " + (str(where or "")[:80] or "the Permissions page")
     from . import run_access
 
     whose = _whose(who)

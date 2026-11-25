@@ -732,6 +732,7 @@ urlpatterns = [
     # Anatomy, Behaviour, Permissions: the mode switch and What Rouh did (`rouh/web/permissions.py`).
     path("api/permissions", permissions_web.page),
     path("api/permissions/undo", permissions_web.undo),
+    path("api/permissions/intro", permissions_web.intro),
     path("api/settings/stats", stats.page),
     path("api/settings/stats/events", stats.event_log),
     path("api/nav/tap", stats.tap),

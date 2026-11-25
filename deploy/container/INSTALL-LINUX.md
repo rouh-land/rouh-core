@@ -51,6 +51,7 @@ The setup code is never printed: `rouh setup` asks the core for it and writes a 
 | `rouh domain NAME` | Your own domain with HTTPS; `--off` |
 | `rouh relay URL --domain D` | A relay of your own for a Connected Rouh's phone address; `--default`, `--off` |
 | `rouh doctor` | Checks the server, Docker, the release, the ports, the firewall, the setup code, its AI and the address, and says what to fix |
+| `rouh access` | What this machine gives Rouh's runs, each with its own switch: the host login and the nightly update; `rouh access host on` or `off` straight away |
 | `rouh uninstall` | Keep my data (recommended) or Wipe my data |
 
 `--debug` on any of them shows the commands and their output.
@@ -67,7 +68,7 @@ Its log is `~/rouh/logs/update.log`; `rouh status` shows the last line.
 The switch on Anatomy, Behaviour, Permissions (Restricted or Unrestricted) hands your own runs, while it is Unrestricted, the internet on any port, GitHub as you, and this server's own ssh; nobody else's run gets any of it (`deploy/grants/README.md`, "Set up with Rouh, with no command on a Mac").
 Nothing has to be run on another computer for it:
 
-- **This server's own login** is put in by `rouh` at install and at every update: one line of the worker's standing key for your account, in `/etc/ssh/rouh-standing/<you>`, taken only from the stack's own network, and `ssh rouh-host` in the worker. The nightly update needs sudo without a password for it; otherwise it waits for the next `rouh update` you type, and says so. `ROUH_STANDING_HOST=0` in `~/rouh/.env` leaves it out.
+- **This server's own login**, only if you want it. The install asks once whether the machine is just for Rouh, then shows each machine-level choice with its own switch and what it means: for a machine just for Rouh the host login starts On, for any other machine Off, and you can switch either. Skipping the question, or installing with no terminal, counts as not just for Rouh. When it is on, `rouh` puts it in at install and at every update: one line of the worker's standing key for your account, in `/etc/ssh/rouh-standing/<you>`, taken only from the stack's own network, and `ssh rouh-host` in the worker. It hands your runs your account's sudo, so root on this machine, while Permissions is Unrestricted. The nightly update needs sudo without a password for it; otherwise it waits for the next `rouh update` you type, and says so. `rouh access host off` (or `ROUH_STANDING_HOST=0` in `~/rouh/.env`) takes it out again; a Rouh installed before the question, with no such line, keeps the login it had.
 - **GitHub as you** needs a token from you, once: paste it in Anatomy, Connections, Keys, under **GitHub for your runs**.
 
 ## Reaching it from a phone

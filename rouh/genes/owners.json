@@ -3685,7 +3685,9 @@
     "rouh/selfcheck/unrestricted.py",
     "rouh/selfcheck/undo_191.py",
     "rouh/selfcheck/tools_191.py",
-    "rouh/selfcheck/protections_191.py"
+    "rouh/selfcheck/protections_191.py",
+    "rouh/mode_intro.py",
+    "rouh/static/app/mode_intro.js"
    ]
   },
   "n50-google-needed": {

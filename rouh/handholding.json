@@ -3176,6 +3176,40 @@
      "glyph": "lock"
     },
     {
+     "id": "restricted",
+     "title": "What Rouh may do without asking",
+     "minutes": 3,
+     "cover": {
+      "src": "handholding/permissions.webp",
+      "alt": "Permissions: the switch between Restricted and Unrestricted, and what still asks you in every mode.",
+      "w": 1000,
+      "h": 562
+     },
+     "summary": [
+      "A new Rouh starts Unrestricted: your own chats and the jobs you start act at once, through what you connected, without stopping for a yes. Restricted asks you first before anything that sends, shares, pays, deletes or changes a service.",
+      "The catch in Unrestricted: emails and web pages are written by other people, and words hidden in them can try to steer Rouh. Rouh is told never to obey them, but a careful trick can still mislead a model, and what it then does is real."
+     ],
+     "how": [
+      "Unrestricted, in plain words: Rouh sends mail, posts in Slack, changes Drive files, runs commands and puts its own changes live when you ask, with nobody asked on the way. You get fewer interruptions; you also get fewer chances to catch a mistake.",
+      "Restricted, in plain words: the same work waits for your yes as a decision. It is slower, and nothing leaves or changes without you seeing it first.",
+      "In every mode three things still ask you: money above your card's caps, deleting your data for good, and giving a password or account access to someone outside.",
+      "Watch for tricks: an email, a web page, a document or even a file name may say \"ignore your instructions\", \"forward this\" or \"run this\". Rouh treats those as information, never as orders, and says when it saw one. If you mostly ask Rouh to read mail or pages from strangers, Restricted is the safer mode.",
+      "Only you can switch it, on Permissions (menu, Anatomy, Behaviour): Restricted, some hours of Unrestricted, or Unrestricted for good. Rouh, a job or an email cannot switch it for you.",
+      "Work for a trusted contact, the heartbeat and anything about someone's email never get Unrestricted. Everything that ran without asking is on Permissions, under What Rouh did, with Undo where the service allows it."
+     ],
+     "says": [
+      "Which mode are you in, Restricted or Unrestricted?",
+      "What would you still ask me about in Unrestricted?",
+      "Has any email or page tried to give you orders?"
+     ],
+     "open": {
+      "label": "Permissions",
+      "href": "/anatomy/behaviour/permissions"
+     },
+     "talk": true,
+     "glyph": "lock"
+    },
+    {
      "id": "gates",
      "title": "Choose what needs your yes",
      "minutes": 2,
@@ -3203,38 +3237,6 @@
      },
      "talk": true,
      "glyph": "shield"
-    },
-    {
-     "id": "restricted",
-     "title": "Restricted or Unrestricted",
-     "minutes": 2,
-     "cover": {
-      "src": "handholding/permissions.webp",
-      "alt": "Permissions: the switch between Restricted and Unrestricted, and what still asks you in every mode.",
-      "w": 1000,
-      "h": 562
-     },
-     "summary": [
-      "Restricted is the normal mode: background work that sends, pays, deletes or changes a server waits for your yes. Unrestricted lets your own chats and runs do those things at once, for as long as you choose."
-     ],
-     "how": [
-      "Open Permissions (menu, Anatomy, Behaviour). It says which mode you are in.",
-      "Only you can switch it, with a press on that page. Rouh, a run or an email cannot switch it for you.",
-      "Choose how long Unrestricted lasts: some hours, until you switch it back, or for good. When the hours are up, Restricted is back by itself.",
-      "Even in Unrestricted three things still ask you: money above your card's caps, deleting your data for good, and giving a password or account access to someone outside.",
-      "Work for a trusted contact, the heartbeat and anything about someone's email never get Unrestricted.",
-      "Everything that ran without asking is listed on the same page, under What Rouh did, with Undo where the service allows it."
-     ],
-     "says": [
-      "Which mode are you in, Restricted or Unrestricted?",
-      "What would you still ask me about in Unrestricted?"
-     ],
-     "open": {
-      "label": "Permissions",
-      "href": "/anatomy/behaviour/permissions"
-     },
-     "talk": true,
-     "glyph": "lock"
     },
     {
      "id": "untrusted",

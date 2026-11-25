@@ -3945,6 +3945,25 @@ print(json.dumps({"on": page["on"], "total": page["total"], "orb": page["spots"]
            and '"plain": true' in out and '"unknown": null' in out,
            f"the help icons were not told as they should be: {out[-500:]}")
 
+@check("gene.unrestricted-mode")
+def unrestricted_mode_intro(s: Stack) -> None:
+    """A new Rouh's owner is told once, at about the tenth message, what Unrestricted means; an answer puts it away."""
+    out = core_py(s, _owner_py("""
+from rouh import handholding, mode_intro, unrestricted
+mode = unrestricted.current(who)
+default = mode.unrestricted and mode.set_by == unrestricted.DEFAULT_BY
+page = mode_intro.for_page(who)
+said = mode_intro.said()
+lesson = [l for l in handholding.lessons() if l["id"] == mode_intro.LESSON]
+mode_intro.answered(who, "kept")
+print(json.dumps({"right": page["show"] == (default and mode_intro._owner_default(who) and said < mode_intro.LATE),
+    "at": page.get("at", 10), "lesson": bool(lesson), "after": mode_intro.for_page(who)["show"],
+    "mode": unrestricted.current(who).mode == mode.mode}))
+"""))
+    expect('"right": true' in out and '"at": 10' in out and '"lesson": true' in out
+           and '"after": false' in out and '"mode": true' in out,
+           f"the once-only window about Unrestricted was not told as it should be: {out[-500:]}")
+
 @check("gene.new-owner")
 def new_owner(s: Stack) -> None:
     """The page is told which of the four are on; a pasted key is cleaned and kept as its own company's."""

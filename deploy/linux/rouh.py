@@ -778,6 +778,38 @@ def cmd_fingerprint(a) -> int:
 # --- install: what install.sh hands over to, once Docker and the checkout are in place -----------------
 
 
+def cmd_access(a) -> int:
+    """What this machine gives Rouh's runs, each with its own switch (`machine.py`): shown, and
+    changed with a number, or straight away with ``rouh access host on`` and the like."""
+    import machine
+
+    nightly_now = timer_state()[0] if systemd() else False
+    now = {"host": machine.host_on(), "nightly": bool(nightly_now)}
+    if a.which:
+        if a.which not in now or a.to not in ("on", "off"):
+            raise Stop("Say which and how: rouh access host on|off, or rouh access nightly on|off.")
+        picked = dict(now, **{a.which: a.to == "on"})
+    else:
+        heading("What this machine gives Rouh")
+        say(*machine.summary(), "")
+        if not can_ask():
+            machine._draw(now)
+            say("Change one: rouh access host on|off, or rouh access nightly on|off.")
+            return 0
+        picked = machine.toggles(now)
+    if picked["host"] != now["host"] or setting("ROUH_STANDING_HOST") not in ("0", "1"):
+        machine.save(None, picked)
+        need_docker()
+        import standing
+
+        say(standing.ensure(force=picked["host"]))
+    if picked["nightly"] != now["nightly"]:
+        timer(on=picked["nightly"])
+    if picked == now:
+        say("Nothing changed.")
+    return 0
+
+
 def cmd_install(a) -> int:
     """Settings, Bring back, the command and the timer, the first start, then setup in this terminal."""
     need_docker()
@@ -801,6 +833,10 @@ def cmd_install(a) -> int:
             shutil.copy2(kept.settings_of(back), settings_file())
     _settings()
     install_cli()
+    # Is this machine just for Rouh? Asked once, before anything is given to the runs (task 98, G1).
+    import machine
+
+    picked = machine.at_install(assume_yes=bool(a.yes)) if back is None else {"host": machine.host_on(), "nightly": True}
     if back is not None:
         heading("Bringing back your Rouh")
         r = stack_tool("prepare")
@@ -816,7 +852,7 @@ def cmd_install(a) -> int:
     if r.returncode:
         raise Stop("Rouh's updater stopped; its words are above.")
     if systemd():
-        timer(on=True)
+        timer(on=bool(picked.get("nightly", True)))
     if not core_healthy():
         say("Waiting for Rouh to be ready (up to 10 minutes)…")
         end = time.monotonic() + 600
@@ -889,6 +925,9 @@ def main(argv: list[str] | None = None) -> int:
     rl.add_argument("--default", action="store_true")
     rl.add_argument("--off", action="store_true")
     sub.add_parser("doctor", help="check this server, and say what to fix")
+    ac = sub.add_parser("access", help="what this machine gives Rouh's runs: the host login, nightly updates")
+    ac.add_argument("which", nargs="?", choices=["host", "nightly"])
+    ac.add_argument("to", nargs="?", choices=["on", "off"])
     un = sub.add_parser("uninstall", help="remove Rouh: Keep my data, or Wipe my data")
     un.add_argument("--keep", dest="how", action="store_const", const="keep", help=argparse.SUPPRESS)
     un.add_argument("--wipe", dest="how", action="store_const", const="wipe", help=argparse.SUPPRESS)
@@ -907,7 +946,7 @@ def main(argv: list[str] | None = None) -> int:
         return {"status": cmd_status, "setup": cmd_setup, "open": cmd_open, "update": cmd_update, "back": cmd_back,
                 "logs": cmd_logs, "backup": cmd_backup, "domain": cmd_domain, "relay": cmd_relay, "doctor": cmd_doctor,
                 "uninstall": cmd_uninstall, "bring-back": cmd_bring_back, "fingerprint": cmd_fingerprint,
-                "install": cmd_install}[a.cmd](a)
+                "install": cmd_install, "access": cmd_access}[a.cmd](a)
     except Stop as e:
         say(f"{NO} {e}")
         return 1

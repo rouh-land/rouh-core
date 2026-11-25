@@ -6,6 +6,9 @@
     POST /api/permissions        {mode, how, hours}: the owner's own press of the switch; how is
                                  "hours" or "permanent" ("until_back" is still taken)
     POST /api/permissions/undo   {id}: one row of What Rouh did put back, where its service allows
+    POST /api/permissions/intro  {act}: the owner's answer to the window a new Rouh shows once
+                                 (`rouh/mode_intro.py`): "kept", "closed", or "restricted", which
+                                 is the same press as the switch, through the same `OwnerPress.of`
 
 Reading needs a sign-in. The switch is the owner's alone: `unrestricted.OwnerPress.of` takes this
 signed-in POST, which Django's CSRF check has let through (this view is never csrf_exempt), and
@@ -17,6 +20,8 @@ import asyncio
 import logging
 
 from django.http import HttpRequest
+
+from rouh import mode_intro
 
 from .clock import _signed_in, their_clock
 from .common import answer, body_of, only, refuse
@@ -107,3 +112,41 @@ async def undo(request: HttpRequest):
     if not got["ok"]:
         return refuse(got["said"], 400, **page_now)
     return answer({"ok": True, "said": got["said"], **page_now}, headers=NO_STORE)
+
+
+@only("POST")
+@their_clock
+async def intro(request: HttpRequest):
+    """The once-only window's answer. Switch to Restricted is a press of the switch, made here, in
+    the one view that may make one; Keep and a close only put the window away for good."""
+    from rouh import unrestricted
+
+    me = await asyncio.to_thread(_signed_in, request)
+    if me is None:
+        return refuse("Sign in first.", 401)
+    act = str(body_of(request).get("act") or "")
+    if act not in mode_intro.CHOICES:
+        return refuse("Keep, switch or close.", 400)
+    if act == "restricted":
+        def press():
+            made = unrestricted.OwnerPress.of(request, me)
+            return unrestricted.flip(made, unrestricted.RESTRICTED,
+                                     where="the window a new Rouh shows once")
+
+        try:
+            await asyncio.to_thread(press)
+            from rouh import run_access
+
+            await run_access.now()
+        except unrestricted.NotAPress as exc:
+            return refuse(str(exc), 403)
+        except Exception:  # noqa: BLE001 - said plainly, and the log has why
+            log.exception("the mode could not be switched from the window")
+            return refuse("That could not be saved. Try again, or switch it in Permissions.", 500)
+    elif not (getattr(me, "is_admin", False) and await asyncio.to_thread(unrestricted._is_owner, me)):
+        return refuse("Only the owner of this Rouh answers this.", 403)
+    got = await asyncio.to_thread(mode_intro.answered, me, act)
+    mode = await asyncio.to_thread(unrestricted.current, me)
+    return answer({"ok": True, **got, "mode": mode.as_dict(),
+                   "said": mode_intro.WORDS["done_restricted" if act == "restricted" else "done_kept"]},
+                  headers=NO_STORE)

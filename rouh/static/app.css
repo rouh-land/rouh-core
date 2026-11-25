@@ -12230,6 +12230,39 @@ body.cot-open { overflow: hidden; }
   .keys-list dd { margin-bottom: 8px; }
 }
 
+/* Once, at about the owner's tenth message: what Unrestricted means (`rouh/mode_intro.py`,
+   app/mode_intro.js). The keys window's look; a gain and a cost are told by their mark's shape
+   (a tick, an exclamation) as well as its colour. */
+.mode-intro { width: min(560px, calc(100vw - 24px)); }
+.mode-intro-form { display: grid; gap: 14px; padding: 20px; }
+.mode-intro-form h2 { font-size: 18px; margin: 0; text-wrap: balance; }
+.mode-intro-lede { margin: 0; font-size: 14px; line-height: 1.5; color: var(--text); }
+.mode-intro-parts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.mode-intro-part { display: grid; gap: 8px; align-content: start; padding: 12px;
+                   background: var(--panel-2); border: 1px solid var(--line); border-radius: var(--radius-s); }
+.mode-intro-part h3 { margin: 0; font-size: 12px; font-weight: 600; letter-spacing: 0.02em;
+                      text-transform: uppercase; color: var(--dim); }
+.mode-intro-part ul { display: grid; gap: 8px; margin: 0; padding: 0; list-style: none; }
+.mode-intro-part li { display: grid; grid-template-columns: 16px minmax(0, 1fr); gap: 8px;
+                      font-size: 13px; line-height: 1.45; color: var(--text); }
+.mode-intro-mark { width: 16px; height: 16px; margin-top: 2px; fill: none; stroke-width: 2;
+                   stroke-linecap: round; stroke-linejoin: round; }
+.mode-intro-part.gain .mode-intro-mark { stroke: var(--good); }
+.mode-intro-part.cost .mode-intro-mark { stroke: var(--warn); }
+.mode-intro-note { margin: 0; font-size: 12.5px; line-height: 1.5; color: var(--dim); }
+.mode-intro-actions { flex-wrap: wrap; align-items: center; }
+.mode-intro-actions .ctl.small { min-height: 44px; padding: 8px 16px; font-size: 13px; justify-content: center; }
+.mode-intro-guide { margin-right: auto; display: inline-flex; align-items: center; min-height: 44px;
+                    font-size: 13px; color: var(--accent); }
+.mode-intro-guide:focus-visible, .mode-intro-actions .ctl:focus-visible {
+  outline: 2px solid var(--accent); outline-offset: 2px; }
+@media (max-width: 520px) {
+  .mode-intro-parts { grid-template-columns: minmax(0, 1fr); }
+  .mode-intro-actions { justify-content: stretch; }
+  .mode-intro-actions .ctl.small { flex: 1 1 100%; }
+  .mode-intro-guide { margin-right: 0; }
+}
+
 /* Night 51 (`rouh/run_tools.py`, land_fix): what stopped a run's landing and what fixes it, under
    what it said, in the same box as it, with Fix it. */
 .run-fix {

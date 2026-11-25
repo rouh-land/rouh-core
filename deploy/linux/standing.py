@@ -21,6 +21,14 @@ owner's own (`guard/rouh_guard/keyproxy.py`). It is skipped, and says why, when 
 password (the nightly update then leaves it for the next ``rouh update`` in a terminal), when the
 settings file says ``ROUH_STANDING_HOST=0``, or when the owner turned the host off with
 ``rouh-grant standing revoke`` (an entry that is ``off`` is never turned back on here).
+
+Since 25 November 2026 (task 98, G1) a new install asks first whether the machine is just for Rouh
+(`machine.py`): on a dedicated machine this login is on by default, on any other off, and either
+can be switched. Off (``ROUH_STANDING_HOST=0``) is now kept off: the line, the key proxy's entry and
+``Host rouh-host`` are taken out if an earlier setup had put them in (`take_out`). A settings file
+with no line for it, a Rouh from before the question, keeps the login it had. ``rouh access``
+switching it on is the owner's own press, so it clears an ``off`` that ``rouh-grant standing
+revoke`` left (``force``).
 """
 from __future__ import annotations
 
@@ -44,6 +52,7 @@ MERGE = r"""
 import json, os, sys, time
 path = "/keys/standing_access.json"
 address, port = sys.argv[1], int(sys.argv[2])
+force = len(sys.argv) > 3 and sys.argv[3] == "force"
 try:
     data = json.load(open(path))
 except (OSError, ValueError):
@@ -51,12 +60,12 @@ except (OSError, ValueError):
 data = data if isinstance(data, dict) else {}
 servers = [e for e in data.get("servers") or [] if isinstance(e, dict)]
 mine = [e for e in servers if e.get("item") == "host"]
-if any(e.get("off") for e in mine):
+if any(e.get("off") for e in mine) and not force:
     print("off"); sys.exit(0)
 keep = [e for e in servers if e.get("item") != "host"]
 entry = {"name": "host", "item": "host", "addresses": [address], "ports": [port], "off": False,
          "since": int((mine[0] if mine else {}).get("since") or time.time()), "source": "rouh-setup"}
-if mine and mine[0].get("addresses") == [address] and mine[0].get("ports") == [port]:
+if mine and not mine[0].get("off") and mine[0].get("addresses") == [address] and mine[0].get("ports") == [port]:
     print("same"); sys.exit(0)
 data.update(format=1, written=int(time.time()), servers=keep + [entry])
 data.setdefault("github", None)
@@ -70,6 +79,33 @@ except OSError:
 os.chmod(tmp, 0o640)
 os.replace(tmp, path)
 print("written")
+"""
+
+# The host's entry taken out of the record, the rest kept. Prints "gone" or "none".
+REMOVE = r"""
+import json, os, sys, time
+path = "/keys/standing_access.json"
+try:
+    data = json.load(open(path))
+except (OSError, ValueError):
+    print("none"); sys.exit(0)
+if not isinstance(data, dict):
+    print("none"); sys.exit(0)
+servers = [e for e in data.get("servers") or [] if isinstance(e, dict)]
+keep = [e for e in servers if e.get("item") != "host"]
+if len(keep) == len(servers):
+    print("none"); sys.exit(0)
+data.update(written=int(time.time()), servers=keep)
+tmp = path + ".setup.new"
+with open(tmp, "w") as fh:
+    json.dump(data, fh, indent=1)
+try:
+    os.chown(tmp, -1, 10002)
+except OSError:
+    pass
+os.chmod(tmp, 0o640)
+os.replace(tmp, path)
+print("gone")
 """
 
 SSH_BLOCK = """# >>> rouh-host, written by Rouh's setup (deploy/linux/standing.py): this machine itself,
@@ -133,10 +169,30 @@ def worker_ssh(address: str, port: int, user: str) -> bool:
     return r.returncode == 0
 
 
-def ensure() -> str:
-    """Make the host's own login ready for the switch, or say in words why it was left."""
+def take_out() -> str:
+    """The host login out, wherever an earlier setup put it: the line sshd reads, the key proxy's
+    entry and the worker's ``Host rouh-host``. Says in words what it did."""
+    off = "The host's login for the switch: off (ROUH_STANDING_HOST=0); your runs do not log in to this machine."
+    had = False
+    if HELPER.is_file() and run(["sudo", "-n", "true"], timeout=20).returncode == 0:
+        r = run(["sudo", "-n", "bash", str(HELPER), "unstanding", "host"], timeout=120)
+        had = r.returncode == 0 and "is out of" in _out(r)
+    elif HELPER.is_file():
+        return off + " If an earlier setup put it in, it waits for sudo to be taken out: run rouh update in a terminal."
+    m = run(compose("exec", "-T", "-u", "10001:10002", "core", "python", "-c", REMOVE), timeout=60)
+    had = had or (m.returncode == 0 and _out(m).splitlines()[-1:] == ["gone"])
+    run(compose("exec", "-T", "worker", "sh", "-c",
+                'c="$HOME/.ssh/config"; [ -f "$c" ] || exit 0; '
+                'sed -e "/^# >>> rouh-host/,/^# <<< rouh-host/d" "$c" > "$c.new" && chmod 600 "$c.new" && mv "$c.new" "$c"'),
+        timeout=60)
+    return off + (" The login an earlier setup put in was taken out." if had else "")
+
+
+def ensure(force: bool = False) -> str:
+    """Make the host's own login ready for the switch, or say in words why it was left. `force` is
+    the owner switching it on in ``rouh access``, which clears an earlier revoke."""
     if setting("ROUH_STANDING_HOST") == "0":
-        return "The host's login for the switch: off in the settings file (ROUH_STANDING_HOST=0)."
+        return take_out()
     user = getpass.getuser()
     if user == "root" or not re.fullmatch(r"[a-z_][a-z0-9_-]{0,31}", user):
         return "The host's login for the switch: skipped, Rouh was not installed by an account of its own."
@@ -157,7 +213,8 @@ def ensure() -> str:
     if r.returncode:
         return "The host's login for the switch: not written: " + (_out(r).splitlines() or ["?"])[-1]
     port = sshd_port()
-    m = run(compose("exec", "-T", "-u", "10001:10002", "core", "python", "-c", MERGE, gateway, str(port)), timeout=60)
+    m = run(compose("exec", "-T", "-u", "10001:10002", "core", "python", "-c", MERGE, gateway, str(port),
+                    *(["force"] if force else [])), timeout=60)
     said = _out(m).splitlines()[-1] if _out(m) else ""
     if said == "off":
         return "The host's login for the switch: you turned it off (rouh-grant standing revoke), so it stays off."

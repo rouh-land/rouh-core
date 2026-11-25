@@ -111,6 +111,7 @@ import 'app/newcomer.js';
 import 'app/first_steps.js';
 import 'app/first_help.js';
 import 'app/help_spots.js';
+import 'app/mode_intro.js';
 import 'app/new_owner.js';
 import 'app/build_proof.js';
 import { addrEarly } from 'app/address.js';
