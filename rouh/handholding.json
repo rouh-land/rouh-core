@@ -2889,6 +2889,97 @@
    "title": "Security",
    "lessons": [
     {
+     "id": "privacy",
+     "title": "Where your data lives, and what leaves it",
+     "minutes": 4,
+     "summary": [
+      "Rouh runs on your own computer or server, and keeps what is yours there: your chats, memory, tasks, pages, files, and the sign-ins to your services. Rouh's makers do not see any of it.",
+      "Something leaves only to a service you set up yourself, and only what that service needs: the AI company that writes an answer, Google for your mail, Telegram for your phone. Each is below, with how long things are kept and how to take your data with you or delete it."
+     ],
+     "sections": [
+      {
+       "title": "Where it is kept",
+       "text": [
+        "In Rouh's database, on this machine: every chat, Rouh's memory (people, places, what it learned and where), contacts, reminders, decisions, rules, and a log of every question sent to an AI with its answer.",
+        "Copies from your services, kept in memory so Rouh can find things fast: every event of your calendars, once Google is connected; the mail Rouh handles for you, and a whole inbox if you switch that inbox on; the Slack messages its app can see; your meetings' transcripts. Drive is read from Google when needed, not copied.",
+        "In the workspace, a folder on this machine: your tasks, their steps and their pages, with their history. Files you add, and their earlier versions, are on this machine's disk too.",
+        "Passwords, keys and sign-ins are sealed (encrypted) with this Rouh's own key, and never put into a chat or a question to an AI. Chats and memory are not sealed one by one: anyone who can open this machine can read them, so lock the machine, and encrypt its disk."
+       ]
+      },
+      {
+       "title": "What leaves, and to whom",
+       "text": [
+        "Only to the services you set up, each on your own account or key. A service you never connect gets nothing."
+       ],
+       "after": [
+        "The AI company you chose (Anthropic, OpenAI, Google or xAI): your message, and the parts of your memory, mail and files Rouh needs to answer it. Web searches go through that company's own search. Background work by Claude Code or Codex goes to Anthropic or OpenAI the same way.",
+        "Google: your mail, calendar, Drive and Docs, through a Google app your own organisation registers. No shared Rouh app sits in between.",
+        "Telegram and Slack: the messages Rouh sends and reads there.",
+        "ElevenLabs, if you turn on voice: what you say, to be written down, and Rouh's answers, to be spoken.",
+        "Voyage AI, if you turn on search by meaning: the words of your memory, to make them searchable by meaning.",
+        "Philips Hue and Dreame or Xiaomi, if you connect lights or a robot vacuum: the commands, through their clouds.",
+        "Apify, YouTube and Reddit, if you add their keys: the names and words Rouh looks up. The weather in the morning brief: your rough location, to Open-Meteo.",
+        "Brevo, if you add it: the letters Rouh sends from its own address, such as a page you share by email.",
+        "A weekly copy off this machine, if you set it up: the whole database, locked with a key only you hold, to a storage bucket of yours."
+       ]
+      },
+      {
+       "title": "What reaches Rouh's makers",
+       "text": [
+        "No tracking, no analytics and no crash reports: there are none in Rouh.",
+        "A Connected Rouh sends rouh.land only its birth (its name and a public key) and your email, for your account. A gene, a new ability, leaves only when you approve it, with names, addresses and numbers taken out. For genes you gave or installed, Rouh sends counts of how much each is used, never a word of a chat.",
+        "Its address, your-name.rouh.page, passes your pages through still locked: only your Rouh can open them, so the relay sees the address and how much passed, not what. You can turn it off under Connections, Phone.",
+        "Every Rouh downloads the list of models, its starting rules and its updates from rouh.land and GitHub. Those downloads send nothing of yours.",
+        "A Rouh on its own, not Connected, has no account, no relay and no Gene Pool, and updates only when you tell it to."
+       ]
+      },
+      {
+       "title": "What never leaves",
+       "text": [
+        "Your passwords, keys and sign-ins. The log of questions sent to the AI, with their answers and costs. The record of what you press and open, for the Stats page. The nightly copies of the database. Rouh's own background programs never hold your keys: a separate part adds them on the way out."
+       ]
+      },
+      {
+       "title": "How long it is kept",
+       "text": [
+        "Your chats, memory, contacts, tasks, pages and files, and the copies from your services, stay until you delete them. Nothing deletes a chat on a clock.",
+        "The rest is cleared by itself. On a new Rouh: the full words of each question to an AI, 14 days; what each cost, 400 days; the logs of background jobs, 30 days; old versions of memory, contacts, pages and files, 90 days, though the newest are always kept so Undo works; files in the bin, 30 days.",
+        "Change any of these, or keep them forever, in What Rouh keeps and runs (menu, Anatomy, Meta), which also sets how many nightly copies of the database are kept. A lower number deletes only after you confirm what will go.",
+        "What an AI company, Google or another service keeps of what it was sent is under that company's own terms, not Rouh's."
+       ]
+      },
+      {
+       "title": "Take it with you, or delete it",
+       "text": [
+        "An incognito chat keeps nothing: it is deleted when you leave it, never goes into memory, and the AI log keeps only its cost.",
+        "Delete a chat, a memory item, a task or a file, and it is gone, apart from three places that run out on their own: the versions Undo keeps, the AI log's words (14 days) and the nightly copies.",
+        "Disconnect a service on its page under Connections, and Rouh deletes its sign-in at once. What it had already copied, such as calendar events, stays in memory until you delete it.",
+        "To take everything with you, Rouh's export makes one file with the whole database, the workspace and the keys (Technical detail, below). It opens every sign-in in it, so keep it as safe as a password. To delete everything, remove Rouh and its data from the machine."
+       ]
+      },
+      {
+       "title": "Technical detail",
+       "text": [
+        "Rouh runs as Docker containers. The database is PostgreSQL in the volume pgdata, with Rouh's memory in its synapse schema. Rouh's data folder, logs and the workspace's working copy are in core-data; the workspace's main git repository in workspace; uploaded files in one-run; the nightly pg_dump copies in backups; the key that seals secrets (Fernet, made once) in keys.",
+        "Every request to a model is a row of llm_requests, written where the bytes go out, so nothing reaches a model unrecorded. Background runs, the browser and Claude Code hold no key: they reach the internet only through the key proxy, which adds the key on the way out and refuses this machine's own network. Claude Code's and Codex's own transcripts stay in the worker's home.",
+        "Export: python manage.py export_rouh --out /data/export/rouh.bundle --dump newest, in the core container. Backups: rouh-backup now, list or restore, in the backup container.",
+        "PRIVACY.md, beside Rouh's code, lists every outside address Rouh calls, what it sends there, and the file that sends it."
+       ]
+      }
+     ],
+     "says": [
+      "What do you send to the AI when I ask you something?",
+      "Which outside services are you connected to right now?",
+      "How long do you keep the log of my questions?"
+     ],
+     "open": {
+      "label": "What Rouh keeps and runs",
+      "href": "/anatomy/meta/keeps"
+     },
+     "talk": true,
+     "glyph": "lock"
+    },
+    {
      "id": "gates",
      "title": "Choose what needs your yes",
      "minutes": 2,
