@@ -696,11 +696,27 @@ def q(doc: str) -> str:
     return urllib.parse.quote(doc, safe="")
 
 
-def ask_ai(s: Stack, doc: str, question: str, path: str = "/api/askai/ask") -> list[dict]:
-    """One Ask AI question on a page, as the page's Ask box sends it; every event it streamed."""
+def edit_link(s: Stack, doc: str) -> str:
+    """The page's public link, on which a visitor may change it with Ask AI; its address."""
+    got = post(s, "/api/share", {"rel": doc, "public": True, "role": "edit"})
+    link = str(got.get("path") or "")
+    expect(link.startswith("/p/"), f"the page was not given a public link to change it on: {json.dumps(got)[:300]}")
+    return link
+
+
+def ask_ai(s: Stack, doc: str, question: str, path: str = "") -> list[dict]:
+    """One Ask AI question on a page, as the page's Ask box sends it; every event it streamed.
+
+    Since 23 November 2026 (97d15b92, one chat engine) the owner's /api/askai/ask is gone: the owner's
+    Ask on a page is the chat, and Ask AI answers a person the page is shared with, in the page's room.
+    So this asks as a visitor to the page's editable public link, with no session (the CSRF cookie
+    alone, as a visitor's browser has it)."""
+    path = path or edit_link(s, doc) + "/ask"
+    token = _csrf(s)
     req = urllib.request.Request(s.url + path, data=json.dumps({"doc": doc, "question": question}).encode(),
-                                 method="POST", headers={"Cookie": s.cookie, "X-CSRFToken": _csrf(s), "Origin": s.url,
-                                                         "Referer": s.url + "/", "Content-Type": "application/json"})
+                                 method="POST", headers={"Cookie": f"rouh_csrftoken={token}", "X-CSRFToken": token,
+                                                         "Origin": s.url, "Referer": s.url + path.rsplit("/", 1)[0],
+                                                         "Content-Type": "application/json"})
     try:
         with urllib.request.urlopen(req, timeout=180) as r:
             raw = r.read().decode("utf-8", "replace")
