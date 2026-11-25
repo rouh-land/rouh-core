@@ -181,7 +181,7 @@ The state is spent on a refusal too, so a cancelled consent cannot be finished l
 
 - It renews when the stored token has less than two minutes left, so a request is never started with a token that will expire inside it.
 - It is serialised per person with one lock, and it reads the connection again inside the lock, so two tool calls in one spoken turn produce **one** refresh. Two refreshes means Google issues two tokens, one is stored, and whoever got the other one gets a 401 nobody can explain.
-- `invalid_grant` from Google means the grant is gone: the person removed Rouh from their account, or the refresh token expired because the app is still in Testing. The connection is marked as needing reconnection, Settings says so, and the assistant says so, instead of a raw error reaching either of them.
+- `invalid_grant` from Google means the grant is gone: the person removed Rouh from their account, or the refresh token expired because the app was left in Testing (Google ends those after 7 days). The connection is marked as needing reconnection, and Settings and the assistant both say so with the reason and how to stop it happening again (Internal, or Publish app to In production), instead of a raw error reaching either of them.
 
 ## Calling Gmail, Drive, Docs and Calendar
 
@@ -651,7 +651,7 @@ It asks `prompt=select_account consent`, so the person chooses which account eac
 The same organisation client and the same callback address, `/auth/google/callback`.
 The consent state carries the purpose `mailbox`, and the callback hands such a state to `web/mailboxes.finish`, so a mailbox consent can never be finished as the Google connection or the other way round.
 The Gmail API is already on in the project.
-If the app is in Testing, an account from outside the organisation has to be one of its test users before Google will let it consent; an Internal app only takes the organisation's own Workspace accounts.
+An Internal app only takes the organisation's own Workspace accounts, so a mailbox on another domain or on gmail.com needs the app External and published (In production); the app is never left in Testing, which needs test users and ends every connection after 7 days.
 
 **Whose, and never mixed.**
 Every row carries `user_id` and `org_id`, a mailbox is always asked for by its id and its owner together, and every email on the list is shown under the mailbox it was sent from, with its Gmail link opened in that account (`?authuser=`).
@@ -823,15 +823,23 @@ The rules a new method has to keep:
 
 ## Setting it up in Google Cloud
 
-What an organisation's administrator does, once.
-Settings says the same thing on the page, with the redirect URI filled in for the instance they are looking at.
+What an organisation's administrator does, once, in the Google Cloud console (console.cloud.google.com).
+Settings says the same six steps on the page, with the redirect URI filled in for the instance they are looking at and a Copy button beside it.
 
-1. In the Google Cloud console, in that organisation's own project, enable **Gmail API**, **Google Drive API**, **Google Docs API** and **Google Calendar API**.
-   An organisation that set up before Calendar arrived enables **Google Calendar API** in the same project now; until it does, every calendar call says the API is switched off and names the project, and nothing else is affected.
-2. Make an OAuth client of type **Web application**.
-3. Put this instance's callback address in that client's **Authorised redirect URIs**, exactly: `<ROUH_PUBLIC_URL>/auth/google/callback`.
-4. The app can stay in **Testing**, or **Internal** if the organisation has Google Workspace, with its own people as test users. It does not have to be verified by Google.
-5. Copy the client id and the client secret into Settings.
+1. Create a project, named Rouh for example.
+2. Open **Google Auth Platform** and press **Get started**: the app's name, the administrator's email as its support email, and its audience.
+   **Internal** for a Google Workspace account (a company's own domain): no 7-day expiry, no unverified warning and no review by Google, but only that domain's accounts can connect.
+   **External** for a personal gmail.com account, which cannot choose Internal.
+3. External only: in **Audience**, press **Publish app** so it says **In production**.
+   An app left in Testing has every refresh token ended by Google after 7 days, so the connection drops every week; it is never left there.
+   Google shows a "Google hasn't verified this app" warning once when the person connects (Advanced, then Go to the app), which is fine for an app used by its own owner. No test users are added.
+4. Turn on each API Rouh uses, in **APIs and services**, **Library**: **Gmail API**, **Google Drive API**, **Google Docs API**, **Google Sheets API**, **Google Slides API** and **Google Calendar API** (`GOOGLE_APIS` in `rouh/google_oauth.py`, which the card lists).
+   Sheets and Slides are there because Rouh edits them; an organisation that set up before them turns them on in the same project now.
+   An organisation that set up before Calendar arrived enables **Google Calendar API** too; until it does, every calendar call says the API is switched off and names the project, and nothing else is affected.
+5. In **Clients**, create a client of type **Web application**, with this instance's callback address in its **Authorised redirect URIs**, exactly: `<ROUH_PUBLIC_URL>/auth/google/callback`.
+6. Copy the client id and the client secret into Settings, press Save, then Connect Google.
+
+When Google ends a connection anyway, Settings and the conversation both say why and how to stop it (`WITHDRAWN_WHY` in `rouh/google_oauth.py`): the app is most likely still in Testing, so make it Internal or press Publish app, then connect again.
 
 For new mail, once more, in the same project, and Settings shows the same steps with the address filled in:
 

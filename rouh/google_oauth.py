@@ -154,7 +154,19 @@ SCOPE_WORDS: dict[str, str] = {
 #: The Google APIs an administrator has to switch on in their project, in the
 #: words the Cloud console uses for them.
 GOOGLE_APIS: tuple[str, ...] = ("Gmail API", "Google Drive API", "Google Docs API",
+                                "Google Sheets API", "Google Slides API",
                                 "Google Calendar API")
+
+#: Why Google ends a connection, and what stops it happening again, in one place
+#: for every screen and every conversation that says so. Google ends the
+#: refresh token of an app left in Testing after 7 days; an Internal app (Google
+#: Workspace) or an External one pressed to In production keeps it.
+WITHDRAWN_WHY = (
+    "Google ended this connection. The usual reason is that the Google app is still in "
+    "Testing, where Google ends every connection after 7 days; it also happens when the "
+    "account removes Rouh. To stop it happening again, open Google Cloud, Google Auth "
+    "Platform, Audience: on a Google Workspace account make the app Internal, and on a "
+    "gmail.com account press Publish app so it says In production. Then connect again.")
 
 #: How long before an access token expires it is treated as expired. A token
 #: that is valid for four more seconds is not worth starting a request with.
@@ -603,12 +615,13 @@ class GoogleAuth:
             said = _google_said(answer, self.redirect_uri())
             # invalid_grant is Google saying the grant is gone: the person
             # removed Rouh from their account, or the refresh token expired
-            # because the app is still in Testing. Either way it is a
-            # reconnect, not a retry.
+            # because the app was left in Testing. Either way it is a
+            # reconnect, not a retry, and the person is told how to stop it.
             if "invalid_grant" in said or answer.status_code in (400, 401):
                 self.store.needs_reconnect(who.user_id, who.org_id, said)
                 raise NeedsReconnect(
-                    "Google has withdrawn this connection. Open Settings and connect it again.")
+                    WITHDRAWN_WHY.replace("Then connect again.",
+                                          "Then connect again in Settings, in the Google card."))
             raise ConsentFailed(said)
         payload = answer.json()
         access = payload.get("access_token") or ""

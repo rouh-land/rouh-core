@@ -9924,8 +9924,14 @@ function settingsDraw() {
       || 'Rouh needs more access to this Google account than it was given. '
        + 'Press the button below to grant it.';
   } else if (conn.needs_reconnect) {
+    // Why, and how to stop it: an app left in Testing loses its connection
+    // every 7 days (rouh/google_oauth.py, WITHDRAWN_WHY says the same).
     $('googleTrouble').textContent =
-      'Google has withdrawn this connection. Connect the account again.';
+      'Google ended this connection. The usual reason is that the Google app is still in '
+      + 'Testing, where Google ends every connection after 7 days; it also happens when the '
+      + 'account removes Rouh. To stop it happening again, open Google Cloud, Google Auth '
+      + 'Platform, Audience: on a Google Workspace account make the app Internal, and on a '
+      + 'gmail.com account press Publish app so it says In production. Then press Reconnect.';
   }
   var can = !!d.can_connect;
   $('googleConnect').disabled = !can;

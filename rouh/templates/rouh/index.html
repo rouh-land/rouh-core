@@ -2508,18 +2508,19 @@ with {% asset %}, which gives it its hashed address.
                 </dl>
 
                 <div class="setting-guide" id="googleGuide">
-                  <p class="settings-help">In the Google Cloud console, in your organisation's own project:</p>
+                  <p class="settings-help">Once, in the Google Cloud console (console.cloud.google.com). One action a step:</p>
                   <ol class="settings-steps">
-                    <li>Enable these APIs: <span id="googleApis" class="mono"></span></li>
-                    <li>Make an OAuth client of type <strong>Web application</strong>.</li>
-                    <li>Paste this address into that client's <strong>Authorised redirect URIs</strong>, exactly as it is:
+                    <li>Create a project, named Rouh for example.</li>
+                    <li>Open <strong>Google Auth Platform</strong> and press <strong>Get started</strong>: give the app a name, your email as its support email, and pick its audience. <strong>Internal</strong> if your account is on Google Workspace (your company's own domain): it never expires, shows no warning and needs no review, but only that domain's accounts can connect. <strong>External</strong> for a gmail.com account, which cannot pick Internal.</li>
+                    <li>External only: in <strong>Audience</strong>, press <strong>Publish app</strong> so it says <strong>In production</strong>. Left in Testing, Google ends the connection after 7 days. Google then shows a "Google hasn't verified this app" warning once when you connect: press Advanced, then Go to the app. That is fine for your own use.</li>
+                    <li>Turn on each of these APIs, in <strong>APIs and services</strong>, <strong>Library</strong>: <span id="googleApis" class="mono"></span></li>
+                    <li>In <strong>Clients</strong>, create a client of type <strong>Web application</strong>, and paste this address into its <strong>Authorised redirect URIs</strong>, exactly as it is:
                       <span class="copy-row">
                         <code id="googleRedirect" class="mono"></code>
                         <button type="button" id="googleCopyRedirect" class="ctl small">Copy</button>
                       </span>
                     </li>
-                    <li>The app can stay in <strong>Testing</strong>, or <strong>Internal</strong> if you have a Google Workspace, with your own people as its test users. It does not have to be verified by Google.</li>
-                    <li>Copy the client id and the client secret from that credential and enter them here.</li>
+                    <li>Copy the new client's id and secret into the two boxes below and press <strong>Save</strong>. Then press <strong>Connect Google</strong>.</li>
                   </ol>
                 </div>
 
