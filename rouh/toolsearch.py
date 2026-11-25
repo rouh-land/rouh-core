@@ -15,7 +15,10 @@ What is in here, and nothing else:
 
 - :class:`Tool`, one tool as the registry declares it, whichever provider is
   asked: its name, the area it belongs to, a one-line brief, and its
-  definition. `ToolRegistry.entries()` makes these (`rouh/tools.py`).
+  definition. `ToolRegistry.entries()` makes these (`rouh/tools.py`). The
+  brief is the few plain words each tool is declared with (`brief=`), never
+  its description: since 25 November 2026 (task 182) the catalogue is about
+  half the size it was, and tools of one family share a brief and one line.
 - :func:`catalogue`, the block of the system prompt that lists them. It is
   made from the registry on every turn, so a tool added tomorrow is in it
   without anybody writing a line, and it is the same text turn after turn,
@@ -149,7 +152,7 @@ AREA_OF: dict[str, str] = {
     "list_drive_permissions": "drive", "open_files": "drive", "take_off_files": "drive", "read_doc": "drive", "doc_changes": "drive", "comments_by": "drive",
     "find_slides": "drive", "edit_sheet": "drive", "edit_slides": "drive", "copy_drive_file": "drive",
     "create_doc": "drive",
-    "edit_doc": "drive",
+    "edit_doc": "drive", "reply_to_doc_comment": "drive", "comment_on_doc": "drive",
     # Contacts
     "search_contacts": "contacts", "show_contact": "contacts", "no_company": "contacts", "same_contact": "contacts", "contact_card": "contacts", "contact_changes": "contacts",
     "contact_relationships": "contacts",
@@ -202,9 +205,9 @@ AREA_OF: dict[str, str] = {
 #: One-liners for the tools that have no description of their own to take one
 #: from: Anthropic's, which run on Anthropic's side and are declared by type.
 SERVER_BRIEFS = {
-    "web_search": "Search the live web for a few words and read what comes back.",
-    "web_fetch": "Read one web page whose address is already in the conversation.",
-    "code_execution": "Run code in Anthropic's own sandbox, which has no network.",
+    "web_search": "Search the live web",
+    "web_fetch": "Read one web page already named in the conversation",
+    "code_execution": "Run code in Anthropic's sandbox, with no network",
 }
 
 #: The longest a brief is allowed to be before it is cut.
@@ -382,8 +385,13 @@ def catalogue(entries, *, mode: str, provider: str = "anthropic", always=()) -> 
         heading = f"{title} ({key}):" if provider == "openai" else f"{title}:"
         lines.append("")
         lines.append(heading)
+        # A family shares one brief (`rouh/tools.py`, FAMILY), so it is one line naming every member, where
+        # its first member stands; a tool's own brief is a line of its own.
+        family: dict[str, list[str]] = {}
         for tool in mine:
-            lines.append(f"- {tool.name}: {tool.brief}")
+            family.setdefault(tool.brief, []).append(tool.name)
+        for brief, names in family.items():
+            lines.append(f"- {', '.join(names)}: {brief}")
     return "\n".join(lines)
 
 

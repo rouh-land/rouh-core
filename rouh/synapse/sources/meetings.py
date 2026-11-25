@@ -1728,7 +1728,8 @@ def declare(registry) -> None:
             "since": {"type": "string", "description": "Only meetings from this date on, YYYY-MM-DD."},
             "until": {"type": "string", "description": "Only meetings before this date, YYYY-MM-DD."},
             "limit": {"type": "integer", "description": "How many, at most (8)."}}},
-        tool_search, area="synapse")
+        tool_search, area="calendar",
+        brief="Find meetings in the meeting library, by what was said or who was there")
     registry._own(
         "meeting_read",
         "Read one meeting from the meeting library: its summary, decisions and action items as the library has "
@@ -1739,7 +1740,8 @@ def declare(registry) -> None:
             "meeting": {"type": "string"},
             "part": {"type": "string", "enum": ["all", "summary", "transcript"]},
             "from": {"type": "integer"}}, "required": ["meeting"]},
-        tool_read, area="synapse")
+        tool_read, area="calendar",
+        brief="One meeting: summary, decisions, action items, who took part")
 
 
 def prompt_line() -> str:

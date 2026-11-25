@@ -958,3 +958,54 @@ def hand_over_at_once() -> None:
            "where-work-goes does not keep the one lookup that decides where the work goes")
     expect("before you say how a job stands, still look at it first" in flat,
            "where-work-goes no longer keeps looking at a job before reporting on it")
+
+
+@check("own", "every tool has a short line of its own in the tool catalogue",
+       "each of Rouh's tools is declared with a brief of a few plain words, under 140 characters, that the "
+       "catalogue lists it by; tools share a brief only as one of the families, which the catalogue lists on "
+       "one line naming every member; and the catalogue is the same text every time it is made")
+def tools_have_short_lines() -> None:
+    """25 November 2026 (task 182): the catalogue of every tool, sent at the start of every chat call, was
+    about 8,400 tokens, most of it each tool's first sentence. Petar: "do 1" - cut each line to a few
+    words, keep every tool and its name, merge the repeats. A tool declared without a brief would put its
+    first sentence back, so this holds every one of Rouh's own tools to its brief."""
+    from rouh import config, toolsearch
+    from rouh import tools as tools_module
+    from rouh.synapse import chat as synapse_chat
+
+    class _Paired(tools_module.OneClient):
+        def configured(self):
+            return True
+
+    class _Stub:
+        def __getattr__(self, _name):
+            return lambda *a, **k: None
+
+    registry = tools_module.ToolRegistry(config.config, None, _Stub(), one=_Paired(), google=_Stub(),
+                                         contacts=_Stub())
+    ours = [d for d in registry._defs if "input_schema" in d and "type" not in d]
+    expect(len(ours) > 100, f"only {len(ours)} of Rouh's own tools were declared")
+    families = {*tools_module.FAMILY.values(), synapse_chat.LAB_BRIEF}
+    seen: dict[str, list[str]] = {}
+    for d in ours:
+        brief = (registry._meta.get(d["name"]) or {}).get("brief") or ""
+        expect(brief, f"the tool {d['name']} is declared with no brief")
+        expect(len(brief) <= toolsearch.BRIEF_MAX and "\n" not in brief,
+               f"the brief of {d['name']} is not one short line: {brief!r}")
+        seen.setdefault(brief, []).append(d["name"])
+    for brief, names in seen.items():
+        expect(len(names) == 1 or brief in families,
+               f"{', '.join(names)} share a brief that is not a family's: {brief!r}")
+    entries = [toolsearch.tool_from(d, **registry._meta.get(d.get("name", ""), {}))
+               for d in tools_module._unique_by_name(registry._defs)]
+    first = toolsearch.catalogue(entries, mode="regex")
+    expect(first == toolsearch.catalogue(list(entries), mode="regex"), "the catalogue changes from one make to the next")
+    for family in families:
+        names = seen.get(family) or []
+        if len(names) > 1:
+            expect(f"- {', '.join(names)}: " in first, f"the family {names[0]} is not one line naming every member")
+    named = {n.strip() for line in first.splitlines() if line.startswith("- ")
+             for n in line[2:].split(":", 1)[0].split(",")}
+    missing = sorted({t.name for t in entries} - named)
+    expect(not missing, f"tools missing from the catalogue: {missing[:5]}")
+    expect(toolsearch.shorten(first).count("incubator_") >= 8, "the names-only list lost a family's names")

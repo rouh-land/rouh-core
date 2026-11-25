@@ -57,6 +57,22 @@ from .version import get_version
 
 log = logging.getLogger("rouh.tools")
 
+#: Each tool's line in the tool catalogue is the `brief` it is declared with, a few plain words of what it
+#: does and when to reach for it (`rouh/toolsearch.py`); its full description loads only when it is searched
+#: for. Tools that are one family share one brief, and the catalogue lists a family on one line with every
+#: member's name (Petar, 25 November 2026, task 182: "make them one line naming all eight"). The words after
+#: the colon name what each member does, in the order they are declared.
+FAMILY = {
+    "calendar_events": "Make, change, delete or bring back a real calendar event, now",
+    "workers": "Workers: what they do and did, terminal, answer or instruct, full log, what changed, tidy, stop",
+    "one_runs": "The one program's Claude Code runs: list, start, say, stop, answer, let the person drive, take back",
+    "task_moves": "When asked: move a task to a project, rename a task or step, move a step, pin or unpin",
+    "slack": "Slack: connected and channels, read, search, join (on ‹owner›'s word), post as Rouh (on ‹his› yes), link a channel to a task",
+    "quests": "Quests the heartbeat carries (long_work is the old name): list, create, edit, money, dates, pause, reset, delete",
+    "beat": "A beat's own: end it, ask a yes, keep a quest's plan, record money, next beat, own a thread, record a subject, mark a run reported",
+    "incubator": "The Incubator of gene ideas (INC-n): list, read, add, edit, status, merge, link, score",
+}
+
 #: What the person says out loud when they name a piece of work: "30" for a
 #: task, "30-06" for a step. Both are turned into a folder through the object
 #: rows (`steps.folder_of`), which is the only thing that knows where a task
@@ -1175,6 +1191,10 @@ class ToolRegistry:
             return
         self._defs.append({"name": name, "description": description, "input_schema": schema})
         self._handlers[name] = handler
+        if not brief:
+            # Its line in the tool catalogue would be its first sentence, which is what made the catalogue
+            # twice its size until 25 November 2026 (FAMILY above; `rouh/selfcheck/own.py` holds it).
+            log.warning("the tool %s was declared with no brief; give it a few plain words", name)
         if area or brief:
             self._meta[name] = {"area": area, "brief": brief}
 
@@ -1207,6 +1227,7 @@ class ToolRegistry:
             "Blocks may be mixed in one card and the card is drawn top to bottom.",
             SCREEN_SCHEMA,
             self._show,
+            brief="Put a card on the screen: stats, a table, a list, a chart, a picture or your own HTML",
         )
         self._own(
             "what_was_on_screen",
@@ -1222,6 +1243,7 @@ class ToolRegistry:
                 },
             },
             self._what_was_on_screen,
+            brief="The cards shown so far, newest first, by number",
         )
         self._own(
             "show_again",
@@ -1242,6 +1264,7 @@ class ToolRegistry:
                 "required": ["id"],
             },
             self._show_again,
+            brief="Bring an earlier card back to the top, by number",
         )
         self._own(
             "read_card",
@@ -1282,6 +1305,7 @@ class ToolRegistry:
                 },
             },
             self._read_card,
+            brief="Read the whole of anything you produced before, without showing it",
         )
         # An earlier tool result, or an earlier picture, given back whole: what a stub in the history
         # names (`rouh/context_editing.py`, `rouh/recall.py`). Always loaded (`config.TOOLS_ALWAYS_LOADED`).
@@ -1306,6 +1330,7 @@ class ToolRegistry:
                 "required": ["id"],
             },
             self._recall_result,
+            brief="The full contents of an earlier tool result now shown as a stub",
         )
         # A link to Rouh itself, read inside Rouh as the person, never fetched
         # from outside, where it is only a sign-in page (`rouh/rouhlinks.py`).
@@ -1336,8 +1361,8 @@ class ToolRegistry:
             },
             self._read_rouh_link,
             area="tasks",
-            brief=f"Read a link to Rouh itself ({own_hosts or 'its own address'}) inside Rouh, as the person: mail "
-                  "cases and approvals, decisions, tasks, chats, runs, cards, pages.",
+            brief=f"Read a link to Rouh itself ({own_hosts or 'its own address'}) as the person: cases, "
+                  "decisions, tasks, chats, runs, cards, pages",
         )
         self._own(
             "revise_on_screen",
@@ -1363,6 +1388,7 @@ class ToolRegistry:
                 "required": ["id"],
             },
             self._revise,
+            brief="Change a card already on the screen, by number",
         )
         self._own(
             "make_a_task",
@@ -1405,6 +1431,7 @@ class ToolRegistry:
                 },
             },
             self._make_a_task,
+            brief="Make numbered work in the workspace from this chat, when asked",
         )
         self._own(
             "move_task",
@@ -1431,12 +1458,15 @@ class ToolRegistry:
                 "required": ["project"],
             },
             self._move_task,
+            brief=FAMILY["task_moves"],
         )
         # Rename a task (night 24, `rouh/task_rename.py`): a task or a step renamed in words.
         self._own(task_rename.TOOL_NAME, task_rename.DESCRIPTION, task_rename.SCHEMA,
-                  self._rename_task)
+                  self._rename_task,
+                  brief=FAMILY["task_moves"])
         # Move a step (night 25, `rouh/step_move.py`): a step into another task, or out, in words.
-        self._own(step_move.TOOL_NAME, step_move.DESCRIPTION, step_move.SCHEMA, self._move_step)
+        self._own(step_move.TOOL_NAME, step_move.DESCRIPTION, step_move.SCHEMA, self._move_step,
+                  brief=FAMILY["task_moves"])
         self._own(
             "pin",
             "Pin a task or a step, unpin one, or say what is pinned, because they have "
@@ -1465,6 +1495,7 @@ class ToolRegistry:
                 "required": ["action"],
             },
             self._pin,
+            brief=FAMILY["task_moves"],
         )
         self._own(
             "decisions",
@@ -1525,6 +1556,7 @@ class ToolRegistry:
             },
             self._decisions,
             area="tasks",
+            brief="Everything waiting on the person's answer",
         )
         self._own(
             "actions",
@@ -1574,6 +1606,7 @@ class ToolRegistry:
             },
             self._actions,
             area="tasks",
+            brief="The hands-on things only the person can do",
         )
         self._own(
             "delegate",
@@ -1635,6 +1668,7 @@ class ToolRegistry:
             },
             self._delegate,
             area="tasks",
+            brief="The trusted contacts the person let decide for them",
         )
         self._own(
             "rename_this_chat",
@@ -1658,6 +1692,7 @@ class ToolRegistry:
                 "required": ["name"],
             },
             self._rename_this_chat,
+            brief="Rename this chat, when asked",
         )
         self._own(
             "model_defaults",
@@ -1761,6 +1796,7 @@ class ToolRegistry:
                 },
             },
             self._model_defaults,
+            brief="Read or change which models Rouh uses",
         )
         self._own(
             "update_rouh",
@@ -1789,6 +1825,7 @@ class ToolRegistry:
                 },
             },
             self._update_rouh,
+            brief="Bring Rouh's own code to the newest release",
         )
         self._own(
             "gene_offer",
@@ -1808,6 +1845,7 @@ class ToolRegistry:
                 "required": ["gene", "what"],
             },
             self._gene_offer,
+            brief="Note an offer of a kept gene, and what the person did with it",
         )
         # Genes on the fly (task 98, step 98-17): a gene's contract drafted from the conversation,
         # shaped, grown into Rouh, left for the nightly run or dropped (`rouh/genedraft.py`).
@@ -1848,6 +1886,7 @@ class ToolRegistry:
                 "required": ["action"],
             },
             self._gene_draft,
+            brief="Draft a new gene from this chat and grow it into Rouh",
         )
         # Share my location, pressed on the card the tool below draws: the
         # browser's own question, then the point it gave (`rouh/location.py`).
@@ -1884,6 +1923,7 @@ class ToolRegistry:
                 },
             },
             self._ask_for_location,
+            brief="Ask the browser where the person is, when it matters",
         )
         self._own(
             "set_panels",
@@ -1905,6 +1945,7 @@ class ToolRegistry:
                 },
             },
             self._set_panels,
+            brief="Open or close the task list, the transcript and the canvas",
         )
         self._own(
             "remember",
@@ -1953,6 +1994,7 @@ class ToolRegistry:
                 "required": ["as"],
             },
             self._remember,
+            brief="Keep a rule, a note or a word for later chats",
         )
         self._own(
             "forget",
@@ -1964,6 +2006,7 @@ class ToolRegistry:
                 "required": ["text"],
             },
             self._forget,
+            brief="Delete a rule or a Vocabulary entry",
         )
         self._own(
             "list_memory",
@@ -1971,6 +2014,7 @@ class ToolRegistry:
             "and anything still waiting in the old memory. Notes are in Synapse: synapse_find or synapse_query.",
             {"type": "object", "properties": {}},
             self._list_memory,
+            brief="List the rules and the Vocabulary",
         )
         self._own(
             "agent_instructions",
@@ -2002,6 +2046,7 @@ class ToolRegistry:
                 "required": ["action"],
             },
             self._agent_instructions,
+            brief="Read or change what every agent Rouh starts is told first",
         )
         self._own(
             "capture_thought",
@@ -2032,6 +2077,7 @@ class ToolRegistry:
                 "required": ["words", "title"],
             },
             self._capture_thought,
+            brief="Keep one of the person's thoughts, in their words",
         )
         self._own(
             "thoughts",
@@ -2064,6 +2110,7 @@ class ToolRegistry:
                 "required": ["action"],
             },
             self._thoughts,
+            brief="The person's kept thoughts: list, read, edit, archive, link, research again",
         )
         # The Incubator (`rouh/incubator.py`): one list of ideas for Rouh's new genes and mutations.
         _inc = ("The Incubator, in Evolution, is the one list of ideas for Rouh's new genes and mutations, "
@@ -2084,7 +2131,8 @@ class ToolRegistry:
                                                     "clarity", "risk", "number", "newest", "updated", "title"]},
                 "limit": {"type": "integer", "description": "How many, at most; 60 unless given."},
                 "show": {"type": "boolean", "description": "Also open the Incubator's page on the screen."}}},
-            self._incubator_list, area="self")
+            self._incubator_list, area="self",
+            brief=FAMILY["incubator"])
         self._own(
             "incubator_read",
             _inc + "Read one idea whole: its original words exactly as written, its links, notes, history and "
@@ -2092,7 +2140,8 @@ class ToolRegistry:
             {"type": "object", "properties": {"id": {"type": "string"},
                                               "show": {"type": "boolean", "description": "Also open it on the screen."}},
              "required": ["id"]},
-            self._incubator_read, area="self")
+            self._incubator_read, area="self",
+            brief=FAMILY["incubator"])
         self._own(
             "incubator_add",
             _inc + "Add an idea the person gives, in their words: the text exactly as they said it, a short title, "
@@ -2105,7 +2154,8 @@ class ToolRegistry:
                 "category": {"type": "string", "enum": list(_incubator.CATEGORY_IDS)},
                 "tags": {"type": "array", "items": {"type": "string"}}},
              "required": ["title"]},
-            self._incubator_add, area="self")
+            self._incubator_add, area="self",
+            brief=FAMILY["incubator"])
         self._own(
             "incubator_edit",
             _inc + "Change an idea's title, kind, gene, category, tags or notes. Its original words never change: "
@@ -2117,7 +2167,8 @@ class ToolRegistry:
                 "tags": {"type": "array", "items": {"type": "string"}},
                 "notes": {"type": "string", "description": "The whole notes, as they should now read."}},
              "required": ["id"]},
-            self._incubator_edit, area="self")
+            self._incubator_edit, area="self",
+            brief=FAMILY["incubator"])
         self._own(
             "incubator_status",
             _inc + "Move one or more ideas to a status: new, triaged, in_build, built, parked or rejected, with a "
@@ -2128,7 +2179,8 @@ class ToolRegistry:
                 "status": {"type": "string", "enum": [s for s in _incubator.STATUS_IDS if s != "merged"]},
                 "note": {"type": "string"}},
              "required": ["ids", "status"]},
-            self._incubator_status, area="self")
+            self._incubator_status, area="self",
+            brief=FAMILY["incubator"])
         self._own(
             "incubator_merge",
             _inc + "Merge ideas that are the same idea into one: each of ids becomes Merged into `into`, which "
@@ -2136,7 +2188,8 @@ class ToolRegistry:
             {"type": "object", "properties": {"ids": {"type": "array", "items": {"type": "string"}},
                                               "into": {"type": "string"}},
              "required": ["ids", "into"]},
-            self._incubator_merge, area="self")
+            self._incubator_merge, area="self",
+            brief=FAMILY["incubator"])
         self._own(
             "incubator_link",
             _inc + "Link an idea to a task, a step, a chat, a page, a file, another idea, a feature request or the "
@@ -2145,7 +2198,8 @@ class ToolRegistry:
                 "id": {"type": "string"}, "kind": {"type": "string", "enum": list(_incubator.LINK_KINDS)},
                 "label": {"type": "string"}, "href": {"type": "string", "description": "An address in Rouh or a URL."}},
              "required": ["id", "kind", "label"]},
-            self._incubator_link, area="self")
+            self._incubator_link, area="self",
+            brief=FAMILY["incubator"])
         self._own(
             "incubator_score",
             _inc + "Every idea has a score, worked out from its parts: Score = Impact² × Confidence × Frequency × "
@@ -2161,7 +2215,8 @@ class ToolRegistry:
                 "part": {"type": "string", "enum": ["impact", "confidence", "frequency", "pain", "clarity", "risk", "stars"]},
                 "value": {"type": ["number", "null"]}},
              "required": ["action", "ids"]},
-            self._incubator_scores, area="self")
+            self._incubator_scores, area="self",
+            brief=FAMILY["incubator"])
         # Trials (`rouh/trials/`): a made-up person tries each change, and the list of problems they hit.
         self._own(
             "trials",
@@ -2248,7 +2303,8 @@ class ToolRegistry:
                 "profile": {"type": "string", "description": "For tester_add and tester_edit: everything about them."},
                 "describe": {"type": "string", "description": "For tester_add: one sentence; the profile is written from it."}},
              "required": ["action"]},
-            self._trials, area="self")
+            self._trials, area="self",
+            brief="Usability trials: a made-up tester tries a page; what they found")
         self._own(
             "new_box",
             "Put a new, empty box on the person's screen: a field whose contents go straight into Rouh's "
@@ -2257,6 +2313,7 @@ class ToolRegistry:
             "first, and listed on the Boxes page.",
             {"type": "object", "properties": {}},
             self._new_box,
+            brief="A sealed box on the screen whose contents never reach you",
         )
         self._own(
             "open_box",
@@ -2272,6 +2329,7 @@ class ToolRegistry:
                 },
             },
             self._open_box,
+            brief="Read a box, only when the person has just named it",
         )
         # A page as a printable PDF (night 11, gene page_pdf, `rouh/page_pdf.py`).
         self._own(
@@ -2298,6 +2356,7 @@ class ToolRegistry:
                 "required": ["page"],
             },
             self._print_page,
+            brief="A printable PDF of a task's or step's page, or a .md file",
         )
         self._own(
             "send_telegram",
@@ -2341,6 +2400,7 @@ class ToolRegistry:
                 "required": ["text"],
             },
             self._send_telegram,
+            brief="Message ‹owner› on Telegram",
         )
         # Offered only in a turn about an email's case - everybody's email but
         # the owner's own (`mail_turn.MailTurn.mode`, `rouh/mail_cases.py`):
@@ -2559,6 +2619,7 @@ class ToolRegistry:
                 "required": ["outcome"],
             },
             self._case_report,
+            brief="Report what this message asks, or what you started for it",
         )
         # What a capability is, read only, for a case's reading before it names one
         # (CAPABILITIES.md): its contract, its tools' schemas and their own documentation.
@@ -2573,6 +2634,7 @@ class ToolRegistry:
                                                                "or its action word."}},
              "required": ["capability"]},
             self._read_capability,
+            brief="One capability Rouh's code declares, by id or action word",
         )
         # A trusted contact's own two, which reach exactly what the owner granted
         # them (`trusted.Grants`) and nothing else; offered in no other turn.
@@ -2587,6 +2649,7 @@ class ToolRegistry:
                 "path": {"type": "string",
                          "description": "A file inside the task, as the task lists it."}}},
             self._read_granted_tasks,
+            brief="The tasks ‹owner› granted this email's writer",
         )
         # A Slack case's reading of the owner's meetings, tasks and files: only what everybody who
         # reads its answer may see (`rouh/slack_team.py`); offered on a Slack case alone.
@@ -2604,6 +2667,7 @@ class ToolRegistry:
                 "item": {"type": "string", "description": "One item's id, from a find, to read "
                                                           "it whole."}}},
             self._find_for_them,
+            brief="What this Slack writer may see of ‹owner›'s work",
         )
         self._own(
             "share_granted_page",
@@ -2616,6 +2680,7 @@ class ToolRegistry:
                          "description": "The page's path in the workspace, ending .html."}},
              "required": ["path"]},
             self._share_granted_page,
+            brief="Share one page with this email's writer",
         )
         # The tools a grant adds (`rouh/grants.py`, Petar, 11 October 2026): each reaches
         # only what is the contact's own, and only in the work of a case whose contact
@@ -2664,6 +2729,7 @@ class ToolRegistry:
                 "days": {"type": "array", "items": {"type": "string"}}},
              "required": ["action"]},
             self._clockwork_for_contact,
+            brief="Put things on Clockwork for this email's writer, under their grant",
         )
         self._own(
             "remember_for_contact",
@@ -2677,6 +2743,7 @@ class ToolRegistry:
                 "title": {"type": "string", "description": "A few words it is found by."}},
              "required": ["text"]},
             self._remember_for_contact,
+            brief="A note from this email's writer into ‹owner›'s memory, under their grant",
         )
         self._own(
             "shared_task",
@@ -2694,6 +2761,7 @@ class ToolRegistry:
                 "text": {"type": "string", "description": "What to add, in their words."}},
              "required": ["action"]},
             self._shared_task,
+            brief="The tasks of ‹owner›'s this email's writer may change",
         )
         # A trusted contact's authority over a goal, quest or task (`rouh/delegation.py`):
         # offered only in a case's turn whose contact holds some, and it checks the sender,
@@ -2739,6 +2807,7 @@ class ToolRegistry:
                 "first": {"type": "boolean"}, "deadline": {"type": "string"}},
              "required": ["action"]},
             self._delegate_act,
+            brief="Carry out what this writer decided, within the authority ‹owner› gave them",
         )
         self._own(
             "what_is_running",
@@ -2750,6 +2819,7 @@ class ToolRegistry:
             "this says what is going on inside them this second.",
             {"type": "object", "properties": {}},
             self._what_is_running,
+            brief="Every worker, sub-agent and open tool call right now",
         )
         self._own(
             "answer_conflict",
@@ -2778,6 +2848,7 @@ class ToolRegistry:
                 "required": ["choice"],
             },
             self._answer_conflict,
+            brief="Answer a job's merge conflict with the person's pick",
         )
         self._own(
             "show_the_gaps",
@@ -2789,6 +2860,7 @@ class ToolRegistry:
             "you can say one sentence about them without reading the table out.",
             {"type": "object", "properties": {}},
             self._show_the_gaps,
+            brief="The ten gaps between Rouh's turn loop and the Agent SDK",
         )
         if getattr(self.cfg, "subagents", True):
             self._subagent_tool()
@@ -2814,7 +2886,8 @@ class ToolRegistry:
         # turned away by Reddit, Rouh's own HTTP (with the owner's Reddit app, if need be) is not.
         from . import reddit
 
-        self._own("reddit_search", reddit.DESCRIPTION, reddit.SCHEMA, self._reddit_search)
+        self._own("reddit_search", reddit.DESCRIPTION, reddit.SCHEMA, self._reddit_search,
+                  brief="Search Reddit posts, all of it or one subreddit")
 
         if self.apify is not None:
             self._linkedin_tools()
@@ -2875,6 +2948,7 @@ class ToolRegistry:
                     "required": ["task"],
                 },
                 self._delegate_task,
+                brief="Fix or change this server or Rouh itself, and nothing else",
             )
             if workspace_jobs:
                 self._declare_assistant_job()
@@ -2897,6 +2971,7 @@ class ToolRegistry:
                     "required": ["id"],
                 },
                 self._look_at_task,
+                brief=FAMILY["workers"],
             )
             self._own(
                 "reply_to_task",
@@ -2918,6 +2993,7 @@ class ToolRegistry:
                     "required": ["id", "answer"],
                 },
                 self._reply_to_task,
+                brief=FAMILY["workers"],
             )
             self._own(
                 "read_task_log",
@@ -2933,6 +3009,7 @@ class ToolRegistry:
                     "required": ["id"],
                 },
                 self._read_task_log,
+                brief=FAMILY["workers"],
             )
             self._own(
                 "what_task_changed",
@@ -2948,6 +3025,7 @@ class ToolRegistry:
                     "required": ["id"],
                 },
                 self._what_changed,
+                brief=FAMILY["workers"],
             )
             self._own(
                 "tidy_tasks",
@@ -2966,6 +3044,7 @@ class ToolRegistry:
                     },
                 },
                 self._tidy_tasks,
+                brief=FAMILY["workers"],
             )
             self._own(
                 "stop_task",
@@ -2976,6 +3055,7 @@ class ToolRegistry:
                     "required": ["id"],
                 },
                 self._stop_task,
+                brief=FAMILY["workers"],
             )
 
         if self.cfg.enable_self_update and self.crew is not None:
@@ -3004,6 +3084,7 @@ class ToolRegistry:
                     },
                 },
                 self._deploy_myself,
+                brief="Deploy both services onto the newest commit",
             )
 
         # In the containers the shell's commands run in the worker, through the one program,
@@ -3029,6 +3110,7 @@ class ToolRegistry:
             "the raw ones.",
             {"type": "object", "properties": {}},
             self._server_health,
+            brief="This server's disk, memory, load and uptime",
         )
 
         # Why a connection stopped working, answered from the core itself (19 November 2026):
@@ -3060,7 +3142,7 @@ class ToolRegistry:
                 },
             },
             self._read_rouh_log,
-            area="self", brief="Reads Rouh's own log, with secrets masked.",
+            area="self", brief="Rouh's own log, secrets masked",
         )
         self._own(
             "connection_status",
@@ -3089,7 +3171,7 @@ class ToolRegistry:
                 },
             },
             self._connection_status,
-            area="self", brief="Each connection's state and why it last failed; tests one.",
+            area="self", brief="Each connection's state and why it last failed; test one",
         )
 
         # Cloudflare's zones (`rouh/cloudflare.py`). The owner types each zone's token into
@@ -3196,7 +3278,7 @@ class ToolRegistry:
                 },
             },
             self._cloudflare, area="self",
-            brief="Cloudflare zones: whether a token is set (in Settings), open that page, DNS records read, set and one deleted, settings read and set, origin certificates made and listed, Email Routing (mail forwarding) and its rules",
+            brief="Cloudflare: zones, DNS, settings, certificates, Email Routing",
         )
 
         # Slack (`rouh/slack.py`, `rouh/slack_listen.py`). Petar, 16 October 2026: "I need you to
@@ -3214,7 +3296,7 @@ class ToolRegistry:
                 "everything": {"type": "boolean",
                                "description": "True to list archived conversations too."}}},
             self._slack_channels, area="slack",
-            brief="Slack: is it connected, and every channel and direct message Rouh can see",
+            brief=FAMILY["slack"],
         )
         self._own(
             "slack_read",
@@ -3236,7 +3318,7 @@ class ToolRegistry:
                 "most": {"type": "integer", "description": "How many messages, newest first (30)."},
             }},
             self._slack_read, area="slack",
-            brief="Slack: read a channel, a direct message, a thread or one person's messages",
+            brief=FAMILY["slack"],
         )
         self._own(
             "slack_search",
@@ -3250,7 +3332,7 @@ class ToolRegistry:
                 "most": {"type": "integer", "description": "How many, newest first (30)."},
             }, "required": ["words"]},
             self._slack_search, area="slack",
-            brief="Slack: find messages by their words across the workspace",
+            brief=FAMILY["slack"],
         )
         self._own(
             "slack_join",
@@ -3262,7 +3344,7 @@ class ToolRegistry:
                 "channel": {"type": "string", "description": "The public channel, such as #design."}},
              "required": ["channel"]},
             self._slack_join, area="slack",
-            brief="Slack: join a public channel, on ‹owner›'s word",
+            brief=FAMILY["slack"],
         )
         self._own(
             "slack_send",
@@ -3283,7 +3365,7 @@ class ToolRegistry:
                                           "first message."},
             }, "required": ["to", "text"]},
             self._slack_send, area="slack",
-            brief="Slack: post as Rouh's bot in a channel, a thread or a direct message, on ‹owner›'s yes",
+            brief=FAMILY["slack"],
         )
         # Petar, 16 October 2026: "link #pricing to 19" (`rouh/slack_tasks.py`).
         self._own(
@@ -3303,7 +3385,7 @@ class ToolRegistry:
                              "description": "For remove: the line's number from list, such as 12."},
             }, "required": ["action"]},
             self._slack_link, area="slack",
-            brief="Slack: link a channel to a task, so its decisions go into the task's notes",
+            brief=FAMILY["slack"],
         )
 
         # Philips Hue through its cloud (`rouh/hue.py`). Petar, 16 October 2026: "can you build the
@@ -3336,7 +3418,7 @@ class ToolRegistry:
                 "transition": {"type": "number", "description": "Seconds to fade over (set, scene, all_off)."},
             }, "required": ["action"]},
             self._hue, area="home",
-            brief="Philips Hue lights: list, set a light/room/zone (on, brightness, colour, kelvin), scene, all off",
+            brief="Philips Hue: lights, rooms, zones, colour, scenes, all off",
         )
 
         # A Dreame robot vacuum through the Dreamehome or Mi Home cloud (`rouh/dreame.py`). Petar, 17 October
@@ -3365,8 +3447,7 @@ class ToolRegistry:
                 "robot": {"type": "string", "description": "The robot's name, when ‹he› says one."},
             }, "required": ["action"]},
             self._vacuum, area="home",
-            brief="Dreame robot vacuum: status, start (rooms), pause, dock, locate, suction, mode, mop wetness, "
-                  "wash/dry mop pads, empty bin",
+            brief="Dreame robot vacuum: status, clean rooms, pause, dock, settings, mop",
         )
 
         # MCP servers: another program's tools plugged into Rouh (`rouh/mcp_servers.py`). Petar,
@@ -3385,7 +3466,7 @@ class ToolRegistry:
             "conversation. Turning a server off or removing it is done on that page too.",
             {"type": "object", "properties": {}},
             self._mcp_servers, area="self",
-            brief="MCP servers: what is connected, its tools, and where to connect one",
+            brief="MCP servers: what is connected, their tools, how to connect one",
         )
 
         # The person's assistant workspace, read-only, for answers that take
@@ -3424,6 +3505,7 @@ class ToolRegistry:
                     },
                 },
                 self._read_workspace,
+                brief="Search or read the person's workspace: tasks, people, notes",
             )
             # A page from the workspace, whole and working, on the canvas. The
             # rules for what may be shown are pages.py's, the same the route
@@ -3454,6 +3536,7 @@ class ToolRegistry:
                     "required": ["path"],
                 },
                 self._show_workspace_page,
+                brief="Show a workspace page on the screen, working",
             )
             # The page open on the canvas beside the chat, changed from the one box: Ask AI's own edit,
             # for the owner, in the one conversation (`rouh/page_in_chat.py`, Petar, 15 November 2026).
@@ -3461,11 +3544,11 @@ class ToolRegistry:
 
             _edit = page_in_chat.tool_definition()
             self._own(_edit["name"], _edit["description"], _edit["input_schema"], self._edit_page,
-                      area="tasks", brief="change the page open on the canvas beside this chat")
+                      area="tasks", brief="Change the page open on the canvas beside this chat")
             # And the exact pieces of a long page's source, which is not sent whole (`page_in_chat.read_piece`).
             _piece = page_in_chat.PIECE_TOOL
             self._own(_piece["name"], _piece["description"], _piece["input_schema"], self._read_page_source,
-                      area="tasks", brief="read exact pieces of the open page's HTML source")
+                      area="tasks", brief="Read exact pieces of the open page's HTML source")
             # What the canvas can be pointed at. Two modes and no more: the
             # tasks, and now. Opening one task or one step is not a third mode
             # - it is what to load, and it is loaded exactly as a click on it
@@ -3510,6 +3593,7 @@ class ToolRegistry:
                     },
                 },
                 self._show_canvas,
+                brief="Point the canvas at a task, a step, the task list or now",
             )
             # A task's pages, public. The same sharing the Share button in the
             # top bar does, one page at a time, done for a whole task because
@@ -3579,6 +3663,7 @@ class ToolRegistry:
                     "required": ["task"],
                 },
                 self._publish_task,
+                brief="Make a task's pages public, or take them down",
             )
             self._own(
                 "check_task_sharing",
@@ -3605,6 +3690,7 @@ class ToolRegistry:
                     "required": ["task"],
                 },
                 self._check_task_sharing,
+                brief="Whether a task's pages are public, and who they are shared with",
             )
             # A task, or one page of it, shared with one person by email, the
             # way the Share panel's Invite does it, and always with the email
@@ -3687,6 +3773,7 @@ class ToolRegistry:
                     "required": ["task", "email"],
                 },
                 self._share_with_person,
+                brief="Share a task or page with one person by email",
             )
 
         # Anthropic-side tools. No handler: they run inside the model's turn,
@@ -3825,6 +3912,7 @@ class ToolRegistry:
                 "required": ["video"],
             },
             self._youtube_transcript,
+            brief="What was said in a YouTube video, as text",
         )
         self._own(
             "youtube_search",
@@ -3857,6 +3945,7 @@ class ToolRegistry:
                 "required": ["query"],
             },
             self._youtube_search,
+            brief="Find YouTube videos by what they are about",
         )
 
     # --- LinkedIn: find the person, let them be picked, harvest the profile --
@@ -3919,6 +4008,7 @@ class ToolRegistry:
             },
             self._make_picture,
             area="pictures",
+            brief="Draw a new picture from a description",
         )
         self._own(
             "change_picture",
@@ -3950,6 +4040,7 @@ class ToolRegistry:
             },
             self._change_picture,
             area="pictures",
+            brief="Change a picture in this chat by describing the change",
         )
 
     def _picture_in(self, chat: str, wanted: str):
@@ -4038,6 +4129,7 @@ class ToolRegistry:
             },
             self._meeting_people,
             area="calendar",
+            brief="Who is coming to one meeting, with what is known of each",
         )
 
     async def _meeting_people(self, args, emit):
@@ -4166,6 +4258,7 @@ class ToolRegistry:
                 "required": ["first_name", "last_name"],
             },
             self._linkedin_search,
+            brief="Find people on LinkedIn by name, to pick who was meant",
         )
         self._own(
             "linkedin_profile",
@@ -4209,6 +4302,7 @@ class ToolRegistry:
                 },
             },
             self._linkedin_profile,
+            brief="One person's whole LinkedIn profile, on a card",
         )
 
     # --- the Live browser: a real browser for errands, watched and taken over
@@ -4457,6 +4551,7 @@ class ToolRegistry:
                 "required": ["action"],
             },
             self._browser,
+            brief="The real Chrome the person watches, takes over and hands back",
         )
 
     async def _fill_card(self, who, chat: str, args: dict) -> str:
@@ -4817,6 +4912,7 @@ class ToolRegistry:
                 "required": ["title"],
             },
             self._schedule, area="reminders",
+            brief="Make something happen at a time, once or on a repeat",
         )
         self._own(
             "upcoming",
@@ -4832,6 +4928,7 @@ class ToolRegistry:
              "properties": {"show": {"type": "boolean",
                                      "description": "Open Clockwork on the screen."}}},
             self._upcoming, area="reminders",
+            brief="Everything on Clockwork",
         )
         self._own(
             "change_scheduled",
@@ -4861,6 +4958,7 @@ class ToolRegistry:
                 "required": ["id", "action"],
             },
             self._change_scheduled, area="reminders",
+            brief="Change, pause, resume or cancel something scheduled",
         )
         part = {
             "type": "object",
@@ -4971,6 +5069,7 @@ class ToolRegistry:
                 "required": ["name", "about"],
             },
             self._set_goal, area="reminders",
+            brief="Make a goal the person wants help reaching",
         )
         self._own(
             "plan_goal",
@@ -5023,6 +5122,7 @@ class ToolRegistry:
                 "required": ["goal", "steps"],
             },
             self._plan_goal, area="reminders",
+            brief="Write a goal's plan, once they have answered your questions",
         )
         self._own(
             "goal_step",
@@ -5140,6 +5240,7 @@ class ToolRegistry:
                 },
             },
             self._goal_step, area="reminders",
+            brief="Change one step of a goal's plan",
         )
         self._own(
             "goals",
@@ -5153,6 +5254,7 @@ class ToolRegistry:
                             "show": {"type": "boolean",
                                      "description": "Open the Goals page. True by default."}}},
             self._goals, area="reminders",
+            brief="The person's goals, or one whole with its plan",
         )
         self._own(
             "goal_control",
@@ -5174,6 +5276,7 @@ class ToolRegistry:
                                               "person's words. Empty clears it."}},
              "required": ["act"]},
             self._goal_control, area="reminders",
+            brief="Pause, resume or steer a goal",
         )
 
     async def _clock_who(self):
@@ -5261,8 +5364,7 @@ class ToolRegistry:
                 "confirmed_risk": {"type": "string", "description": "answer: the risk ‹he› "
                                    "confirmed in plain words, when the answer said to confirm it."},
             }, "required": ["action"]},
-            self._heartbeat, brief="The heartbeat: status, pause, resume, a beat now, its "
-                                   "settings and duties, and approvals", **area)
+            self._heartbeat, brief="The heartbeat: status, pause, resume, beat now, settings, duties, approvals", **area)
         quest_schema = {"type": "object", "properties": {
             "action": {"type": "string", "enum": ["list", "status", "create", "edit", "brief",
                                                   "ledger", "set", "pause", "resume",
@@ -5324,15 +5426,14 @@ class ToolRegistry:
             "list): the goals the quest is for, which whoever was let in to the quest reaches "
             "too.",
             quest_schema,
-            self._quest, brief="Quests the heartbeat carries: list, status, create, edit, "
-                               "ledger, budget and dates, pause, resume, reset, delete",
+            self._quest, brief=FAMILY["quests"],
             **area)
         self._own(
             "long_work",
             "The old name of the quest tool, kept so a call made under it still works; use "
             "quest. It takes the same actions, and work for quest.",
             quest_schema,
-            self._quest, brief="Old name of quest", **area)
+            self._quest, brief=FAMILY["quests"], **area)
         self._own(
             "payments",
             "What Rouh's card vault and Stripe hold, as far as may be said: each card's brand, "
@@ -5398,7 +5499,7 @@ class ToolRegistry:
                 "by": {"type": "integer", "description": "reorder: -1 moves the option up, 1 down."},
                 "name": {"type": "string", "description": "add_situation, rename_situation: its name."},
             }, "required": ["action"]},
-            self._shipping, brief="Shipping options and addresses in order; choose one at a checkout",
+            self._shipping, brief="Shipping options and addresses in order, for a checkout",
             **area)
         self._own(
             "stripe",
@@ -5449,7 +5550,7 @@ class ToolRegistry:
                                          "\"task:182\" or \"run:3e003932\": they go on the one "
                                          "ledger of what ‹owner› was told."},
             }, "required": ["how"]},
-            self._heartbeat_end, brief="End a beat: nothing, a silent note, or a Telegram",
+            self._heartbeat_end, brief=FAMILY["beat"],
             **area)
         self._own(
             "heartbeat_ask",
@@ -5472,7 +5573,7 @@ class ToolRegistry:
                 "duty": {"type": "string"},
                 "blocking": {"type": "boolean"},
             }, "required": ["what", "why", "cost"]},
-            self._heartbeat_ask, brief="Queue an action for ‹owner›'s yes", **area)
+            self._heartbeat_ask, brief=FAMILY["beat"], **area)
         self._own(
             "heartbeat_brief",
             "In a beat on a quest, keep its plan or notebook current (its files in its task). "
@@ -5484,7 +5585,7 @@ class ToolRegistry:
                 "text": {"type": "string"},
                 "mode": {"type": "string", "enum": ["replace", "append"]},
             }, "required": ["part", "text"]},
-            self._heartbeat_brief, brief="Keep a quest's plan and notebook", **area)
+            self._heartbeat_brief, brief=FAMILY["beat"], **area)
         self._own(
             "heartbeat_ledger",
             "In a beat on a quest, write money into its ledger: "
@@ -5497,7 +5598,7 @@ class ToolRegistry:
                 "currency": {"type": "string"},
                 "what": {"type": "string"},
             }, "required": ["direction", "amount", "what"]},
-            self._heartbeat_ledger, brief="Record money in or out of a quest", **area)
+            self._heartbeat_ledger, brief=FAMILY["beat"], **area)
         self._own(
             "heartbeat_next",
             "Set your own next beat, in_minutes from now (5 to 1440), and why: a time on "
@@ -5507,7 +5608,7 @@ class ToolRegistry:
                 "in_minutes": {"type": "integer"},
                 "why": {"type": "string"},
             }, "required": ["in_minutes", "why"]},
-            self._heartbeat_next, brief="Schedule the heartbeat's own next beat", **area)
+            self._heartbeat_next, brief=FAMILY["beat"], **area)
         self._own(
             "heartbeat_thread",
             "Mark a Gmail thread in Rouh's own inbox as this beat's own, so new mail in it "
@@ -5515,7 +5616,7 @@ class ToolRegistry:
             "is its own already.",
             {"type": "object", "properties": {"thread_id": {"type": "string"}},
              "required": ["thread_id"]},
-            self._heartbeat_thread, brief="Mark a mail thread as the heartbeat's own", **area)
+            self._heartbeat_thread, brief=FAMILY["beat"], **area)
         self._own(
             "heartbeat_record",
             "Write one line of what this beat did about one subject onto that subject's own "
@@ -5528,7 +5629,7 @@ class ToolRegistry:
                 "text": {"type": "string"},
                 "title": {"type": "string"},
             }, "required": ["subject", "text"]},
-            self._heartbeat_record, brief="Write what a beat did about one subject", **area)
+            self._heartbeat_record, brief=FAMILY["beat"], **area)
         self._own(
             "heartbeat_reported",
             "Mark a finished run you have read and dealt with as reported, so no duty brings it "
@@ -5537,7 +5638,7 @@ class ToolRegistry:
                 "run": {"type": "string"},
                 "text": {"type": "string"},
             }, "required": ["run"]},
-            self._heartbeat_reported, brief="Mark a finished run reported", **area)
+            self._heartbeat_reported, brief=FAMILY["beat"], **area)
 
     def _beater(self):
         return heartbeat.LIVE
@@ -6333,6 +6434,7 @@ class ToolRegistry:
                 "required": ["action"],
             },
             self._worker_outbox,
+            brief="Emails background jobs queued for the person",
         )
 
     async def _worker_outbox(self, args, emit):
@@ -6433,6 +6535,7 @@ class ToolRegistry:
                 },
             },
             self._recent_mail,
+            brief="The newest mail in Rouh's inbox, the person's, or both",
         )
         self._own(
             "read_mail",
@@ -6456,6 +6559,7 @@ class ToolRegistry:
                 "required": ["message_id"],
             },
             self._read_mail,
+            brief="One whole email",
         )
         self._own(
             "read_mail_attachment",
@@ -6483,6 +6587,7 @@ class ToolRegistry:
                 "required": ["message_id", "part"],
             },
             self._read_mail_attachment,
+            brief="The words of one file attached to an email",
         )
         self._own(
             "mail_alerts",
@@ -6494,6 +6599,7 @@ class ToolRegistry:
             "or whether it all works. It reads; it changes nothing and sends nothing.",
             {"type": "object", "properties": {}},
             self._mail_alerts,
+            brief="Whether new mail is read as it arrives, and what became of it",
         )
         self._own(
             "handle_email_again",
@@ -6515,6 +6621,7 @@ class ToolRegistry:
             },
             self._handle_email_again,
             area="gmail",
+            brief="Hand one email to the new-mail path again, as if just arrived",
         )
         # --- mail: writing ---------------------------------------------------
         # The Send button on the draft card `draft_mail` draws
@@ -6593,6 +6700,7 @@ class ToolRegistry:
                 },
             },
             self._send_mail,
+            brief="Send a real email from the person's Gmail, now",
         )
         self._own(
             "forward_mail",
@@ -6636,6 +6744,7 @@ class ToolRegistry:
                 "required": ["message_id", "to"],
             },
             self._forward_mail,
+            brief="Forward one email unchanged, now",
         )
         self._own(
             "forward_thread",
@@ -6682,6 +6791,7 @@ class ToolRegistry:
                 "required": ["message_id", "to"],
             },
             self._forward_thread,
+            brief="Forward a whole email conversation as one email, now",
         )
         self._own(
             "draft_mail",
@@ -6722,6 +6832,7 @@ class ToolRegistry:
                 "required": ["body"],
             },
             self._draft_mail,
+            brief="Write a Gmail draft, shown as a card they edit; sends nothing",
         )
         self._own(
             "modify_mail",
@@ -6756,6 +6867,7 @@ class ToolRegistry:
                 "required": ["message_id"],
             },
             self._modify_mail,
+            brief="Mark one email read or unread, add or take off labels",
         )
         # --- mail: the inbox on the screen ----------------------------------
         # What its buttons do, in the mailbox of whoever is on the socket
@@ -6798,6 +6910,7 @@ class ToolRegistry:
                 },
             },
             self._show_inbox,
+            brief="An inbox as a live card the person works through",
         )
         # --- Drive ------------------------------------------------------------
         self._own(
@@ -6830,6 +6943,7 @@ class ToolRegistry:
                 "required": ["text"],
             },
             self._search_drive,
+            brief="Find Drive files by name or by their words",
         )
         self._own(
             "list_drive_folder",
@@ -6869,6 +6983,7 @@ class ToolRegistry:
                 },
             },
             self._list_drive_folder,
+            brief="What is directly inside one Drive folder",
         )
         self._own(
             "list_shared_drives",
@@ -6888,6 +7003,7 @@ class ToolRegistry:
                 },
             },
             self._list_shared_drives,
+            brief="Every shared drive the account can see",
         )
         self._own(
             "create_shared_drive",
@@ -6917,6 +7033,7 @@ class ToolRegistry:
                 "required": ["name"],
             },
             self._create_shared_drive,
+            brief="Make a shared drive",
         )
         self._own(
             "add_shared_drive_members",
@@ -6958,6 +7075,7 @@ class ToolRegistry:
                 "required": ["drive", "people"],
             },
             self._add_shared_drive_members,
+            brief="Add people to a shared drive, or change their role",
         )
         self._own(
             "write_drive_file",
@@ -7010,6 +7128,7 @@ class ToolRegistry:
                 "required": ["name", "content"],
             },
             self._write_drive_file,
+            brief="Write a new Drive file, or replace one's contents",
         )
         self._own(
             "upload_drive_file",
@@ -7070,6 +7189,7 @@ class ToolRegistry:
                 "required": ["path"],
             },
             self._upload_drive_file,
+            brief="Upload a file from this machine to Drive",
         )
         self._own(
             "create_drive_folder",
@@ -7118,6 +7238,7 @@ class ToolRegistry:
                 "required": ["name"],
             },
             self._create_drive_folder,
+            brief="Make a Drive folder",
         )
         self._own(
             "manage_drive_file",
@@ -7152,6 +7273,7 @@ class ToolRegistry:
                 "required": ["file_id"],
             },
             self._manage_drive_file,
+            brief="Rename, move, bin, lock or unlock a Drive file or folder",
         )
         self._own(
             "share_drive_file",
@@ -7211,6 +7333,7 @@ class ToolRegistry:
                 "required": ["file_id"],
             },
             self._share_drive_file,
+            brief="Change who can open a Drive file, now",
         )
         self._own(
             "list_drive_permissions",
@@ -7229,11 +7352,14 @@ class ToolRegistry:
                 "required": ["file_id"],
             },
             self._list_drive_permissions,
+            brief="Who can open one Drive file, and what each may do",
         )
         # Your files open to anyone (night 45, `rouh/open_files.py`).
-        self._own("open_files", open_files.DESCRIPTION, open_files.SCHEMA, self._open_files)
+        self._own("open_files", open_files.DESCRIPTION, open_files.SCHEMA, self._open_files,
+                  brief="The person's Drive files open beyond their company")
         # Taken off your files (night 46, `rouh/take_off.py`).
-        self._own("take_off_files", take_off.DESCRIPTION, take_off.SCHEMA, self._take_off_files)
+        self._own("take_off_files", take_off.DESCRIPTION, take_off.SCHEMA, self._take_off_files,
+                  brief="Take a person or a whole company off the person's Drive files")
         # --- Docs --------------------------------------------------------------
         self._own(
             "read_doc",
@@ -7264,6 +7390,7 @@ class ToolRegistry:
                 "required": ["document"],
             },
             self._read_doc,
+            brief="The full text of one Google Doc",
         )
         self._own(
             "doc_changes",
@@ -7288,6 +7415,7 @@ class ToolRegistry:
                 "required": ["document"],
             },
             self._doc_changes,
+            brief="What changed in a Google Doc since a day",
         )
         self._own(
             "reply_to_doc_comment",
@@ -7312,71 +7440,95 @@ class ToolRegistry:
                 "required": ["document", "comment_id", "words"],
             },
             self._reply_to_doc_comment,
+            brief="Answer a comment in a Google Doc, and resolve it if asked",
         )
         # Leave a comment (night 23, `rouh/doc_comment.py`): a new comment, on his words.
         self._own(doc_comment.TOOL_NAME, doc_comment.DESCRIPTION, doc_comment.SCHEMA,
-                  self._comment_on_doc)
+                  self._comment_on_doc,
+                  brief="Comment on a passage of a Google Doc")
         # Their comments (night 26, `rouh/comments_by.py`): one person's comments, found in words.
         self._own(comments_by.TOOL_NAME, comments_by.DESCRIPTION, comments_by.SCHEMA,
-                  self._comments_by)
+                  self._comments_by,
+                  brief="The comments one person left on Docs, Sheets and Slides")
         # What they asked on your pages (night 28, `rouh/page_asks.py`): Ask AI's changes, by person.
-        self._own(page_asks.TOOL_NAME, page_asks.DESCRIPTION, page_asks.SCHEMA, self._page_asks)
+        self._own(page_asks.TOOL_NAME, page_asks.DESCRIPTION, page_asks.SCHEMA, self._page_asks,
+                  brief="What people asked Ask AI on the person's pages, and what it changed")
         # Comments on Rouh's pages (fr_a713abaff0d5, `rouh/page_comments.py`): the comments
         # people pin to a page in the browser, read, added, changed and taken away.
         self._own(page_comments.TOOL_NAME, page_comments.DESCRIPTION, page_comments.SCHEMA,
-                  self._page_comments)
+                  self._page_comments,
+                  brief="Read and write the comments pinned to Rouh's pages")
         # Written into a sheet (night 29, `rouh/sheet_write.py`): cells and rows in a Google Sheet.
         self._own(sheet_write.TOOL_NAME, sheet_write.DESCRIPTION, sheet_write.SCHEMA,
-                  self._edit_sheet)
+                  self._edit_sheet,
+                  brief="Write cells or rows into a Google Sheet")
         # A copy made when asked (night 31, `rouh/drive_copy.py`): Drive's own copy of a file,
         # named, filed and filled in.
         self._own(drive_copy.TOOL_NAME, drive_copy.DESCRIPTION, drive_copy.SCHEMA,
-                  self._copy_drive_file)
+                  self._copy_drive_file,
+                  brief="Copy a Drive file")
         # Away and focus time (night 32, `rouh/calendar_away.py`): Google's own out-of-office and
         # focus-time blocks, which decline meetings by themselves.
         self._own(calendar_away.TOOL_NAME, calendar_away.DESCRIPTION, calendar_away.SCHEMA,
-                  self._block_my_time)
+                  self._block_my_time,
+                  brief="Put an Out of office or Focus time block on the person's calendar")
         # Waiting on your answer (night 34, `rouh/to_answer.py`): the emails the person has not answered.
-        self._own(to_answer.TOOL_NAME, to_answer.DESCRIPTION, to_answer.SCHEMA, self._to_answer)
+        self._own(to_answer.TOOL_NAME, to_answer.DESCRIPTION, to_answer.SCHEMA, self._to_answer,
+                  brief="Emails from people the person has not answered")
         # Reply times with a company, both ways (night 36, `rouh/reply_times.py`).
-        self._own(reply_times.TOOL_NAME, reply_times.DESCRIPTION, reply_times.SCHEMA, self._reply_times)
+        self._own(reply_times.TOOL_NAME, reply_times.DESCRIPTION, reply_times.SCHEMA, self._reply_times,
+                  brief="How fast the person and a company (or one person) answer each other's email")
         # Contacts with no company (night 38, `rouh/no_company.py`): every contact with Company empty.
         self._own("no_company", no_company.DESCRIPTION, {"type": "object", "properties": {}},
-                  self._no_company)
+                  self._no_company,
+                  brief="Every contact whose Company is empty")
         # Contacts kept twice (night 39, `rouh/same_contact.py`): the people on more than one card.
         self._own("same_contact", same_contact.DESCRIPTION, {"type": "object", "properties": {}},
-                  self._same_contact)
+                  self._same_contact,
+                  brief="Every person in the contacts more than once")
         # Their card to pass on (night 40, `rouh/contact_card.py`): a contact as a .vcf to attach.
-        self._own("contact_card", contact_card.DESCRIPTION, contact_card.SCHEMA, self._pass_on_card)
+        self._own("contact_card", contact_card.DESCRIPTION, contact_card.SCHEMA, self._pass_on_card,
+                  brief="A contact as a .vcf card to attach to an email")
         # What changed on a contact (night 41, `rouh/contact_changes.py`): its kept versions read back.
-        self._own("contact_changes", contact_changes.DESCRIPTION, contact_changes.SCHEMA, self._contact_changes)
+        self._own("contact_changes", contact_changes.DESCRIPTION, contact_changes.SCHEMA, self._contact_changes,
+                  brief="What changed on one contact, and when")
         # Relationships between contacts (INC-553, `rouh/relationships.py`): wife of, pet of, tennis buddy of.
         self._own("contact_relationships", relationships.DESCRIPTION, relationships.SCHEMA,
-                  self._contact_relationships)
+                  self._contact_relationships,
+                  brief="Relationships between contacts, or with the person")
         # Between you and them (night 37, `rouh/between_us.py`): what is open with one person by mail.
-        self._own(between_us.TOOL_NAME, between_us.DESCRIPTION, between_us.SCHEMA, self._between_us)
+        self._own(between_us.TOOL_NAME, between_us.DESCRIPTION, between_us.SCHEMA, self._between_us,
+                  brief="What is open by email between the person and one other person")
         # Newsletters you never open (night 35, `rouh/unread_lists.py`): lists left unread, stopped in a word.
-        self._own(unread_lists.TOOL_NAME, unread_lists.DESCRIPTION, unread_lists.SCHEMA, self._unread_lists)
+        self._own(unread_lists.TOOL_NAME, unread_lists.DESCRIPTION, unread_lists.SCHEMA, self._unread_lists,
+                  brief="Newsletters and lists the person never opens")
         # Promised to you by mail (night 36, `rouh/promised_to_you.py`): what people promised by email.
         self._own(promised_to_you.TOOL_NAME, promised_to_you.DESCRIPTION, promised_to_you.SCHEMA,
-                  self._promised_to_you)
+                  self._promised_to_you,
+                  brief="What people promised the person by email, and by when")
         # When others are free (night 33, `rouh/free_busy.py`): colleagues' free and busy times.
-        self._own(free_busy.TOOL_NAME, free_busy.DESCRIPTION, free_busy.SCHEMA, self._when_free)
+        self._own(free_busy.TOOL_NAME, free_busy.DESCRIPTION, free_busy.SCHEMA, self._when_free,
+                  brief="When colleagues are free or busy, by email address")
         # A calendar link read (night 33, second run, `rouh/calendar_link.py`): a published calendar.
         self._own(calendar_link.TOOL_NAME, calendar_link.DESCRIPTION, calendar_link.SCHEMA,
-                  self._read_calendar_link)
+                  self._read_calendar_link,
+                  brief="Read a calendar shared as a link (.ics, webcal)")
         # Public holidays read from Google (night 34, `rouh/public_holidays.py`).
         self._own(public_holidays.TOOL_NAME, public_holidays.DESCRIPTION, public_holidays.SCHEMA,
-                  self._public_holidays)
+                  self._public_holidays,
+                  brief="A country's public holidays")
         # Where your meeting time went, by company (night 36, `rouh/meeting_hours.py`).
         self._own(meeting_hours.TOOL_NAME, meeting_hours.DESCRIPTION, meeting_hours.SCHEMA,
-                  self._meeting_hours)
+                  self._meeting_hours,
+                  brief="How much of the person's time went into meetings over a span")
         # Written into a deck (night 30, `rouh/slide_write.py`): words and speaker notes in a deck.
         self._own(slide_write.TOOL_NAME, slide_write.DESCRIPTION, slide_write.SCHEMA,
-                  self._edit_slides)
+                  self._edit_slides,
+                  brief="Replace words or speaker notes in a Slides deck")
         # Find a slide (night 27, `rouh/find_slides.py`): the slides themselves, found in words.
         self._own(find_slides.TOOL_NAME, find_slides.DESCRIPTION, find_slides.SCHEMA,
-                  self._find_slides)
+                  self._find_slides,
+                  brief="Find slides by their words or speaker notes")
         self._own(
             "create_doc",
             "Makes a real new Google Doc in the person's Drive, with the words you "
@@ -7417,6 +7569,7 @@ class ToolRegistry:
                 "required": ["title"],
             },
             self._create_doc,
+            brief="Make a new Google Doc with your words in it",
         )
         self._own(
             "edit_doc",
@@ -7581,6 +7734,7 @@ class ToolRegistry:
                 "required": ["document", "edits"],
             },
             self._edit_doc,
+            brief="Change an existing Google Doc",
         )
         # --- Calendar ----------------------------------------------------------
         self._own(
@@ -7595,6 +7749,7 @@ class ToolRegistry:
             "it changes nothing.",
             {"type": "object", "properties": {}},
             self._list_calendars,
+            brief="Every calendar the account can see",
         )
         self._own(
             "list_calendar_events",
@@ -7631,6 +7786,7 @@ class ToolRegistry:
                 },
             },
             self._list_calendar_events,
+            brief="Events between two times, from every calendar",
         )
         self._own(
             "read_calendar_event",
@@ -7651,6 +7807,7 @@ class ToolRegistry:
                 "required": ["event_id"],
             },
             self._read_calendar_event,
+            brief="One whole event: when, where, call link, guests",
         )
         self._own(
             "create_calendar_event",
@@ -7714,6 +7871,7 @@ class ToolRegistry:
                 "required": ["title", "start"],
             },
             self._create_calendar_event,
+            brief=FAMILY["calendar_events"],
         )
         self._own(
             "update_calendar_event",
@@ -7773,6 +7931,7 @@ class ToolRegistry:
                 "required": ["event_id"],
             },
             self._update_calendar_event,
+            brief=FAMILY["calendar_events"],
         )
         self._own(
             "delete_calendar_event",
@@ -7806,6 +7965,7 @@ class ToolRegistry:
                 "required": ["event_id"],
             },
             self._delete_calendar_event,
+            brief=FAMILY["calendar_events"],
         )
         self._own(
             "restore_calendar_event",
@@ -7838,6 +7998,7 @@ class ToolRegistry:
                 "required": ["event_id"],
             },
             self._restore_calendar_event,
+            brief=FAMILY["calendar_events"],
         )
         self._own(
             "add_shared_calendar",
@@ -7858,6 +8019,7 @@ class ToolRegistry:
                 "required": ["calendar_id"],
             },
             self._add_shared_calendar,
+            brief="Add a calendar shared with the account to its list",
         )
         self._own(
             "create_calendar",
@@ -7881,6 +8043,7 @@ class ToolRegistry:
                 "required": ["name"],
             },
             self._create_calendar,
+            brief="Make a new calendar on the account",
         )
         self._own(
             "share_calendar",
@@ -7921,6 +8084,7 @@ class ToolRegistry:
                 "required": ["calendar", "action"],
             },
             self._share_calendar,
+            brief="Who can see a calendar Rouh made: list, add, change, take away",
         )
 
     def _contact_tools(self) -> None:
@@ -7969,6 +8133,7 @@ class ToolRegistry:
                 "required": ["query"],
             },
             self._search_contacts,
+            brief="Look people up in the person's iCloud contacts",
         )
         self._own(
             "show_contact",
@@ -7991,6 +8156,7 @@ class ToolRegistry:
                 },
             },
             self._show_contact,
+            brief="One contact whole on the screen, with its research",
         )
         self._own(
             "update_contact_profile",
@@ -8046,9 +8212,11 @@ class ToolRegistry:
                 },
             },
             self._update_contact_profile,
+            brief="Rouh's own two fields on a contact: who they are to the person, and research",
         )
         # A pet as a contact of its own, linked to its owners (`rouh/pets.py`).
-        self._own("save_pet", pets.DESCRIPTION, pets.SCHEMA, self._save_pet)
+        self._own("save_pet", pets.DESCRIPTION, pets.SCHEMA, self._save_pet,
+                  brief="Add or change a pet as a contact")
         self._own(
             "save_contact",
             "Writes to the person's real iCloud contacts, which are the ones on their "
@@ -8148,6 +8316,7 @@ class ToolRegistry:
                 },
             },
             self._save_contact,
+            brief="Write to the person's real iCloud contacts",
         )
         self._own(
             "delete_contact",
@@ -8167,6 +8336,7 @@ class ToolRegistry:
                 "required": ["contact_id"],
             },
             self._delete_contact,
+            brief="Delete one real iCloud contact",
         )
         self._own(
             "link_person",
@@ -8203,6 +8373,7 @@ class ToolRegistry:
                 "required": ["person"],
             },
             self._link_person,
+            brief="Say two identities (Slack, email, a name in meeting notes) are one person, or not",
         )
 
     async def _search_contacts(self, args, emit):
@@ -12225,6 +12396,7 @@ class ToolRegistry:
                 "required": ["command"],
             },
             self._run_command,
+            brief="Run a read-only command on the server",
         )
 
     def _declare_assistant_job(self) -> None:
@@ -12296,6 +12468,7 @@ class ToolRegistry:
                 "required": ["request"],
             },
             self._assistant_job,
+            brief="Hand real work and research to a job in the person's workspace",
         )
 
     def _declare_check_tasks(self) -> None:
@@ -12316,6 +12489,7 @@ class ToolRegistry:
                 "properties": {"id": {"type": "string", "description": "One worker, or omit for all."}},
             },
             self._check_tasks,
+            brief=FAMILY["workers"],
         )
 
     def _declare_job_status(self) -> None:
@@ -12335,6 +12509,7 @@ class ToolRegistry:
                     "out for the newest job started from this chat, or the newest anywhere.")}},
             },
             self._job_status,
+            brief="One job or run in one call: state, question, screen, commits, report",
         )
 
     def _declare_improve_myself(self) -> None:
@@ -12368,6 +12543,7 @@ class ToolRegistry:
                 "required": ["change"],
             },
             self._improve_myself,
+            brief="Change Rouh's own code",
         )
 
     def _mcp_caller(self, connection, name: str):
@@ -16364,6 +16540,7 @@ class ToolRegistry:
             "(check_tasks). Use it when asked about the program, 'one', or 'my runs'.",
             {"type": "object", "properties": {}},
             self._one_runs,
+            brief=FAMILY["one_runs"],
         )
         self._own(
             "one_start",
@@ -16391,6 +16568,7 @@ class ToolRegistry:
                 "required": ["brief"],
             },
             self._one_start,
+            brief=FAMILY["one_runs"],
         )
         self._own(
             "one_say",
@@ -16416,12 +16594,14 @@ class ToolRegistry:
                 "required": ["run", "text"],
             },
             self._one_say,
+            brief=FAMILY["one_runs"],
         )
         self._own(
             "one_stop",
             "Stop a run of the one program.",
             {"type": "object", "properties": {"run": run_id}, "required": ["run"]},
             self._one_stop,
+            brief=FAMILY["one_runs"],
         )
         self._own(
             "one_answer",
@@ -16437,6 +16617,7 @@ class ToolRegistry:
                 "required": ["question", "answer"],
             },
             self._one_answer,
+            brief=FAMILY["one_runs"],
         )
         self._own(
             "one_take",
@@ -16445,6 +16626,7 @@ class ToolRegistry:
             "open, the program says so; tell them to open it with 'one attach' and the run's id.",
             {"type": "object", "properties": {"run": run_id}, "required": ["run"]},
             self._one_take,
+            brief=FAMILY["one_runs"],
         )
         self._own(
             "one_give",
@@ -16452,6 +16634,7 @@ class ToolRegistry:
             "they typed and what its screen showed, and carries on.",
             {"type": "object", "properties": {"run": run_id}, "required": ["run"]},
             self._one_give,
+            brief=FAMILY["one_runs"],
         )
 
     async def _one_ask(self, t: str, **fields):
@@ -16899,6 +17082,7 @@ class ToolRegistry:
                 "required": ["task"],
             },
             self._look_into,
+            brief="Send a helper to find something out and bring back a short answer",
         )
 
     async def _look_into(self, args, emit):

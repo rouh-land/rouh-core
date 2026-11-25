@@ -874,6 +874,12 @@ DATASET = {"type": "string", "description": "The name of the dataset to act on, 
                                             "is on (the one open on the screen, or a fork's own)."}
 
 
+#: The lab's tools are one family, so the tool catalogue lists them on one line, in this order
+#: (`rouh/tools.py`, FAMILY).
+LAB_BRIEF = ("The open Synapse dataset: store, make test data, find, edit, delete, ask, why found, "
+             "settings, eval, trace, learn, dreaming, improvements")
+
+
 def declare(registry) -> None:
     """Put the tools on Rouh's registry; `visible` keeps them to Synapse's chats."""
     def own(name, about, schema, fn, **kw):
@@ -883,10 +889,12 @@ def declare(registry) -> None:
     own("synapse_add", "Store items in the open Synapse dataset. Each item's raw text is kept unchanged; "
         "Synapse makes its passages, embedding, X-ray and links, and the debugger shows every step.",
         {"type": "object", "properties": {"items": {"type": "array", "items": ITEM_SCHEMA}}, "required": ["items"]},
-        add, area="synapse")
+        add, area="synapse",
+        brief=LAB_BRIEF)
     own("synapse_generate", "Make up fictional test data and store it in the open Synapse dataset.",
         {"type": "object", "properties": {"description": {"type": "string"}, "count": {"type": "integer"}},
-         "required": ["description"]}, generate, area="synapse")
+         "required": ["description"]}, generate, area="synapse",
+         brief=LAB_BRIEF)
     own("synapse_find", "Find items in the open Synapse dataset that hold every one of these words in their title or "
         "text, in any order, newest first; nothing when none does. One item's id or key as the words gives that item "
         "whole, to read it further. newest: true lists the newest items instead.",
@@ -895,7 +903,8 @@ def declare(registry) -> None:
                                           "limit": {"type": "integer", "description": f"At most this many ({FIND_MOST})."},
                                           "newest": {"type": "boolean", "description": "List the newest items, "
                                                      "with no words."},
-                                          "silo": SILO_FIRST, "scope": SCOPE_FIRST}}, find, area="synapse")
+                                          "silo": SILO_FIRST, "scope": SCOPE_FIRST}}, find, area="synapse",
+                                          brief=LAB_BRIEF)
     own("synapse_edit", "Edit one item of the open Synapse dataset (by title, key or id): new text, title, readers or "
         "sensitivity. Synapse keeps the old version, re-checks its links and rebuilds its X-ray and layers. silos "
         "puts it in the person's silos, by name, when they say so (\"that's family\": [\"Family\"]), the whole set, "
@@ -906,9 +915,11 @@ def declare(registry) -> None:
                                           "sensitivity": {"type": "string", "enum": ["normal", "private", "special"]},
                                           "silos": {"type": "array", "items": {"type": "string"},
                                                     "description": "The silos it is in, by name, as the person said."}},
-         "required": ["item"]}, edit, area="synapse")
+         "required": ["item"]}, edit, area="synapse",
+         brief=LAB_BRIEF)
     own("synapse_delete", "Delete one item of the open Synapse dataset, with everything derived from it.",
-        {"type": "object", "properties": {"item": {"type": "string"}}, "required": ["item"]}, delete, area="synapse")
+        {"type": "object", "properties": {"item": {"type": "string"}}, "required": ["item"]}, delete, area="synapse",
+        brief=LAB_BRIEF)
     own("synapse_query", "Ask the open Synapse dataset a question. In Rouh's chats it hands back what memory "
         "holds on it, numbered for citing, for you to read and answer from: ask again more narrowly, or "
         "synapse_find, for more. In the Synapse chat it also explains the walk (the pack, the stop reason, "
@@ -924,16 +935,19 @@ def declare(registry) -> None:
                                                      "where it is on unless set off: also have Synapse's own answer "
                                                      "model answer it. Rouh's other chats always read the memory "
                                                      "themselves, so it does nothing there."}},
-         "required": ["question"]}, query, area="synapse")
+         "required": ["question"]}, query, area="synapse",
+         brief=LAB_BRIEF)
     own("synapse_why", "Explain why an item was or was not found by a question of the open Synapse dataset "
         "(the newest question unless query_id is given).",
         {"type": "object", "properties": {"item": {"type": "string"}, "query_id": {"type": "string"}},
-         "required": ["item"]}, why, area="synapse")
+         "required": ["item"]}, why, area="synapse",
+         brief=LAB_BRIEF)
     own("synapse_settings", "Read or change the open Synapse dataset's numbers (budget, decay, caps, thresholds, hub "
         "constant, reranker, decision models). set takes {key: value}; reset takes keys to put back to starting values.",
         {"type": "object", "properties": {"set": {"type": "object"}, "reset": {"type": "array", "items": {"type": "string"}},
                                           "show": {"type": "array", "items": {"type": "string"}}}},
-        settings, area="synapse")
+        settings, area="synapse",
+        brief=LAB_BRIEF)
     own("synapse_eval", "The open Synapse dataset's evaluation set: list it, add a question with its gold items, run "
         "it (presets: current, without, with, background), or read the latest results, with each preset's per-step "
         "and per-call timing and each question's trace.",
@@ -945,15 +959,18 @@ def declare(registry) -> None:
                                           "presets": {"type": "array", "items": {"type": "string"}},
                                           "run": {"type": "string", "description": "With results: the run's id or "
                                                   "its first characters; the latest run when left out."}}},
-        eval_tool, area="synapse")
+        eval_tool, area="synapse",
+        brief=LAB_BRIEF)
     own("synapse_trace", "Read any past trace of the open Synapse dataset step by step, with where the time went: "
         "every step's ms and status, every model, embedding, decision and database call under it (backend, model, "
         "ms, tokens, cost, run in sequence or in parallel), and the overhead no step accounts for. trace is a trace "
         "id, a question id or an evaluation run id (or the first characters of one), or 'latest question' or "
         "'latest eval'. Read only.",
-        {"type": "object", "properties": {"trace": {"type": "string"}}}, trace_tool, area="synapse")
+        {"type": "object", "properties": {"trace": {"type": "string"}}}, trace_tool, area="synapse",
+        brief=LAB_BRIEF)
     own("synapse_learn", "Apply the usage feedback to the open Synapse dataset's link strengths (D57).",
-        {"type": "object", "properties": {}}, learn, area="synapse")
+        {"type": "object", "properties": {}}, learn, area="synapse",
+        brief=LAB_BRIEF)
     own("synapse_dream", "Dreaming, Synapse's nightly pass that compares items over time (01:00 on Master, on Clockwork): "
         "action read (the default) reads a night, night latest or a number: what it read, what it marked replaced or "
         "closed, the duplicates, rules that are facts and sensitivity it keeps waiting, the contradictions it found, "
@@ -962,7 +979,8 @@ def declare(registry) -> None:
         "the lab's Dreams page.",
         {"type": "object", "properties": {"action": {"type": "string", "enum": ["read", "waiting", "run"]},
                                           "night": {"type": "string", "description": "latest, or a night's number."}}},
-        dream_tool, area="synapse")
+        dream_tool, area="synapse",
+        brief=LAB_BRIEF)
     registry._own("synapse_improvements", "The attempts to make Synapse better, one a night at 02:00 plus the ones "
                   "task 85 documented: with no attempt, the list newest first; with attempt (a number, or latest for "
                   "last night's), everything about one: the ideas considered, the one chosen and why, the hypothesis, "
@@ -971,7 +989,8 @@ def declare(registry) -> None:
                   {"type": "object", "properties": {
                       "attempt": {"type": "string", "description": "A number, or latest for last night's."},
                       "limit": {"type": "integer", "description": "How many to list, newest first (30)."}}},
-                  improvements_tool, area="synapse")
+                  improvements_tool, area="synapse",
+                  brief=LAB_BRIEF)
 
 
 def dream_tool(args, emit=None):
