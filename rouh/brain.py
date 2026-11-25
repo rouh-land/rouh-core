@@ -1053,6 +1053,13 @@ class Brain:
         off = frozenset(reads.get("off") or ())
         personal = [] if demo.on_stage() else _rules_parts(self.memory, situation, locked_only=not reads["rules"],
                                                             off=off, remembers=reads["memory"])
+        # The rules for particular people are chosen by who the conversation names, so they change the moment
+        # somebody new is mentioned. In the cached part they rewrote the whole cache, instructions and tools
+        # included: a follow-up 24 seconds after a turn that read a file naming Irena read nothing back (task
+        # 182, step 182-24, request 826244). They are told with this turn's own context instead, after the
+        # conversation, where a change costs nothing in front of it.
+        people = [(w, m) for w, m in personal if m.get("key") == "rules:people"]
+        personal = [(w, m) for w, m in personal if m.get("key") != "rules:people"]
         allow = (lambda r: reading.rule_told(r, reads))
         values = {"own_mail": mine, "rouh_name": born[0] if born else "", "born_day": born[1] if born else "",
                   "rouh_nickname": nick,
@@ -1173,6 +1180,8 @@ class Brain:
         # between typing and talking reads the rest from the cache, and last because the model reads the end
         # of a system prompt best, which matters most for the mark on the very first character of a reply.
         turn.at(REPLY_RULES_AT)
+        for words, meta in people:
+            turn.add(words, kind="personal", **meta)
         try:
             for words, meta in ([] if demo.on_stage() else _reply_parts(mode.reply, situation,
                                                                         locked_only=not reads["rules"], off=off)):
