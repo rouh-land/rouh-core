@@ -107,7 +107,21 @@ async def healthz(request: HttpRequest):
         # The same commit said in full: date, branch, and whether the tree it
         # was built from had been edited.
         "git": get_version(),
+        # Whether this Rouh's update can follow a rewrite of shared main's
+        # history, and whether it has (task 98, step 98-26): only yes or no, so
+        # whoever rewrites it can see from outside which Rouhs are ready.
+        "updates": _updates_said(),
     })
+
+
+def _updates_said() -> dict:
+    from rouh import code_evolution, code_update
+
+    try:
+        followed = (code_update.folder() / "history-map.json").exists()
+    except Exception:  # noqa: BLE001 - only a yes or no
+        followed = False
+    return {"follows_history_rewrite": hasattr(code_evolution, "follow_rewrite"), "history_rewrite_followed": followed}
 
 
 def _database_state() -> dict:
