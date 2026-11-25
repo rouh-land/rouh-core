@@ -607,7 +607,7 @@ html:not(.js) .hp-panel[hidden] { display: block; }
        told how to trust them. The line on why is kept for a case with no asks, where nothing
        below says it.{% endcomment %}
     {% if implicit %}
-    <p class="muted small case-who" id="caseWho">{{ contact.name }} is not on your Trusted contacts, so Rouh has Communication only with them, which everybody has. <a href="{{ route }}">Trust them</a> to give them your tasks or Rouh for themselves.</p>
+    <p class="muted small case-who" id="caseWho">{{ contact.name }} is not on your Trusted contacts, so Rouh does not answer them. <a href="{{ route }}">Trust them</a> to let Rouh write back to them, or give them more.</p>
     {% elif contact and not contact.trusted %}
     <p class="muted small case-who" id="caseWho">{{ contact.name }} is <strong>no longer trusted</strong>. <a href="{{ route }}{% if contact.id %}/{{ contact.id }}{% endif %}">Change it</a></p>
     {% endif %}

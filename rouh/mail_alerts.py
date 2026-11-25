@@ -1867,8 +1867,8 @@ class MailAlerts:
         """Somebody else's email: skipped as junk, or its case opened (or found) and carried on.
 
         A contact on the Trusted contacts page is theirs, switched on or off;
-        anybody else is the implicit contact with communication only
-        (`trusted.implicit`). Somebody using one of the owner's own addresses
+        anybody else is the implicit contact, who holds nothing and gets no answer at all
+        (`trusted.implicit`, G3): their case rests at once, left for the owner. Somebody using one of the owner's own addresses
         without Gmail's word for it is refused on the spot, and is never
         handed their own contact. A message the old path had already answered,
         from before there was one path, is never answered again.
@@ -2094,8 +2094,9 @@ class MailAlerts:
                 self.people.by_address, user_id, org_id, address)
                 if not await self._db(my_card.is_my_card, user_id, org_id, one)]
             contact = trust.implicit(address, name, known[0].id if len(known) == 1 else "")
-        # No conversation for a pretender: nothing reads it but the owner, on its page.
-        chat = "" if pretender else await self._chat_for(who, message)
+        # No conversation for a pretender, or for somebody not on the Trusted contacts, whom Rouh
+        # does not answer (G3): nothing reads it but the owner, on its page.
+        chat = "" if pretender or contact.implicit else await self._chat_for(who, message)
         await self._db(self.store.record, user_id, org_id, message_id, stage=HANDLING,
                        chat_id=chat, thread_id=message.get("thread_id") or "",
                        from_petar=False,

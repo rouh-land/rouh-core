@@ -302,7 +302,10 @@ def _sign_in(page, base: str, user: str, password: str) -> None:
     # The password's own form's button: the page may hold another form above it (the email's code).
     own = pw.first.locator("xpath=ancestor::form[1]//button[@type='submit']")
     (own if own.count() else page.locator("button[type=submit]:visible")).first.click()
-    page.wait_for_url(lambda u: "/login" not in u, timeout=20000)
+    # Off the sign-in page as soon as the address changes; the page it lands on may take minutes to
+    # finish loading in a test world still indexing its workspace, so its load gets longer.
+    page.wait_for_url(lambda u: "/login" not in u, timeout=20000, wait_until="commit")
+    page.wait_for_load_state("load", timeout=300000)
 
 
 def _outside(url: str, base: str) -> bool:

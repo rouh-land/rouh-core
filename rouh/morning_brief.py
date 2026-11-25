@@ -123,11 +123,16 @@ DEFAULTS = {"on": True, "time": "07:00", "place": "", "lat": None, "lon": None}
 NO_PLACE = ("No location is set, so there is no weather. Share your location in Settings, "
             "under Location, and the next brief has it.")
 
-#: The YouTube channels the AI news is read from until the person names theirs:
-#: none. The first owner's three favourites (29 September 2026) were the
-#: default for everybody until 20 October 2026; they are in his own settings
-#: now, and a new owner starts with an empty list (SETUP.md).
-CHANNELS: list[dict] = []
+#: The YouTube channels the AI news is read from until the person names theirs: three
+#: public AI channels, the first owner's picks of 29 September 2026. From 20 October to
+#: 25 November 2026 a new owner started with none; Petar, 25 November 2026 (task 98, gap
+#: G16), kept them as the default for everybody, since they are public channels and the
+#: AI news is empty without any (SETUP.md).
+CHANNELS: list[dict] = [
+    {"name": "Matt Wolfe", "id": "UChpleBmo18P08aKCIgti38g", "handle": "@mreflow"},
+    {"name": "Matthew Berman", "id": "UCawZsQWqfGSbCI5yjkdVkTA", "handle": "@matthew_berman"},
+    {"name": "The AI Grid", "id": "UCbY9xX3_jW5c2fjlZVBI4cg", "handle": "@TheAiGrid"},
+]
 MOST_CHANNELS = 8
 
 #: Which way the brief's parts are kept. A brief kept in an older shape is not

@@ -409,10 +409,43 @@ def case_path(key: str) -> str:
     return f"/mail/case/{key}"
 
 
+#: What a turn for a Communication-only contact is told (Petar, 25 November 2026, gap G3); what
+#: holds is `mail_turn.COMMUNICATION_WITHHELD` and `MailTurn.thread_only`.
+COMMUNICATION_ONLY_SAID = (
+    "They hold Communication only: general communication, with no private data. Read this "
+    "thread with them and public web pages, and answer from those and from what they wrote. "
+    "Never read or say anything from ‹owner›'s calendar, contacts or other mail, or anything "
+    "private of ‹his›; an ask that needs it waits for ‹owner›, named in case_report.")
+
+
+def communication_only(who, contact: trust.Trusted | None, tree, delegate=()) -> bool:
+    """Whether a listed, switched-on contact holds Communication and nothing more: no task level,
+    no Rouh for themselves, no inbox, no other grant, no grant of their own in force, no
+    authority to decide, and no task shared with them. Their case's turn then reads only its own
+    thread and public pages (`mail_turn.COMMUNICATION_WITHHELD`). Anybody holding more keeps
+    what they hold."""
+    if contact is None or contact.implicit or not contact.trusted:
+        return False
+    if delegate:
+        return False
+    if tree.held(contact) - {tree.resolve("communicate") or "communicate"}:
+        return False
+    from . import capabilities
+
+    if any(g.get("state") == capabilities.ACTIVE for g in getattr(contact, "cap_grants", None) or []):
+        return False
+    from . import task_access
+
+    with contextlib.suppress(Exception):
+        if task_access.for_judge(who, contact):
+            return False
+    return True
+
+
 def who_they_are(contact: trust.Trusted | None) -> str:
     """Which kind of sender a case is about, in a few words."""
     if contact is None or contact.implicit:
-        return "not on the Trusted contacts, so Communication only"
+        return "not on the Trusted contacts, so Rouh does not answer them"
     return "a trusted contact" if contact.trusted else "a contact you switched off"
 
 
@@ -887,8 +920,8 @@ def _grants_said(contact: trust.Trusted, tree) -> str:
 
     found, lock = capabilities.catalogue(), capabilities.read_lock()
     if contact.implicit:
-        return ("They are not on ‹owner›'s Trusted contacts: they hold communication.reply and "
-                "nothing else.")
+        return ("They are not on ‹owner›'s Trusted contacts: they hold nothing, and Rouh does not "
+                "answer them.")
     if not contact.trusted:
         return "‹owner› listed them and switched them off: they hold nothing."
     keys = capability_grants.held_keys(contact, tree)
@@ -1499,6 +1532,11 @@ class CaseDesk:
         if made and refuse:
             await self._refused(who, case_id, refuse)
             return case_id
+        if contact.implicit:
+            case = await self._db(self.store.get, who.user_id, who.org_id, case_id)
+            if case is not None and case.stage == NEW and not case.instruction:
+                await self._left_for_owner(who, case)
+                return case_id
         if made:
             case = await self._db(self.store.get, who.user_id, who.org_id, case_id)
             target = await self._db(self._same_forward, who, case)
@@ -1510,6 +1548,20 @@ class CaseDesk:
         else:
             await self.advance(who, case_id)
         return case_id
+
+    async def _left_for_owner(self, who, case) -> None:
+        """Somebody not on the Trusted contacts: no reply at all, not even an automatic one, and
+        no model reads it (Petar, 25 November 2026, task 98, gap G3). It rests, with nothing to
+        decide, and stays unread in the inbox for the owner."""
+        said = (f"Left for you: {case.sender_name or case.sender or 'the sender'} is not on your "
+                "Trusted contacts, so Rouh does not answer them. Nothing of it was read by a "
+                "model, and nothing was sent.")
+        await self._db(self.store.put, who.user_id, who.org_id, case.id, route="stranger",
+                       outcome=said[:MAX_TEXT])
+        await self._db(self.store.move, who.user_id, who.org_id, case.id, DONE, said,
+                       turn_started_at=0)
+        self._live.pop(case.id, None)
+        await self._seen(who, case.id)
 
     async def _refused(self, who, case_id: int, why: str) -> None:
         """A message claiming to be the owner's own without Gmail's word: nothing of it is read or
@@ -1757,6 +1809,15 @@ class CaseDesk:
         await self._seen(who, case.id)
         converse = self.alerts.converse
         chat = case.chat_id
+        if not chat and converse is not None and getattr(self.alerts, "open_chat", None):
+            # A stranger's case opens no conversation as it arrives (G3); one the owner sends to
+            # be read after all gets its conversation now.
+            from .mail_alerts import chat_title
+
+            with contextlib.suppress(Exception):
+                chat = await self.alerts.open_chat("", chat_title(case.email or {})) or ""
+            if chat:
+                await self._db(self.store.put, who.user_id, who.org_id, case.id, chat_id=chat)
         if converse is None or not chat:
             await self._failed(who, case.id, "Rouh's conversation could not be opened here, so "
                                              "nobody could read the message.")
@@ -1832,6 +1893,11 @@ class CaseDesk:
         delegate = tuple(await self._db(delegation.case_tools, who, contact)) \
             if contact.trusted else ()
         extra = tools + delegate
+        # Communication and nothing more: general communication with no private data (G3).
+        talk_only = channel_of(case) != "slack" and await self._db(
+            communication_only, who, contact, tree, delegate)
+        if talk_only:
+            text += "\n\n" + COMMUNICATION_ONLY_SAID
         if mode == "carry_out" and delegate:
             # Deciding for the owner on a task: delegate_act checks the sender, their words and
             # the scope itself, every time (DELEGATION.md).
@@ -1872,7 +1938,9 @@ class CaseDesk:
             link=self.page_link(case.key), mode=mode, case_id=case.id,
             trusted_id=contact.id, extra_tools=extra, granted=True, limits=limits,
             task_edits=edits, calendars=calendars, sees=getattr(contact, "sees", None),
-            withheld=mail_turn.SLACK_WITHHELD if channel_of(case) == "slack" else frozenset(),
+            withheld=mail_turn.SLACK_WITHHELD if channel_of(case) == "slack" else
+            mail_turn.COMMUNICATION_WITHHELD if talk_only else frozenset(),
+            thread_only=talk_only,
             authorized=authorized, case_key=case.key, owner_limits=owner_limits,
             on_outcome=self._outcome_taker(who, case.id, mode, attempts, case.attempt_no))
         self._live[case.id] = time.time()

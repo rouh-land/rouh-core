@@ -51,13 +51,21 @@ Three rules hold everything here:
   one permission record (`rouh/task_access.py`): deciding includes editing and
   reading, everywhere they are let in.
 
-**Everybody else has the baseline.** Petar, 30 September 2026, when the two
-ways of handling other people's email became one (`rouh/mail_cases.py`):
-"Rouh should be able to handle the normal communication with vendors, partners
-etc. I will approve people only if I want to grant them extra data, Rouh
-capabilities etc." So a sender who is not listed here is an implicit contact
-with `BASELINE` - communication only (`implicit`). A contact listed here and switched off is not
-implicit: everything from them waits for him, as the page says.
+**Everybody else gets no answer.** Petar, 25 November 2026 (task 98, gap G3):
+"strangers don't get replies at all. communication means general communication
+without private data. settled." So a sender who is not listed here is an implicit
+contact (`implicit`) with `BASELINE`, which is nothing: Rouh never answers them,
+not even automatically, and their email is left for the owner, unread by any model
+(`mail_cases.CaseDesk.take`). Being in the phone's contacts trusts nobody. This
+replaces Petar's 30 September 2026 "Rouh should be able to handle the normal
+communication with vendors, partners etc.", which gave every stranger Communication.
+A contact listed here and switched off is not implicit: everything from them waits
+for him, as the page says.
+
+Communication itself, for a trusted contact who holds nothing more, is general
+communication with no private data: their case reads its own thread with them and
+public web pages, and never the owner's calendar, contacts or other mail
+(`mail_turn.COMMUNICATION_WITHHELD`, `mail_cases.communication_only`).
 
 Every query names the person and the organisation (`AGENTS.md`, "Whose data is
 it").
@@ -95,9 +103,10 @@ LEVELS: dict[str, tuple[str, str]] = {
 }
 ORDER = tuple(LEVELS)
 
-#: What everybody who is not a trusted contact has: Rouh answers them, and no
-#: more. Trusting somebody is how they get the owner's tasks, or Rouh for themselves.
-BASELINE = ("communicate",)
+#: What everybody who is not a trusted contact has: nothing, so Rouh does not answer them
+#: (Petar, 25 November 2026, gap G3). Trusting somebody is how they get Communication, the
+#: owner's tasks, or Rouh for themselves.
+BASELINE: tuple[str, ...] = ()
 
 #: The tools each level adds to a case's turn beyond what every turn about an
 #: email may read (`mail_turn.MAY_USE`). A case's own two tools
@@ -347,7 +356,7 @@ class Trusted:
 
 
 def implicit(address: str, name: str = "", contact_id: str = "") -> Trusted:
-    """Somebody the owner has not listed: this one address, with `BASELINE` and nothing else.
+    """Somebody the owner has not listed: this one address, with `BASELINE`, which is nothing.
 
     `contact_id` is who Rouh knows them as (`people.Person.id`), for what he
     said about them; it grants nothing.

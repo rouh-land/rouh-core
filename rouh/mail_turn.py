@@ -78,6 +78,15 @@ SLACK_WITHHELD = frozenset({"read_mail", "read_mail_attachment", "read_recent_ma
                             "list_calendar_events", "read_calendar_event", "search_contacts",
                             "show_contact", "update_contact_profile"})
 
+#: What a case of a trusted contact who holds Communication and nothing more never reads (Petar,
+#: 25 November 2026, task 98, gap G3): "communication means general communication without private
+#: data". Such a turn reads its own thread with that sender (`MailTurn.thread_only`) and public
+#: web pages, and answers; never the owner's calendar, their contacts, or anybody else's mail in
+#: Rouh's inbox. A contact with any grant beyond Communication is not held to this.
+COMMUNICATION_WITHHELD = frozenset({"read_recent_mail", "list_calendars", "list_calendar_events",
+                                    "read_calendar_event", "search_contacts", "show_contact",
+                                    "update_contact_profile"})
+
 #: The tool a Slack case reads the owner's meetings, tasks and files with, kept to what everybody
 #: reading the answer may see (`slack_team.find`).
 TEAM_FIND = "find_for_them"
@@ -215,6 +224,9 @@ class MailTurn:
     recorded: list[dict] = field(default_factory=list)
     #: What this turn may never call, whatever else allows it: on a Slack case, `SLACK_WITHHELD`.
     withheld: frozenset = frozenset()
+    #: Mail may be read only out of this turn's own thread (`thread_id`): a Communication-only
+    #: contact's case (`COMMUNICATION_WITHHELD`).
+    thread_only: bool = False
     #: What the work of this turn may do, as Rouh's code authorised it for the asks it starts
     #: (CAPABILITIES.md): each {"capability", "scope", "limits", "values", "ref", "grant_id",
     #: "once", "ask"}. Every call of a case's work is checked against these, on its actual
@@ -281,10 +293,27 @@ def now() -> MailTurn | None:
     return CURRENT.get()
 
 
+def outside_thread(thread_id: str) -> str:
+    """Why a message may not be read in this turn, or "": a Communication-only case reads only
+    its own thread with that sender."""
+    turn = now()
+    if turn is None or not turn.mode or not turn.thread_only:
+        return ""
+    if turn.thread_id and thread_id == turn.thread_id:
+        return ""
+    return ("That message is not in this thread with them. They hold Communication only, so "
+            "only their own thread is read for them, never anybody else's mail.")
+
+
 def refused(name: str) -> str:
     """Why a tool is not there in a turn about somebody else's email."""
     turn = now()
     if turn is not None and turn.mode:
+        if name in turn.withheld and turn.thread_only:
+            return (f"{name} is not available here: they hold Communication only, which is "
+                    "general communication with no private data. Read this thread with them and "
+                    "public web pages, and answer from those; never ‹owner›'s calendar, contacts "
+                    "or anybody else's mail.")
         if name in turn.withheld:
             return (f"{name} is not available in a case that came on Slack: nothing from "
                     "‹owner›'s mail, calendar or contacts goes into an answer to somebody else.")
@@ -303,6 +332,6 @@ def refused(name: str) -> str:
             "change or reach something beyond this email.")
 
 
-__all__ = ["ASSESS", "ASSESS_READS", "CARRY_OUT", "CASE_ONLY", "CURRENT", "DRY_READS", "EFFECTS",
+__all__ = ["ASSESS", "ASSESS_READS", "CARRY_OUT", "CASE_ONLY", "COMMUNICATION_WITHHELD", "CURRENT", "DRY_READS", "EFFECTS",
            "GRANT_TOOLS", "MAY_USE", "MailTurn", "NEVER_IN_CASE", "OUTCOME_TOOL", "SLACK_WITHHELD", "TEAM_FIND",
-           "now", "refused"]
+           "now", "outside_thread", "refused"]

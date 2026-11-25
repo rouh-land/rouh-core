@@ -67,10 +67,10 @@
     {"case": 26, "who": "sam", "what": "Telegram: email me the deck's link", "asks": [
       {"ask": "could you email me the link to the deck?", "label": "the deck's link by email", "grant": "none", "expect": "allowed"}]},
     {"case": 27, "who": "robin", "what": "Robin: trial access for a client firm", "asks": [
-      {"ask": "the reset link worked and I can sign in again, thanks", "grant": "none", "expect": "allowed"},
+      {"ask": "the reset link worked and I can sign in again, thanks", "grant": "none", "expect": "waiting_for_owner"},
       {"ask": "the usual trial account you would give a firm trying out the rota app", "label": "trial access for Quillon", "hard_limit": "accounts", "expect": "waiting_for_owner"}]},
     {"case": 28, "who": "robin", "what": "Robin: when is Alex back, to plan a meeting with Marrow & Co", "asks": [
-      {"ask": "Tell Alex I hope the Fairhaven pitch goes well", "grant": "none", "expect": "allowed"},
+      {"ask": "Tell Alex I hope the Fairhaven pitch goes well", "grant": "none", "expect": "waiting_for_owner"},
       {"ask": "let me know when he is back so I can set up a meeting with Marrow & Co", "label": "when Alex is back", "new_grant": {"name": "Alex's schedule", "description": "Telling a contact when Alex is away or back.", "suggestion": "independent", "prompt": "Telling the contact where Alex is and when he is back."}, "expect": "waiting_for_owner"}]},
     {"case": 29, "who": "jordan", "what": "Research: which bookkeeping software for a small studio", "asks": [
       {"ask": "I need thorough research on this, plus a recommendation and the pros and cons", "label": "the bookkeeping software research and recommendation", "grant": "use", "expect": "allowed"},
@@ -151,7 +151,7 @@
     {"name": "deleting waits", "who": "sam", "asks": [{"ask": "Delete the old cabin weekend task", "hard_limit": "irreversible", "expect": "waiting_for_owner"}]},
     {"name": "committing his time waits", "who": "robin", "asks": [{"ask": "Put a meeting with Marrow & Co in his calendar for Thursday", "hard_limit": "time", "expect": "waiting_for_owner"}]},
     {"name": "work for somebody not trusted waits", "who": "robin", "asks": [{"ask": "Can you research Marrow & Co's founders for me", "grant": "use", "expect": "waiting_for_owner"}]},
-    {"name": "an answer for somebody not trusted goes", "who": "robin", "asks": [{"ask": "Thanks for the update", "grant": "none", "expect": "allowed"}]},
+    {"name": "an answer for somebody not trusted waits: strangers get no reply (G3, 25 November 2026)", "who": "robin", "asks": [{"ask": "Thanks for the update", "grant": "none", "expect": "waiting_for_owner"}]},
     {"name": "a contact switched off waits for everything", "who": "switched_off", "asks": [{"ask": "What time is it there now?", "grant": "none", "expect": "waiting_for_owner"}, {"ask": "Research hotels", "grant": "use", "expect": "waiting_for_owner"}]},
     {"name": "an unconfirmed sender waits for everything", "who": "sam", "identity_ok": false, "asks": [{"ask": "What time is it there now?", "grant": "none", "expect": "waiting_for_owner"}]},
     {"name": "a grant not there yet waits, proposed", "who": "sam", "asks": [{"ask": "Keep my shopping lists", "new_grant": {"name": "Shopping lists", "description": "Lists she keeps.", "suggestion": "independent", "prompt": "Keeping her shopping lists."}, "expect": "waiting_for_owner"}]},

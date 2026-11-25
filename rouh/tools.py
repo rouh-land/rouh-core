@@ -8855,11 +8855,18 @@ class ToolRegistry:
         asked, refused = await self._whose(args, default="", reading=True)
         if refused:
             return refused
+        turn = mail_turn.now()
+        own_thread = turn is not None and turn.thread_only
+        if own_thread and asked not in ("", inboxes.ROUH):
+            # Communication only: their own thread in Rouh's inbox, and nothing of the owner's.
+            return untrusted.ours(mail_turn.outside_thread(""))
         if asked not in ("", inboxes.ROUH):
             return await self._read_theirs(message_id, asked,
                                            access=await self._case_access())
         blocked = self.google.not_ready_because()
         if blocked:
+            if own_thread:
+                return blocked
             if asked == "" and await asyncio.to_thread(inboxes.theirs, self.google.person()):
                 return await self._read_theirs(message_id, inboxes.PERSON)
             return blocked
@@ -8869,10 +8876,13 @@ class ToolRegistry:
         except Exception as exc:
             # Not in Rouh's inbox, and which inbox was not said: it may be in
             # the person's own, where read_recent_mail found it.
-            if asked == "" and _missing(exc) and await asyncio.to_thread(
+            if asked == "" and _missing(exc) and not own_thread and await asyncio.to_thread(
                     inboxes.theirs, self.google.person()):
                 return await self._read_theirs(message_id, inboxes.PERSON)
             return _google_trouble(exc)
+        outside = mail_turn.outside_thread(str(found.get("thread_id") or ""))
+        if outside:
+            return untrusted.ours(outside)
         text = _mail_text(found) + await self._invites_in(gmail, found)
         files = _mail_files(found)
         # Petar, 26 September 2026: "if you read the contents of an email you
@@ -8979,6 +8989,19 @@ class ToolRegistry:
         if refused:
             return refused
         mine = asked in ("", inboxes.ROUH)
+        turn = mail_turn.now()
+        if turn is not None and turn.thread_only:
+            # Communication only: a file of their own thread in Rouh's inbox, and nothing else.
+            if not mine:
+                return untrusted.ours(mail_turn.outside_thread(""))
+            try:
+                held = await self.google.services().gmail.message(message_id)
+            except Exception as exc:  # noqa: BLE001 - said as Google said it
+                return untrusted.ours(str(_google_trouble(exc)))
+            outside = mail_turn.outside_thread(str(held.get("thread_id") or ""))
+            if outside:
+                return untrusted.ours(outside)
+            asked = inboxes.ROUH
         access = None if mine else await self._case_access()
         if access is not None:
             why = await self._file_reach(access, message_id, asked)

@@ -466,6 +466,12 @@ def judge(asks: list[Ask], contact, tree, *, identity_ok: bool = True,
         if switched_off:
             a.status, a.why = WAITING, f"{name} is switched off on your Trusted contacts."
             continue
+        if implicit:
+            # Petar, 25 November 2026 (gap G3): strangers get no reply at all, so nothing of
+            # theirs goes without the owner.
+            a.status, a.why = WAITING, (f"{name} is not on your Trusted contacts, so Rouh does "
+                                        "not answer them: it is yours.")
+            continue
         if a.task:
             ok, why = _task_holds(a, tasks, first)
             if not ok:
@@ -1019,17 +1025,28 @@ SAID = {
            "sign": "Rouh, асистентът на {owner}"},
 }
 
-#: The languages the owner's name is written in its own way in, each with the setting that
-#: says how: pairs of "<name>=<how this language writes it>", separated by commas, such as
-#: ROUH_OWNER_NAMES_BG="Alex=Алекс". Nobody's name is written here: a name with no pair is
-#: written as it is.
-OWNER_NAMES_SETTING = {"bg": "ROUH_OWNER_NAMES_BG"}
+#: The setting that says how a language writes the owner's name, for any language Rouh writes
+#: letters in: ROUH_OWNER_NAMES_<code>, the code upper-cased, holding pairs of
+#: "<name>=<how this language writes it>" separated by commas, such as
+#: ROUH_OWNER_NAMES_BG="Alex=Алекс" or ROUH_OWNER_NAMES_DE="Alex=Alexander". Nobody's name is
+#: written here: a name with no pair is written as it is (Petar, 25 November 2026, gap G16).
+OWNER_NAMES_PREFIX = "ROUH_OWNER_NAMES_"
+
+
+def owner_names_setting(lang: str) -> str:
+    """The setting for this language's spelling of the owner's name, or "" for no language."""
+    code = str(lang or "").strip().lower()
+    return f"{OWNER_NAMES_PREFIX}{code.upper()}" if re.fullmatch(r"[a-z]{2,3}", code) else ""
 
 
 def owner_in(lang: str, owner: str) -> str:
-    """The owner's name as a language writes it, from the installation's setting, else as it is."""
-    setting = OWNER_NAMES_SETTING.get(lang)
-    if not setting or not owner:
+    """The owner's name as a language writes it, from the installation's setting, else as it is.
+    With no name it is "‹owner›", which says their name where the text leaves Rouh, or "the
+    owner" when nobody is known (`rouh/owner.py`)."""
+    if not owner:
+        return "‹owner›"
+    setting = owner_names_setting(lang)
+    if not setting:
         return owner
     from .config import _env
 

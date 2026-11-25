@@ -334,6 +334,10 @@ def of(stage: str, asks: list[ledger.Ask], *, live: Live | None = None,
         return State(stage, CUT_SHORT, "warn", said, waits_on="Rouh's sweep", asks=asks)
     rest = ledger.rest_stage(asks) if stage in LEDGER_RESTS else stage
     line = ledger.why_line(asks, tree=tree, contact_name=contact_name)
+    if rest == DONE and not ledger.live(asks) and outcome:
+        # Nothing was asked of it, and it says what became of it: a stranger's email left for
+        # the owner (G3), or one that needed nothing.
+        line = outcome
     if rest != AWAITING:
         words = STAGE_WORDS.get(rest, rest)
         if rest == DONE and any(a.status == ledger.STARTED for a in ledger.live(asks)):

@@ -408,8 +408,8 @@ class Tree:
     def held(self, contact) -> set[str]:
         """Every grant this contact holds now: what was given them and every sub grant under it.
 
-        Somebody not on the Trusted contacts holds Communication and nothing under
-        it, and a contact switched off holds nothing. The inbox is held as its reach
+        Somebody not on the Trusted contacts holds `trusted.BASELINE`, which is nothing since
+        25 November 2026, and a contact switched off holds nothing. The inbox is held as its reach
         says, and how far is still the contact page's (`trusted.INBOX_SCOPES`).
         """
         out = self.given(contact)

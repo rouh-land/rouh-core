@@ -79,6 +79,9 @@ class Service:
     page: str = ""                # a page of its own that sets it instead (Telegram)
     restart: str = ""             # what still waits for a restart, if anything
     links: tuple = field(default_factory=tuple)
+    #: Shown on the page only to a Rouh that already has it set (`listed`): a service of one
+    #: owner's own, such as the meeting library, which a new install has no use for (task 98, G16).
+    only_if_set: bool = False
 
 
 # --- the checks: each asks the service itself, and says nothing of what was typed -------------
@@ -443,7 +446,7 @@ SERVICES: tuple[Service, ...] = (
             fields=(Field("MEETING_LIBRARY_URL", "Address", secret=False, placeholder="https://notes.example.com"),
                     Field("MEETING_LIBRARY_KEY", "Key", placeholder="ml_..."),
                     Field("MEETING_LIBRARY_WEBHOOK_SECRET", "Webhook secret", required=False)),
-            check=_check_meetings),
+            check=_check_meetings, only_if_set=True),
     Service("workspace", "Your workspace's own repository", "Your tasks and pages kept in a private repository "
             "of yours as well, level both ways.",
             steps=("Make a private repository, and a fine-grained token with Contents: read and write on it alone.",),
@@ -600,12 +603,20 @@ def _checks() -> dict:
         return {}
 
 
+def listed(s: Service) -> bool:
+    """Whether the Keys page lists this service: always, unless it is one only a Rouh that
+    already has it set keeps (`Service.only_if_set`)."""
+    return not s.only_if_set or any(_source(f.name) for f in s.fields)
+
+
 def public(who) -> dict:
     """Everything the page shows. Never a secret: that it is set, its last four and when."""
     rows = _rows(fresh=True)
     checks = _checks()
     out = []
     for s in SERVICES:
+        if not listed(s):
+            continue
         fields = []
         for f in s.fields:
             row = rows.get(f.name)
@@ -632,6 +643,8 @@ def status_line() -> str:
     """What a tool may say of them: which are set and from where, never a value."""
     parts = []
     for s in SERVICES:
+        if not listed(s):
+            continue
         req = [f for f in s.fields if f.required]
         if all(value(f.name) for f in req):
             parts.append(f"{s.name}: set" + (" in Settings" if any(_rows().get(f.name) for f in s.fields)
