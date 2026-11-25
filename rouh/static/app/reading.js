@@ -471,7 +471,7 @@ function contentPaint(d) {
   if (d.tree && d.tree.length) cpop.appendChild(treePaint(d.tree));
 
   // What is read now: what the choices bring in, each with its size, and what is too much to read whole.
-  var read = (d.items || []).filter(function (it) { return it.kind !== 'fork' && it.kind !== 'parent' && it.kind !== 'self'; });
+  var read = (d.items || []).filter(function (it) { return it.kind !== 'fork' && it.kind !== 'parent' && it.kind !== 'self' && it.kind !== 'cases'; });
   if (read.length) {
     var sec2 = sec(d.outlined ? 'What is read now · ' + d.outlined + ' of ' + read.length + ' as outlines'
       : 'What is read now · all ' + read.length + ' read whole');
