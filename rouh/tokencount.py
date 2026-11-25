@@ -171,8 +171,17 @@ def instructions(s: str) -> int:
     return round(text(s) * INSTRUCTIONS) if s else 0
 
 
+#: Anthropic's own tools, which a request names in a line and the API sends as its own long description
+#: (measured 25 November 2026, each alone, the preamble taken off): web search and web fetch.
+SERVER_TOOLS = {"web_search": 2_440, "web_fetch": 1_483}
+
+
 def definition(tool: dict) -> int:
     """One tool's definition, sent in full or found by a search."""
+    kind = str((tool or {}).get("type") or "")
+    for prefix, n in SERVER_TOOLS.items():
+        if kind.startswith(prefix):
+            return n
     body = {k: v for k, v in (tool or {}).items() if k not in ("defer_loading", "cache_control")}
     return round(text(json.dumps(body, ensure_ascii=False)) * DEFINITION)
 
