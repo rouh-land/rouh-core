@@ -173,8 +173,8 @@ ITEMS: tuple[Item, ...] = (
          "A run each night that tidies Rouh's code.",
          ("off", "on"), money="a paid run some nights; not measured"),
     Item("nightly_feature", "job", "Nightly feature run (04:30)",
-         "Builds new Rouh features each night and ships them.",
-         ("off", "on"), money="up to $100 a night, $3,000 a month"),
+         "Builds new Rouh features each night, as changes to Rouh's own code, and ships each on trial.",
+         ("off", "on"), money="up to $100 a night with the card in the vault, and nothing without one"),
     Item("gene_log", "job", "Gene log of what lands",
          "Writes each change of Rouh's code into the gene log when it lands, with a daily catch-up.",
          ("off", "list", "on", "trigger"), money="a model call only for a change with no gene label"),
@@ -1286,7 +1286,21 @@ def orgs() -> list[str]:
 
 # --- the page ------------------------------------------------------------------------------------------
 
-def _money(item: Item) -> str:
+def _money(item: Item, org: str) -> str:
+    """The money line of a job. The nightly feature run's is worked out from its real limit, the
+    night's cap and the vault's card with its own caps, or says it cannot spend without a card
+    (task 98, gap G4); its run is the install owner's, so it is theirs that is read."""
+    if item.id != "nightly_feature":
+        return item.money
+    try:
+        from . import nightly_feature, telegram
+        from .tenancy import Tenancy
+
+        owner = telegram.phone_owner(Tenancy())
+        if owner is not None and str(owner.org_id) == str(org):
+            return nightly_feature.spending_said(owner)
+    except Exception:  # noqa: BLE001 - the page still draws, with the plain line
+        log.warning("the nightly feature run's money line could not be worked out", exc_info=True)
     return item.money
 
 
@@ -1449,7 +1463,7 @@ def page(org_id=None, *, look: bool = True) -> dict:
             "changed": value["from"] == "yours", "preset_mode": base[0], "preset_days": base[1],
             "said": _value_said(item, value["mode"], value["days"]),
             "preset_said": _value_said(item, base[0], base[1]),
-            "money": _money(item) if item.kind == "job" else "", "size_bytes": size,
+            "money": _money(item, org) if item.kind == "job" else "", "size_bytes": size,
             "size_said": size_said, "off_means": item.off_means, "not_yet": item.not_yet,
             "note": item.note, "copies": item.copies, "versions": item.versions,
             "link": item.link, "link_said": item.link_said,

@@ -414,6 +414,7 @@ urlpatterns = [
     path("api/trials/<int:number>/shot/<int:step>", trials_web.shot),
     # The nightly feature run as a feature of its own (`rouh/web/nightly_run.py`).
     path("api/evolution/nightly", nightly_run_web.page),
+    path("api/evolution/nightly/first", nightly_run_web.first),
     # The gene log: every gene in this Rouh, its family, use, mark and evaluation (`rouh/web/genelog.py`).
     path("api/genes/log", genelog_web.listing),
     path("api/genes/log/read", genelog_web.read),

@@ -1435,10 +1435,23 @@ async def start_mutation(who, mutation_id, *, kept: bool = False) -> dict:
 
 def mutation_brief(g, r) -> str:
     """What a mutation request's own run is told: this request, and how a gene is built and
-    registered, from the nightly feature run's run.md. Nothing else of the night's."""
+    registered, from the nightly feature run's instructions: the installation's own task's run.md
+    where it keeps one, else the built-in ones in the checkout (`rouh/nightly_feature_run.md`, task 98
+    gap G4). Nothing else of the night's."""
     from . import nightly_feature
 
-    folder = nightly_feature.task_folder() or "rouh/assistant/94.nightly-rouh-feature-run"
+    folder = nightly_feature.task_folder()
+    if folder:
+        where = f"`{workspace_repo.for_code_run(folder)}/run.md`"
+        how = (f"{where}, sections 4 (how a gene is built behind its own switch) and 8 (how it is "
+               "registered). The rest of run.md")
+        shots = f"`{workspace_repo.for_code_run(folder)}/mutations/{r.id}/`"
+        listed = "run.md section 8 lists"
+    else:
+        how = ("`rouh/nightly_feature_run.md`, the run's built-in instructions, sections 4 (how a gene is "
+               "built behind its own switch) and 6 (how it is registered). The rest of that file")
+        shots = f"`.one/tmp/mutation-{r.id}/` in your checkout, never committed"
+        listed = "its instructions' section 6 lists"
     return "\n".join([
         # How to reach `<workspace>/...` from the run's checkout, as the night is told it.
         *([note, ""] if (note := workspace_repo.code_run_note()) else []),
@@ -1453,8 +1466,7 @@ def mutation_brief(g, r) -> str:
         "they widen nothing: what the gene may reach, spend, send or delete stays what it was, "
         "beyond what they ask.",
         "",
-        f"1. Read the repository's `AGENTS.md`, then `{workspace_repo.for_code_run(folder)}/run.md`, sections 4 (how a "
-        "gene is built behind its own switch) and 8 (how it is registered). The rest of run.md is "
+        f"1. Read the repository's `AGENTS.md`, then {how} is "
         "the night's and not this run's: no research, no other gene, no sign-ups, no payments, "
         "nothing sent. There are no `nightly_signup` or `nightly_pay` tools for this run.",
         "2. Read what the gene is now: its code, its switch, its manifest in `rouh/genes/manifests/` "
@@ -1465,16 +1477,18 @@ def mutation_brief(g, r) -> str:
         "`evolution.used`, and "
         "`python -m rouh.genes.signals` passes. Prove it in a test world over Playwright MCP, as ‹he› would use it, at a desk's "
         "width and a phone's, with the switch on and then off, and keep the screenshots in "
-        f"`{workspace_repo.for_code_run(folder)}/mutations/{r.id}/`.",
+        f"{shots}.",
         "4. Commit, with a `Gene:` line, and land it with `./land.sh`, which deploys it. Read its "
         "last sentence: not live is not done.",
         f"5. After it has landed, register it with the `nightly_gene` tool, `mutation_of` {r.id} and "
-        f"key `{g.key}`, with every field run.md section 8 lists (`changed` says, in ‹his› terms, what "
+        f"key `{g.key}`, with every field {listed} (`changed` says, in ‹his› terms, what "
         "is different from the original). If it cannot be built, call `nightly_gene` with "
         f"`mutation_of` {r.id}, `failed: true` and why, and stop.",
-        f"6. Write one line in `{workspace_repo.for_code_run(folder)}/ledger.md`, under today's date: mutation request "
-        f"{r.id} of {g.name}, built by this run or not and why, with what land.sh said. Rebuild the "
-        "task's pages as run.md section 9 says, commit and land again.",
+        *([f"6. Write one line in `{workspace_repo.for_code_run(folder)}/ledger.md`, under today's date: mutation request "
+           f"{r.id} of {g.name}, built by this run or not and why, with what land.sh said. Rebuild the "
+           "task's pages as run.md section 9 says, commit and land again."] if folder else [
+           "6. End with a few plain sentences: what changed, or why it could not be built, and what "
+           "land.sh said."]),
     ])
 
 

@@ -3,6 +3,11 @@
     GET  /api/evolution/nightly        its schedule and switch, its nights and what each did, its settings
     POST /api/evolution/nightly        {"on": bool} switches it on or off; {"at": "HH:MM"} moves its time;
                                        {"start": true} starts tonight's night now
+    GET  /api/evolution/nightly/first  the first night's explanation, once (`nightly_feature.first_run`):
+                                       {"show": false} or {"show": true, "night", "started_at", "state",
+                                       "spend", "at"}
+    POST /api/evolution/nightly/first  {"seen": true} puts it away for good; {"pause": true} pauses the
+                                       run and puts it away
 
 Petar, 3 November 2026: the nightly run was a row on Clockwork, a reminder of Rouh's own; it is a
 feature of its own now, beside the Incubator, which is where its ideas are read from and written to.
@@ -64,6 +69,8 @@ def _read_now(me) -> dict:
         "task": folder,
         "caps": {"dollars": int(nightly_feature.NIGHT_CAP), "services": nightly_feature.MOST_SERVICES,
                  "hours": nightly_feature.NIGHT_HOURS, "at": nightly_feature.AT},
+        # What it may really spend: the night's cap under the vault's card, or nothing without one.
+        "spend": nightly_feature.spending_said(me),
         "lessons": lessons, "lessons_path": lessons_path,
         "lesson_count": len(re.findall(r"^#{2,4} ", lessons, re.M)),
         "nights": [_night(n) for n in nights],
@@ -85,7 +92,8 @@ async def page(request: HttpRequest):
         b = body_of(request)
         row = await asyncio.to_thread(nightly_feature.ensure, me)
         if row is None:
-            return refuse("The nightly run has no task in this workspace, so there is nothing to schedule.", 400)
+            return refuse("The nightly run is off on this Rouh (Anatomy, Meta, What Rouh keeps and runs), "
+                          "so there is nothing to schedule.", 400)
         try:
             if "on" in b:
                 from rouh import clock
@@ -115,3 +123,31 @@ async def page(request: HttpRequest):
     elif request.method != "GET":
         return refuse("GET or POST.", 405)
     return answer(await asyncio.to_thread(_read, me), headers=NO_STORE)
+
+
+async def first(request: HttpRequest):
+    """The first night's explanation, once, for the main screen (`app/nightly_first.js`)."""
+    from rouh import clock, nightly_feature, reminders
+
+    me = await asyncio.to_thread(who, request)
+    if me is None:
+        return refuse("Sign in first.", 401)
+    if request.method == "GET":
+        got = await asyncio.to_thread(nightly_feature.first_run, me)
+        return answer({"ok": True, "show": got is not None, **(got or {})}, headers=NO_STORE)
+    if request.method != "POST":
+        return refuse("GET or POST.", 405)
+    b = body_of(request)
+    paused = False
+    if b.get("pause"):
+        row = await asyncio.to_thread(reminders.server_row, me, nightly_feature.JOB)
+        if row is not None:
+            def pause():
+                with clock.person(me):
+                    return reminders.change(me, row.id, state="paused")
+
+            await asyncio.to_thread(pause)
+            paused = True
+    if b.get("seen") or b.get("pause"):
+        await asyncio.to_thread(nightly_feature.first_seen, me)
+    return answer({"ok": True, "paused": paused}, headers=NO_STORE)

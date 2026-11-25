@@ -1441,7 +1441,6 @@
     "rouh/web/evolution.py",
     "rouh/static/evolutionpage.*",
     "EVOLUTION.md",
-    "rouh/nightly_feature.py",
     "rouh/nightly_ideas.py",
     "rouh/everychange.py",
     "rouh/web/everychange.py",
@@ -2280,8 +2279,11 @@
   },
   "nightly-run": {
    "files": [
+    "rouh/nightly_feature.py",
+    "rouh/nightly_feature_run.md",
     "rouh/web/nightly_run.py",
-    "rouh/static/nightlyrunpage.js"
+    "rouh/static/nightlyrunpage.js",
+    "rouh/static/app/nightly_first.js"
    ]
   },
   "n32-inside-files": {

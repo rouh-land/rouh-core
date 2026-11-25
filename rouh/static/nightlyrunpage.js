@@ -65,7 +65,7 @@
     var sch = section('When it runs');
     var row = d.schedule;
     if (!row) {
-      sch.appendChild(el('p', 'evo-lede', 'It has no task in this workspace yet, so it is not scheduled.'));
+      sch.appendChild(el('p', 'evo-lede', 'It is off on this Rouh, so it is not scheduled. Turn it on in Anatomy, Meta, What Rouh keeps and runs.'));
     } else {
       var line = el('div', 'nr-row');
       var sw = el('label', 'nr-switch');
@@ -100,7 +100,8 @@
     // Its settings.
     var set = section('Its rules');
     var ul = el('ul', 'nr-list');
-    ul.appendChild(el('li', '', 'Pays at most ' + d.caps.dollars + ' dollars a night with the card, in all.'));
+    ul.appendChild(el('li', '', d.spend || ('Pays at most ' + d.caps.dollars + ' dollars a night with the card, in all.')));
+    ul.appendChild(el('li', '', 'Changes Rouh’s own code: each gene it builds is landed and live, on trial in Mutations, where you keep or reject it.'));
     ul.appendChild(el('li', '', 'Signs up for at most ' + d.caps.services + ' services a night, with Rouh’s own address.'));
     ul.appendChild(el('li', '', 'May sign up and pay only in the first ' + d.caps.hours + ' hours after it starts.'));
     ul.appendChild(el('li', '', 'Picks its ideas from the Incubator only, and writes the ideas its research finds there, marked as from the nightly run.'));

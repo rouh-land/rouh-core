@@ -114,6 +114,7 @@ import 'app/help_spots.js';
 import 'app/mode_intro.js';
 import 'app/new_owner.js';
 import 'app/build_proof.js';
+import 'app/nightly_first.js';
 import { addrEarly } from 'app/address.js';
 
 // A page opened at the task browser opens it now, once every module above

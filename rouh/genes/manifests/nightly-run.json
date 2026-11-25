@@ -1,7 +1,7 @@
 {
   "id": "nightly-run",
   "name": "Nightly run",
-  "title": "Nightly run: the nightly feature run's schedule and switch, its nights and what each built, and its rules",
+  "title": "Nightly run: the nightly feature run itself, with its own built-in instructions, its schedule and switch, its nights and what each built, and its rules",
   "aliases": [
     "nightly feature run",
     "nightly run",
@@ -22,14 +22,20 @@
   },
   "touches": {
     "permissions": [
-      "pauses, resumes and moves the nightly feature run's own scheduled row, and starts a night at once when the person presses Start a night now; the night's caps (100 dollars, two sign-ups) are as they were"
+      "starts one run a night that changes Rouh's own code and lands it, on by default; with no workspace task it follows its built-in instructions (rouh/nightly_feature_run.md)",
+      "pauses, resumes and moves the nightly feature run's own scheduled row, and starts a night at once when the person presses Start a night now; the night's caps (100 dollars, two sign-ups) are as they were",
+      "explains itself once, the first time it has run, on the owner's screen, with Pause it"
     ],
     "accounts": [],
     "tables": [
       "nightly_feature_nights",
-      "reminders"
+      "nightly_feature_services",
+      "reminders",
+      "user_settings"
     ],
-    "jobs": [],
-    "remove": "Delete this manifest, rouh/web/nightly_run.py and nightlyrunpage.js, its page in evolutionpage.js and its address, and the line in rouh/web/clock.py that leaves the nightly row off Clockwork; the run itself is Mutations' and stays."
+    "jobs": [
+      "the nightly feature run, daily at 04:30 on the owner's clock"
+    ],
+    "remove": "Delete this manifest, rouh/nightly_feature.py and rouh/nightly_feature_run.md with every caller of nightly_feature (runtime.py's job and watch, the rouh MCP server's nightly tools, Mutations' bring-in), rouh/web/nightly_run.py, nightlyrunpage.js and app/nightly_first.js, its page in evolutionpage.js and its addresses, its item in rouh/lean.py, and the line in rouh/web/clock.py that leaves the nightly row off Clockwork."
   }
 }
