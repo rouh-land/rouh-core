@@ -308,6 +308,14 @@ def _birthday(me) -> list[tuple[str, str]]:
     return []
 
 
+def _backups(me) -> list[tuple[str, str]]:
+    """Copy off this machine: "No copy off this machine" until one is set up, the only reminder
+    there is (task 98, gap G18: "a sign in settings -> meta, no other nagging")."""
+    from . import offsite_setup
+
+    return offsite_setup.sign(me)
+
+
 #: What each section can have to say, by its name in an address. A section with nothing that
 #: can need attention (About You, Account, Silos, Voice detection, Morning brief, Heartbeat beats,
 #: Shipping, Stats, Trusted contacts, This build) is not here. Offline is the device's, said by
@@ -330,6 +338,8 @@ CHECKS = {
     "gene-pool": _genes,
     "changes": _changes,
     "services": _services,
+    # Copy off this machine: the one reminder there is (task 98, gap G18, `rouh/offsite_setup.py`).
+    "backups": _backups,
 }
 
 

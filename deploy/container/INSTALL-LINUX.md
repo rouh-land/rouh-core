@@ -259,19 +259,17 @@ python3 ~/rouh-core/deploy/container/linux_stack.py restore rouh-20261029-034000
 
 `restore` stops the core, makes one more copy of the database as it is, so the restore itself can be undone, restores the copy you named into a new database and only then puts it in the place of Rouh's own (a restore that fails changes nothing), and starts the core again.
 
-Once a week the core also sends one encrypted copy off the machine, to Cloudflare R2 or any S3, when the settings file says where (`ROUH_OFFSITE_*` under "Backups" in `settings.env.example`).
-It is the whole Rouh in one file: the newest nightly copy of the database, both keys, the data directory and the workspace, encrypted in age's format for the public key or the passphrase you give, so nothing readable reaches the bucket.
-Nothing is installed on this machine for it, and without those settings nothing is sent.
+Once a week the core also sends one locked copy off the machine, to Cloudflare R2 or Amazon S3.
+It is the whole Rouh in one file: the newest nightly copy of the database, both keys, the data directory, the workspace, and its own code with its whole git history and its update ledger (which releases it took and which wait), encrypted in age's format, so nothing readable reaches the bucket.
+Nothing is installed on this machine for it.
 
-1. In Cloudflare: R2, Create bucket; then Manage R2 API Tokens, Create API token, **Object Read & Write**, for that bucket only.
-   Put the S3 endpoint it shows (`https://<account id>.r2.cloudflarestorage.com`), the bucket's name, the Access Key ID and the Secret Access Key into `ROUH_OFFSITE_ENDPOINT`, `ROUH_OFFSITE_BUCKET`, `ROUH_OFFSITE_KEY_ID` and `ROUH_OFFSITE_SECRET`.
-2. On your own computer, not this machine, make a key with age (age-encryption.org; `brew install age` on a Mac): `age-keygen -o rouh-offsite.key`.
-   Put the public key it prints (`age1...`) into `ROUH_OFFSITE_RECIPIENT`, and keep `rouh-offsite.key` safe and off this machine: it is the only thing that opens the copies, and nothing here can.
-   Or set `ROUH_OFFSITE_PASSPHRASE` to a long passphrase instead, and keep a copy of it off this machine.
-3. `python3 ~/rouh-core/deploy/container/linux_stack.py apply`, so the core reads the new settings.
-   `docker compose -p rouh -f ~/rouh/stack/stack.json exec core python manage.py offsite_backup run` sends the first copy at once; from then on the core sends one a week, and keeps the newest eight under `rouh-backups/<ROUH_STACK_NAME>/`.
+Set it up in Rouh: Anatomy, Meta, **Copy off this machine**. Choose Cloudflare R2 or Amazon S3, follow the steps it shows, paste the Account ID (R2) or the region (S3), the bucket's name and the two keys, and press Check and turn on.
+Rouh lists the bucket and writes and deletes one small file there before it keeps anything, then makes a password and shows it once: put it in your password manager, because it is the only thing that opens a copy on another machine.
+Rouh asks about this once, a few days after it is set up, in a popup; after that the only reminder is the line "No copy off this machine" on Anatomy's board, under Meta.
+A copy set up before 25 November 2026 with `ROUH_OFFSITE_*` in the settings file, an age public key included, keeps working as it is.
+The core sends the first copy within the hour (or press Send a copy now), then one a week, and keeps the newest eight under `rouh-backups/<ROUH_STACK_NAME>/`.
 
-To restore after losing the machine: download the newest copy (from Cloudflare's dashboard, or `offsite_backup fetch --to FILE` on any Rouh with the same settings), open it where the key is, `age -d -i rouh-offsite.key -o rouh.bundle <the copy>.bundle.age` (or `age -d` and the passphrase), and bring the bundle into a fresh stack as in step 9.
+To restore after losing the machine: download the newest copy (from the bucket's page at Cloudflare or Amazon, or `offsite_backup fetch --to FILE` on any Rouh with the same settings), open it, `age -d -o rouh.bundle <the copy>.bundle.age` and the password (or `age -d -i your-key.txt` for an age key), and bring the bundle into a fresh stack as in step 9.
 
 ## 9. Bringing in a Rouh you already have
 
@@ -301,8 +299,10 @@ It goes into a fresh stack, before that stack's first start, in place of steps 6
 
    It takes the newest release, as `update` does, and checks the bundle; then it restores the database into the stack's PostgreSQL, puts the encryption key into the keys volume as `encryption.key` (rouh's alone, as the core's start keeps it), and the Django key, the data directory and the workspace into `core-data`.
    It refuses a stack that has started before, and changes nothing then.
+   A bundle made since 25 November 2026 also holds the Rouh's own code with its whole git history: it is put into the stack's code volume, the libraries its genes added into `/extra`, and the release's own protected core checks it, as it checks an update, before anything runs on it.
+   If it does not pass, the code volume is left empty, the stack starts on the newest tested Rouh instead, and the code is kept in `core-data` at `rouh/restore/code.bundle`; the command says which happened.
 5. Start it, as in step 6: `python3 ~/rouh-core/deploy/container/linux_stack.py update`.
-   The code is the newest tested Rouh from rouh.land, as for any new stack; the core runs the database's migrations up to it.
+   The code is the Rouh's own, when it came with the bundle and passed its check, and otherwise the newest tested Rouh from rouh.land, as for any new stack; either way the core runs the database's migrations up to it, and the ordinary update, reading the update ledger that came with it, takes it on to any newer release.
    The owner is the one the old Rouh had, and every saved login opens: sign in with the address `docker compose -p rouh -f ~/rouh/stack/stack.json exec core python manage.py setup_link` prints, or with the password you had.
 6. Delete `~/rouh/rouh.bundle` once Rouh is up.
 

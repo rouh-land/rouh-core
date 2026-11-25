@@ -8,7 +8,7 @@ the data directory. Each check puts them there, takes the copy, and gets them ba
 - backup.daily: the backup part copies the database into the backups volume (rouh's alone), the
   core says when (server_health), and a copy puts a changed database back as it was.
 - backup.offsite: the core sends the weekly copy to the stand-in for R2 (rouh/testing/fake_s3.py);
-  what arrived is age's format and nothing readable, the real `age` opens it with the private key
+  what arrived is age's format and nothing readable, it holds Rouh's own code at /code's commit, the real `age` opens it with the private key
   run.sh made (STACK_OFFSITE_KEY), and its database restores into a database of its own.
 - import.existing: `manage.py export_rouh` in this stack, `linux_stack.import_bundle` into a second,
   fresh stack (this one's project and -import), which starts with the same owner, the same signed-in cookie, the
@@ -234,6 +234,11 @@ def backup_offsite(s: Stack) -> None:
             t.extract(bundle.DUMP, tmp, filter="data")
         theirs = s.run("core", "tr -d '\\r\\n' < /keys/encryption.key | sha256sum", user="10001").stdout.split()[0]
         expect(mine == theirs, "the copy's encryption key is not this Rouh's")
+        # Rouh's own code, with its history (task 98, gap G19): at the commit /code is at, byte for byte.
+        bundle.check_code(f"{tmp}/bundle.tar", about)
+        head = s.run("core", "git -c safe.directory='*' -C /code rev-parse HEAD", user="10001").stdout.strip()
+        expect((about.get("code") or {}).get("head") == head,
+               f"the copy does not hold this Rouh's own code at {head[:12]}: {about.get('code')}")
         # And its database restores, into a database of its own beside Rouh's.
         subprocess.run([*s.compose, "cp", f"{tmp}/{bundle.DUMP}", "postgres:/tmp/offsite.dump"], check=True,
                        capture_output=True, timeout=300)

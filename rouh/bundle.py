@@ -1,4 +1,4 @@
-"""One Rouh in one file: its database, its two keys, its data directory and its workspace.
+"""One Rouh in one file: its database, its two keys, its data directory, its workspace and its own code.
 
 Petar, 29 October 2026: every Rouh can be brought into the containers, his own included, and
 the weekly copy off the machine must be one that restores. Both are this file, a plain tar:
@@ -12,6 +12,22 @@ the weekly copy off the machine must be one that restores. Both are this file, a
     rouh-bundle/workspace/...          the workspace (ROUH_WORKSPACE), its git history included
     rouh-bundle/files/...              the one store every file lives in (`rouh/filestore.py`),
                                        when it is not inside the data directory already
+    rouh-bundle/code/code.bundle       Rouh's own code (ROUH_APP_DIR, /code in a stack) with its
+                                       whole git history: every branch and tag, as `git bundle`
+    rouh-bundle/code/code.json         what that code is: the commit it is at, its branch, the
+                                       release it was installed from (.git/rouh-installed.json)
+    rouh-bundle/code/ledger.json       the update ledger (`rouh/code_evolution.py`): which released
+    rouh-bundle/code/update.json       changes this Rouh took and which wait, and its updates' own
+    rouh-bundle/code/settings.json     state and choice (`rouh/code_update.py`)
+
+Task 98, gap G19 (25 November 2026), Petar: "our backups don't copy the code? they should!" Since
+23 October 2026 a Rouh's code is its own, changed by its genes, so a copy without it brought back
+only the stock Rouh. Version 2 carries it; a bundle of version 1, without it, still reads, and is
+brought back on the newest tested Rouh as before. Bringing it back (`linux_stack.py import`) puts the
+code in the stack's code volume and has the release's protected core check it, as an update is
+checked, before anything runs on it; the core's start then brings the database up to that code, and
+the ordinary update (`rouh/code_update.py`), reading the ledger that came with it, takes it on to
+any newer release.
 
 Made by ``python manage.py export_rouh`` on any Rouh, a server's own (from its checkout
 with its own settings) or a stack's core, and by the weekly copy (`rouh/offsite.py`), which
@@ -32,14 +48,25 @@ import hashlib
 import json
 import os
 import socket
+import subprocess
 import tarfile
 from typing import BinaryIO
 
-FORMAT, VERSION = "rouh-bundle", 1
+FORMAT, VERSION = "rouh-bundle", 2
+#: The versions this reads: 1 had no code in it.
+READS = (1, 2)
 TOP = "rouh-bundle"
 ABOUT, DUMP = f"{TOP}/bundle.json", f"{TOP}/database.dump"
 ENCRYPTION_KEY, DJANGO_KEY = f"{TOP}/keys/encryption.key", f"{TOP}/keys/django-secret.key"
 DATA, WORKSPACE, FILES = f"{TOP}/data", f"{TOP}/workspace", f"{TOP}/files"
+CODE = f"{TOP}/code"
+CODE_BUNDLE, CODE_ABOUT = f"{CODE}/code.bundle", f"{CODE}/code.json"
+#: The update ledger and its state, by their names in the code-update folder and in the bundle.
+LEDGER = (("ledger.json", f"{CODE}/ledger.json"), ("state.json", f"{CODE}/update.json"),
+          ("settings.json", f"{CODE}/settings.json"))
+#: Inside the data directory, never moved: what an update keeps only while it works, and a copy of
+#: shared main it fetches again (`rouh/code_update.py`'s folder).
+SKIP_INSIDE = ("code-update/master.git", "code-update/work", "code-update/backups", "code-update/.lock")
 #: Never moved, by name at the top of the data directory: the keys (each has its own place
 #: above), a checkout of main GitHub has (workspace-saves), SQLite from before PostgreSQL, the
 #: logs, the weekly copy's own work, and what only a file system makes.
@@ -99,7 +126,8 @@ def _plain(ti: tarfile.TarInfo) -> tarfile.TarInfo:
 
 def _skipped(rel: str) -> bool:
     top = rel.split("/", 1)[0]
-    return any(fnmatch.fnmatch(top, pat) for pat in SKIP)
+    return any(fnmatch.fnmatch(top, pat) for pat in SKIP) or any(
+        rel == inner or rel.startswith(inner + "/") for inner in SKIP_INSIDE)
 
 
 def _files(root: str, *, skip_top: bool, inside: str = "", unreadable: list | None = None) -> list[str]:
@@ -137,11 +165,90 @@ def _files(root: str, *, skip_top: bool, inside: str = "", unreadable: list | No
     return out
 
 
+def _git(code_dir: str, *args: str, timeout: float = 600) -> subprocess.CompletedProcess:
+    return subprocess.run(["git", "-c", "safe.directory=*", "-C", code_dir, *args], capture_output=True,
+                          text=True, timeout=timeout, env={**os.environ, "GIT_TERMINAL_PROMPT": "0"})
+
+
+def code_part(code_dir: str, into: str) -> dict:
+    """Rouh's own code as one `git bundle` of every branch and tag, written to into, and what code.json
+    says of it; {} when code_dir is no git repository with a commit (a test world, an old copy)."""
+    if not code_dir or not os.path.isdir(os.path.join(code_dir, ".git")):
+        return {}
+    head = _git(code_dir, "rev-parse", "--verify", "-q", "HEAD")
+    if head.returncode or not head.stdout.strip():
+        return {}
+    made = _git(code_dir, "bundle", "create", into, "--all", timeout=1800)
+    if made.returncode:
+        raise RuntimeError(f"Rouh's own code could not be put in the copy: {(made.stderr or made.stdout).strip()[-300:]}")
+    installed = {}
+    try:
+        with open(os.path.join(code_dir, ".git", "rouh-installed.json"), encoding="utf-8") as fh:
+            installed = json.load(fh)
+    except (OSError, ValueError):
+        installed = {}
+    dirty = [line for line in _git(code_dir, "status", "--porcelain").stdout.splitlines() if line.strip()]
+    return {"file": "code/code.bundle", "bytes": os.path.getsize(into), "sha256": sha256_of(into),
+            "head": head.stdout.strip(), "branch": _git(code_dir, "symbolic-ref", "--short", "-q", "HEAD").stdout.strip(),
+            "subject": _git(code_dir, "log", "-1", "--format=%s").stdout.strip()[:200],
+            "commits": int((_git(code_dir, "rev-list", "--count", "--all").stdout.strip() or "0")),
+            "installed": installed if isinstance(installed, dict) else {},
+            # Work not committed is not in a git bundle: counted, so its absence is never silent.
+            "uncommitted": len(dirty)}
+
+
+def ledger_part(update_dir: str) -> tuple[dict, list[tuple[str, bytes]]]:
+    """The update ledger and its state out of the code-update folder: what bundle.json says of them,
+    and each file's name in the bundle with its bytes."""
+    files: list[tuple[str, bytes]] = []
+    summary: dict = {}
+    for name, arc in LEDGER:
+        try:
+            with open(os.path.join(update_dir, name), "rb") as fh:
+                raw = fh.read()
+        except OSError:
+            continue
+        files.append((arc, raw))
+        if name == "ledger.json":
+            try:
+                rows = json.loads(raw).get("changes") or []
+            except (ValueError, AttributeError):
+                rows = []
+            # As `rouh/code_evolution.py` says them (TAKEN, STATUS); this file reads them without it.
+            taken = [r for r in rows if str(r.get("status") or "") in ("copied", "adapted")]
+            summary = {"changes": len(rows), "taken": len(taken),
+                       "waiting": sum(1 for r in rows if str(r.get("status") or "") in ("waiting", "depends")),
+                       "newest_taken": str((taken[-1] if taken else {}).get("master") or "")[:40]}
+    return summary, files
+
+
 def make(out: BinaryIO, *, dump: str, data_dir: str, workspace: str, encryption_key: str = "",
-         django_key: str = "", made_by: str = "", files_dir: str = "") -> dict:
+         django_key: str = "", made_by: str = "", files_dir: str = "", code_dir: str = "",
+         update_dir: str = "", work: str = "") -> dict:
     """Writes the bundle as a tar stream into out and gives back what bundle.json says.
 
-    dump is a pg_dump -Fc file already made; the keys are their text, either empty for none."""
+    dump is a pg_dump -Fc file already made; the keys are their text, either empty for none. code_dir
+    is Rouh's own code, a git repository, and update_dir its update folder (`rouh/code_update.py`); work
+    is where the code's git bundle is made on the way, removed after."""
+    import shutil
+    import tempfile
+
+    held = tempfile.mkdtemp(prefix="rouh-bundle-code-", dir=work or None)
+    try:
+        os.chmod(held, 0o700)
+        code = code_part(code_dir, os.path.join(held, "code.bundle"))
+        ledger, ledger_files = ledger_part(update_dir) if update_dir else ({}, [])
+        if code:
+            code["ledger"] = ledger
+        return _make(out, dump=dump, data_dir=data_dir, workspace=workspace, encryption_key=encryption_key,
+                     django_key=django_key, made_by=made_by, files_dir=files_dir, code=code,
+                     code_file=os.path.join(held, "code.bundle"), ledger_files=ledger_files)
+    finally:
+        shutil.rmtree(held, ignore_errors=True)
+
+
+def _make(out: BinaryIO, *, dump: str, data_dir: str, workspace: str, encryption_key: str, django_key: str,
+          made_by: str, files_dir: str, code: dict, code_file: str, ledger_files: list) -> dict:
     unreadable: list[str] = []
     data = _files(data_dir, skip_top=True, inside=workspace, unreadable=unreadable)
     work = _files(workspace, skip_top=False, unreadable=unreadable)
@@ -158,6 +265,8 @@ def make(out: BinaryIO, *, dump: str, data_dir: str, workspace: str, encryption_
         "data_files": len(data), "workspace_files": len(work), "store_files": len(kept),
         # Left out because this user may not read them; named, so nothing is lost without a word.
         "unreadable": len(unreadable), "unreadable_first": unreadable[:20],
+        # Rouh's own code and its update ledger (version 2): {} when there was no code to copy.
+        "code": code,
     }
     with tarfile.open(fileobj=out, mode="w|", format=tarfile.PAX_FORMAT) as t:
         _add_bytes(t, ABOUT, (json.dumps(about, indent=1) + "\n").encode(), 0o644)
@@ -165,6 +274,12 @@ def make(out: BinaryIO, *, dump: str, data_dir: str, workspace: str, encryption_
         for name, text in ((ENCRYPTION_KEY, encryption_key), (DJANGO_KEY, django_key)):
             if text.strip():
                 _add_bytes(t, name, (text.strip() + "\n").encode(), 0o400)
+        if code:
+            _add_bytes(t, CODE, None, 0o750)
+            _add_bytes(t, CODE_ABOUT, (json.dumps(code, indent=1) + "\n").encode(), 0o644)
+            t.add(code_file, arcname=CODE_BUNDLE, recursive=False, filter=_plain)
+            for arc, raw in ledger_files:
+                _add_bytes(t, arc, raw, 0o600)
         for prefix, root, rels in ((DATA, data_dir, data), (WORKSPACE, workspace, work),
                                    *(((FILES, files_dir, kept),) if files_dir else ())):
             _add_bytes(t, prefix, None, 0o750)
@@ -203,11 +318,13 @@ def read_about(path: str) -> dict:
         if isinstance(e, NotABundle):
             raise
         raise NotABundle(f"it could not be read as a bundle ({e})") from e
-    if about.get("format") != FORMAT or about.get("version") != VERSION:
+    if about.get("format") != FORMAT or about.get("version") not in READS:
         raise NotABundle(f"it is {about.get('format')!r} version {about.get('version')!r}, "
-                         f"and this reads {FORMAT} version {VERSION}")
+                         f"and this reads {FORMAT} versions {', '.join(map(str, READS))}")
     if DUMP not in names:
         raise NotABundle("it has no database in it")
+    if (about.get("code") or {}).get("head") and CODE_BUNDLE not in names:
+        raise NotABundle("it says it holds Rouh's own code and does not")
     for flag, name in (("encryption_key", ENCRYPTION_KEY), ("django_key", DJANGO_KEY)):
         if about.get(flag) and name not in names:
             raise NotABundle(f"it says it holds {name.rsplit('/', 1)[-1]} and does not")
@@ -225,11 +342,41 @@ def check_dump(path: str, about: dict) -> None:
         raise NotABundle("its database is not the one it describes: the file was changed or cut short")
 
 
+def check_code(path: str, about: dict) -> None:
+    """The code in the bundle is the one code.json describes, byte for byte."""
+    code = about.get("code") or {}
+    if not code.get("head"):
+        return
+    h = hashlib.sha256()
+    with tarfile.open(path, mode="r:") as t:
+        f = t.extractfile(CODE_BUNDLE)
+        for block in iter(lambda: f.read(1 << 20), b""):
+            h.update(block)
+    if h.hexdigest() != code.get("sha256"):
+        raise NotABundle("its code is not the one it describes: the file was changed or cut short")
+
+
+def describe_code(about: dict) -> str:
+    code = about.get("code") or {}
+    if not code.get("head"):
+        return "no code of its own (a copy made before 25 November 2026, or a Rouh with none)"
+    ledger = code.get("ledger") or {}
+    said = (f"its own code with its whole history ({code.get('commits', 0)} commits, at {str(code['head'])[:12]}"
+            + (f" on {code['branch']}" if code.get("branch") else "") + ")")
+    if ledger:
+        said += (f" and its update ledger ({ledger.get('taken', 0)} released change(s) taken, "
+                 f"{ledger.get('waiting', 0)} waiting)")
+    if code.get("uncommitted"):
+        said += f"; {code['uncommitted']} file(s) changed and never committed were not in it"
+    return said
+
+
 def describe(about: dict) -> str:
     db = about.get("database") or {}
     keys = [n for n, k in (("the encryption key", "encryption_key"), ("the Django key", "django_key")) if about.get(k)]
     return (f"a Rouh made {about.get('made_at')} on {about.get('made_on')}: its database "
             f"({int(db.get('bytes') or 0) / 1e6:.1f} MB), " + (", ".join(keys) + ", " if keys else "no keys, ")
-            + f"{about.get('data_files', 0)} files of its data directory and {about.get('workspace_files', 0)} of its workspace"
+            + f"{about.get('data_files', 0)} files of its data directory and {about.get('workspace_files', 0)} of its workspace, "
+            + describe_code(about)
             + (f"; {about['unreadable']} it could not read were left out ({', '.join(about.get('unreadable_first') or [])})"
                if about.get("unreadable") else ""))

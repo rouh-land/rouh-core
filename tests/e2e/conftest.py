@@ -550,6 +550,11 @@ def rouh_app(tmp_path_factory) -> App:
         # `rouh/testing/fake_carddav.py` is the stand-in; the talking world
         # has one running.
         ROUH_CARDDAV_URL="http://127.0.0.1:1/no-icloud",
+        # Cloudflare R2 and Amazon S3 for the copy off this machine (`rouh/offsite_setup.py`) at an
+        # address that answers nothing, unless a check of your own starts the stand-in
+        # (`python -m rouh.testing.fake_s3`) and names it in E2E_FAKE_R2.
+        ROUH_OFFSITE_R2_ENDPOINT=os.environ.get("E2E_FAKE_R2") or "http://127.0.0.1:1/no-r2",
+        ROUH_OFFSITE_S3_ENDPOINT="http://127.0.0.1:1/no-s3",
         # A keys folder of its own, as the core's keys volume, for what Keys writes there for the
         # key proxy (GitHub for your runs) and the Permissions page reads.
         ROUH_KEYS_DIR=str(folder / "keys"),

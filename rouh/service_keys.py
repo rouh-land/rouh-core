@@ -306,7 +306,8 @@ def _check_offsite(v: dict) -> tuple[dict, str]:
     if recipient and not recipient.startswith("age1"):
         raise Refused("An age public key starts with age1.")
     s = {"endpoint": v["ROUH_OFFSITE_ENDPOINT"], "bucket": v["ROUH_OFFSITE_BUCKET"],
-         "key_id": v["ROUH_OFFSITE_KEY_ID"], "secret": v["ROUH_OFFSITE_SECRET"]}
+         "key_id": v["ROUH_OFFSITE_KEY_ID"], "secret": v["ROUH_OFFSITE_SECRET"],
+         "provider": v.get("ROUH_OFFSITE_PROVIDER", ""), "region": v.get("ROUH_OFFSITE_REGION", "")}
     try:
         offsite.client(s).list_objects_v2(Bucket=s["bucket"], MaxKeys=1)
     except Exception as exc:  # noqa: BLE001 - its words, never the keys
@@ -538,19 +539,22 @@ SERVICES: tuple[Service, ...] = (
                     Field("ROUH_RUNS_GITHUB_LOGIN", "GitHub account", secret=False, required=False,
                           placeholder="Found by itself")),
             check=_check_github_runs, after=_after_github_runs),
+    # Set up with its steps on its own page since 25 November 2026 (task 98, gap G18:
+    # `rouh/offsite_setup.py`, Anatomy, Meta, Copy off this machine); kept here so the values
+    # already saved, and a settings file's, are taken up as before.
     Service("offsite", "Weekly copy off this machine", "Once a week, an encrypted copy of everything, sent to "
-            "Cloudflare R2 or any S3 bucket.",
-            steps=("Make a bucket, and an API token for it with Object Read & Write, that bucket only.",
-                   "Lock the copies with an age public key whose private half you keep elsewhere, or a long "
-                   "passphrase you also keep elsewhere."),
-            fields=(Field("ROUH_OFFSITE_ENDPOINT", "Endpoint", secret=False,
+            "Cloudflare R2 or Amazon S3.",
+            page="/anatomy/meta/backups",
+            fields=(Field("ROUH_OFFSITE_PROVIDER", "Kind", secret=False, required=False, placeholder="r2 or s3"),
+                    Field("ROUH_OFFSITE_REGION", "Region", secret=False, required=False, placeholder="eu-central-1"),
+                    Field("ROUH_OFFSITE_ENDPOINT", "Endpoint", secret=False,
                           placeholder="https://<account>.r2.cloudflarestorage.com"),
                     Field("ROUH_OFFSITE_BUCKET", "Bucket", secret=False, placeholder="rouh-backups"),
                     Field("ROUH_OFFSITE_KEY_ID", "Access key id"),
                     Field("ROUH_OFFSITE_SECRET", "Secret access key"),
                     Field("ROUH_OFFSITE_RECIPIENT", "age public key", secret=False, required=False,
                           placeholder="age1..."),
-                    Field("ROUH_OFFSITE_PASSPHRASE", "Or a passphrase", required=False)),
+                    Field("ROUH_OFFSITE_PASSPHRASE", "Password", required=False)),
             check=_check_offsite),
 )
 BY_ID = {s.id: s for s in SERVICES}

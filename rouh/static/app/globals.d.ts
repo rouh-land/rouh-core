@@ -60,6 +60,7 @@ interface Window {
   /** Settings, Stats, and the counting of presses in the navigation (statspage.js). */
   RouhStats?: any;
   RouhKeeps?: any;
+  RouhBackups?: any;
   /** Anatomy, Behaviour, Permission gates (gatespage.js). */
   RouhGates?: any;
   RouhPermissions?: any;

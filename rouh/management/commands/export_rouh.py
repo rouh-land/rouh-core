@@ -1,7 +1,8 @@
 """``python manage.py export_rouh``: this Rouh in one file, to bring it into a stack of containers.
 
 The bundle (`rouh/bundle.py`): Rouh's database (pg_dump), the key every saved login is sealed
-with, the key sign-ins are signed with, its data directory and its workspace. Put into a fresh
+with, the key sign-ins are signed with, its data directory, its workspace, and its own code with
+its whole git history and its update ledger. Put into a fresh
 stack, before its first start, with ``linux_stack.py import BUNDLE`` (deploy/container/
 INSTALL-LINUX.md, "Bringing in a Rouh you already have").
 
@@ -126,9 +127,12 @@ class Command(BaseCommand):
                     raise CommandError(f"{out} is there already; nothing is written over") from None
                 handle = os.fdopen(fd, "wb")
             version = get_version() or {}
+            from rouh import code_update
+
             about = bundle.make(handle, dump=dump, data_dir=data_dir, workspace=workspace,
                                 files_dir=filestore.root(), encryption_key=enc,
-                                django_key=django, made_by=f"export_rouh at {version.get('short_sha') or 'an unknown commit'}")
+                                django_key=django, made_by=f"export_rouh at {version.get('short_sha') or 'an unknown commit'}",
+                                code_dir=str(code_update.code_dir()), update_dir=str(code_update.folder()), work=work)
             handle.close()
             handle = None
         except BaseException:

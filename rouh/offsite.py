@@ -9,21 +9,25 @@ host's PostgreSQL); a stack has neither, so:
   pg_dump is the server's own version) copies the database into the backups volume, which the core
   reads at ROUH_BACKUP_DIR. `nightly` says what is there.
 - **Every week** the core (this file) takes the newest of those, makes one bundle of the Rouh with
-  it (`rouh/bundle.py`: the database, both keys, the data directory, the workspace), encrypts it in
-  age's format (`rouh/agefile.py`) for the public key or the passphrase in the settings file, and
-  sends it to the bucket. The size and SHA-256 of what arrived are compared with what was sent; the
+  it (`rouh/bundle.py`: the database, both keys, the data directory, the workspace, and since 25
+  November 2026 its own code with its whole git history and its update ledger), encrypts it in
+  age's format (`rouh/agefile.py`) for the password Rouh made or an age public key, and sends it
+  to the bucket. The size and SHA-256 of what arrived are compared with what was sent; the
   newest `KEEP` are kept and older ones under the same prefix deleted. Nothing outside the prefix is
   listed, read or deleted, and nothing readable ever reaches the bucket.
 
 The core does it because the core is what holds what goes in: the keys, the data and the way out.
 No other part gains a key or a way out, and no AI key is near it.
 
-Set up in Anatomy, Connections, Keys (`rouh/service_keys.py`), or in the settings file
-(deploy/stack/settings.env.example, "Backups"):
+Set up in Rouh, step by step, on Anatomy, Meta, Copy off this machine (`rouh/offsite_setup.py`,
+task 98, gap G18): Cloudflare R2 or Amazon S3, checked with the bucket, and locked with a password
+Rouh makes and shows once. The values are kept sealed with the other keys (`rouh/service_keys.py`,
+the service `offsite`); a settings file's still work, as a copy set up before that day does:
 
+    ROUH_OFFSITE_PROVIDER   r2 or s3 (else read from the endpoint); ROUH_OFFSITE_REGION for S3
     ROUH_OFFSITE_ENDPOINT, ROUH_OFFSITE_BUCKET, ROUH_OFFSITE_KEY_ID, ROUH_OFFSITE_SECRET
     ROUH_OFFSITE_RECIPIENT  an age public key, age1... (its private half kept off this machine), or
-    ROUH_OFFSITE_PASSPHRASE a long passphrase, a copy of it kept off this machine
+    ROUH_OFFSITE_PASSPHRASE the password, a copy of it kept off this machine
 
 Without them nothing is sent, and that is said plainly. To restore: download the newest
 (`python manage.py offsite_backup fetch`), open it with the private key or the passphrase (the
@@ -75,19 +79,26 @@ def work_dir() -> str:
 
 def settings() -> dict:
     """Where the copy goes and how it is locked; NotSetUp, saying what is missing, otherwise."""
-    s = {k: _env(f"ROUH_OFFSITE_{k.upper()}") for k in ("endpoint", "bucket", "key_id", "secret", "recipient", "passphrase")}
+    s = {k: _env(f"ROUH_OFFSITE_{k.upper()}") for k in ("endpoint", "bucket", "key_id", "secret", "recipient", "passphrase",
+                                                         "provider", "region")}
     if not any(s[k] for k in ("endpoint", "bucket", "key_id", "secret")):
-        raise NotSetUp("no off-site copy is set up: the owner sets where it goes in Anatomy, Connections, Keys, "
-                       "Weekly copy off this machine")
+        raise NotSetUp("no copy off this machine is set up: the owner sets one up in Anatomy, Meta, "
+                       "Copy off this machine, with Cloudflare R2 or Amazon S3")
     missing = [f"ROUH_OFFSITE_{k.upper()}" for k in ("endpoint", "bucket", "key_id", "secret") if not s[k]]
     if missing:
-        raise NotSetUp(f"the off-site copy is half set up: {', '.join(missing)} is not set (Anatomy, Connections, Keys)")
+        raise NotSetUp(f"the off-site copy is half set up: {', '.join(missing)} is not set (Anatomy, Meta, Copy off "
+                       "this machine)")
     if bool(s["recipient"]) == bool(s["passphrase"]):
         raise NotSetUp("the off-site copy needs ROUH_OFFSITE_RECIPIENT (an age public key) or "
                        "ROUH_OFFSITE_PASSPHRASE, one of the two, to be encrypted with; nothing is sent unencrypted")
-    name = _env("ROUH_OFFSITE_NAME") or _env("ROUH_STACK_NAME") or socket.gethostname()
-    s["prefix"] = _env("ROUH_OFFSITE_PREFIX") or f"rouh-backups/{name}/"
+    s["prefix"] = prefix()
     return s
+
+
+def prefix() -> str:
+    """Where in the bucket this Rouh's copies go: nothing outside it is listed, read or deleted."""
+    name = _env("ROUH_OFFSITE_NAME") or _env("ROUH_STACK_NAME") or socket.gethostname()
+    return _env("ROUH_OFFSITE_PREFIX") or f"rouh-backups/{name}/"
 
 
 def set_up() -> bool:
@@ -98,16 +109,47 @@ def set_up() -> bool:
         return False
 
 
-def client(s: dict):
+def provider_of(s: dict) -> str:
+    """Which of the two kinds of bucket offered (G18, 25 November 2026: "we should offer only s3, r2
+    backups"): "r2" for Cloudflare R2, "s3" for Amazon S3, or "other" for an endpoint set by hand
+    before then, which is kept working as it was."""
+    said = (s.get("provider") or "").strip().lower()
+    if said in ("r2", "s3"):
+        return said
+    host = re.sub(r"^https?://", "", (s.get("endpoint") or "").strip().lower()).split("/", 1)[0]
+    if host.endswith(".r2.cloudflarestorage.com"):
+        return "r2"
+    if host.endswith(".amazonaws.com"):
+        return "s3"
+    return "other"
+
+
+def region_of(s: dict) -> str:
+    """The region a request is signed for: Amazon's own (from the setting, else its endpoint,
+    s3.<region>.amazonaws.com), and "auto" for R2 and any other S3."""
+    if (s.get("region") or "").strip():
+        return s["region"].strip()
+    if provider_of(s) == "s3":
+        found = re.search(r"s3[.-]([a-z0-9-]+)\.amazonaws\.com", (s.get("endpoint") or "").lower())
+        if found and found.group(1) not in ("external-1", "accelerate", "dualstack"):
+            return found.group(1)
+        return "us-east-1"
+    return "auto"
+
+
+def client(s: dict, *, quick: bool = False):
     import boto3
     from botocore.config import Config
 
-    # Path-style addressing and checksums only when an operation needs one: what R2 and every
-    # other S3 that is not Amazon's take.
-    cfg = Config(s3={"addressing_style": "path"}, request_checksum_calculation="when_required",
-                 response_checksum_validation="when_required", retries={"max_attempts": 5, "mode": "standard"})
+    # Checksums only when an operation needs one; path-style addressing for R2 and any other S3,
+    # which is what they take, and Amazon's own virtual-hosted style for Amazon S3.
+    style = "virtual" if provider_of(s) == "s3" else "path"
+    more = ({"connect_timeout": 5, "read_timeout": 10, "retries": {"max_attempts": 1, "mode": "standard"}} if quick
+            else {"retries": {"max_attempts": 5, "mode": "standard"}})
+    cfg = Config(s3={"addressing_style": style}, request_checksum_calculation="when_required",
+                 response_checksum_validation="when_required", signature_version="s3v4", **more)
     return boto3.client("s3", endpoint_url=s["endpoint"], aws_access_key_id=s["key_id"],
-                        aws_secret_access_key=s["secret"], region_name="auto", config=cfg)
+                        aws_secret_access_key=s["secret"], region_name=region_of(s), config=cfg)
 
 
 # --- the nightly copies (the backup part's) -----------------------------------------------------
@@ -188,16 +230,7 @@ def in_bucket(now: float | None = None) -> dict:
         return seen
     try:
         s = settings()
-        from botocore.config import Config
-
-        quick = Config(s3={"addressing_style": "path"}, request_checksum_calculation="when_required",
-                       response_checksum_validation="when_required", connect_timeout=5, read_timeout=10,
-                       retries={"max_attempts": 1, "mode": "standard"})
-        import boto3
-
-        s3 = boto3.client("s3", endpoint_url=s["endpoint"], aws_access_key_id=s["key_id"],
-                          aws_secret_access_key=s["secret"], region_name="auto", config=quick)
-        found = objects(s3, s)
+        found = objects(client(s, quick=True), s)
     except NotSetUp as e:
         return {"ok": False, "ts": now, "human": str(e)}
     except Exception as e:  # noqa: BLE001 - said, and looked at again next time
@@ -249,6 +282,8 @@ def run() -> dict:
     s = settings()
     work = work_dir()
     os.makedirs(work, mode=0o700, exist_ok=True)
+    if not _ONE_AT_A_TIME.acquire(blocking=False):
+        raise RuntimeError("a copy is being sent already")
     try:
         result = _send(s, work)
     except Exception as e:
@@ -256,18 +291,35 @@ def run() -> dict:
         _write_status(work, {"ok": False, "ts": time.time(), "at": _stamp(time.time()), "error": str(e)[:400],
                              "last_good": last.get("last_good") or {}})
         raise
+    finally:
+        _ONE_AT_A_TIME.release()
     _write_status(work, {"ok": True, "ts": time.time(), "at": result["at"], "error": "", "last_good": result})
+    forget_bucket()
     return result
 
 
+def forget_bucket() -> None:
+    """What the bucket holds is listed again next time: a copy was just sent, or the bucket changed."""
+    try:
+        os.unlink(os.path.join(work_dir(), "bucket.json"))
+    except OSError:
+        pass
+
+
+#: The weekly loop and a press of Send a copy now never send two at once.
+_ONE_AT_A_TIME = threading.Lock()
+
+
 def _send(s: dict, work: str) -> dict:
-    from . import agefile, bundle, filestore
+    from . import agefile, bundle, code_update, filestore
     from .config import config
 
     dump = newest_nightly()
     if not dump:
-        raise RuntimeError("there is no nightly copy of the database from the last day to send "
-                           f"({nightly()['human']})")
+        log.info("no copy sent: %s", nightly()["human"])
+        raise RuntimeError("there is no nightly copy of the database from the last day to send yet"
+                           if backup_dir() else
+                           "this Rouh keeps no nightly copy of its database here, so there is nothing to send")
     stamp = dt.datetime.now(dt.timezone.utc).strftime("%Y-%m-%dT%H%M%SZ")
     sealed = os.path.join(work, f"{stamp}{SUFFIX}")
     enc, django = bundle.find_encryption_key(config.data_dir), bundle.find_django_key(config.data_dir)
@@ -282,7 +334,10 @@ def _send(s: dict, work: str) -> dict:
             with os.fdopen(w, "wb") as into:
                 about.update(bundle.make(into, dump=dump, data_dir=config.data_dir, workspace=config.assistant_repo,
                                          files_dir=filestore.root(),
-                                         encryption_key=enc, django_key=django, made_by="the weekly off-site copy"))
+                                         encryption_key=enc, django_key=django, made_by="the weekly off-site copy",
+                                         # Rouh's own code and its update ledger (task 98, gap G19).
+                                         code_dir=str(code_update.code_dir()), update_dir=str(code_update.folder()),
+                                         work=work))
         except BaseException as e:  # noqa: BLE001 - said by the thread that waits for it
             failed.append(e)
 
@@ -316,7 +371,8 @@ def _send(s: dict, work: str) -> dict:
     log.info("the off-site copy is in %s, %d older one(s) deleted", key, len(gone))
     return {"ts": time.time(), "at": _stamp(time.time()), "key": key, "bytes": size, "sha256": digest,
             "dump": os.path.basename(dump), "data_files": about["data_files"],
-            "workspace_files": about["workspace_files"], "deleted_old": gone}
+            "workspace_files": about["workspace_files"], "deleted_old": gone,
+            "code": {k: (about.get("code") or {}).get(k) for k in ("head", "commits", "uncommitted", "ledger")}}
 
 
 def objects(s3, s: dict) -> list[dict]:

@@ -1,0 +1,49 @@
+{
+  "id": "encrypted-offsite-backup",
+  "name": "Copy off this machine",
+  "title": "Copy off this machine: once a week, this whole Rouh, its code included, locked with a password and sent to Cloudflare R2 or Amazon S3",
+  "aliases": [
+    "backup",
+    "backups",
+    "off-site",
+    "offsite",
+    "off site copy",
+    "copy off this machine",
+    "r2",
+    "s3",
+    "cloudflare r2",
+    "amazon s3",
+    "bucket",
+    "restore",
+    "lost machine"
+  ],
+  "group": "machine",
+  "route": "/anatomy/meta/backups",
+  "anatomy": {
+    "order": 27
+  },
+  "icon": "<path d=\"M7 18a4.5 4.5 0 0 1-.6-9 6 6 0 0 1 11.4 1.6A3.8 3.8 0 0 1 17.5 18z\"/><path d=\"M12 15V10\"/><path d=\"M9.5 12.4 12 10l2.5 2.4\"/>",
+  "attaches_to": [],
+  "maturity": "accepted",
+  "nav": {
+    "place": "none",
+    "opens": "address"
+  },
+  "touches": {
+    "permissions": [
+      "sends one locked copy of this whole Rouh a week to the bucket its administrator set up here, and deletes its own older copies there (eight are kept)",
+      "lists the bucket, and writes and deletes one small file in it, when it is set up, to check the keys"
+    ],
+    "accounts": [
+      "the owner's own Cloudflare R2 or Amazon S3 bucket, with a token for that bucket only"
+    ],
+    "tables": [
+      "service_keys",
+      "user_settings"
+    ],
+    "jobs": [
+      "the weekly copy off this machine (rouh/runtime.py, _offsite_loop), from the newest nightly copy of the database"
+    ],
+    "remove": "Delete rouh/offsite_setup.py, rouh/web/backups.py, rouh/static/backupspage.*, rouh/static/app/offsite_ask.js and its import in app.js, the backups section in rouh/templates/rouh/index.html, its routes in rouh/project/urls.py, its line in rouh/anatomy.py and this manifest. The weekly copy itself (rouh/offsite.py) and the copies in the bucket stay."
+  }
+}

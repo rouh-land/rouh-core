@@ -337,6 +337,11 @@
     "deploy/install_offsite_backup.sh",
     "deploy/rouh-offsite-backup.*",
     "rouh/offsite.py",
+    "rouh/offsite_setup.py",
+    "rouh/web/backups.py",
+    "rouh/static/backupspage.*",
+    "rouh/static/app/offsite_ask.js",
+    "rouh/genes/manifests/encrypted-offsite-backup.json",
     "rouh/agefile.py",
     "rouh/bundle.py",
     "rouh/management/commands/offsite_backup.py"

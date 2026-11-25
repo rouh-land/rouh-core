@@ -154,6 +154,7 @@ with {% asset %}, which gives it its hashed address.
 <link rel="stylesheet" href="{% asset "genespage.css" %}">
 <link rel="stylesheet" href="{% asset "servicespage.css" %}">
 <link rel="stylesheet" href="{% asset "keepspage.css" %}">
+<link rel="stylesheet" href="{% asset "backupspage.css" %}">
 <link rel="stylesheet" href="{% asset "gatespage.css" %}">
 <link rel="stylesheet" href="{% asset "permissionspage.css" %}">
 <link rel="stylesheet" href="{% asset "birthpage.css" %}">
@@ -3782,6 +3783,15 @@ with {% asset %}, which gives it its hashed address.
             <div id="keepsBody" class="hb-body" aria-busy="false"></div>
           </div>
 
+          <div class="settings-section" data-section="backups" hidden>
+            {% comment %} Meta, Copy off this machine (task 98, gap G18): Cloudflare R2 or Amazon S3,
+                 their steps, a check with the bucket, the password Rouh makes and shows once, then the
+                 copies, Send a copy now, what a copy holds (its own code included, G19) and how to
+                 bring it back. backupspage.js draws it from /api/anatomy/backups
+                 (`rouh/offsite_setup.py`). {% endcomment %}
+            <div id="backupsBody" class="hb-body" aria-busy="false"></div>
+          </div>
+
           <div class="settings-section" data-section="build" hidden>
             {% comment %} Meta, This build: which conversation this is and which build is
                  answering it. Both are looked up when something has gone wrong, so
@@ -5712,6 +5722,7 @@ with {% asset %}, which gives it its hashed address.
 <script defer src="{% asset "genespage.js" %}"></script>
 <script defer src="{% asset "servicespage.js" %}"></script>
 <script defer src="{% asset "keepspage.js" %}"></script>
+<script defer src="{% asset "backupspage.js" %}"></script>
 <script defer src="{% asset "gatespage.js" %}"></script>
 <script defer src="{% asset "permissionspage.js" %}"></script>
 <script defer src="{% asset "birthpage.js" %}"></script>

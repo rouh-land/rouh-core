@@ -9498,7 +9498,7 @@ function settingsPages(section) {
                 whatsapp: (window.RouhChatApps || {}).whatsapp, hue: window.RouhHue, dreame: window.RouhDreame, mcp: window.RouhMcp,
                 'draft-edits': window.RouhDraftEdits,
                 'gene-pool': window.RouhGenes, changes: window.RouhChanges, silos: window.RouhSilos,
-                stats: window.RouhStats, keeps: window.RouhKeeps, gates: window.RouhGates, permissions: window.RouhPermissions, offline: window.RouhOfflinePanel, 'this-rouh': window.RouhBirth,
+                stats: window.RouhStats, keeps: window.RouhKeeps, backups: window.RouhBackups, gates: window.RouhGates, permissions: window.RouhPermissions, offline: window.RouhOfflinePanel, 'this-rouh': window.RouhBirth,
                 account: window.RouhSignIn };
   for (var name in pages) {
     var drawn = pages[name];

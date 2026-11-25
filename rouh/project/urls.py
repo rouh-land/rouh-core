@@ -27,6 +27,7 @@ from rouh.web import link as link_web
 from rouh.web import your_data as your_data_web
 from rouh.web import anatomy as anatomy_web
 from rouh.web import lean as lean_web
+from rouh.web import backups as backups_web
 from rouh.web import gates as gates_web
 from rouh.web import permissions as permissions_web
 from rouh.web import silos as silos_web
@@ -737,6 +738,13 @@ urlpatterns = [
     path("api/anatomy/keeps/default", lean_web.default),
     path("api/anatomy/keeps/confirm", lean_web.confirm),
     path("api/anatomy/keeps/preset", lean_web.preset),
+    # Anatomy, Meta, Copy off this machine (`rouh/web/backups.py`, `rouh/offsite_setup.py`).
+    path("api/anatomy/backups", backups_web.page),
+    path("api/anatomy/backups/password", backups_web.password),
+    path("api/anatomy/backups/saved", backups_web.saved),
+    path("api/anatomy/backups/send", backups_web.send),
+    path("api/anatomy/backups/stop", backups_web.stop),
+    path("api/anatomy/backups/ask", backups_web.ask),
     # Anatomy, Behaviour, Permission gates (`rouh/web/gates.py`, `rouh/gates.py`).
     path("api/anatomy/gates", gates_web.page),
     # Anatomy, Behaviour, Permissions: the mode switch and What Rouh did (`rouh/web/permissions.py`).

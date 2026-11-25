@@ -404,7 +404,7 @@ class Machine:
         say(f"Saved Rouh's database to {out}")
         return out
 
-    def code_check(self, r: dict) -> None:
+    def code_check(self, r: dict, *, mark: bool = True) -> None:
         if run(["docker", "volume", "inspect", CODE_VOLUME], timeout=30).returncode:
             say("No code yet: nothing to check the new base with.")
             return
@@ -424,7 +424,8 @@ class Machine:
             raise Stop(f"the check of base {r['level']} could not run ({(c.stderr or c.stdout).decode(errors='replace').strip()[-300:]}); "
                        "nothing changed, and it is tried again next time")
         if c.returncode:
-            self.mark_failed(r["version"])
+            if mark:
+                self.mark_failed(r["version"])
             raise Stop(f"base {r['level']} did not pass this Rouh's own checks, so nothing changed: {last[-1][:600]}")
         say(f"Base {r['level']} passed this Rouh's own checks")
 
@@ -684,9 +685,18 @@ def keep(path, src, mode):
     counts["keys"] += 1
 
 
+RESTORE = DATA_DIR + "/restore"
+CODE_FILES = {TOP + "/code/" + n: n for n in ("code.bundle", "code.json", "ledger.json", "update.json", "settings.json")}
 with tarfile.open(fileobj=sys.stdin.buffer, mode="r|") as t:
     for m in t:
-        if m.name == TOP + "/keys/encryption.key":
+        if m.name in CODE_FILES and m.isfile():
+            # Rouh's own code and its update ledger (task 98, gap G19): kept aside in the data directory,
+            # nothing of it run, until it is put in the code volume and checked.
+            os.makedirs(RESTORE, mode=0o700, exist_ok=True)
+            m.name = CODE_FILES[m.name]
+            t.extract(m, RESTORE, filter="data")
+            counts["code"] = counts.get("code", 0) + 1
+        elif m.name == TOP + "/keys/encryption.key":
             keep(KEYS + "/encryption.key", t.extractfile(m), 0o400)
         elif m.name == TOP + "/keys/django-secret.key":
             keep(DATA_DIR + "/django-secret.key", t.extractfile(m), 0o600)
@@ -722,6 +732,109 @@ print("%(keys)d key(s), %(data)d entries of the data directory and %(workspace)d
 """
 
 
+#: Run by the base image, as root in a box with no network, with core-data at /data and the stack's
+#: empty code volume at /code: Rouh's own code out of the bundle's `git bundle`, with every
+#: branch, tag and commit it had, checked out at the commit it was at, given to rouh; the record of the
+#: release it was installed from put back in .git, and the update ledger beside its data. Nothing of
+#: it runs here: the release's protected core checks it next (task 98, gap G19).
+FILL_CODE = r"""
+import json, os, shutil, subprocess, sys
+RESTORE, CODE, UPDATE = "/data/rouh/restore", "/code", "/data/rouh/code-update"
+about = json.load(open(RESTORE + "/code.json"))
+if os.listdir(CODE):
+    sys.exit("the code volume is not empty")
+git = ["git", "-c", "safe.directory=*", "-c", "init.defaultBranch=main", "-C", CODE]
+def run(*args):
+    r = subprocess.run(git + list(args), capture_output=True, text=True)
+    if r.returncode:
+        sys.exit("git " + args[0] + ": " + (r.stderr or r.stdout).strip()[-300:])
+    return r.stdout.strip()
+subprocess.run(["git", "init", "-q", CODE], check=True, capture_output=True)
+run("fetch", "-q", "--update-head-ok", RESTORE + "/code.bundle", "+refs/*:refs/*")
+branch = about.get("branch") or ""
+if branch:
+    run("symbolic-ref", "HEAD", "refs/heads/" + branch)
+    run("reset", "-q", "--hard", about["head"])
+else:
+    run("checkout", "-q", "--detach", about["head"])
+if run("rev-parse", "HEAD") != about["head"]:
+    sys.exit("the code is not at the commit the bundle names")
+if about.get("installed"):
+    json.dump(about["installed"], open(CODE + "/.git/rouh-installed.json", "w"))
+json.dump({"head": about["head"], "branch": branch, "commits": about.get("commits"),
+           "made_at": os.environ.get("MADE_AT", "")}, open(CODE + "/.git/rouh-restored.json", "w"))
+os.makedirs(UPDATE, exist_ok=True)
+for src, dst in (("ledger.json", "ledger.json"), ("settings.json", "settings.json"), ("update.json", "state.json")):
+    if os.path.isfile(RESTORE + "/" + src) and not os.path.exists(UPDATE + "/" + dst):
+        doc = json.load(open(RESTORE + "/" + src))
+        if dst == "state.json":
+            # What an update was doing at the moment of the copy is not under way here.
+            for k in ("pending", "busy", "continue_update", "run", "ride"):
+                doc.pop(k, None)
+        json.dump(doc, open(UPDATE + "/" + dst, "w"))
+for root in (CODE, UPDATE):
+    for here, dirs, files in os.walk(root):
+        for n in [here] + [os.path.join(here, x) for x in dirs + files]:
+            os.lchown(n, 10001, 10001)
+print(run("log", "-1", "--format=%h %s"))
+"""
+
+
+def import_code(about: dict, project: str, base: str, guard: str, check) -> bool:
+    """Rouh's own code out of the bundle (version 2), put in the fresh stack's code volume and checked
+    by the release's own protected core, as an update is checked, before anything runs on it. True
+    when it passed and is the code the stack starts with; False, said plainly, when the bundle has no
+    code or the code did not pass: then the code volume is left empty, the stack starts on the newest
+    tested Rouh as any new stack does, and the code is kept in core-data at rouh/restore/code.bundle.
+    `check` is the check of a code volume (Machine.code_check)."""
+    code = about.get("code") or {}
+    if not code.get("head"):
+        say("The bundle holds no code of its own (it was made before 25 November 2026): the stack starts on the "
+            "newest tested Rouh.")
+        return False
+    vol, data, extra = f"{project}_code", f"{project}_core-data", f"{project}_extra"
+    if not run(["docker", "volume", "inspect", vol], timeout=30).returncode:
+        raise Stop(f"the stack {project} has a code volume already; nothing more changed")
+    for name, v in (("code", vol), ("extra", extra)):
+        run(["docker", "volume", "create", "--label", f"com.docker.compose.project={project}",
+             "--label", f"com.docker.compose.volume={name}", v], timeout=60, check=True)
+    say(f"Putting Rouh's own code in: {code.get('commits', 0)} commits, at {str(code['head'])[:12]}")
+    r = run(["docker", "run", "--rm", "--network", "none", "--user", "0:0", "--cap-drop", "ALL",
+             "--cap-add", "CHOWN", "--cap-add", "DAC_OVERRIDE", "--cap-add", "FOWNER",
+             "--security-opt", "no-new-privileges:true", "-e", f"MADE_AT={about.get('made_at', '')}",
+             "-v", f"{data}:/data", "-v", f"{vol}:/code",
+             "--entrypoint", "python", base, "-I", "-c", FILL_CODE], timeout=1800)
+    if r.returncode:
+        run(["docker", "volume", "rm", vol], timeout=60)
+        say(f"Rouh's own code could not be put in ({(r.stderr or r.stdout).decode(errors='replace').strip()[-300:]}): "
+            "the stack starts on the newest tested Rouh, and the code is kept in core-data at rouh/restore/code.bundle.")
+        return False
+    # The libraries its genes added, held to the base's own pins, as the first start does for new code.
+    gv = f"{project}-restore-guard"
+    run(["docker", "volume", "create", gv], timeout=60)
+    try:
+        run(["docker", "run", "--rm", "--network", "none", "--user", "0:0", "--cap-drop", "ALL", "--cap-add", "CHOWN",
+             "--cap-add", "DAC_OVERRIDE", "--cap-add", "FOWNER", "-v", f"{gv}:/out",
+             "--entrypoint", "/opt/rouh-guard/bin/rouh-guard-install", guard, "/out"], timeout=300, check=True)
+        lib = run(["docker", "run", "--rm", "--user", "0:0", "-v", f"{gv}:/opt/rouh-guard:ro", "-v", f"{vol}:/code:ro",
+                   "-v", f"{extra}:/extra", "--entrypoint", "python3", base,
+                   "/opt/rouh-guard/bin/rouh-code-install", "--extra-only", "/code"], timeout=1800)
+        if lib.returncode:
+            say("The libraries its own code adds could not all be put in; the check says whether it runs without them.")
+    finally:
+        run(["docker", "volume", "rm", gv], timeout=60)
+    try:
+        check()
+    except Stop as e:
+        run(["docker", "volume", "rm", vol], timeout=60)
+        say(f"Rouh's own code did not pass the protected core's check, so it does not run: {e}. The stack starts "
+            "on the newest tested Rouh instead, and the code is kept in core-data at rouh/restore/code.bundle.")
+        return False
+    say("Rouh's own code passed the protected core's check: the stack starts on it, its database is brought up "
+        "to it on the first start, and the ordinary update takes it on to any newer release.")
+    return True
+
+
 def import_bundle(path: Path, compose: list[str], project: str, base: str, *, wait: float = 300) -> dict:
     """An existing Rouh's bundle (rouh/bundle.py) put into a fresh stack before its first start: its
     database restored into the stack's PostgreSQL, its encryption key into the keys volume as
@@ -732,6 +845,7 @@ def import_bundle(path: Path, compose: list[str], project: str, base: str, *, wa
         about = rouh_bundle.read_about(str(path))
         say(f"The bundle is {rouh_bundle.describe(about)}.")
         rouh_bundle.check_dump(str(path), about)
+        rouh_bundle.check_code(str(path), about)
     except rouh_bundle.NotABundle as e:
         raise Stop(f"{path} cannot be brought in: {e}; nothing changed")
     if not about.get("encryption_key"):
@@ -839,7 +953,8 @@ def import_cmd(m: Machine, bundle: str, release_file: str | None) -> int:
     m.reference.write_text(r["compose"])
     for image in (r["images"]["postgres"], r["images"]["base"]):
         run(["docker", "pull", "--quiet", image], timeout=1800, check=True)
-    import_bundle(path, m.compose(m.reference), PROJECT, r["images"]["base"])
+    about = import_bundle(path, m.compose(m.reference), PROJECT, r["images"]["base"])
+    import_code(about, PROJECT, r["images"]["base"], r["images"]["guard"], lambda: m.code_check(r, mark=False))
     say("Start it with: linux_stack.py update. Its owner is the one it had; to sign in, open the address that "
         f"`docker compose -p {PROJECT} -f ~/rouh/stack/stack.json exec core python manage.py setup_link` prints. "
         "Delete the bundle once Rouh is up: it opens every saved login.")
