@@ -8,8 +8,8 @@
    choice and the key screen open to two columns on a desk. The birth service is named by
    its address (`firstrun.service_name`), so an installation with its own shows its own. Nobody types or sees a setup code: it came in the address, which
    the page takes it out of at once, and without it the page says in one line how to open it.{% endcomment %}
-{% block title %}{% if screen == "brain" or screen == "key" %}Give {{ name }} a brain{% elif screen == "born" and born %}{{ name }} is born{% elif screen == "email" %}Check your email{% elif screen == "born" %}Your {{ independent }} is ready{% elif screen == "connect" %}Connected Rouh or {{ independent }}{% else %}Set up Rouh{% endif %}{% endblock %}
-{% block main_attrs %}{% if screen == "connect" or screen == "key" %} class="wide"{% endif %}{% endblock %}
+{% block title %}{% if screen == "voice" %}Give {{ name }} a voice{% elif screen == "brain" or screen == "key" %}Give {{ name }} a brain{% elif screen == "born" and born %}{{ name }} is born{% elif screen == "email" %}Check your email{% elif screen == "born" %}Your {{ independent }} is ready{% elif screen == "connect" %}Connected Rouh or {{ independent }}{% else %}Set up Rouh{% endif %}{% endblock %}
+{% block main_attrs %}{% if screen == "connect" or screen == "key" or screen == "voice" %} class="wide"{% endif %}{% endblock %}
 {% block body %}
  <style>
   /* The Rouh's own name, orange on every screen once it has one (Petar, 8 November 2026): a
@@ -114,6 +114,8 @@
   .guide i{color:#e8ecf1;font-style:normal;font-weight:600}
   .out{display:inline-block;margin-top:4px;font-size:14px}
   .checking{display:flex;gap:10px;align-items:center}
+  .opt{display:inline-block;font-size:12px;font-weight:600;letter-spacing:.02em;color:#8b95a3;
+       border:1px solid #3a4450;border-radius:999px;padding:2px 9px;margin-bottom:2px;justify-self:start;width:max-content}
   .spin{flex:none;width:16px;height:16px;border-radius:50%;border:2px solid #232a33;
         border-top-color:#5ec2ff;animation:spin 1s linear infinite}
   @keyframes spin{to{transform:rotate(360deg)}}
@@ -302,6 +304,50 @@
   <button type="submit">Start talking</button>
  </form>{% if claude_later and keys.anthropic == 'ok' %}
  <p class="small">Have a Claude Pro or Max plan? Long jobs in Claude Code can run on it instead of your key, any time: <a href="/setup/claude">Sign in with Claude</a>.</p>{% endif %}{% endif %}
+
+{% elif screen == "voice" %}
+ <span class="opt">Optional</span>
+ <h2>Give <span class="rn">{{ name }}</span> a voice</h2>
+ <p class="lead">{{ words.said }}</p>
+ <p class="small">{{ words.cost }}</p>
+ <div class="keycols">
+  <section aria-labelledby="voicePasteHead">
+   <h3 id="voicePasteHead">Paste your ElevenLabs key</h3>{% if problem %}
+   <div class="bad" role="alert"><p>{{ problem }}</p></div>{% endif %}
+   <form method="post" action="/setup/voice" class="check">
+    {% csrf_token %}
+    <div class="field">
+     <label for="voiceKey">Your ElevenLabs key, starting sk_</label>
+     <input id="voiceKey" name="key" type="password" autocomplete="off" autocapitalize="none" autocorrect="off"
+            spellcheck="false" placeholder="sk_…" autofocus>
+    </div>
+    <button type="submit">Check it</button>
+   </form>
+   <div class="checking" id="checking" role="status" hidden><span class="spin" aria-hidden="true"></span><p>Checking with ElevenLabs…</p></div>
+   <form method="post" action="/setup/voice">
+    {% csrf_token %}<input type="hidden" name="do" value="skip">
+    <button type="submit" class="second">Skip for now</button>
+   </form>
+   <p class="small">Skipping loses nothing: you type to <span class="rn">{{ name }}</span>, and set up voice any time from the voice button beside the message box.</p>
+  </section>
+  <section aria-labelledby="voiceHowHead">
+   <h3 id="voiceHowHead">How to get an ElevenLabs key</h3>
+   <ol class="guide">
+    <li><b>Make an account.</b> Open ElevenLabs and sign up. The free plan is enough to try it.<br><a class="out" href="https://elevenlabs.io/app/sign-up" target="_blank" rel="noopener noreferrer">Open ElevenLabs <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 16L16 8M9 8h7v7"/></svg></a></li>
+    <li><b>Make the key.</b> Developers → API Keys → <i>Create key</i>. Name: <span class="rn">{{ name }}</span>. Leave every permission on.</li>
+    <li><b>Copy it now.</b> It starts with sk_ and is shown only once. Paste it in the box.</li>
+    <li><b>Later, if you talk a lot.</b> A paid plan gives more minutes: Subscription, in your ElevenLabs account.</li>
+   </ol>
+  </section>
+ </div>
+ <script>
+  document.querySelectorAll('form.check').forEach(function (f) {
+    f.addEventListener('submit', function () {
+      document.querySelectorAll('form.check button').forEach(function (b) { b.disabled = true; });
+      document.getElementById('checking').hidden = false;
+    });
+  });
+ </script>
 
 {% elif screen == "key" %}
  <h2>Your {{ c.name }} key for <span class="rn">{{ name }}</span></h2>

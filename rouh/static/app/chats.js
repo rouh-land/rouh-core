@@ -14,7 +14,7 @@ import { handleMessage, heldMoved, holdMessages, S, send } from 'app/socket.js';
 import { stopPlayback } from 'app/playback.js';
 import { setState } from 'app/orb.js';
 import { drawTranscriptInto, drawWords, editTurn, hideTyping, endTurnOnScreen, pickUpRunningTurn, restoreTranscript, setBusy,
-  catchUp, olderBack, olderFrom, olderLearn, olderMoved, seenSet, showStop, T, transcriptEl, turnIsRunning, updateJump, wipeTranscript } from 'app/transcript.js';
+  catchUp, emptyWords, olderBack, olderFrom, olderLearn, olderMoved, seenSet, showStop, T, transcriptEl, turnIsRunning, updateJump, wipeTranscript } from 'app/transcript.js';
 import { CARDS, cardsAdriftSay, cardWaysSay, frameLoad, projectSaidIt, resetCanvas,
   resetStreamCards, taskSaidIt, WORKSPACE_ROUTE } from 'app/cards.js';
 import { detachAsk, FIND, findAsk, findShow } from 'app/search.js';
@@ -241,7 +241,7 @@ function showCrumb() {
         + (owned.parent ? 'Rouh has ' + taskWords(owned.parent)
           + ' as background, and what is said here stays with the subtask. ' : '')
       : '')
-      + 'Say something, or type below.';
+      + emptyWords();
   }
 
   /* And what can be done to it, which depends on which of the two it is.

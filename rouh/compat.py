@@ -43,7 +43,7 @@ import logging
 import time
 from types import SimpleNamespace
 
-from . import (attachments, chatkinds, context_editing, costs, llm, llmlog, modelstandard, replymode, spending_limit,
+from . import (attachments, chatkinds, context_editing, costs, key_trouble, llm, llmlog, modelstandard, replymode, spending_limit,
                retrying, toolsearch, turnmarks)
 from .brain import (_first_of, _is_stopped, _let_it_finish, _said_timing, _split_sentences, _Stopped,
                     _timed, _without_marks)
@@ -228,10 +228,11 @@ def friendly(exc, model: str) -> str:
     mine = spending_limit.words_of(exc)
     if mine:
         return mine
+    plain = key_trouble.said(exc, provider_of(model))
+    if plain:
+        return plain
     who = PROVIDER_NAMES.get(provider_of(model), "The provider")
     status = retrying.status_of(exc)
-    if status in (401, 403):
-        return f"My {who} API key is not being accepted. Check it in Anatomy, Behaviour, Models."
     if status == 404:
         return f"{model_name(model)} is not available to my {who} API key."
     if status == 429:
@@ -342,9 +343,10 @@ async def turn(brain, session_id: str, user_content, emit, on_sentence, model: s
                                 "message": chatkinds.too_long(session_id, model, *over)})
                     return "".join(now.full_text)
                 log.exception("the call to %s failed", model)
+                fix = None if spending_limit.words_of(exc) is not None else key_trouble.button(exc, provider_of(model))
                 await emit({"type": "error", "message": friendly(exc, model), "fatal": False,
-                            "lasting": spending_limit.words_of(exc) is not None,
-                            "costs": spending_limit.words_of(exc) is not None})
+                            "lasting": spending_limit.words_of(exc) is not None or fix is not None,
+                            "costs": spending_limit.words_of(exc) is not None, "link": fix})
                 return "".join(now.full_text)
         if stopped:
             break

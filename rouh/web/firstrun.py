@@ -40,6 +40,13 @@ and a restart of Rouh land where the person was:
 4. ``/setup/brain``: an Anthropic or OpenAI key, required, with each company's
    guide shown beside the box from the start and the key checked the moment it
    is pasted (decision 3).
+5. ``/setup/voice``: optional, and only while there is no ElevenLabs key (task 98,
+   gap G13, 25 November 2026): what voice is, what ElevenLabs costs
+   (`speech.SETUP_WORDS`, the same words the voice popup says), a box for the
+   key, checked by ElevenLabs and kept the way Anatomy, Connections, Keys keeps
+   it (`service_keys.save`), and Skip for now. The first run is already over
+   when it shows: skipping it loses nothing, and voice is set up any time from
+   the voice popup.
 
 No screen shows, asks for or mentions recovery words or keys. The words were the
 fourth screen until 4 November 2026.
@@ -1151,8 +1158,58 @@ async def brain(request: HttpRequest) -> HttpResponse:
         if "ok" in states.values():
             await asyncio.to_thread(_save, user, done_at=time.time())
             await asyncio.to_thread(_greet, user)
-            return _go("/")
+            return _go(after_brain())
     return await asyncio.to_thread(_render, request, "brain", **await asyncio.to_thread(_brain_values, user))
+
+
+# --- 5. a voice, optional ------------------------------------------------------------------------
+
+
+def after_brain() -> str:
+    """Where Start talking goes: the voice step while there is no ElevenLabs key, else the chat."""
+    from rouh.config import config
+
+    return "/" if config.elevenlabs_api_key else f"{PATH}/voice"
+
+
+def _voice_values(user, **more) -> dict:
+    from rouh import speech
+
+    return {"name": _rouh_name(user), "words": speech.setup_words(), **more}
+
+
+async def voice(request: HttpRequest) -> HttpResponse:
+    """``/setup/voice``: the optional voice step, for the owner once the first run is over."""
+    from rouh import service_keys
+    from rouh.config import config
+
+    user = await request.auser()
+    if not user.is_authenticated:
+        return _go("/login")
+    owner = await asyncio.to_thread(the_owner)
+    if owner is None or owner.pk != user.pk:
+        return _go("/")
+    if await asyncio.to_thread(next_screen, user):
+        return _go(await asyncio.to_thread(next_path, user))
+    if request.method == "POST" and request.POST.get("do") == "skip":
+        await asyncio.to_thread(_save, user, voice_skipped_at=time.time())
+        return _go("/")
+    if request.method != "POST":
+        if config.elevenlabs_api_key:
+            return _go("/")
+        return await asyncio.to_thread(_render, request, "voice", **await asyncio.to_thread(_voice_values, user))
+    key = " ".join(str(request.POST.get("key") or "").split())
+    if not key:
+        return await asyncio.to_thread(_render, request, "voice", status=400,
+                                       **await asyncio.to_thread(_voice_values, user,
+                                                                 problem="Paste your ElevenLabs key first, or press Skip for now."))
+    try:
+        await service_keys.save(await asyncio.to_thread(_who, user), "voice", {"ELEVENLABS_API_KEY": key})
+    except service_keys.Refused as exc:
+        return await asyncio.to_thread(_render, request, "voice", status=400,
+                                       **await asyncio.to_thread(_voice_values, user, problem=str(exc)))
+    log.info("first run: a working ElevenLabs key was kept, from %s", client_ip(request))
+    return _go("/")
 
 
 async def company_key(request: HttpRequest, company: str, how: bool = False) -> HttpResponse:

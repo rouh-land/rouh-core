@@ -5047,7 +5047,9 @@ class Turn:
                         await tab.send_audio(chunk)
                 except SpeechError as exc:
                     log.warning("speech: %s", exc)
-                    await self.emit({"type": "error", "message": str(exc)[:200], "fatal": False})
+                    fix = exc.button()
+                    await self.emit({"type": "error", "message": exc.said("speak"), "fatal": False,
+                                     "lasting": fix is not None, "link": fix})
                     break
         except asyncio.CancelledError:
             raise
@@ -7695,7 +7697,9 @@ class Session:
         try:
             return await ears.transcribe(pcm)
         except SpeechError as exc:
-            await self.emit({"type": "error", "message": str(exc)[:200], "fatal": False})
+            fix = exc.button()
+            await self.emit({"type": "error", "message": exc.said("hear you"), "fatal": False,
+                             "lasting": fix is not None, "link": fix})
             return ""
 
 

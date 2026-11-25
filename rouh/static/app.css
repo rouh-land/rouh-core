@@ -7775,8 +7775,10 @@ a.pf-co:hover { color: var(--accent); text-decoration: underline; }
 .voice-menu-btn.dictating { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); }
 .voice-menu-btn.replies-off .wave { opacity: 0.3; }
 
+/* Above the navigation's fixed menu button (z-index 99), which sits over the composer's left end
+   when the navigation is folded: an open panel is short-lived and closes on any press outside it. */
 .voice-pop, .model-pop {
-  position: absolute; bottom: calc(100% + 8px); z-index: 40;
+  position: absolute; bottom: calc(100% + 8px); z-index: 100;
   background: var(--panel-2); border: 1px solid var(--line);
   border-radius: var(--radius-s); box-shadow: var(--shadow);
   padding: 6px; cursor: default;
@@ -7794,6 +7796,20 @@ a.pf-co:hover { color: var(--accent); text-decoration: underline; }
   clip: auto; clip-path: none; white-space: nowrap; color: var(--text);
   min-width: 0; overflow: hidden; text-overflow: ellipsis;
 }
+.voice-pop .tog[hidden] { display: none; }
+/* No ElevenLabs key (task 98, gap G13): what voice needs, what it costs and the one button, in place
+   of the three controls. The panel's own surface, like the chat's own note (`.chat-setup`). */
+.voice-setup { display: grid; gap: 6px; justify-items: start; padding: 8px 8px 6px; }
+.voice-setup[hidden] { display: none; }
+.voice-setup p { margin: 0; }
+.voice-setup-head { font-size: 14px; font-weight: 600; line-height: 1.35; color: var(--text); }
+.voice-setup-said { font-size: 13px; line-height: 1.45; color: var(--text); }
+.voice-setup-cost { font-size: 12.5px; line-height: 1.45; color: var(--dim); }
+.voice-setup .voice-setup-go { margin-top: 4px; min-height: 44px; display: inline-flex; align-items: center;
+  padding: 0 18px; font-size: 14px; text-decoration: none; }
+.voice-pop:has(.voice-setup:not([hidden])) { width: 300px; }
+/* With nothing to switch on, the voice button says so quietly: no wave. */
+.voice-menu-btn.no-key .wave { opacity: 0.3; }
 .voice-pop .tog.off::after { position: static; margin-left: auto; font-size: 10px; padding: 2px 4px; }
 .voice-pop .tog.off .sr-only { color: var(--dim); }
 .voice-pop .tog:focus-visible, .voice-menu-btn:focus-visible, .model-btn:focus-visible,
@@ -7848,6 +7864,7 @@ a.pf-co:hover { color: var(--accent); text-decoration: underline; }
   /* A phone's text is 16 pixels, or iOS zooms in. */
   .model-btn { font-size: 14px; }
   .model-opt-name, .voice-pop .tog { font-size: 15px; }
+  .voice-setup-said, .voice-setup-cost { font-size: 15px; }
   .model-opt-hint { font-size: 13px; }
 }
 @media (prefers-reduced-motion: no-preference) {

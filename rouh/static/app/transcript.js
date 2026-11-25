@@ -297,6 +297,12 @@ function keepEnd() {
   updateJump();
 }
 
+/** What an empty conversation says: to speak or type, or only to type while there is no
+    ElevenLabs key, so nobody presses a microphone that hears nothing (task 98, gap G13). */
+function emptyWords() {
+  return S.voiceKey ? 'Say something, or type below.' : 'Type a message below.';
+}
+
 // Something is about to be drawn in the conversation, so it is not empty
 // any more, and the line that said so goes.
 function dropEmpty() {
@@ -1590,7 +1596,7 @@ function wipeTranscript() {
   older.id = 'streamOlder';
   older.hidden = true;
   transcriptEl().appendChild(older);
-  var p = el('p', 'empty', 'Say something, or type below.');
+  var p = el('p', 'empty', emptyWords());
   p.id = 'transcriptEmpty';
   transcriptEl().appendChild(p);
   T.assistant = null;
@@ -2943,7 +2949,7 @@ function onToolEnd(m) {
   scrollDown();
 }
 
-export { actBtn, branchFocus, onTaskRefs, hideTyping, drawTranscriptInto, addPart, addTurnFromElsewhere, onRecallMessage, askaiSaid, atBottom, cardInAnswer,
+export { actBtn, emptyWords, branchFocus, onTaskRefs, hideTyping, drawTranscriptInto, addPart, addTurnFromElsewhere, onRecallMessage, askaiSaid, atBottom, cardInAnswer,
   cardInLiveAnswer, closeAssistant,
   closeEmptyAssistant, copyFrom, drawWords, dropEmpty, editTurn, endTurnOnScreen,
   drawWaiting, ensureAssistant, fitActs, markStopped, newTurn, noteTurnSign, onDelta, onDone, onExchange,

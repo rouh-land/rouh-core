@@ -221,21 +221,24 @@ function voiceSays() {
   voiceBtn.classList.toggle('needs-press', press);
   voiceBtn.classList.toggle('dictating', dictating);
   voiceBtn.classList.toggle('replies-off', repliesOff);
-  var words = 'Voice: ' + (press ? 'press to turn the voice on' : live ? 'microphone on' : 'microphone off')
+  // No ElevenLabs key: the three controls are not in the panel, which says how to set voice up.
+  var noKey = !!mic && mic.hidden;
+  var words = noKey ? 'Voice: not set up yet'
+    : 'Voice: ' + (press ? 'press to turn the voice on' : live ? 'microphone on' : 'microphone off')
     + ', voice replies ' + (repliesOff ? 'off' : 'on') + (dictating ? ', dictating' : '');
   voiceBtn.title = words;
   voiceBtn.setAttribute('aria-label', words);
   // And the same on the voice row of the folded paperclip's menu.
   var item = $('attachVoiceItem'), state = $('attachVoiceState');
   if (item) item.title = words;
-  if (state) state.textContent = press ? 'press' : dictating ? 'dictating' : live ? 'on' : 'off';
+  if (state) state.textContent = noKey ? 'not set up' : press ? 'press' : dictating ? 'dictating' : live ? 'on' : 'off';
 }
 
 if (voiceBtn) {
   var watch = new MutationObserver(voiceSays);
   ['micBtn', 'voiceBtn', 'dictateBtn'].forEach(function (id) {
     var b = $(id);
-    if (b) watch.observe(b, { attributes: true, attributeFilter: ['class', 'aria-pressed', 'disabled'] });
+    if (b) watch.observe(b, { attributes: true, attributeFilter: ['class', 'aria-pressed', 'disabled', 'hidden'] });
   });
   voiceSays();
 }

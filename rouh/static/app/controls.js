@@ -13,7 +13,7 @@ import { A, acquireMic, beginUtterance, endUtterance, MIC, releaseMic } from 'ap
 import { PB, speakerReady, stopPlayback } from 'app/playback.js';
 import { orbExpand, orbMenu, orbRowHeight, ORBX, setState } from 'app/orb.js';
 import { atBottom, closeAssistant, drawWaiting, drawWords, fitActs, keepEnd, newTurn, onTranscriptScroll, readerHand,
-  scrollDown, setBusy, showStop, stopTheTurn, T, transcriptEl, watchTheTurn } from 'app/transcript.js';
+  emptyWords, scrollDown, setBusy, showStop, stopTheTurn, T, transcriptEl, watchTheTurn } from 'app/transcript.js';
 import { CARDS_UP, cardsBackInPlace, cardsGoOut, cardsSettle, cardsUncover, layerOpen, LAYERS, paintCovered } from 'app/cards.js';
 import { askPageNow, canvasTask, growToLines, projectsClose, rowsFollowSidebar } from 'app/runs.js';
 import { chatById, CHATS, composerKey, forkBtnPaint, forkComeNow, FORKS, keysPlaceholder, sendTip } from 'app/chats.js';
@@ -1658,6 +1658,12 @@ function screenMetrics() {
  */
 function setMic(muted) {
   muted = !!muted;
+  // No ElevenLabs key: nothing would hear it, so no microphone is opened, and the voice panel
+  // says what voice needs instead (`voiceKeyed`).
+  if (!muted && !S.voiceKey) {
+    voiceNeedsKey();
+    return Promise.resolve();
+  }
   // Turning the microphone off mid-dictation is being done with it.
   if (muted && S.dictating) setDictation(false);
   S.muted = muted;
@@ -1721,6 +1727,38 @@ function micRefused(err) {
   micSays();
 }
 
+/** Whether Rouh can hear and speak here, from the handshake (`ears` on `ready`): with no ElevenLabs
+    key the microphone, voice replies and dictation are not in the voice panel, which says what voice
+    needs, what it costs and has the one button that sets it up, and the empty chat says to type
+    (task 98, gap G13: "if we don't have key, the voice section buttons are disabled/missing").
+    @param {boolean} on */
+function voiceKeyed(on) {
+  on = !!on;
+  S.voiceKey = on;
+  if (!on && S.micReady && !S.muted) setMic(true);
+  ['micBtn', 'voiceBtn', 'dictateBtn'].forEach(function (id) {
+    var b = /** @type {HTMLButtonElement | null} */ ($(id));
+    if (!b) return;
+    b.hidden = !on;
+    b.disabled = !on;
+  });
+  var note = $('voiceSetup');
+  if (note) note.hidden = on;
+  var menu = $('voiceMenuBtn');
+  if (menu) menu.classList.toggle('no-key', !on);
+  if (on) micSays();
+  var empty = $('transcriptEmpty');
+  if (empty) empty.textContent = (empty.textContent || '')
+    .replace(/(Say something, or type below\.|Type a message below\.)$/, emptyWords());
+}
+
+/** Something asked for the microphone with no key to hear with: the voice panel opens, where it
+    says what voice needs. Dictation's keys, from anywhere on the page, land here. */
+function voiceNeedsKey() {
+  var menu = $('voiceMenuBtn'), pop = $('voicePop');
+  if (menu && pop && pop.hidden) menu.click();
+}
+
 $('micBtn').addEventListener('click', function () {
   // `setMic` is given the state to go to, and its argument is "off". Open
   // now means turn it off; anything else means open one, and a press is
@@ -1777,6 +1815,7 @@ $('voiceBtn').addEventListener('click', function () {
   if (cfg.voiceReply) unlockAudio();
 });
 setVoice(cfg.voiceReply);
+voiceKeyed(S.voiceKey);
 
 // The Stop button. Escape does the same thing from the keyboard.
 // It comes up in Send's own spot (`showStop`), so a press in its first half second is the second half of a
@@ -2241,7 +2280,7 @@ if (window.ResizeObserver) {
   }).observe(transcriptEl(), { childList: true });
 }
 
-export { accountMenu, ownName, CANVAS_MIN, canvasAwayIfBare, canvasIsWanted, canvasShown, CHAT_W, chatIsWanted, chatOnScreen, chatPutAway, chatRoom,
+export { voiceKeyed, accountMenu, ownName, CANVAS_MIN, canvasAwayIfBare, canvasIsWanted, canvasShown, CHAT_W, chatIsWanted, chatOnScreen, chatPutAway, chatRoom,
   cols, drawerEntryTaken, drawerPopped, drawerUnwinding, drawTyped, earlyFlush, earlyLift, growInput, input, micSays, narrow, paintPaneButton, pane, queueFold, SB, screenHeight,
   panelsChoseCanvas, panelsForChat, panelsHold, panelsShown, sbSet, sendTyped, setMic, setPane, setVoice, showDictation, sidebarDone, TASKS_FULL,
   tasksHold, tasksTakeChat };

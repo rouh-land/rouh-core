@@ -112,7 +112,8 @@ export interface ServerMessages {
   note_sent: { ok: any; parent?: any; note?: any; why?: any; };
   fork_refused: { text: any; why: any; root?: any; };
   stopped: { text?: any; turns?: any; chat: any; };
-  error: { message: any; fatal: any; lasting?: any; /** Refused at the spending limit (`rouh/spending_limit.py`): the card offers What the models cost. */ costs?: boolean; chat_setup?: ChatSetup | null; };
+  error: { message: any; fatal: any; lasting?: any; /** Refused at the spending limit (`rouh/spending_limit.py`): the card offers What the models cost. */ costs?: boolean; chat_setup?: ChatSetup | null;
+    /** No credit left or a key turned away (`rouh/key_trouble.py`): the one button that fixes it, a url of Rouh's own ("/...") or the company's billing page. */ link?: { label: string; url: string } | null; };
   canvas: { mode: any; task?: any; step?: any; page?: any; stay?: any; chat?: any; };
   objects: { tasks: any[]; projects: any[]; workspaces: any[]; policies: any[]; /** Which kinds can own which (`owning.OWNERS_FOR`). */ owners_for?: Record<string, string[]>; };
   attached: { ok: any; kind: any; id: any; owner?: any; why?: any; };

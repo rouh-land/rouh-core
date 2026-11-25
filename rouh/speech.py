@@ -46,8 +46,58 @@ API = (os.environ.get("ELEVENLABS_BASE_URL")
        or "https://api.elevenlabs.io/v1").rstrip("/")
 
 
+#: What the voice popup and the setup's voice step say while there is no ElevenLabs key (task 98,
+#: gap G13, Petar, 25 November 2026: "add info about elevenlabs in the voice popup with prompt to set
+#: it up"). One set of words for both, so the two never disagree. Prices from elevenlabs.io/pricing/api,
+#: 25 November 2026.
+SETUP_WORDS = {
+    "head": "Voice is not set up yet",
+    "said": "To talk to Rouh out loud and hear its answers, Rouh needs an ElevenLabs key. ElevenLabs is "
+            "the company that turns your speech into words and reads Rouh's answers aloud.",
+    "cost": "Its free plan gives about 10 minutes of Rouh speaking a month. Paid plans start at $6 a month "
+            "for about 75 minutes, and hearing you costs about 20 cents an hour of talking. Typing always "
+            "works, with no key.",
+    "button": "Set up voice",
+    "href": "/anatomy/connections/keys",
+}
+
+
+def setup_words() -> dict:
+    return dict(SETUP_WORDS)
+
+
 class SpeechError(RuntimeError):
-    pass
+    """ElevenLabs did not answer. `status` and `body` are its own, when it answered at all, so a key it
+    turned away or an account with no credit is said plainly (`said`, `rouh/key_trouble.py`)."""
+
+    def __init__(self, message: str, status: int | None = None, body=None):
+        super().__init__(message)
+        self.status_code = status
+        self.body = body
+
+    def said(self, doing: str = "speak") -> str:
+        """For the screen: no credit or a refused key in plain words with where to fix it, else the error."""
+        from . import key_trouble
+
+        return key_trouble.said(self, key_trouble.ELEVENLABS, doing) or str(self)[:200]
+
+    def button(self) -> dict | None:
+        from . import key_trouble
+
+        return key_trouble.button(self, key_trouble.ELEVENLABS)
+
+
+def _body(text: str):
+    """ElevenLabs' answer as JSON where it is JSON (``{"detail": {"status": "quota_exceeded", ...}}``)."""
+    try:
+        import json
+
+        got = json.loads(text)
+    except ValueError:
+        return text
+    if isinstance(got, dict) and isinstance(got.get("detail"), dict):
+        return {"error": got["detail"]}
+    return got
 
 
 # "[background noise]", "[clicking]", "[sniffs]". The transcriber labels sounds
@@ -104,7 +154,8 @@ class Voice:
         ) as resp:
             if resp.status_code >= 400:
                 detail = (await resp.aread()).decode("utf-8", "replace")[:300]
-                raise SpeechError(f"Speech synthesis failed ({resp.status_code}): {detail}")
+                raise SpeechError(f"Speech synthesis failed ({resp.status_code}): {detail}",
+                                  resp.status_code, _body(detail))
             async for chunk in resp.aiter_bytes(4096):
                 if first:
                     log.info("tts first byte in %dms", int((time.monotonic() - started) * 1000))
@@ -178,7 +229,8 @@ class Ears:
             f"{API}/speech-to-text", files=files, data=form, headers=headers
         )
         if r.status_code >= 400:
-            raise SpeechError(f"Transcription failed ({r.status_code}): {r.text[:300]}")
+            raise SpeechError(f"Transcription failed ({r.status_code}): {r.text[:300]}",
+                              r.status_code, _body(r.text[:2000]))
         return words_only((r.json().get("text") or "").strip())
 
     async def aclose(self) -> None:

@@ -236,7 +236,8 @@
     "rouh/usage_drill.py",
     "rouh/call_makeup.py",
     "rouh/management/commands/reprice_calls.py",
-    "rouh/spending_limit.py"
+    "rouh/spending_limit.py",
+    "rouh/key_trouble.py"
    ],
    "needed_by": [
     "answered-in-chat",

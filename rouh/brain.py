@@ -32,11 +32,11 @@ from typing import Awaitable, Callable
 import anthropic
 
 from . import (attachments, chatkinds, citing, clock, context_editing, costs, demo, events,
-               fetchfallback, heartbeat, keeping, llmlog, location, modelstandard, promptcache, replymode,
+               fetchfallback, heartbeat, keeping, key_trouble, llmlog, location, modelstandard, promptcache, replymode,
                retrying, rouhlinks, senders, servercalls, spending_limit, telegram_chat, toolsearch, turnmarks, turntrace, untrusted,
                worklabel)
 from . import memory as memory_mod
-from .config import (GOOGLE, PROVIDER_NAMES, XAI, effort_for, is_openai, luna_ready, model_name,
+from .config import (ANTHROPIC, GOOGLE, PROVIDER_NAMES, XAI, effort_for, is_openai, luna_ready, model_name,
                      provider_of, takes_system_messages, thinking_for)
 from .stopping import STOP_NOTE
 from .version import get_version
@@ -2027,11 +2027,13 @@ class Brain:
                     log.exception("model call failed")
                     # The spending limit stays on screen until it is closed,
                     # like a chat past its window: it lasts until someone acts.
+                    # So do no credit and a refused key, with the one button that fixes them.
+                    fix = None if spending_limit.words_of(exc) is not None else key_trouble.button(exc, ANTHROPIC)
                     await emit({"type": "error", "message": _friendly(exc),
                                 "fatal": False,
                                 "lasting": retrying.capped(exc) is not False
-                                or spending_limit.words_of(exc) is not None,
-                                "costs": spending_limit.words_of(exc) is not None})
+                                or spending_limit.words_of(exc) is not None or fix is not None,
+                                "costs": spending_limit.words_of(exc) is not None, "link": fix})
                     return "".join(full_text)
 
             # The inner loop is one request and its retries; this is the turn.
@@ -2899,10 +2901,13 @@ def _friendly(exc: anthropic.APIStatusError) -> str:
     mine = spending_limit.words_of(exc)
     if mine:
         return mine
+    # No credit left, which Anthropic sends as a 400 with only its words to tell it apart, and a
+    # key turned away: each said plainly, with where it is fixed (`rouh/key_trouble.py`, gap G12).
+    plain = key_trouble.said(exc, ANTHROPIC)
+    if plain:
+        return plain
     if isinstance(exc, anthropic.RateLimitError):
         return "I'm being rate limited. Give me a moment."
-    if isinstance(exc, anthropic.AuthenticationError):
-        return "My API key is not being accepted."
     back = retrying.capped(exc)
     if back is not False:
         return retrying.capped_words(back)

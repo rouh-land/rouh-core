@@ -31,7 +31,7 @@ from django.views.decorators.csrf import csrf_exempt
 from rouh import (addressing, artifacts, askai, attachments, comments, conversations, dbwork,
                   filelinks,
                   gaps, genes, machine_load, modeldefaults, moving, objectindex, outbox, pagehistory,
-                  page_listen, pageplaces, pages, picture, picturelinks, sharing, starting, steps,
+                  page_listen, pageplaces, pages, picture, picturelinks, sharing, speech, starting, steps,
                   stopping, switches,
                   turnrecords,
                   uploads, usage, waiting)
@@ -1106,6 +1106,11 @@ def _page_for(request: HttpRequest) -> HttpResponse:
         # When the chats have no AI service at all, the standard chat says so in plain words, with
         # one button to set it up and what it costs (`providerkeys.chat_setup`, review 51).
         "CHATS_NEED_KEY": _chats_need_key(request),
+        # Whether Rouh can hear and speak here: an ElevenLabs key. Without one the voice popup says
+        # what voice needs and what it costs, with one button to set it up, its three controls are
+        # not there, and the empty chat says to type (task 98, gap G13).
+        "VOICE_READY": bool(config.elevenlabs_api_key),
+        "VOICE_SETUP": speech.setup_words(),
         # The model the This page side asks, named beside its own box.
         "ASKAI_MODEL": work.model,
         "ASKAI_MODEL_NAME": model_name(work.model),

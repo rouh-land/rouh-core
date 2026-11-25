@@ -29,7 +29,7 @@ import { applyChats, chatById, CHATS, forkHold, forkKeptStale, forkPark, forkRef
 import { detachAnswer, detachAnswered, FIND, findAnswer, findAsk, findChanged, findLabels, findReconnected,
   findMsgReveal } from 'app/search.js';
 import { ADDR, addrAsk, addrFound, addrSocketGone, FRESH } from 'app/address.js';
-import { earlyFlush, earlyLift, panelsForChat, setMic, setVoice, showDictation } from 'app/controls.js';
+import { earlyFlush, earlyLift, panelsForChat, setMic, setVoice, showDictation, voiceKeyed } from 'app/controls.js';
 import { onPicturePartial, onPictures, picturesReady } from 'app/attachments.js';
 import { gtBoardRefresh } from 'app/feedback.js';
 import { notify, noteBuild, noticesHeard } from 'app/notices.js';
@@ -47,6 +47,10 @@ var S = {
   busy: false,
   micReady: false,
   muted: false,
+  //: Whether Rouh can hear and speak here: an ElevenLabs key (`ears` on `ready`). Without one the
+  //: voice controls are not there and the empty chat says to type (`voiceKeyed`, task 98 gap G13).
+  //: Until the handshake, what the page was served with.
+  voiceKey: document.body.dataset.voice !== 'off',
   //: Which conversation this page is in, as the server said in `ready`. It
   //: is never remembered here and never sent: there is one conversation and
   //: the server decides it, so a phone, a desktop and a browser opened for
@@ -539,6 +543,8 @@ function handleMessage(m) {
       //
       // A new connection starts with dictation off on the server.
       if (S.dictating) showDictation(false);
+      // A key added or taken away since the page was served (`voiceKeyed`).
+      voiceKeyed(!!m.ears);
       // Which conversation this tab's uploads belong to. None at the
       // front door, where there is no conversation to put a file in until
       // something has been said in one (see 10g).
@@ -1217,9 +1223,12 @@ function handleMessage(m) {
       // what its model can read - and stays until they close it.
       // `costs`: refused at the spending limit (`rouh/spending_limit.py`), with the way to the
       // screen where more is allowed for today or the limit raised.
+      // `link`: no credit left, or a key turned away (`rouh/key_trouble.py`), with the one button
+      // that fixes it: the company's billing page in a tab of its own, or Rouh's page where the key goes.
       else notify(m.message || 'Something failed.', { tone: 'error', lasting: !!m.fatal || !!m.lasting,
         action: m.costs ? { label: 'Open What the models cost',
-          run: function () { window.dispatchEvent(new Event('rouh:costs')); } } : null });
+          run: function () { window.dispatchEvent(new Event('rouh:costs')); } } : null,
+        link: !m.costs && m.link && m.link.url ? m.link : null });
       setBusy(false);
       if (m.fatal) setMic(true);
       break;

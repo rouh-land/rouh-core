@@ -958,7 +958,8 @@ function orbDotPlace() {
  * and this old mechanic should be deleted."
  *
  * `tone` is how much it matters and picks its mark. One with something to do
- * about it (`action`, `{ label, run }`) offers it on the card, and swiped right
+ * about it (`action`, `{ label, run }`, or `link`, `{ label, url }`: a page of Rouh's own or
+ * another site's, in a tab of its own) offers it on the card, and swiped right
  * does it; it stays new until it is done, dismissed or put away, as does an
  * error that is not over (`lasting`). Anything else has been said once it has
  * been in sight for `for` milliseconds (nine seconds unless it says), and then
@@ -972,7 +973,8 @@ var SAID = { next: -1, keep: 30 };
 /**
  * @param {string} words
  * @param {{ tone?: Tone, kind?: string, body?: string, lasting?: boolean, for?: number,
- *           action?: { label: string, run: () => void } | null }} [how]
+ *           action?: { label: string, run: () => void } | null,
+ *           link?: { label: string, url: string } | null }} [how]
  * @returns {{ id: number, remove: () => void }}
  */
 function notify(words, how) {
@@ -990,8 +992,10 @@ function notify(words, how) {
   });
   /** @type {Notice} */
   var n = {
-    id: SAID.next--, kind: how.kind || tone, title: title, body: body, link: '',
-    link_label: how.action ? how.action.label : '', decision: null, state: 'new', phone: '',
+    id: SAID.next--, kind: how.kind || tone, title: title, body: body,
+    link: !how.action && how.link ? String(how.link.url || '') : '',
+    link_label: how.action ? how.action.label : how.link ? String(how.link.label || '') : '',
+    decision: null, state: 'new', phone: '',
     at: Date.now() / 1000, phoned_at: null, tone: tone
   };
   if (how.action) n.run = how.action.run;
@@ -1004,7 +1008,7 @@ function notify(words, how) {
   merge();
   if (NT.mode !== 'list') NT.mode = 'stack';
   draw();
-  if (!how.lasting && (!how.action || how.for)) said(n, how.for || 9000);
+  if (!how.lasting && (!(how.action || how.link) || how.for)) said(n, how.for || 9000);
   return { id: n.id, remove: function () { unsay(n.id); } };
 }
 

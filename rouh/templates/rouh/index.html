@@ -178,7 +178,7 @@ with {% asset %}, which gives it its hashed address.
 <link rel="stylesheet" href="{% asset "boxpage.css" %}">
 <link rel="stylesheet" href="{% asset "offline.css" %}">
 </head>
-<body>
+<body data-voice="{% if VOICE_READY %}on{% else %}off{% endif %}">
 
 {% comment %} Notifications (`rouh/notices.py`, app/notices.js). Petar, 10 October 2026:
      "The navigation should pop up from the top, like iOS. If I have more than
@@ -1092,7 +1092,7 @@ with {% asset %}, which gives it its hashed address.
              The rest of the history is asked for as the reader scrolls up to
              it, and each page read back is placed under this. {% endcomment %}
         <p id="streamOlder" class="stream-older" hidden>Loading what came before…</p>
-        <p class="empty" id="transcriptEmpty">Say something, or type below.</p>
+        <p class="empty" id="transcriptEmpty">{% if VOICE_READY %}Say something, or type below.{% else %}Type a message below.{% endif %}</p>
       </div>
       {% comment %} Whenever the reader has scrolled up from the end. Pressing it goes
            back to the very end and does nothing else: the focus stays where it
@@ -1207,11 +1207,21 @@ with {% asset %}, which gives it its hashed address.
               <span class="voice-dot" aria-hidden="true"></span>
             </button>
             <div class="voice-pop" id="voicePop" role="group" aria-label="Voice" hidden>
+              {% comment %} No ElevenLabs key: what voice needs and what it costs, with the one button that
+                   sets it up, in place of the three controls, which cannot do anything without it
+                   (task 98, gap G13; the words are `speech.SETUP_WORDS`, the setup's voice step says the
+                   same). `voiceKeyed` in app/controls.js shows one or the other. {% endcomment %}
+              <div class="voice-setup" id="voiceSetup"{% if VOICE_READY %} hidden{% endif %}>
+                <p class="voice-setup-head">{{ VOICE_SETUP.head }}</p>
+                <p class="voice-setup-said">{{ VOICE_SETUP.said }}</p>
+                <p class="voice-setup-cost">{{ VOICE_SETUP.cost }}</p>
+                <a class="ctl small primary voice-setup-go" id="voiceSetupGo" href="{{ VOICE_SETUP.href }}">{{ VOICE_SETUP.button }}</a>
+              </div>
               {% comment %} The microphone, and the only control on this page that opens
                    one. Off means off: pressing it again ends every track rather
                    than muting a track that stays open, because a track that stays
                    open keeps the orange dot lit in an iPhone's status bar. {% endcomment %}
-              <button id="micBtn" class="tog off" type="button" aria-pressed="true"
+              <button id="micBtn" class="tog off" type="button" aria-pressed="true"{% if not VOICE_READY %} hidden disabled{% endif %}
                       title="Turn on the microphone">
                 <svg class="ico-mic" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
                   <rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/>
@@ -1221,13 +1231,13 @@ with {% asset %}, which gives it its hashed address.
                 </svg>
                 <span id="micLabel" class="sr-only">Turn on the microphone</span>
               </button>
-              <button id="voiceBtn" class="tog" type="button" aria-pressed="true" title="Voice replies on">
+              <button id="voiceBtn" class="tog" type="button" aria-pressed="true"{% if not VOICE_READY %} hidden disabled{% endif %} title="Voice replies on">
                 <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
                   <path d="M4 9v6h4l5 4V5L8 9H4z"/><path class="wave" d="M16.5 8.5a5 5 0 0 1 0 7M19 6a8.5 8.5 0 0 1 0 12"/>
                 </svg>
                 <span id="voiceLabel" class="sr-only">Voice replies on</span>
               </button>
-              <button id="dictateBtn" class="tog dictate" type="button" aria-pressed="false"
+              <button id="dictateBtn" class="tog dictate" type="button" aria-pressed="false"{% if not VOICE_READY %} hidden disabled{% endif %}
                       title="Dictate (Ctrl+Shift+Space): press, say it all, press again when you have finished. Pauses never end your turn.">
                 <svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true" fill="none"
                      stroke="currentColor" stroke-width="1.8" stroke-linecap="round">

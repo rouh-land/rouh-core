@@ -173,6 +173,7 @@ urlpatterns = [
     path("setup/email", firstrun_web.email),
     path("setup/born", firstrun_web.born),
     path("setup/brain", firstrun_web.brain),
+    path("setup/voice", firstrun_web.voice),
     path("setup/brain/<str:company>", firstrun_web.company_key),
     path("setup/brain/<str:company>/how", firstrun_web.company_how),
     # The same first run for Rouh for Mac's native screens, as JSON, with the setup code as a bearer
