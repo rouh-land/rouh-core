@@ -1102,7 +1102,9 @@
     "rouh/ruledefaults.py",
     "rouh/rule_defaults_fallback.json",
     "tools/rule_defaults/**",
-    "rouh/models/prompt_parts.py"
+    "rouh/models/prompt_parts.py",
+    "rouh/rule_tiers.py",
+    "rouh/management/commands/rule_tiers.py"
    ]
   },
   "box": {

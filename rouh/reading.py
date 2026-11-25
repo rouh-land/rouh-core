@@ -1054,6 +1054,20 @@ def rule_told(r: dict, reads: dict) -> bool:
     return bool(reads[src])
 
 
+def _told_with(r: dict) -> str:
+    """What a rule told only on demand comes with, for its row in the strip's panel (`rouh/rule_tiers.py`):
+    "the Calendar tools", "a message about the orb", or both; "" for a rule told every turn it applies."""
+    from . import rule_tiers, tool_rules
+
+    bits = []
+    if tool_rules.told_with_tools(r):
+        bits.append(tool_rules.said(tool_rules.targets(r)))
+    names = [rule_tiers.TOPICS[t][0] for t in rule_tiers.topics_of(r)]
+    if names:
+        bits.append("a message about " + (names[0] if len(names) == 1 else ", ".join(names[:-1]) + " or " + names[-1]))
+    return ", or ".join(bits)
+
+
 def rouh_tools(reads: dict) -> bool:
     """Whether Rouh's own tools are on in a turn with these switches (`switches`)."""
     return bool(reads.get("rouh_tools", reads.get("tools", True)))
@@ -1170,7 +1184,7 @@ def rules_listing(chat_id: str, who=None, s: dict | None = None) -> list[dict]:
         out.append({"id": rule_item(r), "title": r.get("title") or rules_mod._title_of(r["text"]), "text": text,
                     "source": src, "locked": src in ("safety", "builtin"), "own": src == "rules",
                     "on": rule_told(r, reads), "off": rule_item(r) in off,
-                    "with": tool_rules.said(tool_rules.targets(r)) if tool_rules.told_with_tools(r) else "",
+                    "with": _told_with(r),
                     "when": ("only when " + "; ".join(when)) if when else "",
                     "fills": prompting.value_words(prompting.placeholders(r["text"])) if r.get("fills") else "",
                     "reply": r.get("mode") or ""})

@@ -72,6 +72,22 @@ COMMANDS = {
                 "it is running or done. The owner agreed to it on 11 November 2026.",
         "start": "reasoning_scrub",
     },
+    "rule_tiers_status": {
+        "what": "Where this Rouh's built-in rules are told: which tiered plan is applied and since when, and each "
+                "moved rule's tools and topics (manage.py rule_tiers status). Only reads.",
+        "manage": ["rule_tiers", "status"],
+    },
+    "rule_tiers_apply": {
+        "what": "Move this Rouh's built-in rules into their three tiers (always, with their tool, with a message "
+                "about them), keeping where each was so it can be taken back in one step (manage.py rule_tiers "
+                "apply). This Rouh only, nothing published. The owner agreed to it on 25 November 2026 (task 182).",
+        "manage": ["rule_tiers", "apply"],
+    },
+    "rule_tiers_revert": {
+        "what": "Put every built-in rule the tiered plan moved back where it was told before, in one step "
+                "(manage.py rule_tiers revert). The owner agreed to it on 25 November 2026 (task 182).",
+        "manage": ["rule_tiers", "revert"],
+    },
 }
 assert set(COMMANDS) == set(policy.CORE_READS) | set(policy.CORE_MAINTENANCE), \
     "core_commands.COMMANDS and job_policy's CORE_ lists must name the same commands"

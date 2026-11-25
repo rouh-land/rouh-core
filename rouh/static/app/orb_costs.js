@@ -1108,6 +1108,7 @@ function ouPaintCall(c) {
   var pieces = (c.pieces || []).filter(function (p) { return p.chars; });
   if (c.makeup && c.makeup.kept) {
     ouPaintMakeup(body, c.makeup);
+    if (c.rules) ouPaintRules(body, c.rules);
   } else if (pieces.length) {
     var ps = el('section', 'ou-part');
     ps.appendChild(el('h3', 'ou-h', 'What it sent'));
@@ -1176,6 +1177,39 @@ function ouPaintCall(c) {
    largest single items. */
 var OU_GROUP_COLOURS = { instructions: OU_COLOURS[0], tools: OU_COLOURS[3], history: OU_COLOURS[1],
   turn: OU_COLOURS[2], output: OU_COLOURS[4] };
+
+/* Which of Rouh's built-in rules this call's message was given, by tier (`rouh/rule_tiers.py`, task 182, step
+   182-23): what the message was spotted to be about, the rules told for it alone, the tools that brought their
+   own, and a flag for anything it touched with none of its rules in front of the model. */
+/** @param {HTMLElement} body @param {any} r */
+function ouPaintRules(body, r) {
+  var sec = el('section', 'ou-part ou-rules');
+  sec.appendChild(el('h3', 'ou-h', 'Rules this message was given'));
+  var list = function (/** @type {string[]} */ xs) { return xs && xs.length ? xs.join(', ') : ''; };
+  var flags = r.flags || [];
+  var head = el('p', 'ou-cache ou-cache-' + (flags.length ? 'missed' : 'hit'));
+  head.appendChild(el('strong', 'ou-cachetag', flags.length ? 'Flagged' : 'Covered'));
+  head.appendChild(document.createTextNode(' ' + (flags.length
+    ? 'It touched ' + list(flags) + ' with none of its rules loaded.'
+    : (r.touched && r.touched.length ? 'Every topic it touched had its rules: ' + list(r.touched) + '.'
+      : 'It touched none of the topics whose rules come only when needed.'))));
+  sec.appendChild(head);
+  var dl = el('dl', 'ou-facts ou-callfacts');
+  var fact = function (/** @type {string} */ k, /** @type {string} */ v) {
+    if (!v) return;
+    var d = el('div');
+    d.appendChild(el('dt', '', k));
+    d.appendChild(el('dd', '', v));
+    dl.appendChild(d);
+  };
+  fact('Spotted in the message', list(r.topics) || 'nothing');
+  fact('Told for this message alone', r.tier3 && r.tier3.length
+    ? list(r.tier3) + ', about ' + ouCount(r.tier3_tokens) + ' tokens' : 'none');
+  fact('Came with a loaded tool', list(r.tier2) || 'none');
+  fact('Built-in rules', r.version ? 'In tiers (version ' + r.version + ')' : 'All sent with every message');
+  sec.appendChild(dl);
+  body.appendChild(sec);
+}
 
 /** @param {HTMLElement} body @param {any} m */
 function ouPaintMakeup(body, m) {

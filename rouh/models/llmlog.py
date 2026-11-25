@@ -163,3 +163,28 @@ class LLMCallMakeup(models.Model):
 
     class Meta:
         db_table = "llm_call_makeup"
+
+
+class TurnTiers(models.Model):
+    """Which of Rouh's built-in rules one message was given, by which tier, and what it touched without them
+    (`rouh/rule_tiers.py`; Petar, 25 November 2026, task 182, step 182-23).
+
+    One row a turn of a chat: the topics spotted in the person's words, the rules told for them in the turn's
+    own part (tier 3) and their size, the topics whose rules came with a tool the turn had loaded (tier 2), the
+    topics the turn touched, and the flags: a topic touched with none of its rules in front of the model. Names
+    and numbers only, never anybody's words. The page of one call on the stats screen reads it by the call's
+    `turn_id`."""
+
+    turn_id = models.CharField(max_length=64, primary_key=True)
+    chat_id = models.CharField(max_length=64, blank=True, default="", db_index=True)
+    at = models.FloatField(db_index=True)
+    version = models.CharField(max_length=32, blank=True, default="")
+    topics = models.JSONField(default=list)
+    tier3 = models.JSONField(default=list)
+    tier3_chars = models.IntegerField(default=0)
+    tier2 = models.JSONField(default=list)
+    touched = models.JSONField(default=list)
+    flags = models.JSONField(default=list)
+
+    class Meta:
+        db_table = "rule_tier_turn"

@@ -24,7 +24,7 @@ from .link import LinkGrant, LinkInvite, LinkLog, LinkMessage, LinkOp, LinkPeer,
 from .files import File, FileOwner, FileVersion
 from .signin import Passkey, SignInEmail, SignInLink
 from .prompt_parts import PromptPart
-from .llmlog import LLMCallMakeup, LLMPiece, LLMRequest
+from .llmlog import LLMCallMakeup, LLMPiece, LLMRequest, TurnTiers
 from .memory import (AppState, ChatFolder, Event, Fact, LegacySession, OpenTurn,
                      RecallTimeline, RouteTimeline, ScreenCard, Spend, ToolLine, TranscriptMessage, TurnRecord)
 from .objects import (Artifact, ArtifactVersion, Chat, ChatFork, ChatMessage, ChatSummary, ContentFile,
@@ -84,7 +84,7 @@ __all__ = [
     "RouhBirth", "RouhNickname",
     "Passkey", "SignInEmail", "SignInLink",
     "PromptPart",
-    "LLMCallMakeup", "LLMPiece", "LLMRequest",
+    "LLMCallMakeup", "LLMPiece", "LLMRequest", "TurnTiers",
     "AppState", "ChatFolder", "Event", "Fact", "LegacySession", "OpenTurn", "RecallTimeline", "RouteTimeline", "ScreenCard",
     "Spend", "ToolLine", "TranscriptMessage", "TurnRecord",
     "Artifact", "ArtifactVersion", "Chat", "ChatFork", "ChatMessage", "ChatSummary", "ContentFile", "Link",

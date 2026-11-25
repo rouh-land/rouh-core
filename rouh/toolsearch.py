@@ -418,6 +418,33 @@ def shorten(text: str) -> str:
     return "\n".join(out)
 
 
+#: Said after how to load a tool, in the catalogue of one line per area (`grouped`): the names are there, what each
+#: does comes with it when it is loaded.
+_GROUPED = ("Each line below is one area: what it is for, then the exact name of every tool in it. A tool's own "
+            "description, with every rule about using it, comes when you load it, and one that sends, shares, publishes, pays or deletes acts for real the moment it is called. When no name says plainly which "
+            "tool you need, search with a pattern of the words for what you need done, such as "
+            '"(?i)calendar.*event", and the search reads every description for you.')
+
+
+def grouped(text: str) -> str:
+    """The catalogue as one line per area of tools (Petar, 25 November 2026, task 182, step 182-23: "shrink the
+    list of every tool to one line per group of tools, without hiding any tool from tool search"): the area's
+    heading, what is in it, and the exact names, with no tool's own line. Every tool is still declared and found by
+    the search, and its description arrives when it is loaded. Made from the catalogue's own text, so it is the
+    same from one turn to the next exactly when the catalogue is."""
+    whats = {title: what for _key, title, what in AREAS}
+    out: list[str] = []
+    for line in shorten(text).splitlines():
+        head, sep, names = line.partition(": ")
+        title = head.split(" (", 1)[0]
+        if sep and title in whats and not line.startswith("- "):
+            line = f"{head} ({whats[title]}): {names}"
+        out.append(line)
+    if len(out) > 1 and out[0] == "Your tools:":
+        out.insert(2, _GROUPED)
+    return "\n".join(out)
+
+
 # --- the search this process runs itself ----------------------------------------
 
 _WORD = re.compile(r"[a-z0-9]+")

@@ -1078,8 +1078,9 @@ class Brain:
             cached.context(f"Your own email address is {mine}.", "Rouh's own email address", "rouh/inbox.py")
         cached.at(CATALOGUE_AT)
         if plan is not None and plan.catalogue and reading.context_told("catalogue", reads):
-            # Simple chat names the tools and no more: each comes with its own instructions when loaded.
-            listing = toolsearch.shorten(plan.catalogue) if reads.get("light") else plan.catalogue
+            # One line per area of tools, the exact names and no tool's own line: each comes with its own
+            # description and rules when loaded (`toolsearch.grouped`; task 182, step 182-23). Simple chat too.
+            listing = toolsearch.grouped(plan.catalogue)
             cached.add(listing, kind="catalogue", key="rouh/toolsearch.py", title="The tool catalogue",
                        why="made from the tool registry for this request's tools; never a rule")
         # The person's own rules and words, word for word, after every built-in rule they can overrule, and
@@ -1096,11 +1097,19 @@ class Brain:
         # The name of the person's time zone says where they are, which goes with Memory; the offset does not.
         where = reading.context_told("location", reads)
         place = clock.place() if where else f"UTC{clock.offset(now)}"
+        # The built-in rules told for this turn alone because the person's message is about their topic
+        # (`rouh/rule_tiers.py`, tier 3): here, after the conversation, never in the cached part above.
+        from . import rule_tiers
+
+        topics = rule_tiers.detect(rules_mod.TURN_WORDS.get())
+        for_topics = [r for r in rule_tiers.turn_rules(ds, topics, situation) if allow(r)]
         turn = prompting.Prompt(situation, "turn", {
             "came": replymode.came(mode), "today": now.strftime("%A, %d %B %Y"), "now": now.strftime("%H:%M"),
             "place": place, "offset": clock.offset(now), "finished": turnmarks.FINISHED,
-            "cut_off": turnmarks.CUT_OFF_MID_THOUGHT, "still_thinking": turnmarks.STILL_THINKING},
-            placed=rules_mod.placed(ds, "turn"), allow=allow)
+            "cut_off": turnmarks.CUT_OFF_MID_THOUGHT, "still_thinking": turnmarks.STILL_THINKING,
+            "hosts": values["hosts"], "repo": values["repo"], "reading": values["reading"]},
+            placed=sorted(rules_mod.placed(ds, "turn") + for_topics,
+                          key=lambda r: int(r["place"].get("position") or 0)), allow=allow)
         # The date and the time are live values, not a rule; what to make of them is the rule after them.
         turn.at(CLOCK_AT)
         turn.context(f"Today is {now.strftime('%A, %d %B %Y')}. The time is {now.strftime('%H:%M')} where the "
@@ -1190,6 +1199,17 @@ class Brain:
             log.exception("the rules for this reply could not be put in the prompt")
         said, told = turn.finish(say=say)
         prompting.keep(org, said, told)
+        told_ids = {str(r["id"]) for r in for_topics}
+        # Into the turn's own record, made by the turn before this runs on its thread (`_turn`): a value set
+        # here would stay in this thread's copy of the context.
+        record = rule_tiers.TURN.get()
+        if record is not None:
+            record.clear()
+            record.update({"version": rule_tiers.VERSION if rule_tiers.applied() else "", "topics": topics,
+                           "on_demand": rule_tiers.on_demand_topics(ds),
+                           "told": sorted({t for r in for_topics for t in rule_tiers.topics_of(r) if t in topics}),
+                           "rules": [m.get("title") or m.get("key") for m in told if m.get("key") in told_ids],
+                           "chars": sum(int(m.get("chars") or 0) for m in told if m.get("key") in told_ids)})
         # The breakpoint is on the first block, and it caches the tools with
         # it: everything in front of it is the same for every turn of every
         # chat until a rule changes or Rouh is deployed again.
@@ -1512,6 +1532,10 @@ class Brain:
                                     if reads["rules"] and sealed is None else ""))
         if plain:
             again = (again + "\n\n" + plain) if again else plain
+        # What this turn's message is told by tier, filled in as its prompt is put together (`rule_tiers`).
+        from . import rule_tiers as _tiers
+
+        _tiers.TURN.set({})
         system = await asyncio.to_thread(self._system, plan, seeds=found, recall=remembered, asked=again)
         # The system prompt is only the part that is the same from one turn to the next. What is
         # true of this turn alone goes after the conversation, into the turn's first request
@@ -1558,6 +1582,8 @@ class Brain:
         # next turn reads everything up to it out of the cache instead; the
         # note is still marked on the first request as its newest message.
         anchor = len(messages) - (2 if noted else 1)
+        # Where this turn's own rounds begin, for what it is written down as having called (`rule_tiers`).
+        begun = len(messages)
         # The same point of the turn before, marked too, and both kept an hour while the chat is
         # in use (`promptcache.marked`, `_cache_hold`). `held` and `system_messages` fall back once each if the
         # API refuses them (`retrying.is_cache_mark_refused`, `is_system_message_refused`).
@@ -2201,6 +2227,13 @@ class Brain:
         log.info("turn timing: %s", _said_timing(spent))
         await emit({"type": "assistant_done", "text": text,
                     "usage": usage, "spent": spent})
+        # Which built-in rules this message was given, by which tier, and any topic it touched without
+        # them (`rouh/rule_tiers.py`).
+        if sealed is None:
+            from . import rule_tiers
+
+            rule_tiers.note_turn(turn_id=str((llmlog.current() or {}).get("turn_id") or ""),
+                                 chat_id=session_id, messages=messages, start=begun, reply=text)
         if not acted and text:
             if sealed is None:
                 self._double(session_id, system, messages, text, request, usage)

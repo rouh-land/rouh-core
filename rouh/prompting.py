@@ -236,6 +236,9 @@ class Prompt:
         if not text.strip():
             return
         why = "; ".join(situation_words(r.get("when") or {})) or "every turn"
+        if r.get("told_for"):
+            # A rule told for this turn alone because the message is about its topic (`rouh/rule_tiers.py`).
+            why = f"this message is about {r['told_for']}; " + why
         names = placeholders(r["text"]) if r.get("fills") else []
         if names:
             why += "; filled in live: " + value_words(names)

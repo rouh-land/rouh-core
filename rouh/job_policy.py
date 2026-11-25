@@ -84,12 +84,14 @@ OWNER_ONLY = frozenset({DATABASE_READ})
 
 #: The core's commands a job may name that only read: run at once, for the owner's and Rouh's
 #: own jobs.
-CORE_READS = frozenset({"table_sizes", "scrub_status", "code_release_status"})
+CORE_READS = frozenset({"table_sizes", "scrub_status", "code_release_status", "rule_tiers_status"})
 #: The core's maintenance commands the owner has already agreed to (the scrub of private
 #: reasoning, 11 November 2026): started in the core's background, for the owner's and Rouh's
 #: own jobs. Each is idempotent and carries on from where it got to.
 #: Rouh's release by hand on rouh.land, agreed 12 November 2026 (`rouh/code_release.py`).
-CORE_MAINTENANCE = frozenset({"scrub_encrypted_reasoning", "code_release_publish"})
+#: The tiered built-in rules on this Rouh, applied and taken back, agreed 25 November 2026 (`rouh/rule_tiers.py`).
+CORE_MAINTENANCE = frozenset({"scrub_encrypted_reasoning", "code_release_publish", "rule_tiers_apply",
+                              "rule_tiers_revert"})
 
 #: Tools that only read, whatever their arguments.
 READS = frozenset({

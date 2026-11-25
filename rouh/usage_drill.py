@@ -1178,7 +1178,18 @@ def one_call(who, call_id: int) -> dict:
         "exchange": exchange(r, zone),
         # What it was made of, part by part, and why the cache read what it read (task 182, step 182-18).
         "makeup": call_makeup.of_call(who, r),
+        # Which built-in rules its message was given, by tier, and what it touched without them (step 182-23).
+        "rules": _rules_given(r),
     }
+
+
+def _rules_given(r: dict) -> dict | None:
+    """What the page of one chat call says of its message's rules (`rule_tiers.for_call`); None for any other."""
+    if not r.get("turn_id") or (r.get("purpose") or "") != "turn":
+        return None
+    from . import rule_tiers
+
+    return rule_tiers.for_call(str(r["turn_id"]))
 
 
 # --- what was asked and what came back ------------------------------------------------------

@@ -197,7 +197,8 @@ REACH = ("chats", "runs", "synapse")
 def when_of(r: dict) -> dict:
     """A rule's conditions for a conversation turn, with which replies it is kept to as one of them."""
     # `with` is not a condition of the turn but where in it the rule is told (`rouh/tool_rules.py`).
-    when = {k: v for k, v in (r.get("when") or {}).items() if k not in ("in", "with") and v}
+    # Nor `topics`, which says it is also told with a message about them (`rouh/rule_tiers.py`).
+    when = {k: v for k, v in (r.get("when") or {}).items() if k not in ("in", "with", "topics") and v}
     if r.get("mode") and not when.get("reply"):
         when["reply"] = r["mode"]
     return when
@@ -311,7 +312,7 @@ def condition_lines(r: dict) -> list[str]:
     `reach`, `in_chat`, `prompt_parts` and `run_block` decide from, so the lines cannot say other than what
     happens. Petar, 30 October 2026: "conditions- make it in bullet points, each condition on new line", so the
     page draws each line as a bullet of its own."""
-    from . import prompting, tool_rules
+    from . import prompting, rule_tiers, tool_rules
 
     where = reach(r)
     situ = prompting.situation_words(when_of(r))
@@ -336,8 +337,11 @@ def condition_lines(r: dict) -> list[str]:
         lines += [("Only when " if i == 0 else "Or when ") + b for i, b in enumerate(bits)]
         if "synapse" in where:
             lines.append("And in Synapse's answers that find " + ("them" if people and len(people) > 1 else "it"))
-    elif tool_rules.told_with_tools(r) and "chats" in where:
-        lines.append(tool_rules.for_page(r))
+    elif rule_tiers.on_demand(r) and "chats" in where:
+        if tool_rules.told_with_tools(r):
+            lines.append(tool_rules.for_page(r))
+        if rule_tiers.topics_of(r):
+            lines.append(rule_tiers.for_page(r))
         lines += [("Only when " if i == 0 else "And when ") + w for i, w in enumerate(situ)]
         lines += [f"Every turn, in {said[w]}" for w in ("runs", "synapse") if w in where]
     elif situ:
@@ -736,7 +740,7 @@ def make_standard(ds: dict, ref: str, *, by: str) -> bool:
 _DID = {"made": "Added", "reworded": "Reworded", "on": "Turned on", "off": "Turned off", "group": "Moved",
         "restore": "Put back", "chat on": "Chat on", "chat off": "Chat off", "agent on": "Agent on",
         "agent off": "Agent off", "standard": "Made standard", "useful on": "Marked useful",
-        "useful off": "Useful mark taken off"}
+        "useful off": "Useful mark taken off", "where": "Moved to another tier"}
 
 
 def history(ds: dict, org_id: str, ref: str) -> list[dict]:
@@ -1372,11 +1376,12 @@ def placed(ds: dict | None, part: str) -> list[dict]:
     """The rules on with a place in this part of a conversation's prompt (`prompting.Prompt`), in their order."""
     if not ds:
         return []
-    from . import tool_rules
+    from . import rule_tiers
 
-    # A rule told with its tools is in those tools' descriptions instead (`rouh/tool_rules.py`).
+    # A rule told with its tools is in those tools' descriptions instead (`rouh/tool_rules.py`), and one told with
+    # a message about its topic is in that turn's part alone (`rouh/rule_tiers.py`).
     got = [r for r in rules(ds) if r["place"] and r["place"].get("part", "cached") == part
-           and not tool_rules.told_with_tools(r)]
+           and not rule_tiers.on_demand(r)]
     return sorted(got, key=lambda r: (int(r["place"].get("position") or 0), r["made_at"], r["id"]))
 
 
@@ -1401,10 +1406,10 @@ def _chat_rules(ds: dict, situation=None) -> list[dict]:
     everything they say holding for this turn (`in_chat`). A rule told with its tools is not among them: its
     words go with those tools' definitions (`rouh/tool_rules.py`), unless it is for a person, task or project,
     which is told by who or what it is for as always."""
-    from . import tool_rules
+    from . import rule_tiers
 
     return [r for r in rules(ds) if not r["place"] and in_chat(r, situation)
-            and (r["for"] or not tool_rules.told_with_tools(r))]
+            and (r["for"] or not rule_tiers.on_demand(r))]
 
 
 def prompt_parts(chat_id: str = "", situation=None, *, locked_only: bool = False, off=frozenset(),
