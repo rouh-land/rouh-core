@@ -29,7 +29,7 @@ import time
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 
-from . import (apple_contacts, artifacts, asking, browser_handoff, browsing, calendar_away, clock, demo,
+from . import (agent_import, apple_contacts, artifacts, asking, browser_handoff, browsing, calendar_away, clock, demo,
                composing, conversations, filing, imaging, inbox, inbox_grants, inboxes,
                inside_files, instructions, mail_invites, free_busy, busy_guard, holiday_guard, not_twice, past_guard, open_files, share_twice, share_address, share_until, weekday_check, file_lock, file_no_copy, guest_list, mail_placeholder, greeting_name, take_off, link_access, rouh_invited, no_company, sent_twice, same_contact, draft_twice, contact_card, pets, forward_twice, contact_changes, relationships, postal_address, related_people, meeting_hours, meet_link, no_place,
                calendar_link, address_check, attach_promised, public_holidays, away_replies, not_arrived, to_answer, reply_times,
@@ -2017,6 +2017,9 @@ class ToolRegistry:
             self._list_memory,
             brief="List the rules and the Vocabulary",
         )
+        # Import from OpenClaw and Hermes (25 November 2026, `rouh/agent_import.py`): their persona, memory and skills.
+        self._own(agent_import.TOOL_NAME, agent_import.DESCRIPTION, agent_import.SCHEMA, self._import_agent,
+                  brief="Import an OpenClaw or Hermes setup: persona, memory and skills")
         self._own(
             "agent_instructions",
             "Read or change what every agent Rouh starts (a job, a run of the one program, a worker) is "
@@ -13052,6 +13055,12 @@ class ToolRegistry:
         from . import rules
 
         return await asyncio.to_thread(rules.remember, dict(args), chat_id=self.memory.answering_chat() or "")
+
+    async def _import_agent(self, args, emit):
+        """An OpenClaw or Hermes setup brought in, previewed, listed or undone (`rouh/agent_import.py`)."""
+        from . import agent_import, rules
+
+        return await asyncio.to_thread(lambda: agent_import.tool(dict(args or {}), rules.master()))
 
     async def _forget(self, args, emit):
         from . import rules

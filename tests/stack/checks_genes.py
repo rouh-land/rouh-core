@@ -10,6 +10,7 @@ with words that should bring it on and words that should not.
 """
 from __future__ import annotations
 
+import re
 import json
 import shlex
 import time
@@ -3972,3 +3973,38 @@ print(json.dumps({"page": sorted(page["on"]), "code": page["code"], "clone": "gi
 """))
     expect('"brief_workspace", "point_change", "run_pictures", "run_screens"' in out and '"clone": true' in out
            and '"old": false' in out, f"the build proof genes were not told as they should be: {out[-500:]}")
+
+
+@check("gene.agent-import")
+def agent_import(s: Stack) -> None:
+    """import_agent brings an OpenClaw home's persona, memory and skills in, skips them a second time, and undoes."""
+    home = core_py(s, """
+import os, tempfile
+root = tempfile.mkdtemp(prefix="stack-openclaw-")
+w = os.path.join(root, ".openclaw", "workspace")
+os.makedirs(os.path.join(w, "memory"))
+os.makedirs(os.path.join(w, "skills", "stack-tidy"))
+files = {"SOUL.md": "# SOUL.md - Who You Are\\n\\nClawd is brief and kind, and never pads an answer.\\n",
+         "IDENTITY.md": "- **Name:** Clawd\\n- **Vibe:** calm\\n",
+         "USER.md": "- **Name:** Kim Stack\\n- **Notes:** Prefers metric units.\\n",
+         "MEMORY.md": "## People\\n- Ola Stack is Kim's accountant.\\n",
+         "memory/2026-11-20.md": "# 2026-11-20\\n\\n- Moved the dentist to Friday.\\n",
+         "skills/stack-tidy/SKILL.md": "---\\nname: stack-tidy\\ndescription: Tidy a folder.\\n---\\nTidy it.\\n"}
+for name, text in files.items():
+    with open(os.path.join(w, name), "w") as f:
+        f.write(text)
+print("HOME=" + os.path.join(root, ".openclaw"))
+""").split("HOME=")[-1].strip().split("\n")[0]
+    path = {"path": home}
+    preview = s.tool("import_agent", path)
+    expect("A preview, nothing changed yet" in preview and "Persona, from OpenClaw" in preview
+           and "OpenClaw memory: People" in preview and "Name: Clawd" in preview,
+           f"the preview did not say what would come in: {preview[:800]}")
+    done = s.tool("import_agent", {**path, "apply": True})
+    m = re.search(r"as import (\S+?)\.", done)
+    expect(m is not None and "Imported 2 rules, 2 notes" in done, f"the import did not happen: {done[:800]}")
+    again = s.tool("import_agent", path)
+    expect("an import would add nothing" in again,
+           f"a second run would add what is already there: {again[:800]}")
+    undone = s.tool("import_agent", {"undo": m.group(1)})
+    expect("is undone: took away 2 rules, 2 notes" in undone, f"the import was not undone: {undone[:500]}")

@@ -1,0 +1,38 @@
+{
+  "id": "agent-import",
+  "name": "Import from OpenClaw and Hermes",
+  "title": "Import from OpenClaw and Hermes: an existing assistant's persona, memory and skills brought into Rouh in one command, previewed first, merged without overwriting, and undone in one more",
+  "aliases": [
+    "import openclaw",
+    "import hermes",
+    "migrate from openclaw",
+    "migrate from hermes",
+    "claw migrate",
+    "bring my old assistant",
+    "import my memory",
+    "import skills"
+  ],
+  "group": "memory",
+  "route": null,
+  "icon": "<path d=\"M12 3.5v11\"/><path d=\"M7.5 10 12 14.5 16.5 10\"/><path d=\"M4.5 15.5v3a2 2 0 0 0 2 2h11a2 2 0 0 0 2-2v-3\"/>",
+  "attaches_to": [],
+  "maturity": "accepted",
+  "nav": {
+    "place": "none"
+  },
+  "touches": {
+    "permissions": [
+      "reads an OpenClaw or Hermes Agent setup where it is installed (~/.openclaw, ~/.hermes) or at a path given, a folder or a .zip or .tar.gz of one, and nothing else on the machine",
+      "adds rules and notes to the person's Synapse Master and skill folders to the workspace's .claude/skills, never changing what is there",
+      "opens no .env, credential or auth file unless asked to include secrets, and then keeps only Google's and xAI's keys, sealed, where the organisation has none",
+      "answers import_agent in a chat, and python manage.py import_agent on the server"
+    ],
+    "accounts": [],
+    "tables": [
+      "synapse.item (rules and notes it adds, marked imported)",
+      "app_state (agent_import:<org>:<user>:<id>, what each import added, for its undo)"
+    ],
+    "jobs": [],
+    "remove": "Delete rouh/agent_import.py, rouh/management/commands/import_agent.py and this manifest, the import_agent tool in rouh/tools.py and its names in toolsearch.py, toolsides.py, job_policy.py and worklabel.py, the agent-import entry in rouh/genes/owners.json, its row in CONTAINERS.md and its check in tests/stack/checks_genes.py. What was imported stays as ordinary rules, notes and skills."
+  }
+}

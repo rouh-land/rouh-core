@@ -180,7 +180,7 @@ AREA_OF: dict[str, str] = {
     "check_task_sharing": "tasks", "share_with_person": "tasks", "page_asks": "tasks",
     "page_comments": "tasks",
     # Memory and Telegram
-    "remember": "memory", "forget": "memory", "list_memory": "memory",
+    "remember": "memory", "forget": "memory", "list_memory": "memory", "import_agent": "memory",
     "agent_instructions": "memory",
     "capture_thought": "memory", "thoughts": "memory", "new_box": "memory", "open_box": "memory",
     "send_telegram": "memory",

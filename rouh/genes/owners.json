@@ -4251,6 +4251,13 @@
     ".github/CODEOWNERS",
     "tools/github/**"
    ]
+  },
+  "agent-import": {
+   "files": [
+    "rouh/agent_import.py",
+    "rouh/management/commands/import_agent.py",
+    "rouh/genes/manifests/agent-import.json"
+   ]
   }
  }
 }

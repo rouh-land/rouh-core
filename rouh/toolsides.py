@@ -124,7 +124,7 @@ WORDS: dict[str, str] = {
     "shared_task": "a task shared with you", "read_granted_tasks": "tasks you were given",
     "share_granted_page": "shares a given page", "decisions": "what waits on you",
     # Memory and Telegram
-    "remember": "remembers a fact", "forget": "forgets a fact", "list_memory": "lists what it knows",
+    "remember": "remembers a fact", "forget": "forgets a fact", "list_memory": "lists what it knows", "import_agent": "imports from OpenClaw or Hermes",
     "agent_instructions": "rules for jobs", "capture_thought": "keeps a thought", "thoughts": "your thoughts",
     "new_box": "makes a box", "open_box": "opens a box", "send_telegram": "texts your phone",
     "remember_for_contact": "remembers for a contact",

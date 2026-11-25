@@ -229,7 +229,7 @@ RISKS = frozenset({
     # Contacts and who somebody is.
     "save_contact", "update_contact_profile", "delete_contact", "save_pet",
     # Rouh's own memory, rules, settings, models and code, and this server.
-    "remember", "forget", "model_defaults", "update_rouh", "improve_myself", "deploy_myself", "delegate_task",
+    "remember", "forget", "import_agent", "model_defaults", "update_rouh", "improve_myself", "deploy_myself", "delegate_task",
     "run_command", "synapse_add", "synapse_edit", "synapse_delete",
     # Starting and steering other work, and what is scheduled or planned for the owner.
     "assistant_job", "one_start", "one_say", "one_stop", "stop_task", "reply_to_task",

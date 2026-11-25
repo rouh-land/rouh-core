@@ -753,6 +753,17 @@ def _list_memory(a):
     return "Reading its memory", ""
 
 
+@_step("import_agent")
+def _import_agent(a):
+    if _arg(a, "undo"):
+        return "Undoing an import", _arg(a, "undo")
+    if a.get("list"):
+        return "Listing the imports", ""
+    name = {"openclaw": "OpenClaw", "hermes": "Hermes"}.get(_arg(a, "source").lower(), "OpenClaw or Hermes")
+    return (f"Importing from {name}" if a.get("apply") else f"Looking at what would come in from {name}",
+            _arg(a, "path"))
+
+
 @_step("agent_instructions")
 def _agent_instructions(a):
     action = str(a.get("action") or "list")
