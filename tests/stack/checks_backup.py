@@ -329,8 +329,12 @@ def import_existing(s: Stack) -> None:
             logs = subprocess.run([*second, "logs", "--no-color", "core"], capture_output=True, text=True, timeout=120).stdout
             (s.out / "import-stack.log").write_text(logs)
             expect("has no owner yet" not in logs, "the second stack asked for an owner: the database did not come with it")
-            code, _, headers = s.get("/", follow=False)
-            expect(code == 200, f"the signed-in cookie from the first stack is refused: {code} {headers.get('Location', '')}")
+            # Since 22 November 2026 a bare "/" always sends a signed-in person on to the Guide
+            # (handholding.on_start), so the page is asked for with its chat named, which is only
+            # answered to somebody signed in and sends anybody else to /login.
+            code, _, headers = s.get("/?chat=conversation", follow=False)
+            expect(code == 200, f"the signed-in cookie from the first stack is refused: {code} "
+                                f"{headers.get('Location') or headers.get('location') or ''}")
         finally:
             subprocess.run([*second, "down", "-v", "--remove-orphans"], capture_output=True, timeout=600)
 
