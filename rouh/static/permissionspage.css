@@ -87,7 +87,7 @@
 .pm-ready svg { width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 2;
   stroke-linecap: round; stroke-linejoin: round; flex: none; }
 .pm-open-modes { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(260px, 100%), 1fr)); gap: 6px 16px; }
-.pm-open-mode { margin: 0; display: grid; gap: 2px; font-size: 13px; line-height: 1.45; color: var(--dim); overflow-wrap: anywhere; }
+.pm-open-mode { margin: 0; display: grid; align-content: start; gap: 2px; font-size: 13px; line-height: 1.45; color: var(--dim); overflow-wrap: anywhere; }
 .pm-open-mode.now { color: var(--text); }
 .pm-open-label { font-size: 12px; font-weight: 600; color: var(--dim); }
 .pm-open-mode.now .pm-open-label { color: var(--text); }
