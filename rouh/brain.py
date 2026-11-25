@@ -1055,7 +1055,7 @@ class Brain:
                                                             off=off, remembers=reads["memory"])
         # The rules for particular people are chosen by who the conversation names, so they change the moment
         # somebody new is mentioned. In the cached part they rewrote the whole cache, instructions and tools
-        # included: a follow-up 24 seconds after a turn that read a file naming Irena read nothing back (task
+        # included: a follow-up 24 seconds after a turn that read a file naming a contact read nothing back (task
         # 182, step 182-24, request 826244). They are told with this turn's own context instead, after the
         # conversation, where a change costs nothing in front of it.
         people = [(w, m) for w, m in personal if m.get("key") == "rules:people"]

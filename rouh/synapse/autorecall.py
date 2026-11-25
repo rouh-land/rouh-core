@@ -662,7 +662,7 @@ def resolve(ds: dict, got: dict, lists: dict, *, text: str = "", me: str, reader
         ref, _, name = str(picked).strip().partition(" ")
         pid = lists["people"].get(ref)
         # A ref is taken only with the name the list gave it: a model can copy the number of the line beside the
-        # right one ("Nicole" came back as Irena's ref, 10 October 2026). Otherwise the name is looked up alone.
+        # right one ("Nicole" came back as another person's ref, 10 October 2026). Otherwise the name is looked up alone.
         if pid and name and people.norm_name(name) not in {people.norm_name(n) for n in
                                                             [lists["names"].get(pid, ""), *lists["calls"].get(pid, [])]}:
             pid = None

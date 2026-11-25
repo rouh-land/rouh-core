@@ -1,9 +1,9 @@
 """Pets as contacts of their own, each linked to the people they belong to.
 
-Asked for on 17 November 2026 (feature request fr_1b40e4fc6a09, INC-552), in ‹owner›'s words: "you
-should add to irena's contact that she has a dog - Rex. should rex become a contact too? ... I
-envision soon images and tagging. vet and everything in it... I feel like pet type of contact is a good
-idea. it is identity and it doesn't cost us anything".
+Asked for on 17 November 2026 (feature request fr_1b40e4fc6a09, INC-552), when ‹owner› asked for a
+contact's dog to be written on that contact and whether the dog should be a contact of its own. ‹He› saw
+pictures, tagging and the vet coming soon, and a pet type of contact as a good idea: an identity that
+costs nothing.
 
 So a contact is a person or a pet. A pet is a person item of Synapse Master like any other contact (so
 search_contacts finds it, show_contact shows it, and everything that hangs off a contact can hang off it

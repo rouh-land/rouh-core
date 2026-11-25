@@ -1217,7 +1217,7 @@ def promote(chat_id: str, task_rel: str, root: str = "") -> int:
             # A message that came in - an email, a Telegram or Slack message - is the
             # sender's words and not work: it moves to the task's canvas with the rest and
             # is never a numbered step. Task 90 got six steps "Email from on Telegram"
-            # out of Irena's first six messages on 5 October 2026. The person can still
+            # out of one contact's first six messages. The person can still
             # file one by pressing its own button (`file_as_step`).
             continue
         _write_out(st, row, task_rel, spec.get("title") or row.title,

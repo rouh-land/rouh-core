@@ -2,7 +2,7 @@
 
 Built by the nightly feature run, night 30 (the ledger's night 34), 5 November 2026 (task 94).
 When somebody is away, their mail program answers every email with an automatic reply: "I am out of
-the office until 14 November; for anything urgent write to Irena". Those replies land in the inbox
+the office until 14 November; for anything urgent write to my colleague Ivan". Those replies land in the inbox
 of whoever wrote, and every part of Rouh passes over them on purpose: they are not a person writing
 (`mail_alerts.junk_because`, `ghosts.is_auto_reply`). So the one thing they say was lost: Rouh drafted
 the next email to that person, or booked them into a meeting, as if they were at their desk, and the

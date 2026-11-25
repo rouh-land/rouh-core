@@ -123,7 +123,7 @@ def _browser(request) -> str:
 def _link_base(request) -> str:
     """Where a letter's link points: an address that opens on any device, or "" for a letter with
     only its code (`outside_links.link_base`). Never this computer's own address: on a Mac that was
-    http://127.0.0.1:8420, which Irena's phone could not open (task 140, step 140-14)."""
+    http://127.0.0.1:8420, which another person's phone could not open (task 140, step 140-14)."""
     from rouh import outside_links
 
     return outside_links.link_base(request)

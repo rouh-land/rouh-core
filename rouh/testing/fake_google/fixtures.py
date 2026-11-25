@@ -44,7 +44,7 @@ INBOX_MESSAGES = [
      "references": "<launch-1@kvadrat.test> <launch-2@example.com>",
      "text": ("Thursday noon works for us.\n\n"
               "Can you also confirm the warm cove fits the budget? The details are on "
-              "https://kvadrat.test/launch/lighting\n\nMaria\n\n"
+              "https://kvadrat.test/launch/lighting\n\nIrena\n\n"
               "On Wed, 23 Sep 2026 at 18:04, Rouh <rouh@example.com> wrote:\n"
               "> Hi Irena,\n>\n> We will send the lighting options by Thursday noon.\n>\n"
               "> Rouh\n> Alex's virtual assistant\n>\n"

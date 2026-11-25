@@ -1,9 +1,8 @@
 """No email carries an address that works only on this Rouh's own computer (task 140, step 140-14).
 
-Petar, 11 November 2026: "when I was installing this on a different computer, there was a
-confirmation in the email that was a link to 127.0.0.1 ... irena received it, clicked on the phone,
-where she was logged and obviously hit an error since rouh wasn't running on her phone ... I want
-to eradicate this specific thing."
+Petar, 11 November 2026: installing Rouh on a different computer sent a confirmation email with a
+link to 127.0.0.1; the person it reached opened it on a phone and hit an error, since Rouh was not
+running there. "I want to eradicate this specific thing."
 
 A Rouh on a Mac is reached at http://127.0.0.1:8420 (`ROUH_PUBLIC_URL`'s default in the stack), and
 the sign-in letters built their link from that address, or from the address the browser asked on.

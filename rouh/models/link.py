@@ -63,7 +63,7 @@ class LinkInvite(models.Model):
     token_hash = models.TextField()
     trust = models.TextField(default="known")
     silo = models.TextField(blank=True, default="")
-    #: The label it is meant for, when made for one Rouh (a contact's, or Irena's): only it may use it.
+    #: The label it is meant for, when made for one Rouh (a contact's, or a family member's): only it may use it.
     for_label = models.TextField(blank=True, default="")
     note = models.TextField(blank=True, default="")
     created_at = models.FloatField(default=0)

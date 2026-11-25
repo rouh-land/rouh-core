@@ -1,7 +1,7 @@
 """A picture dropped into a chat, put on a contact as their picture in iCloud.
 
-Petar, 17 November 2026: he dropped a photo of Irena's dog Rex into the chat and asked for it to go on
-Rex's contact. Rouh could see the picture, but no tool of its could take it, so it told him to add it
+Petar, 17 November 2026: he dropped a photo of a contact's pet into the chat and asked for it to go on
+the pet's contact. Rouh could see the picture, but no tool of its could take it, so it told him to add it
 from his phone himself. "Fix the fact that you can't access the image. You should."
 
 So `save_contact` takes `photo`: a file dropped into a conversation, named the way `one_say` names its

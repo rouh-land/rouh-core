@@ -727,7 +727,7 @@ def sender_said(header: str) -> str:
     A Telegram or Slack message carries its sender as "Irena Example (on Telegram)"
     or "Irena Example on Slack" (`telegram_guests`, `slack_listen`), which is not an
     address at all: read as one, the name was taken for the address and the comment
-    for the name, and Irena's six messages of 5 October 2026 were filed as "Email from
+    for the name, and one contact's first six messages were filed as "Email from
     on Telegram". So a header with no address in it is the name, less where it came.
     """
     if "@" not in (header or "") and "<" not in (header or ""):

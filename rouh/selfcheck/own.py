@@ -863,8 +863,8 @@ _LOCAL_SAMPLES = (
        "every way Rouh sends email moves or takes out links to 127.0.0.1, localhost and private networks, "
        "and refuses to send a letter that still holds one", needs_db=True)
 def no_local_addresses_in_mail() -> None:
-    """Petar, 11 and 12 November 2026 (task 140, step 140-14): a sign-in email reached Irena with a
-    http://127.0.0.1 link, which opens nothing on her phone. This holds every mail exit to the guard."""
+    """Petar, 11 and 12 November 2026 (task 140, step 140-14): a sign-in email reached a person with a
+    http://127.0.0.1 link, which opens nothing on a phone. This holds every mail exit to the guard."""
     import asyncio
     import re as _re
 

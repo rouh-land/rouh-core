@@ -12,8 +12,8 @@ start), then the model's tool calls, their results and its few words of what it 
 
 So in what is sent, never in what is stored, each entry of a case that is finished becomes one note:
 
-    [A note from Rouh's own software, not the person: Case 25, Irena on Telegram, 5 Oct 2026: "her own
-    words, cut to about 300 characters". What Rouh did: read it (answered); started job c72557d8,
+    [A note from Rouh's own software, not the person: Case 25, Ivan Example on Telegram, 12 Mar 2026: "his
+    own words, cut to about 300 characters". What Rouh did: read it (answered); started job 1a2b3c4d,
     "Venue research". Rouh's own words then: "...". Full record: https://.../mail/case/<key>]
 
 - **An entry** is a case's note (`is_case_note`) and everything after it up to the next message that is
