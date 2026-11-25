@@ -717,8 +717,23 @@ def addresses_in(*headers: str) -> list[str]:
     return out
 
 
+_ON_CHANNEL = re.compile(r"\s*(?:\(\s*on\s+(?:telegram|slack)\s*\)|\bon\s+(?:telegram|slack))\s*$",
+                         re.IGNORECASE)
+
+
 def sender_said(header: str) -> str:
-    """Who a message is from, the way a person says it: the name, or the address."""
+    """Who a message is from, the way a person says it: the name, or the address.
+
+    A Telegram or Slack message carries its sender as "Irena Example (on Telegram)"
+    or "Irena Example on Slack" (`telegram_guests`, `slack_listen`), which is not an
+    address at all: read as one, the name was taken for the address and the comment
+    for the name, and Irena's six messages of 5 October 2026 were filed as "Email from
+    on Telegram". So a header with no address in it is the name, less where it came.
+    """
+    if "@" not in (header or "") and "<" not in (header or ""):
+        name = _ON_CHANNEL.sub("", " ".join((header or "").split())).strip("\"' ")
+        if name:
+            return name
     name, address = email.utils.parseaddr(header or "")
     name = " ".join((name or "").split()).strip("\"' ")
     return name or address or (header or "").strip() or "somebody"
@@ -939,14 +954,33 @@ def email_card(message: dict, *, confirmed: str = "", account=None) -> dict:
     face = sender_face(account, message.get("from") or "") if account is not None else ""
     if face:
         block["from_photo"] = face
-    # A message that came on Telegram or Slack is drawn the same way, and called what it is.
-    kind = {"telegram": "Telegram message", "slack": "Slack message"}.get(str(message.get("channel") or ""))
+    # A message that came on Telegram or Slack is drawn the same way, and called what it is:
+    # its own channel and who sent it, then the start of what they wrote. The email words
+    # are for email only.
+    channel = str(message.get("channel") or "")
+    kind = {"telegram": "Telegram message", "slack": "Slack message"}.get(channel)
+    # `incoming` says the card is only a message that came in, the sender's words and none
+    # of Rouh's, so a chat made a task never files it as a numbered step (`artifacts.promote`).
     if kind:
-        return {"title": f"{kind} from {who}"[:160], "description": f"the {kind} from {who}"[:300],
-                "blocks": [block]}
+        head = f"{kind} from {who}"
+        start = _start_of(message.get("body") or "", 150 - len(head))
+        return {"title": (f"{head}: {start}" if start else head)[:160],
+                "description": f"the {kind} from {who}"[:300],
+                "incoming": channel, "blocks": [block]}
     return {"title": f"Email from {who}: {subject}"[:160],
             "description": f"the email from {who} about {subject}"[:300],
-            "blocks": [block]}
+            "incoming": "email", "blocks": [block]}
+
+
+def _start_of(text: str, room: int) -> str:
+    """The first words of a message, in whole words, to at most `room` characters; "" if none fit."""
+    words = " ".join(str(text or "").split())
+    if room < 12 or not words:
+        return ""
+    if len(words) <= min(room, 60):
+        return words
+    cut = words[:min(room, 60) - 1].rsplit(" ", 1)[0].rstrip(",.;:-")
+    return cut + "…" if cut else ""
 
 
 def chat_title(message: dict) -> str:

@@ -1311,7 +1311,7 @@ def _event_kind(e: dict) -> str:
     if said.startswith("Making it first did not get there"):
         return "prepare_failed"
     if stage == mc.NEW and said.startswith(("Email from", "Telegram message from",
-                                            "Message from")):
+                                            "Slack message from", "Message from")):
         return "received"
     if said.startswith((old.REREAD_SAID, old.REPREPARE_SAID)):
         return "reread"

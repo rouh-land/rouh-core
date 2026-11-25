@@ -1213,11 +1213,32 @@ def promote(chat_id: str, task_rel: str, root: str = "") -> int:
         if row.path or not root:
             continue
         spec = _spec_of(head)
+        if is_message_card(spec):
+            # A message that came in - an email, a Telegram or Slack message - is the
+            # sender's words and not work: it moves to the task's canvas with the rest and
+            # is never a numbered step. Task 90 got six steps "Email from on Telegram"
+            # out of Irena's first six messages on 5 October 2026. The person can still
+            # file one by pressing its own button (`file_as_step`).
+            continue
         _write_out(st, row, task_rel, spec.get("title") or row.title,
                    spec.get("blocks") or [], root)
     if moved:
         log.info("%d card(s) moved from chat %s to %s", moved, chat_id, task_rel)
     return moved
+
+
+def is_message_card(spec: dict) -> bool:
+    """Whether a card is only a message that came in, drawn as it arrived.
+
+    New ones say so (`incoming`, from `mail_alerts.email_card`); older ones are
+    known by their shape, because only that card is made of email blocks alone.
+    """
+    if not isinstance(spec, dict):
+        return False
+    if spec.get("incoming"):
+        return True
+    blocks = [b for b in (spec.get("blocks") or []) if isinstance(b, dict)]
+    return bool(blocks) and all(str(b.get("block") or "").lower() == "email" for b in blocks)
 
 
 def fork(from_chat: str, from_task: str, into_chat: str, *, until: float = 0.0,
