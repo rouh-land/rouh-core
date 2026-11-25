@@ -64,7 +64,8 @@
     "rouh/untrusted.py",
     "rouh/redaction.py",
     "rouh/management/commands/import_sqlite.py",
-    "rouh/management/commands/predeploy.py"
+    "rouh/management/commands/predeploy.py",
+    "PRIVACY.md"
    ]
   },
   "turn-loop": {
@@ -231,7 +232,8 @@
     "rouh/usage.py",
     "rouh/usage_drill.py",
     "rouh/call_makeup.py",
-    "rouh/management/commands/reprice_calls.py"
+    "rouh/management/commands/reprice_calls.py",
+    "rouh/spending_limit.py"
    ],
    "needed_by": [
     "answered-in-chat",
