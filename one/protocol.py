@@ -317,6 +317,9 @@ class Client:
         run = self.p.views.runs[run_id]
         return {"run": self._run(run, full=True), "entries": entries,
                 "screen": terminal.screen_text() if live else None,
+                # Faint in its box: the agent's own suggested next prompt, which
+                # nobody typed, and never a message left unsent (`terminals.Cell`).
+                "suggested": terminal.suggestion() if live else "",
                 "codex": await self._codex_inside(run)}
 
     async def _codex_inside(self, run: dict[str, Any]) -> dict[str, Any] | None:

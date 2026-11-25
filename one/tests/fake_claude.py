@@ -105,6 +105,8 @@ def positional(args):
 
 
 PROMPT = (positional(ARGS) or [""])[-1]
+#: A suggested next prompt to draw faint at the next prompt ("SUGGEST: ").
+SUGGESTED: dict = {}
 APPENDED = arg_value(ARGS, "--append-system-prompt") or ""
 
 
@@ -429,6 +431,10 @@ def work(prompt):
                 sys.exit(int(line[7:]))
             elif line.startswith("LINES: "):
                 out("".join(f"line {i:02d}\n" for i in range(1, int(line[7:]) + 1)))
+            elif line.startswith("SUGGEST: "):
+                # As Claude Code 2.1 does: its own guess at the next prompt,
+                # drawn faint in the empty box after the turn, never typed.
+                SUGGESTED["text"] = line[9:]
             elif line == "FULLSCREEN":
                 fullscreen()
             elif line.startswith("TIDYING: "):
@@ -621,7 +627,11 @@ def main():
             hook("UserPromptSubmit", prompt=PROMPT)
             work(PROMPT)
         while True:
-            out("> ")
+            if SUGGESTED.get("text"):
+                sys.stdout.write("\u276f \x1b[2m" + SUGGESTED.pop("text") + "\x1b[22m\r\x1b[2C")
+                sys.stdout.flush()
+            else:
+                out("> ")
             try:
                 line = read_line()
             except Woken as woken:

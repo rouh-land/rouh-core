@@ -131,6 +131,36 @@ def turn_over(entry: dict) -> bool:
 CARRIED_ON = frozenset({"starting", "working", "asking"})
 
 
+def undelivered(entry: dict) -> bool:
+    """Whether this entry is a message the program could not hand to its run, said nowhere yet.
+
+    A message typed at an idle prompt and refused is answered there and then,
+    to the very call that sent it (`one.runs.say` raises, and `one_say` says
+    "Nothing was sent to it"), so that one is not said twice. Every other
+    failure comes later, after the sender was told "queued" or "sent": a message
+    queued for the end of a turn that never ended, one handed over at the end
+    of a turn and not taken, one found unsent in its box after a restart. Until
+    25 November 2026 those were written down in the program's list and read by
+    nothing here, so whoever sent them believed they had arrived.
+    """
+    body = entry.get("body") or {}
+    return (entry.get("kind") == "message.failed" and bool(entry.get("run"))
+            and (body.get("via") != "typed" or bool(body.get("left"))))
+
+
+def undelivered_note(entry: dict) -> str:
+    """What Rouh is told about a message that never reached its run."""
+    body = entry.get("body") or {}
+    text = " ".join(str(body.get("text") or "").split())
+    if len(text) > 600:
+        text = text[:600] + " ..."
+    why = " ".join(str(body.get("why") or "").split())
+    return (f"A message for run {entry.get('run')} never reached it, so the run has not acted on "
+            f"it: \"{text}\". {why} Tell the person plainly in one sentence that it was not "
+            "delivered. Send it again with one_say only if it is still wanted and nothing "
+            "since has made it moot.")
+
+
 def _items(files: list[str]) -> list[str]:
     items = list(files[:FILES_SHOWN])
     if len(files) > FILES_SHOWN:
@@ -232,11 +262,32 @@ class OneLander(Lander):
             self._tasks.add(task)
             task.add_done_callback(self._tasks.discard)
             return
+        if undelivered(entry):
+            task = asyncio.create_task(self._undelivered(entry))
+            self._tasks.add(task)
+            task.add_done_callback(self._tasks.discard)
+            return
         if not turn_over(entry):
             return
         task = asyncio.create_task(self.report(entry))
         self._tasks.add(task)
         task.add_done_callback(self._tasks.discard)
+
+    async def _undelivered(self, entry: dict) -> None:
+        """Tell the chat that last sent this run words that a message never reached it.
+
+        The chat waiting on the run's next turn (`runs.reports_to`, the newest
+        `asked_from`), or General when no chat is. Never raises.
+        """
+        run_id = str(entry.get("run"))
+        try:
+            chat = await asyncio.to_thread(runs.reports_to, run_id)
+            log.warning("a message for run %s was never delivered: %s", run_id,
+                        (entry.get("body") or {}).get("why"))
+            with answering_in(chat):
+                await self.announce(undelivered_note(entry), chat)
+        except Exception:  # noqa: BLE001 - telling never breaks the listener
+            log.exception("could not say that a message for run %s was not delivered", run_id)
 
     async def report(self, entry: dict) -> dict | None:
         run_id, kind = str(entry.get("run")), entry.get("kind")

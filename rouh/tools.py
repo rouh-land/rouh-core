@@ -16077,6 +16077,12 @@ class ToolRegistry:
             screen = str(got.get("screen") or "")
             if screen.strip():
                 facts["screen"] = screen
+            if str(got.get("suggested") or "").strip():
+                facts["extra"].append(
+                    "Shown faint in its input box: \"" + str(got["suggested"]).strip()[:200]
+                    + "\". That is the program's own guess at a next prompt, drawn as a hint;"
+                    " nobody typed it, it is not a message and nothing was left unsent."
+                    " Never say a message is waiting in its box because of it.")
             else:
                 facts["screen"], facts["screen_kind"] = describe_entries(entries, limit=12), \
                     "history"

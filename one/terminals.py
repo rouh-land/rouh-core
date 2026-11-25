@@ -26,7 +26,7 @@ import signal
 import subprocess
 import time
 from pathlib import Path
-from typing import Any, Awaitable, Callable
+from typing import Any, Awaitable, Callable, NamedTuple
 
 import pyte
 
@@ -57,6 +57,105 @@ MOUSE_REPORTS = re.compile(rb"(?:\x1b\[<\d{1,3};\d{1,4};\d{1,4}[Mm]|\x1b\[M[\x20
 
 Watcher = Callable[[bytes], Any]
 
+#: The marks a coding agent's input line starts with: Claude Code's and Codex's.
+PROMPT_MARKS = ("\u276f", "\u203a")
+
+
+class Cell(NamedTuple):
+    """One cell of the screen: pyte's own ``Char`` and whether it is drawn faint.
+
+    pyte 0.8.2 throws away SGR 2, faint, and Claude Code draws its own guess at
+    the next prompt faint in an empty box, where a person reads it as a hint.
+    Without the mark it was text in the box like any typed line: on 25 November
+    2026 run f1cdfcf6 finished, its box showed "remove junk step 101-01 like task
+    90's" in faint grey, nobody had typed or sent it, and Rouh, reading the
+    screen as text, told the person a message had been left unsent in it.
+    """
+
+    data: str
+    fg: str = "default"
+    bg: str = "default"
+    bold: bool = False
+    italics: bool = False
+    underscore: bool = False
+    strikethrough: bool = False
+    reverse: bool = False
+    blink: bool = False
+    faint: bool = False
+
+
+class FaintScreen(pyte.Screen):
+    """pyte's screen, keeping SGR 2 (faint) on every cell, which pyte drops."""
+
+    @property
+    def default_char(self) -> Cell:  # type: ignore[override]
+        return Cell(data=" ", reverse=pyte.modes.DECSCNM in self.mode)
+
+    def reset(self) -> None:
+        super().reset()
+        self.cursor.attrs = self.default_char
+
+    def select_graphic_rendition(self, *attrs: int) -> None:
+        faint = bool(getattr(self.cursor.attrs, "faint", False))
+        rest: list[int] = []
+        i = 0
+        while i < len(attrs):
+            a = attrs[i]
+            if a in (38, 48):
+                # A colour's own numbers (38;2;r;g;b or 38;5;n) are not attributes.
+                n = attrs[i + 1] if i + 1 < len(attrs) else None
+                step = 5 if n == 2 else 3 if n == 5 else 1
+                rest += attrs[i:i + step]
+                i += step
+                continue
+            if a == 2:
+                faint = True
+                i += 1
+                continue
+            if a in (0, 22):
+                faint = False
+            rest.append(a)
+            i += 1
+        if rest or not attrs:
+            super().select_graphic_rendition(*rest)
+        if not attrs:
+            faint = False
+        got = self.cursor.attrs
+        self.cursor.attrs = (got._replace(faint=faint) if isinstance(got, Cell)
+                             else Cell(*got, faint=faint))
+
+
+def _prompt_at(row: Any, columns: int) -> int | None:
+    """The column just after the prompt mark that starts this row, or None."""
+    for x in range(columns):
+        data = row[x].data
+        if data in ("", " "):
+            continue
+        return x + 1 if data in PROMPT_MARKS and not getattr(row[x], "faint", False) else None
+    return None
+
+
+def _shown(screen: pyte.Screen, *, suggestion: bool) -> list[str]:
+    """Every line of the screen as text, without what is faint in an input box.
+
+    ``suggestion`` True gives instead only the faint text of the input lines:
+    the agent's own suggested next prompt or hint, which nobody typed.
+    """
+    lines: list[str] = []
+    for y in range(screen.lines):
+        row = screen.buffer[y]
+        after = _prompt_at(row, screen.columns)
+        chars: list[str] = []
+        for x in range(screen.columns):
+            cell = row[x]
+            faint = after is not None and x >= after and getattr(cell, "faint", False)
+            if suggestion:
+                chars.append(cell.data if faint else " ")
+            else:
+                chars.append(" " if faint else cell.data)
+        lines.append("".join(chars).rstrip())
+    return lines
+
 
 class Terminal:
     """One run's terminal, as the program sees it."""
@@ -65,7 +164,7 @@ class Terminal:
         self.run_id = run_id
         self.folder = Path(folder)
         self.cols, self.rows = cols, rows
-        self.screen = pyte.Screen(cols, rows)
+        self.screen = FaintScreen(cols, rows)
         self.stream = pyte.ByteStream(self.screen)
         #: Bytes of tty.log already fed to the screen.
         self.offset = 0
@@ -294,12 +393,19 @@ class Terminal:
     # -- the screen ------------------------------------------------------------
 
     def screen_text(self, *, last: int | None = None) -> str:
-        lines = [line.rstrip() for line in self.screen.display]
+        """The screen as text, never with a faint suggestion in an input box (``Cell``)."""
+        lines = _shown(self.screen, suggestion=False)
         while lines and not lines[-1]:
             lines.pop()
         if last is not None:
             lines = lines[-last:]
         return "\n".join(lines)
+
+    def suggestion(self) -> str:
+        """What an input box on the screen shows faint: the agent's own suggested
+        next prompt or hint, which nobody typed and nobody sent. Empty when none."""
+        shown = [" ".join(line.split()) for line in _shown(self.screen, suggestion=True)]
+        return next((line for line in reversed(shown) if line), "")
 
     def screen_ansi(self) -> bytes:
         """The screen as it is now, after the modes its program has on (D51)."""
@@ -535,12 +641,15 @@ def render_ansi(screen: pyte.Screen) -> bytes:
         x = 0
         while x < screen.columns:
             char = row[x]
+            faint = bool(getattr(char, "faint", False))
             style = (char.fg, char.bg, char.bold, char.italics, char.underscore,
-                     char.reverse, char.strikethrough)
+                     char.reverse, char.strikethrough, faint)
             if style != last:
                 codes = ["0"]
                 if char.bold:
                     codes.append("1")
+                if faint:
+                    codes.append("2")
                 if char.italics:
                     codes.append("3")
                 if char.underscore:
@@ -558,7 +667,7 @@ def render_ansi(screen: pyte.Screen) -> bytes:
             # A wide character takes two cells; pyte leaves the second empty.
             x += 2 if len(data) == 1 and _wide(data) else 1
         out.append("".join(line).rstrip(" ") if last == (
-            "default", "default", False, False, False, False, False) else "".join(line))
+            "default", "default", False, False, False, False, False, False) else "".join(line))
     out.append("\x1b[0m")
     out.append(f"\x1b[{screen.cursor.y + 1};{screen.cursor.x + 1}H")
     if screen.cursor.hidden:
