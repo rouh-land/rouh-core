@@ -50,16 +50,20 @@ from django.contrib.auth.hashers import BasePasswordHasher, mask_hash
 log = logging.getLogger("rouh.accounts")
 
 # --- how a refused sign-in is slowed down ----------------------------------
+#
+# Slowed, never locked (Petar, 25 November 2026, task 98 gap G6: "hsts + slow down. forget about
+# locking out the address"). Until then eight wrong tries in a quarter of an hour shut an account
+# for a quarter of an hour from every address, so a stranger who knew the owner's email could keep
+# the owner out for good. Now every attempt is still checked: the wait before it grows with the
+# failures against that account and from that address, up to a ceiling, and the attempts from one
+# address are checked one at a time, so firing many at once does not get round the wait.
 
 #: How far back failures are counted.
 FAILURE_WINDOW = 15 * 60
-#: How many failures, from one address or against one account, shut it out.
-LOCKOUT_AFTER = 8
-#: For how long.
-LOCKOUT_SECONDS = 15 * 60
-#: The wait before the answer to a wrong password. Doubles per recent failure.
+#: The wait before an attempt after one recent failure. Doubles per further failure.
 DELAY_BASE = 0.4
-DELAY_MAX = 6.0
+#: The most an attempt ever waits: slow for a script, a few seconds for the owner.
+DELAY_MAX = 8.0
 
 #: How much of a sign-in's life has to be used up before a request pushes its
 #: end back. Renewing on every request would write a row per image on the page;
@@ -345,7 +349,7 @@ def sweep(now: float | None = None) -> int:
 
     now = time.time() if now is None else now
     gone, _ = Session.objects.filter(expire_date__lte=_now_aware()).delete()
-    SignInFailure.objects.filter(ts__lt=now - max(FAILURE_WINDOW, LOCKOUT_SECONDS) * 4).delete()
+    SignInFailure.objects.filter(ts__lt=now - FAILURE_WINDOW * 4).delete()
     return gone
 
 
@@ -388,40 +392,41 @@ def recent_failures(ip: str, username: str, now: float | None = None) -> tuple[i
     return by_ip, by_user
 
 
-def locked_for(ip: str, username: str, now: float | None = None) -> float:
-    """How many seconds until this address or this account may try again.
-
-    Zero means now. The clock runs from the newest failure, so a locked-out
-    attacker who keeps trying keeps the lock on themselves.
-    """
-    from django.db.models import Max, Q
-
-    from .models import SignInFailure
-
-    now = time.time() if now is None else now
-    by_ip, by_user = recent_failures(ip, username, now)
-    if max(by_ip, by_user) < LOCKOUT_AFTER:
-        return 0.0
-    # No account named is no account counted: an empty name would otherwise match every
-    # failure that named none, from any address.
-    name = (username or "").strip()[:64]
-    which = Q(ip=(ip or "")[:64]) if ip else Q(pk__in=[])
-    if name:
-        which |= Q(username__iexact=name)
-    newest = SignInFailure.objects.filter(
-        Q(ts__gte=now - FAILURE_WINDOW) & which).aggregate(m=Max("ts"))["m"] or now
-    return max(0.0, newest + LOCKOUT_SECONDS - now)
-
-
 def delay_for(ip: str, username: str, now: float | None = None) -> float:
-    """How long to wait before telling this caller they were wrong.
+    """How long to wait before checking this attempt.
 
-    Doubling per recent failure. The first mistake costs almost nothing, so a
-    person who fumbles their password does not notice; the tenth costs six
-    seconds, which makes a script pointless long before the lockout above.
+    Nothing for a caller with no recent failures. Then doubling per failure, counted against the
+    account named and from the address, whichever is more, up to ``DELAY_MAX``. Never a refusal:
+    the owner typing the right password while somebody else guesses at the account waits a few
+    seconds and is let in. The wait comes before the check, so a right password is answered no
+    sooner than a wrong one and a caller cannot learn the answer by giving up early.
     """
     by_ip, by_user = recent_failures(ip, username, now)
-    return min(DELAY_BASE * (2 ** max(by_ip, by_user)), DELAY_MAX)
+    worst = max(by_ip, by_user)
+    if worst <= 0:
+        return 0.0
+    return min(DELAY_BASE * (2 ** (worst - 1)), DELAY_MAX)
+
+
+#: One check at a time from each address (`one_at_a_time`), in this process.
+_TURNS: dict[tuple[int, str], "asyncio.Lock"] = {}
+
+
+def one_at_a_time(ip: str) -> "asyncio.Lock":
+    """The lock an address's sign-in attempts take turns on, so a hundred at once from one address
+    are a hundred waits in a row rather than one wait in parallel. By address, never by account:
+    an account's turn would let a stranger's queue stand in front of the owner."""
+    import asyncio
+
+    # Keyed by the running loop too: a lock waited on belongs to the loop it was made in.
+    key = (id(asyncio.get_running_loop()), (ip or "")[:64])
+    if len(_TURNS) > 4096:
+        for name in [k for k, lock in _TURNS.items() if not lock.locked()]:
+            _TURNS.pop(name, None)
+    lock = _TURNS.get(key)
+    if lock is None:
+        lock = _TURNS[key] = asyncio.Lock()
+    return lock
 
 
 # --------------------------------------------------------------------------

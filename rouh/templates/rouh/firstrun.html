@@ -193,10 +193,10 @@
    <input id="email" name="email" type="email" autocomplete="email" autocapitalize="none" maxlength="254"
           value="{{ said.email }}" required{% if problems.email %} aria-invalid="true" aria-describedby="emailBad"{% endif %}>{% if problems.email %}
    <p class="missing" id="emailBad">{{ problems.email }}</p>{% endif %}
-   <p class="small">You sign in to this Rouh with it. Once Rouh can send email, a link to it is how you sign in.</p>
+   <p class="small">{% if connected %}You sign in to this Rouh with it. Once Rouh can send email, a link to it is how you sign in.{% else %}You sign in to this Rouh with it and your password. An {{ independent }} sends no email, so nothing is ever sent to it unless you connect Gmail or a mail service later.{% endif %}</p>
   </div>
   <div class="field">
-   <label for="password1">Password, for when Rouh cannot email you</label>
+   <label for="password1">{% if connected %}Password, for when Rouh cannot email you{% else %}Password{% endif %}</label>
    <input id="password1" name="password1" type="password" autocomplete="new-password" minlength="10"
           required aria-describedby="passwordRules{% if problems.password %} passwordBad{% endif %}"{% if problems.password %} aria-invalid="true"{% endif %}>
 {% include "rouh/password_rules.html" %}

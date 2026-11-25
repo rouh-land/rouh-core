@@ -18,13 +18,13 @@
    <input id="email" name="email" type="text" autofocus autocapitalize="none" autocorrect="off"
           autocomplete="username webauthn" inputmode="email" value="{{ email }}" required>
   </div>
-  <button type="submit" id="continueBtn">Continue with email</button>
+  <button type="submit" id="continueBtn">{% if can_send %}Continue with email{% else %}Continue{% endif %}</button>
  </form>
  <div id="passkeyWay" hidden>
   <p>This device has a passkey for <strong id="passkeyFor"></strong>.</p>
   <button type="button" id="passkeyBtn">Sign in with your passkey</button>
   <p class="bad" id="passkeySaid" role="alert" hidden></p>
-  <p class="back"><a href="#" id="linkInstead">Send me a link instead</a></p>
+  <p class="back"><a href="#" id="linkInstead">{% if can_send %}Send me a link instead{% else %}Use my password instead{% endif %}</a></p>
  </div>
  {% if phone_way and owner_way %}
  <p>This Rouh's owner: on your computer, open Rouh, go to Anatomy, Your Rouh, press <strong>Show sign-in code</strong> under Your Rouh's URL, and scan the code with this phone's camera.</p>
@@ -92,7 +92,7 @@
         said.hidden = false;
       })
       .catch(function () {
-        said.textContent = 'The passkey was not used. Press it again, or send yourself a link instead.';
+        said.textContent = 'The passkey was not used. Press it again, or {% if can_send %}send yourself a link{% else %}use your password{% endif %} instead.';
         said.hidden = false;
       });
   });

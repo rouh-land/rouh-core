@@ -331,8 +331,9 @@ def deploy_needs_admin() -> None:
     expect(got.status_code == 403 and not started, "a member who is no administrator could deploy")
 
 
-@check("protections_191", "passkey failures lock out one address, not everybody",
-       "failures of a passkey from one address leave another address free to try", needs_db=True)
+@check("protections_191", "passkey failures slow one address, not everybody",
+       "failures of a passkey from one address slow that address and leave another address "
+       "unslowed, and nothing is ever locked out (task 98, gap G6)", needs_db=True)
 def passkey_by_address() -> None:
     from rouh import accounts
     from rouh.web import auth
@@ -342,20 +343,35 @@ def passkey_by_address() -> None:
             self.META = {"REMOTE_ADDR": ip}
             self.headers = {}
 
-    async def fail_and_ask() -> str:
-        # What passkey_verify does with a passkey that signs nobody in, from one address,
-        # then what it asks for another address.
-        for _ in range(accounts.LOCKOUT_AFTER + 1):
+    async def fail() -> None:
+        # What passkey_verify does with a passkey that signs nobody in, from one address.
+        for _ in range(12):
             await auth._refused(Request("192.0.2.10"), auth.PASSKEY_NAME)
-        return await auth._locked(Request("192.0.2.11"), auth.PASSKEY_NAME)
 
     accounts.forget_failures("192.0.2.10")
-    with _patched(accounts, delay_for=lambda *a, **k: 0):
-        other = asyncio.run(fail_and_ask())
-    expect(accounts.locked_for("192.0.2.10", auth.PASSKEY_NAME) > 0,
-           "the failing address was not locked")
-    expect(other == "", "another address was locked out of passkey sign-in too")
+    accounts.forget_failures("192.0.2.11")
+    asyncio.run(fail())
+    slow = accounts.delay_for("192.0.2.10", auth.PASSKEY_NAME)
+    expect(slow > 0, "the failing address was not slowed down")
+    expect(slow <= accounts.DELAY_MAX, "the failing address waits longer than the ceiling")
+    expect(accounts.delay_for("192.0.2.11", auth.PASSKEY_NAME) == 0,
+           "another address was slowed down for passkey sign-in too")
+    expect(not hasattr(accounts, "locked_for"), "a sign-in lockout is back")
     accounts.forget_failures("192.0.2.10")
+
+
+@check("protections_191", "a stranger cannot lock the owner out",
+       "many wrong passwords against one account from another address only slow the owner's "
+       "next attempt, up to the ceiling (task 98, gap G6)", needs_db=True)
+def owner_not_locked_out() -> None:
+    from rouh import accounts
+
+    accounts.forget_failures("192.0.2.20", "owner@example.test")
+    for _ in range(30):
+        accounts.record_failure("192.0.2.20", "owner@example.test")
+    wait = accounts.delay_for("192.0.2.21", "owner@example.test")
+    expect(0 < wait <= accounts.DELAY_MAX, f"the owner's attempt waits {wait} s")
+    accounts.forget_failures("192.0.2.20", "owner@example.test")
 
 
 @check("protections_191", "provider keys are masked in every log",

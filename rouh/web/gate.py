@@ -374,14 +374,25 @@ class SignInRequired:
             session["renewed_at"] = now          # marks it modified: saved, cookie re-sent
 
 
+#: HSTS (Strict-Transport-Security: the header that tells a browser to use only https for this
+#: name from now on), for a year. Never includeSubDomains or preload: an owner's own domain may
+#: have other sites under it that are not Rouh's to decide for.
+HSTS = "max-age=31536000"
+
+
 class SecureCookiesWhenHttps:
-    """Mark every cookie Secure when the browser came over https, and only then.
+    """Mark every cookie Secure, and say HSTS, when the browser came over https, and only then.
 
     The site is https everywhere a browser reaches it, through nginx. What
     reaches Rouh over plain http is this machine: the hooks, the health check,
     a laptop, the browser environment. A cookie marked Secure on plain http is
     a cookie the browser throws away, which is a sign-in that never sticks, so
     the flag follows the request rather than being set for everybody.
+
+    HSTS follows it the same way (Petar, 25 November 2026, task 98 gap G6): a browser that has
+    once reached Rouh over https never again tries the name over plain http, where a sign-in could
+    be read or changed on the way. A browser ignores the header on plain http and on a bare
+    address such as 127.0.0.1, so the machine's own http is untouched.
     """
 
     sync_capable = True
@@ -406,6 +417,8 @@ class SecureCookiesWhenHttps:
         if request.is_secure():
             for morsel in response.cookies.values():
                 morsel["secure"] = True
+            if "Strict-Transport-Security" not in response:
+                response["Strict-Transport-Security"] = HSTS
         return response
 
 

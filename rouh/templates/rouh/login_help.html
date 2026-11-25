@@ -2,17 +2,22 @@
 {% comment %}Other ways in, for this Rouh's owner, when the email does not arrive (`rouh/web/auth.py`,
    `help_page`): the sign-in link again, the password, and, on the machine itself, the one-time link
    an administrator makes there. No recovery words: Petar, 7 November 2026 (141-17, Correction 2),
-   "don't show recovery words at all. we completely removed that functionality".{% endcomment %}
+   "don't show recovery words at all. we completely removed that functionality".
+   A Rouh that cannot send mail, such as an Independent one before Gmail or a mail service is
+   connected, offers no email link and no guests' way (task 98, gap G6, 25 November 2026).{% endcomment %}
 {% block title %}Other ways in - Rouh{% endblock %}
 {% block body %}
  <h2>Other ways in</h2>
- <p>For this Rouh's owner. Somebody something was shared with opens the link in their email and signs in with their rouh.land account.</p>
- <ol class="ways" style="padding-left:20px;display:grid;gap:10px">
+ <p>For this Rouh's owner.{% if land %} Somebody something was shared with opens the link in their email and signs in with their rouh.land account.{% endif %}</p>
+ <ol class="ways" style="padding-left:20px;display:grid;gap:10px">{% if can_send %}
   <li><b>A sign-in link to your email.</b> Check your spam folder, then ask for a new one: each link works once, and only the newest. <a href="/login{% if next_to != "/" %}?next={{ next_to|urlencode }}{% endif %}">Send me a new link</a></li>
-  <li><b>Your password,</b> if you set one. It is asked for when this Rouh cannot send email.</li>
+  <li><b>Your password,</b> if you set one. It is asked for when this Rouh cannot send email.</li>{% else %}
+  <li><b>Your password,</b> the one you set when you set Rouh up. <a href="/login{% if next_to != "/" %}?next={{ next_to|urlencode }}{% endif %}">Sign in with it</a></li>
+  <li><b>A passkey,</b> if you added one on this device: type your email on the sign-in page and Rouh offers it.</li>{% endif %}
   <li><b>On the machine Rouh runs on,</b> an administrator can make a one-time sign-in link for your email:
    <code>{{ command }}</code></li>
  </ol>
- {% if owner_way %}<p>{{ owner_way.mac }}</p>{% endif %}
+ {% if owner_way %}<p>{{ owner_way.mac }}</p>{% endif %}{% if not can_send %}
+ <p class="small">This Rouh cannot send email, so it never sends a sign-in link. Once you connect Gmail, or set up a mail service on the machine it runs on, a link to your email becomes a way in too.</p>{% endif %}
  <p class="back"><a href="/login">Back to sign in</a></p>
 {% endblock %}

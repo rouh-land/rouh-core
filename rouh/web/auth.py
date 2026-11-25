@@ -17,8 +17,10 @@ Google is never a way in here (Petar, 4 November 2026: "google will never be a l
 connected as mail, calendar and Drive, and nothing more.
 
 A refused attempt is written down, by address and by the name that was tried, and the next one
-from that address or against that account waits longer; after eight in a quarter of an hour none
-is checked for a quarter of an hour (`rouh/accounts.py`).
+from that address or against that account waits longer before it is checked, up to a few seconds;
+attempts from one address are checked one at a time. Nothing is ever locked out, by account or by
+address (Petar, 25 November 2026, task 98 gap G6), so knowing the owner's email is not enough to
+keep the owner out (`rouh/accounts.py`).
 """
 from __future__ import annotations
 
@@ -68,8 +70,21 @@ def _through_relay(request: HttpRequest) -> bool:
         return False
 
 
+def _routes() -> list[str]:
+    try:
+        return signin.routes()
+    except Exception:  # noqa: BLE001 - the sign-in page always draws
+        return []
+
+
 def _page(request: HttpRequest, template: str = "rouh/login.html", *, status: int = 200, **more) -> HttpResponse:
+    routes = _routes()
     context = {
+        # What this Rouh can really do, so no page offers a way in that cannot work here: an
+        # Independent Rouh has no mail until its owner connects Gmail or a mail service, and no
+        # guests through rouh.land (task 98, gap G6).
+        "can_send": bool(routes),
+        "land": "rouh.land" in routes,
         "next_to": next_page(more.pop("next_to", "")),
         "minutes": signin.LINK_MINUTES,
         # In the containers the owner can also be let in from this machine (`firstrun.py`), or, on the
@@ -163,18 +178,32 @@ async def _continue(request: HttpRequest) -> HttpResponse:
     return await asyncio.to_thread(_page, request, template, status=status, next_to=back, **context)
 
 
-async def _locked(request, name: str):
-    locked = await asyncio.to_thread(accounts.locked_for, client_ip(request), name)
-    if locked > 0:
-        minutes = max(1, int(locked // 60) + 1)
-        return f"Too many attempts. Try again in {minutes} minute{'s' if minutes != 1 else ''}."
-    return ""
+class _Turn:
+    """An attempt's turn: one at a time from each address, after the wait its recent failures have
+    earned (`accounts.delay_for`). The wait comes before the check, so a right answer comes no
+    sooner than a wrong one."""
+
+    def __init__(self, request, name: str):
+        self.ip = client_ip(request)
+        self.name = name
+        self.lock = accounts.one_at_a_time(self.ip)
+
+    async def __aenter__(self):
+        await self.lock.acquire()
+        try:
+            await asyncio.sleep(await asyncio.to_thread(accounts.delay_for, self.ip, self.name))
+        except BaseException:
+            self.lock.release()
+            raise
+        return self
+
+    async def __aexit__(self, *exc):
+        self.lock.release()
+        return False
 
 
 async def _refused(request, name: str) -> None:
-    ip = client_ip(request)
-    await asyncio.sleep(await asyncio.to_thread(accounts.delay_for, ip, name))
-    await asyncio.to_thread(accounts.record_failure, ip, name)
+    await asyncio.to_thread(accounts.record_failure, client_ip(request), name)
 
 
 async def _in(request, user, back: str, how: str, email: str = "") -> HttpResponse:
@@ -189,13 +218,11 @@ async def _in(request, user, back: str, how: str, email: str = "") -> HttpRespon
 async def _by_code(request: HttpRequest) -> HttpResponse:
     back = next_page(request.POST.get("next", ""))
     email = signin.normal(request.POST.get("email") or request.session.get(TYPED, ""))
-    locked = await _locked(request, email)
-    if locked:
-        return await asyncio.to_thread(_page, request, "rouh/login_check.html", status=429, next_to=back,
-                                       email=email, note=locked)
-    user = await asyncio.to_thread(signin.by_code, email, request.POST.get("code", ""))
+    async with _Turn(request, email):
+        user = await asyncio.to_thread(signin.by_code, email, request.POST.get("code", ""))
+        if user is None:
+            await _refused(request, email)
     if user is None:
-        await _refused(request, email)
         return await asyncio.to_thread(_page, request, "rouh/login_check.html", status=401, next_to=back,
                                        email=email, note=CODE_REFUSED)
     return await _in(request, user, back, "a code from a sign-in email", email)
@@ -211,15 +238,12 @@ async def _by_password(request: HttpRequest) -> HttpResponse:
     back = next_page(request.POST.get("next", ""))
     name = (request.POST.get("email") or request.POST.get("username") or "").strip()
     template = request.POST.get("from") == "check" and "rouh/login_check.html" or "rouh/login_password.html"
-    locked = await _locked(request, name)
-    if locked:
-        log.warning("sign-in locked out from %s", client_ip(request))
-        return await asyncio.to_thread(_page, request, template, status=429, next_to=back, email=name,
-                                       note=locked, open_fallback=True)
-    username = await asyncio.to_thread(_account_by_password, name)
-    person = await aauthenticate(request, username=username, password=request.POST.get("password") or "")
+    async with _Turn(request, name):
+        username = await asyncio.to_thread(_account_by_password, name)
+        person = await aauthenticate(request, username=username, password=request.POST.get("password") or "")
+        if person is None:
+            await _refused(request, name)
     if person is None:
-        await _refused(request, name)
         log.warning("a password sign-in was refused from %s", client_ip(request))
         return await asyncio.to_thread(_page, request, template, status=401, next_to=back, email=name,
                                        note=REFUSED, open_fallback=True)
@@ -329,14 +353,13 @@ async def passkey_verify(request: HttpRequest) -> HttpResponse:
     back = next_page(request.GET.get("next", ""))
     # Counted against the address alone (191-01 weak spot 19): a passkey names no account until
     # it signs one in, and until 20 November 2026 every failure was counted against the one
-    # name "passkey", so anybody could lock everybody out of passkey sign-in.
-    locked = await _locked(request, PASSKEY_NAME)
-    if locked:
-        return JsonResponse({"error": locked}, status=429)
-    user = await asyncio.to_thread(_passkey_in, request, _json(request))
+    # name "passkey", so anybody could slow everybody's passkey sign-in.
+    async with _Turn(request, PASSKEY_NAME):
+        user = await asyncio.to_thread(_passkey_in, request, _json(request))
+        if user is None:
+            await _refused(request, PASSKEY_NAME)
     if user is None:
-        await _refused(request, PASSKEY_NAME)
-        return JsonResponse({"error": "That passkey did not sign anybody in here. Send yourself a link instead."},
+        return JsonResponse({"error": "That passkey did not sign anybody in here. Sign in with your email instead."},
                             status=401)
     await asyncio.to_thread(accounts.forget_failures, client_ip(request), user.username)
     await alogin(request, user, backend=BACKEND)

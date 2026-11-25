@@ -8,7 +8,8 @@ most 60), and cancels any link sent to that address before it (`rouh/signin.py`,
 
 The link is printed on every name this Rouh answers on (``ROUH_PUBLIC_URL`` and, in the
 containers, this machine's own port), so it opens wherever the person is. The code works on the
-sign-in page after Continue, for a Rouh that sends mail.
+sign-in page after Continue, for a Rouh that sends mail, and is printed only there; a Rouh that
+cannot send mail, such as an Independent one, gets the link alone.
 """
 from __future__ import annotations
 
@@ -43,4 +44,7 @@ class Command(BaseCommand):
                           f" for {minutes} minutes, once:")
         for base in bases:
             self.stdout.write("  " + base + got["path"])
-        self.stdout.write(f"  or the code {got['code']} on the sign-in page, after Continue")
+        if signin.can_send():
+            # The code box is on the page after Continue only where Continue sends a letter; a Rouh
+            # that cannot send mail asks for the password there instead (task 98, gap G6).
+            self.stdout.write(f"  or the code {got['code']} on the sign-in page, after Continue")
