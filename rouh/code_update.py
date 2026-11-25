@@ -149,6 +149,14 @@ def state() -> dict:
     return _read(folder() / "state.json")
 
 
+def current(commit: str | None) -> str:
+    """A commit of shared main as it is called now, after any rewrite of its history
+    (``code_evolution.current``)."""
+    from . import code_evolution
+
+    return code_evolution.current(commit)
+
+
 def _change(**fields) -> dict:
     with _state_lock:
         s = state()
@@ -232,11 +240,11 @@ def base(code: Path | None = None) -> dict:
         sha, _, said = rec.strip().partition("\x1f")
         said = said.strip()
         if sha and re.fullmatch(r"[0-9a-f]{40}", said):
-            return {"how": "update", "release": said, "local": sha}
+            return {"how": "update", "release": current(said), "local": sha}
     installed = _read(code / ".git" / "rouh-installed.json")
     roots = _git("rev-list", "--max-parents=0", "HEAD", cwd=code).stdout.split()
     if re.fullmatch(r"[0-9a-f]{40}", str(installed.get("commit") or "")) and len(roots) == 1:
-        return {"how": "install", "release": installed["commit"], "local": roots[0]}
+        return {"how": "install", "release": current(installed["commit"]), "local": roots[0]}
     if _git("rev-list", "--count", "HEAD", cwd=code).stdout.strip() not in ("", "0", "1"):
         return {"how": "history"}
     return {"how": "unknown"}
@@ -485,7 +493,7 @@ def why_not(b: dict, rel: dict, s: dict | None = None) -> str:
     if not rel:
         return "The newest release is not known yet."
     progress = code_evolution.shown()
-    if rel.get("commit") == (progress.get("through") or b.get("release")) and not progress["waiting"]:
+    if current(rel.get("commit")) == (progress.get("through") or b.get("release")) and not progress["waiting"]:
         return "This Rouh already has the newest release."
     return ""
 

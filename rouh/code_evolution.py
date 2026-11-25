@@ -87,6 +87,16 @@ NAME_IN_MESSAGE = re.compile(r"[\w-]+(?:[./_][\w-]+)+")
 #: How often a waiting urgent security change is tried again before it waits a day like the rest.
 URGENT_TRIES = 3
 
+#: Shared main's history was rewritten once (task 98, step 98-26, 25 November 2026: a real person's
+#: name out of every public commit), which gave every commit of rouh-core a new id. The map of old
+#: ids to new ones is published beside main, on rouh-core's branch ``history-map``, in the file
+#: ``commit-map`` (git filter-repo's own format: "old new" per line, ids only). A Rouh that finds the
+#: release it came from is no longer on shared main reads it once (``follow_rewrite``)
+#: and keeps it in its update folder (history-map.json), so an id it holds in its own commits (a ``Rouh-release:`` line,
+#: rouh-installed.json) is read as the commit it now is.
+HISTORY_MAP_REF = "refs/heads/history-map"
+HISTORY_MAP_FILE = "commit-map"
+
 
 def test_file(f: str) -> bool:
     """A test's own file, which never runs in a Rouh: tests/..., a tests/ folder, test_*.py.
@@ -123,6 +133,14 @@ def reconcile_ledger() -> None:
     head = u._git("rev-parse", "HEAD", cwd=u.code_dir()).stdout.strip()
     if not head or head == doc.get("last_running"):
         return
+    if doc.get("history") and doc.get("installed") and \
+            u._git("merge-base", "--is-ancestor", doc["installed"], head, cwd=u.code_dir()).returncode:
+        # A whole copy of Rouh's history (the Creator Rouh) whose /code was rewritten with shared
+        # main (98-26): its taken changes are under new ids, not put back. Follow the rewrite first;
+        # without the map, nothing here is judged against a history it is not about.
+        if not master_repo().exists() or not _rewritten(master_repo(), doc["installed"], head, u.code_dir()):
+            return
+        doc = ledger()
     changed = False
     for row in doc["changes"]:
         if row.get("status") in TAKEN and row.get("local") and \
@@ -184,6 +202,73 @@ def _git(*args, **kw):
     return u._out(*args, cwd=kw.get("cwd", master_repo()))
 
 
+ID = re.compile(r"\b[0-9a-f]{40}\b")
+
+
+def history_map() -> dict:
+    """Old commit of shared main -> the commit it is since a rewrite of its history; {} before any."""
+    return u._read(u.folder() / "history-map.json").get("map") or {}
+
+
+def current(commit: str | None) -> str:
+    """A commit of shared main as it is called now, after any rewrite of its history."""
+    return history_map().get(commit or "", commit or "")
+
+
+def _published_map(repo: Path) -> dict:
+    """Shared main's published map of old commit ids to new ones (HISTORY_MAP_REF), fetched into
+    repo; {} when there is none. Only pairs of whole ids are read, and a commit the rewrite dropped
+    (a new id of zeros) is left out."""
+    for url in sources():
+        if u._git("fetch", "-q", url, f"+{HISTORY_MAP_REF}:{HISTORY_MAP_REF}", cwd=repo).returncode == 0:
+            break
+    else:
+        return {}
+    text = u._git("show", f"{HISTORY_MAP_REF}:{HISTORY_MAP_FILE}", cwd=repo).stdout
+    pairs = {}
+    for line in text.splitlines():
+        old, _, new = line.strip().partition(" ")
+        new = new.strip()
+        if ID.fullmatch(old) and ID.fullmatch(new) and old != new and set(new) != {"0"}:
+            pairs[old] = new
+    return pairs
+
+
+def follow_rewrite(repo: Path, held: str) -> bool:
+    """When shared main's history was rewritten (HISTORY_MAP_REF), every id this Rouh's update
+    holds is read as the commit it now is, once: the ledger (installed, seen, through, each change's
+    master and parent, and local where a change is master's own commit) and the update's state (the
+    kept release, a continuation, a retry). Ids of this Rouh's own commits are not in the map and stay.
+    `held` is the commit the walk starts from; False when the map does not name it, and nothing changes."""
+    pairs = _published_map(repo)
+    if held not in pairs:
+        return False
+    known = history_map()
+    # An earlier rewrite's new ids may themselves have been rewritten again.
+    known = {old: pairs.get(new, new) for old, new in known.items()} | pairs
+    u._write(u.folder() / "history-map.json", {"map": known, "at": time.time(),
+                                               "map_commit": u._git("rev-parse", HISTORY_MAP_REF, cwd=repo).stdout.strip()})
+    with u._state_lock:
+        for name in ("ledger.json", "state.json"):
+            path = u.folder() / name
+            if path.exists():
+                doc = json.loads(ID.sub(lambda m: known.get(m.group(0), m.group(0)), path.read_text()))
+                if name == "ledger.json":
+                    doc["history_rewritten"] = {"at": time.time(), "from": held, "to": known[held]}
+                u._write(path, doc)
+    _RELEASED.clear()
+    u.log.info("update: shared main's history was rewritten; %s is now %s, and the update's records follow it",
+               held[:12], known[held][:12])
+    return True
+
+
+def _rewritten(repo: Path, held: str, ref: str, cwd: Path) -> bool:
+    """Whether `held` is no longer in `ref`'s history because shared main was rewritten, in which
+    case the update's records have now followed the rewrite."""
+    return bool(held) and ID.fullmatch(held) is not None and \
+        u._git("merge-base", "--is-ancestor", held, ref, cwd=cwd).returncode != 0 and follow_rewrite(repo, held)
+
+
 def scan(release: dict, b: dict, *, report: bool = True) -> dict:
     """A release is a forward-only boundary on shared main, never another Rouh's private tree."""
     repo = master_repo()
@@ -192,8 +277,15 @@ def scan(release: dict, b: dict, *, report: bool = True) -> dict:
         u._git("init", "--bare", "-q", str(repo), cwd=repo.parent, check=True)
     if report:
         u._step("reading the released changes on shared main")
+    release = {**release, "commit": current(release["commit"])}
+    if b.get("release"):
+        b = {**b, "release": current(b["release"])}
     if b.get("how") == "history":
         held = ledger() if ledger().get("installed") else record_start(b, repo)
+        if held.get("installed") and _rewritten(repo, held["installed"], "HEAD", u.code_dir()):
+            # The Creator Rouh's own /code was rewritten with shared main (98-26).
+            held = ledger()
+            release = {**release, "commit": current(release["commit"])}
         if held.get("installed") and u._git("merge-base", "--is-ancestor", release["commit"], "HEAD",
                                             cwd=u.code_dir()).returncode == 0:
             # This Rouh's own history already holds the release: nothing to fetch or list.
@@ -202,14 +294,18 @@ def scan(release: dict, b: dict, *, report: bool = True) -> dict:
             return held
     if release["commit"] not in (ledger().get("seen"), ledger().get("looked")):
         _fetch_main(repo)
-    end = release["commit"]
+    held = ledger().get("seen") or ledger().get("installed") or b.get("release") or \
+        u._read(u.code_dir() / ".git/rouh-installed.json").get("commit") or ""
+    if _rewritten(repo, current(held), "refs/heads/main", repo) and b.get("release"):
+        b = {**b, "release": current(b["release"])}
+    end = current(release["commit"])
     doc = ledger()
     if not doc.get("installed") and b.get("how") == "history":
         doc = record_start(b, repo) or doc
     # A one-time update (140-08) names its release in a Rouh-release trailer; its first install's
     # record still names the commit it was installed from, which may be on the old history.
     installed = doc.get("installed") or (b.get("release") if b.get("how") == "update" else "") \
-        or u._read(u.code_dir() / ".git/rouh-installed.json").get("commit") or b.get("release")
+        or current(u._read(u.code_dir() / ".git/rouh-installed.json").get("commit")) or b.get("release")
     first = doc.get("history_first_point") or ""
     if not installed:
         raise u.Refused("This Rouh has no record of its installed master version; its history must be established before updating.")
@@ -993,6 +1089,8 @@ def advance(rel: dict, by: str, work: Path) -> None:
     reconcile_ledger()
     b = u.base()
     doc = scan(rel, b)
+    # A release named before shared main's history was rewritten is walked as the commit it now is.
+    rel = {**rel, "commit": current(rel["commit"])}
     from . import guardface
 
     if (guardface.ask("status").get("features") or {}).get("master_changes") != 1:
