@@ -16128,6 +16128,9 @@ class ToolRegistry:
         waiting on them.
         """
         fields = {"files": runfiles.wire(files)} if files else {}
+        # Written before the words go, so a turn that ends at once still
+        # answers here (`runs.asked_from`).
+        await self._asked_from(run_id)
         got, why = await self._one_ask("say", run=run_id, text=text, **fields)
         if got is None:
             return why
@@ -16190,6 +16193,7 @@ class ToolRegistry:
         await self._his_words_to(str(args.get("id") or ""))
         if self._is_one_run(args["id"]):
             return await self._say_to_one_run(args["id"], str(args.get("answer") or ""))
+        await self._asked_from(str(args["id"]))
         mate = await self.crew.answer(args["id"], args["answer"])
         await asyncio.sleep(1.5)  # let the screen redraw before reading it back
         try:
@@ -16483,6 +16487,16 @@ class ToolRegistry:
         await self._his_words_to(str(args.get("run") or ""))
         return said
 
+    async def _asked_from(self, run_id: str) -> None:
+        """This turn's chat is the one waiting for the run's next turn (`runs.asked_from`).
+
+        The turn's own chat only (`_turns_chat`), never the chat on the screen:
+        outside a turn nothing is written and the run reports where it did.
+        """
+        chat = _turns_chat()
+        if run_id and chat:
+            await asyncio.to_thread(runs.asked_from, run_id, chat)
+
     async def _his_words_to(self, run_id: str) -> None:
         """What the owner just said in a turn of theirs, kept with the run it was carried to
         (`rouh/his_word.py`): their words, not the words the model sent on."""
@@ -16502,6 +16516,11 @@ class ToolRegistry:
         answer = str(args.get("answer") or "").strip().lower()
         if answer not in ("yes", "no"):
             return "The answer has to be yes or no."
+        asked, _ = await self._one_ask("questions")
+        for q in (asked or {}).get("questions") or ():
+            if str(q.get("id") or "") == str(args.get("question") or "") and q.get("run"):
+                await self._asked_from(str(q["run"]))
+                break
         got, why = await self._one_ask("answer", question=str(args.get("question") or ""),
                                        answer=answer)
         if why:
@@ -16517,6 +16536,7 @@ class ToolRegistry:
         return why or "The keyboard is theirs, in the terminal that has it open."
 
     async def _one_give(self, args, emit):
+        await self._asked_from(str(args.get("run") or ""))
         got, why = await self._one_ask("give", run=str(args.get("run") or ""))
         return why or "Handed back; the run was told what they did."
 

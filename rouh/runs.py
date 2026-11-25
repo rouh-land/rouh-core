@@ -758,6 +758,44 @@ def came_from(run_id: str, chat_id: str) -> bool:
     return False
 
 
+def asked_from(run_id: str, chat_id: str) -> bool:
+    """This chat has just put words at the run's prompt, so its next turn answers here.
+
+    Petar, 25 November 2026: run d289a6f2 was started in one chat, carried on
+    from a fork of it ("one_say"), and its result was posted into the chat that
+    started it, where nobody had asked, while the fork that asked got nothing.
+    So every chat that sends a run words - `one_say`, `reply_to_task`,
+    `one_answer`, `one_give`, and the same for a crew job - is written down as
+    a `from` link of its own, and the newest such link is the one `chat_of`
+    answers: the chat waiting for this turn. When the run carries on by itself
+    nobody writes anything, so it goes on reporting to whoever asked last, and
+    the chat that started it is the link underneath when that one is deleted.
+
+    A chat that already sent it words is moved to the top again rather than
+    written twice (a link is one row). Only the turn's own chat may be passed
+    here, never the one on the screen. A heartbeat chat is not a person asking
+    (`hears_back`), so a beat steering a run leaves its report where it was.
+    Never raises.
+    """
+    st = store()
+    if st is None or not run_id or not chat_id or not hears_back(chat_id):
+        return False
+    try:
+        if st.get_chat(chat_id) is None or st.get_run(run_id) is None:
+            return False
+        st.add_ref("from", "run", run_id, "chat", chat_id)
+        from .models.objects import Link
+
+        Link.objects.filter(rel="from", src_type="run", src_id=run_id, dst_type="chat",
+                            dst_id=chat_id).update(created_at=time.time())
+        return True
+    except objects.Refused:
+        log.warning("run %s could not be marked as asked from chat %s", run_id, chat_id)
+    except Exception:
+        log.exception("could not write which chat asked run %s", run_id)
+    return False
+
+
 def in_conflict(run_id: str, question: str) -> None:
     """This run's work will not go onto main and only a person can say what next.
 
@@ -824,7 +862,8 @@ def forget(run_id: str) -> bool:
 
 
 def chat_of(run_id: str, depth: int = 4) -> str:
-    """The conversation a run was started from, or "" when none started it.
+    """The conversation a run answers into: the chat that last sent it words, else
+    the one it was started from, or "" when none did.
 
     The one question the report path asks. Rouh used to say what a job found
     in whichever thread the person happened to have open when it finished,
@@ -854,9 +893,10 @@ def chat_of(run_id: str, depth: int = 4) -> str:
         seen.add(ident)
         try:
             links = st.refs("from", src_type="run", src_id=ident, dst_type="chat")
-            # Newest first: a run is written down once and linked once, so
-            # there is one of these, and reading the last of them is only how a
-            # second one - a run redone, restarted - would answer.
+            # Newest first: the chat that started the run is the first link,
+            # and every chat that put words at its prompt since is moved to
+            # the top (`asked_from`), so the newest is the chat waiting for
+            # this turn and the older ones are what is left when it is deleted.
             for link in reversed(links):
                 if st.get_chat(link.dst_id) is not None:
                     return str(link.dst_id)
