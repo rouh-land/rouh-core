@@ -110,7 +110,7 @@ So, in this order, every time:
    It waits for both of them to answer their health pages with the commit it just pushed, and only then does it say it worked.
    If it says your work collides with something, it hands you both sides, the files and the branch holding your work exactly as you wrote it, and tells you what to do: read both sides, reconcile the intent rather than the text, prove it in the browser again, and run `./land.sh` again.
    Nothing is ever thrown away on any path, including the one where the person is asked to decide.
-   The README section "Landing work on main" has the whole ladder.
+   The section "Landing work on main" of `docs/design-notes.md` has the whole ladder.
    Petar's standing policy is that a change that passes goes to main and is deployed from there without him being asked first, so committing and landing is the whole of what you have to do for it to go live.
    In a run of the one program you need not run `land.sh` yourself: the program ends every turn with it, on your checkout, and hands you back whatever it says. Run it yourself when that is what the job is; never `git push` to main instead of it.
 3. **Read what it said, because only the deployed commit counts.**
@@ -274,7 +274,7 @@ What happens at launch, every time, in a worktree made a minute ago:
 They are merged, not clobbered, and on a name collision the checkout's own entry wins, because the checkout's entries are written over the machine's in the merge.
 
 `{repo}` in a command, an argument or an environment value in `mcp-servers.json` is the folder that file is in, filled in by both readers, so a server that is a file of this repository runs from the deployment's own copy, which no run can change.
-The second server there is Rouh's own, `rouh` (`rouh/worker_mcp.py`), whose one tool, `notify_owner` (the old name `notify_petar` is still accepted), is how a job asks Rouh to email the person: it queues the text and Rouh sends it after asking (`rouh/outbox.py`, and the README under "When the person asks to be emailed about a job").
+The second server there is Rouh's own, `rouh` (`rouh/worker_mcp.py`), whose one tool, `notify_owner` (the old name `notify_petar` is still accepted), is how a job asks Rouh to email the person: it queues the text and Rouh sends it after asking (`rouh/outbox.py`, and `docs/design-notes.md` under "When the person asks to be emailed about a job").
 It learns which job it belongs to from the environment the launcher set, `ROUH_JOB` from the crew and `ONE_RUN` from the one program, which is why `one/asuser.py` tells Codex to pass `ONE_RUN` on to it.
 
 ### Why it is `--mcp-config` and not an approval
@@ -490,7 +490,7 @@ On the server there is also `/var/www/rouh/.venv`, which is the deployment's own
 `rouh/test_telegram.py` refused an endpoint that could read a reply from the bot; that one rule is the exception below, because Petar asked for Telegram both ways on 26 September 2026, and what stands in its place is that only his own chat is ever read (`rouh/telegram_chat.py`).
 `rouh/test_hook_endpoint_guard.py` and `rouh/test_untrusted.py` held the line on what an unsigned caller may reach.
 `rouh/test_never_hangs.py` refused a section of `verify.py` with no time limit.
-Every other rule they enforced is unchanged, and is in this file and in `README.md`.
+Every other rule they enforced is unchanged, and is in this file and in `docs/design-notes.md`.
 
 ## Whose data is it
 
@@ -526,8 +526,8 @@ Every route and every tool goes through it rather than assuming, which is what l
 - Be picky about the UI. If something looks off while you are in there, even if it is not yours, fix it.
 - **Brown toggles.** Petar, 15 October 2026 (fr_fa2525969751): what he is not sure he wants to keep on a page is moved inside a brown toggle, closed until pressed, rather than taken out. It is `<details class="brown-toggle">` with a `<summary>` and a `<div class="brown-toggle-body">`, styled once in `rouh/static/app.css`; never a toggle of a page's own.
 - Hold engineering to the same standard: something broken that you find on the way, or a lint error, gets fixed whether or not you caused it.
-- **What a conversation is told is rules, never text in the code.** Petar, 21 October 2026: one place rules Rouh's behaviour, and it is the Rules page. Since 30 October 2026 every rule is in the person's Synapse Master and none is in the code: a new instruction for Rouh's conversations is a rule added on the Rules page, with its conditions, and tagged defaults when every Rouh should get it (`rouh/ruledefaults.py`), never a string in `brain.py` or beside it; README.md, "What a conversation is told", has the whole of it.
-- **Nobody's life in this repository.** Petar, 21 October 2026: the code will one day be public, and anyone reading every commit of it must find software, not his life. The person's workspace is a repository of its own (README.md, "The workspace is a repository of its own"), and nothing of it - a task, a note, a page, a mail, a chat, a screenshot of real data - is committed here. Examples, fixtures and screenshots use fictional people on `.example` and `.test` domains; a real person's name, address, number, account, machine or domain is an installation's setting or nothing.
+- **What a conversation is told is rules, never text in the code.** Petar, 21 October 2026: one place rules Rouh's behaviour, and it is the Rules page. Since 30 October 2026 every rule is in the person's Synapse Master and none is in the code: a new instruction for Rouh's conversations is a rule added on the Rules page, with its conditions, and tagged defaults when every Rouh should get it (`rouh/ruledefaults.py`), never a string in `brain.py` or beside it; `docs/design-notes.md`, "What a conversation is told", has the whole of it.
+- **Nobody's life in this repository.** Petar, 21 October 2026: the code will one day be public, and anyone reading every commit of it must find software, not his life. The person's workspace is a repository of its own (`docs/design-notes.md`, "The workspace is a repository of its own"), and nothing of it - a task, a note, a page, a mail, a chat, a screenshot of real data - is committed here. Examples, fixtures and screenshots use fictional people on `.example` and `.test` domains; a real person's name, address, number, account, machine or domain is an installation's setting or nothing.
 - **Nobody's name in the code.** Text about the person a Rouh belongs to says `‹owner›` (and `‹he›`, `‹his›`, `‹company›` ...), filled in by `rouh/owner.py` where the text leaves Rouh.
   Their addresses, clock and permissions are read from their account and settings, and an installation's own values from its environment (`SETUP.md`).
   Never write a person's name, address, company, city or permission into code, a prompt, a default or a fixture.
@@ -535,7 +535,7 @@ Every route and every tool goes through it rather than assuming, which is what l
 ## The models are values, not code
 
 Which model answers is a mode, two tiers and a tier for every use, in Rouh's database, set in Settings under Models (`rouh/modeldefaults.py`, since 18 October 2026; the mode and two tiers since 23 October 2026): the mode Best, Balanced or Saver, and the tiers Cheaper and Smart, each an OpenAI and an Anthropic model with one of them main, and every use of a model on one of them or on a model of its own (Custom); each of the page's two boxes (the tiers, and Each use) has its own Auto toggle: on, that box follows the Rouh model service's daily standard (which, for Each use, may route the chats' messages to a tier, `rouh/modelrouter.py`), and off, its manual settings apply, which that box's Sync makes the service's once; while either is on the counts are sent and double calls run; locks hold either way.
-How deeply a model thinks comes with the model, from the model standard (`rouh/model_standard.json`), which Petar publishes on rouh.land and every Rouh fetches once a day (`rouh/modelstandard.py`); README.md, "Which model answers", has the whole of it.
+How deeply a model thinks comes with the model, from the model standard (`rouh/model_standard.json`), which Petar publishes on rouh.land and every Rouh fetches once a day (`rouh/modelstandard.py`); `docs/design-notes.md`, "Which model answers", has the whole of it.
 Petar asked on 27 September 2026 that when he asks for a different model, it is these values that change, so a request like "put Sonnet in Cheaper" or "switch to Saver" is answered by changing them, never by editing a model name into the code.
 On this machine that is one command, which is his explicit request to write to the live database for this and nothing else:
 
@@ -560,7 +560,7 @@ So a new place in Rouh that asks a model does two things, and is not done until 
    `await llm.ask("<use id>", system=..., messages=..., max_tokens=..., who=who)` asks the model the Models page has for that use, Anthropic's or OpenAI's, at the level that comes with it, through the clients that write every request down (`rouh/llmlog.py`), and gives back the words with the model that said them.
    Pass `read_only=True` when the answer only says something and changes nothing, so with Auto on it may be compared with a second model's (double calls).
    Nothing swaps a model: a model that cannot be asked here raises `llm.Cannot`, and the Models page says so beside the use.
-   The only other places a model is asked are the loops that are more than one question (a chat's turn in `brain.py` and `luna.py`, Ask AI and its comment pass, look_into, Synapse's engine), each with its use's model; README.md, "The log of every request made of a model", has the log.
+   The only other places a model is asked are the loops that are more than one question (a chat's turn in `brain.py` and `luna.py`, Ask AI and its comment pass, look_into, Synapse's engine), each with its use's model; `docs/design-notes.md`, "The log of every request made of a model", has the log.
 2. **It has its own place on the Models page.**
    It is a `Use` in `USES` in `rouh/modeldefaults.py`: an id, the group it is listed under, a name and a line a person can read, and its `llm_requests` purposes; and the choice it starts on, with the reason, in the model standard (`rouh/model_standard.json`, `uses`), which refuses to load without one.
    A use is marked `only` one company, with `needs` saying why, only when the code truly needs that company (a Claude Code run, a Codex run, a loop written for one API), never because of which client it was handed.
@@ -615,7 +615,7 @@ One thing is shared as files: `guard/policy/` (the stack check's allow-list and 
 
 ## Where everything is
 
-`README.md` has the shape of Rouh - a Django project on PostgreSQL, managed with uv on pyenv's Python, with its section "The backend: Django on PostgreSQL" - `one/README.md` the shape of the one program, `PROTOCOL.md` the wire protocol between the page and the server, `TELEMETRY.md` the work tree, `EVENTS.md` the event log - every press, opening, message and piece of work, kept as counts and ids in `analytics.event` - `rouh/turnmarks.py` how a turn of speech begins and ends, `DECISIONS.md` the one model of everything waiting on the person's answer - the audit of every place that asked, the record, the sources and the safety rules -
+`README.md` is the short front door (what Rouh is, how to install it, what it needs and does not do yet), `docs/design-notes.md` has the shape of Rouh - a Django project on PostgreSQL, managed with uv on pyenv's Python, with its section "The backend: Django on PostgreSQL" - `one/README.md` the shape of the one program, `PROTOCOL.md` the wire protocol between the page and the server, `WORK_TREE.md` the work tree, `EVENTS.md` the event log - every press, opening, message and piece of work, kept as counts and ids in `analytics.event` - `rouh/turnmarks.py` how a turn of speech begins and ends, `DECISIONS.md` the one model of everything waiting on the person's answer - the audit of every place that asked, the record, the sources and the safety rules -
 `MAIL.md` how a trusted contact's email or Telegram message is handled - the ledger of asks, the outbox and the decisions behind them -
 `DELEGATION.md` a trusted contact's authority to decide for the person over a goal, quest or task,
 `CAPABILITIES.md` what Rouh may do for somebody other than the person - capabilities each gene declares, grants as data, and every call of a contact's case checked on its arguments -

@@ -72,7 +72,7 @@ OPAQUE_LINE = 2000
 #: when Rouh's own rouh/static/app/runs.js (hand-written, 18,000 lines of at most 237 characters) grew
 #: to 783 KB and was read as a library: every Rouh whose copy differed waited on 6ceef460 for good.
 OPAQUE_SIZE = 8 * 1024 * 1024
-#: Prose keeps a paragraph on one line (README.md has lines of 3,000 characters): a prose file is
+#: Prose keeps a paragraph on one line (docs/design-notes.md has lines of 3,000 characters): a prose file is
 #: opaque by its lines only past this, so its lines still merge beside this Rouh's own.
 PROSE = (".md", ".markdown", ".txt", ".rst")
 OPAQUE_PROSE_LINE = 50000

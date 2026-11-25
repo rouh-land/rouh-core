@@ -9,7 +9,7 @@
 
 Rouh runs the pass by itself every hour and soon after the calendar changes, and the backfill the
 first time; these are for looking and for doing it now. On the server, run it with Rouh's
-environment, as Rouh's other commands are run (README).
+environment, as Rouh's other commands are run (docs/design-notes.md).
 """
 from __future__ import annotations
 

@@ -5,7 +5,7 @@
     python manage.py vocabulary plan --user 1       # what moving them would do, changing nothing
 
 The old words move by themselves the first time the rules are read; this says what happened, or makes it happen.
-On the server, run it with Rouh's environment, as Rouh's other commands are run (README).
+On the server, run it with Rouh's environment, as Rouh's other commands are run (docs/design-notes.md).
 """
 from __future__ import annotations
 

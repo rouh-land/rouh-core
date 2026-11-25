@@ -5,7 +5,7 @@
     python manage.py synapse_calendar reconcile         # each calendar's whole list against Synapse's, fixed
 
 Rouh itself reads every calendar every minute and checks each one every night; these are for looking and
-for doing it now. On the server, run it with Rouh's environment, as Rouh's other commands are run (README).
+for doing it now. On the server, run it with Rouh's environment, as Rouh's other commands are run (docs/design-notes.md).
 """
 from __future__ import annotations
 

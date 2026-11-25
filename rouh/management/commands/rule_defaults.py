@@ -13,9 +13,9 @@
     python manage.py rule_defaults read --url https://rouh.land/rules/defaults.json
         # the live document read as every Rouh reads it, said in a line (no database is read)
 
-To publish, run `tools/rule_defaults/publish.sh` (README, "What a conversation is told"): it exports, prepares,
+To publish, run `tools/rule_defaults/publish.sh` (docs/design-notes.md, "What a conversation is told"): it exports, prepares,
 copies the document to rouh.land's site as rouhit/rules/defaults.json, deploys the site and reads it back.
-On the server, run it with Rouh's environment, as Rouh's other commands are run (README).
+On the server, run it with Rouh's environment, as Rouh's other commands are run (docs/design-notes.md).
 """
 from __future__ import annotations
 

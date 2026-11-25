@@ -10,7 +10,7 @@
     python manage.py synapse_master false-rules --user 1   # rules made out of documents' content (D59), counted
     python manage.py synapse_master false-rules --user 1 --delete   # and deleted
 
-On the server, run it with Rouh's environment, as Rouh's other commands are run (README).
+On the server, run it with Rouh's environment, as Rouh's other commands are run (docs/design-notes.md).
 """
 from __future__ import annotations
 

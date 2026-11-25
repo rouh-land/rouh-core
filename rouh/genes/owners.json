@@ -53,6 +53,9 @@
     "LICENSE",
     "NOTICE",
     "CONTRIBUTING.md",
+    "CODE_OF_CONDUCT.md",
+    "docs/design-notes.md",
+    "docs/images/**",
     "DCO",
     "COPYRIGHT-HEADERS.md",
     "third_party/**",
@@ -760,7 +763,7 @@
     "rouh/crew.py",
     "rouh/crew_launch.py",
     "rouh/assistant_job.py",
-    "TELEMETRY.md"
+    "WORK_TREE.md"
    ],
    "needed_by": [
     "decisions",

@@ -84,7 +84,7 @@ The installation's values went into the drop-in described above, with the values
 
 1. **Get the code without anybody's workspace.**
    `tools/distribution/export.sh /path/to/rouh` writes the tree of a commit with `workspace/` left out except its two tools.
-2. **Install what Rouh runs on**, as the README's "Running it" says: Python with uv, PostgreSQL with the `vector`, `pg_trgm` and `pg_search` extensions, nginx in front.
+2. **Install what Rouh runs on**, as "Running it" in `docs/design-notes.md` says: Python with uv, PostgreSQL with the `vector`, `pg_trgm` and `pg_search` extensions, nginx in front.
 3. **Give the installation its own settings** in its environment file, from `deploy/installation.env.example`.
    The ones that matter on day one are `ROUH_PUBLIC_URL` (the address it is opened at), `ROUH_PUBLIC_HOSTS`, `ROUH_DEFAULT_ZONE`, and `ROUH_MAIL_FROM` and `ROUH_OWN_MAILBOXES` once it has mail of its own.
    `ROUH_BIRTH_URL` and `ROUH_BIRTH_KEY_FILE` (a file with a public key in PEM) are set only by a test world or an installation with a birth service of its own; unset, a Rouh is born with rouh.land's (`rouh/birth.py`).

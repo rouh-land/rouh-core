@@ -11,7 +11,7 @@
         #   order and nothing else, the first piece staying the rule itself
 
 The person applies or changes each proposal on the Rules page; this only proposes.
-On the server, run it with Rouh's environment, as Rouh's other commands are run (README).
+On the server, run it with Rouh's environment, as Rouh's other commands are run (docs/design-notes.md).
 """
 from __future__ import annotations
 

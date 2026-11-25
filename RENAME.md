@@ -61,7 +61,7 @@ So the rename was a case-sensitive replacement of `Jarvis` with `Rouh`, and ever
 
 ### The documents
 
-`README.md`, `PROTOCOL.md`, `AGENTS.md`, `GOOGLE.md`, `TELEMETRY.md`, `one/README.md` and every docstring and comment in the code call the assistant Rouh.
+`README.md`, `PROTOCOL.md`, `AGENTS.md`, `GOOGLE.md`, `WORK_TREE.md`, `one/README.md` and every docstring and comment in the code call the assistant Rouh.
 
 ## The address
 

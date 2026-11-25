@@ -9,7 +9,7 @@
 
 Rouh runs the pass by itself every hour and soon after the calendar changes; these are for looking
 and for doing it now. On the server, run it with Rouh's environment, as Rouh's other commands are
-run (README). Every LinkedIn lookup is counted against the same daily limit as Rouh's own.
+run (docs/design-notes.md). Every LinkedIn lookup is counted against the same daily limit as Rouh's own.
 """
 from __future__ import annotations
 

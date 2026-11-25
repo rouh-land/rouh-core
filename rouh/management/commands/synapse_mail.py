@@ -14,7 +14,7 @@
 Rouh itself reads every inbox every minute and on Gmail's push, and checks each one every night;
 these are for looking and for doing it now. `--user` names whose Synapse Master it is; left out, it
 is the installation's one account, and with more than one it has to be given. On the server, run it with Rouh's environment, as
-Rouh's other commands are run (README).
+Rouh's other commands are run (docs/design-notes.md).
 """
 from __future__ import annotations
 

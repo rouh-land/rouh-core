@@ -8,7 +8,7 @@
     python manage.py synapse_meetings drain           # run the queue until nothing is due, then wait for the X-rays
 
 Rouh does all of this by itself; these are for looking and for doing it now. On the server, run it with
-Rouh's environment, as Rouh's other commands are run (README).
+Rouh's environment, as Rouh's other commands are run (docs/design-notes.md).
 """
 from __future__ import annotations
 

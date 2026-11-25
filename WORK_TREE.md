@@ -1,5 +1,7 @@
 # The work tree, and the thing that draws it
 
+The orb's view of the work running on this machine, kept in this Rouh and drawn in its own page. Nothing here is sent anywhere (`PRIVACY.md`). This file was `TELEMETRY.md` until 25 November 2026.
+
 Two halves of one feature, built against this contract so they can be built at
 the same time.
 

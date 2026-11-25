@@ -11,7 +11,7 @@ It is an idea, written down once, that can be shared between Rouhs, and each Rou
 Two Rouhs can carry the same gene and be different with it, the way two people carry the same gene and are different with it.
 
 A gene is not execution.
-Execution is what the orb's lines show, and only that: a spike out of the core is a job, a branch off it is a sub-agent, a twig along a line is a tool call (`rouh/static/app/orb.js`, the work tree, `TELEMETRY.md`).
+Execution is what the orb's lines show, and only that: a spike out of the core is a job, a branch off it is a sub-agent, a twig along a line is a tool call (`rouh/static/app/orb.js`, the work tree, `WORK_TREE.md`).
 Those come and go as work runs; a gene stays whether or not anything is running.
 **A gene is never drawn as a line on the orb**, and nothing in the orb reads the gene registry (`python3 -m rouh.genes` fails if it does).
 A gene may of course start work that the orb then shows, as Synapse's nightly run does, but the line is the run, never the gene.

@@ -214,7 +214,7 @@ A warning ("mutated from the original") is not a kind and cannot be ordered: the
 
 Called the Gene library until 14 October 2026.
 
-**Every change** (`/evolution/mutations`, where Mutations opens since 23 November 2026, and `/evolution/mutations/changes`): every change to Rouh's code, whatever started it, with the way back to its chat, its commits, whether it is live and Undo; README.md, "Feedback, and Every change", has the whole of it. The gene views below are links in the strip above it.
+**Every change** (`/evolution/mutations`, where Mutations opens since 23 November 2026, and `/evolution/mutations/changes`): every change to Rouh's code, whatever started it, with the way back to its chat, its commits, whether it is live and Undo; `docs/design-notes.md`, "Feedback, and Every change", has the whole of it. The gene views below are links in the strip above it.
 
 Every gene the nightly run built for the person, one row per version (`mutations_genes`), its whole history (`mutations_gene_events`), its mutation requests (`gene_mutations`) and its questions (`gene_questions`). Every row has `org_id` and `user_id`, every query names both, and an id of anybody else's is "not found".
 
