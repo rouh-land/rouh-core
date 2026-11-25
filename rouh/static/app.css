@@ -11623,6 +11623,44 @@ body.chat-incognito .content-pop { --accent: var(--incog); --accent-ink: var(--i
 .reading-items .n { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .reading-items .z { flex: 0 0 auto; color: var(--dim); }
 .reading-items .o { flex: 0 0 auto; font-size: 11px; color: var(--dim); border: 1px solid var(--line); border-radius: 6px; padding: 0 5px; }
+/* What else goes with each message, what each row is made of, and the total (app/reading.js `sentPaint`,
+   `opener`). */
+.reading-sent-rows.pending, .reading-sec > p.reading-total.pending { opacity: 0.55; }
+.reading-sent-row { padding: 6px 10px; border-bottom: 1px solid var(--line-soft); }
+.reading-sent-row > .reading-part { font-size: 13.5px; font-weight: 600; color: var(--text); min-height: 32px; }
+.reading-sent-row > .reading-part .z { font-weight: 400; }
+.reading-sent-sub { margin: 0; font-size: 12px; color: var(--dim); }
+.reading-group { border-bottom: 1px solid var(--line-soft); }
+.reading-group > .reading-open { margin: 0 10px 4px; }
+.reading-part { display: flex; gap: 8px; align-items: center; min-width: 0; font-size: 12.5px; }
+.reading-part .n { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.reading-part .z { flex: 0 0 auto; color: var(--dim); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.reading-open > summary {
+  display: flex; align-items: center; gap: 6px; min-height: 44px; box-sizing: border-box; padding: 0 2px;
+  list-style: none; cursor: pointer; font-size: 12.5px; color: var(--accent); border-radius: 6px;
+}
+.reading-open > summary::-webkit-details-marker { display: none; }
+.reading-open > summary::before {
+  content: ""; flex: 0 0 auto; width: 6px; height: 6px; margin: 0 4px 0 2px;
+  border-right: 1.5px solid currentColor; border-bottom: 1.5px solid currentColor; transform: rotate(-45deg);
+}
+.reading-open[open] > summary::before { transform: rotate(45deg); }
+.reading-open > summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.reading-open-n { color: var(--dim); }
+.reading-open.sub > summary { color: var(--text); min-height: 36px; }
+.reading-open.sub > summary .reading-part { flex: 1; }
+.reading-parts { list-style: none; margin: 0 0 6px; padding: 0 0 0 14px; min-width: 0; }
+.reading-parts > li { padding: 0; border-bottom: 1px solid var(--line-soft); }
+.reading-parts > li:last-child { border-bottom: 0; }
+.reading-parts > li > .reading-part { min-height: 36px; }
+.reading-parts.heaviest > li > .reading-part { min-height: 30px; font-size: 12px; color: var(--dim); }
+@media (prefers-reduced-motion: no-preference) {
+  .reading-open > summary::before { transition: transform 0.15s; }
+}
+.reading-sec > p.reading-total {
+  display: flex; margin: 8px 10px 6px; padding: 10px 0 2px; font-size: 14.5px; font-weight: 600; color: var(--text);
+  font-variant-numeric: tabular-nums; border-top: 1px solid var(--line);
+}
 .reading-more {
   appearance: none; margin: 4px 10px 2px; min-height: 44px; padding: 0 4px; border: 0; background: none;
   color: var(--accent); font: inherit; font-size: 12.5px; text-decoration: underline; text-underline-offset: 2px; cursor: pointer;

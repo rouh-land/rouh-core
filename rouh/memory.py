@@ -1757,8 +1757,12 @@ class Memory:
     def history(self, session_id: str, limit: int = 40,
                 before: int | None = None, *,
                 limit_of: Callable[[str], int] | None = None,
-                lean: bool = True, files=None) -> list[dict]:
+                lean: bool = True, files=None, turn: bool = False) -> list[dict]:
         """The last `limit` messages, oldest first, in Anthropic message shape.
+
+        `turn` is a chat's turn asking (`brain`, `luna`, `compat`), which obeys the history row's switch in the
+        strip's panel (`reading.history_on`; Petar, 25 November 2026): off, the chat's own earlier messages are
+        left out and only the parent chats a fork carries, each by its own switch, are sent.
 
         A `limit` below zero is every message the chat has, which is how every
         chat but General is sent (`rouh/chatkinds.py`).
@@ -1810,8 +1814,14 @@ class Memory:
         (somebody else's message and Rouh's whole working record of it) is sent as one
         line with a link to the case, since 25 November 2026 (`case_lines.shorten`).
         """
-        msgs = repair_history(self._window(session_id, limit, before=before,
-                                           limit_of=limit_of))
+        msgs = self._window(session_id, limit, before=before, limit_of=limit_of)
+        if turn:
+            from . import reading
+
+            if not reading.history_on(session_id):
+                own = self._window(session_id, limit, before=before, depth=forks.DEEP)
+                msgs = msgs[:max(0, len(msgs) - len(own))]
+        msgs = repair_history(msgs)
         if lean:
             msgs, _did = context_editing.lean(msgs, store=files)
             msgs, _cases = case_lines.shorten(msgs)

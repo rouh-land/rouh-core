@@ -142,3 +142,73 @@ def content(c) -> int:
 def messages(msgs: list) -> int:
     """A list of messages, as the API is sent them."""
     return sum(PER_MESSAGE + content(_field(m, "content")) for m in msgs or [])
+
+
+# --- the parts of a request that are not the conversation's words -----------------------------------------
+#
+# Petar, 25 November 2026 (task 182, step 182-19): the strip's panel said a chat read about 31,000 tokens when
+# its messages went out with about 64,000. Measured that day with count_tokens for claude-opus-5-5 on real
+# requests (each the very request the log kept, which count_tokens put at the tokens the call was billed):
+# Rouh's instructions, the list of tools, and the tools a search found in the conversation, which the API
+# turns back into their whole definitions every time they are named. None of them is words of the
+# conversation, so `messages` never counted them.
+
+#: Rouh's instructions count this much of what `text` says (16,455 for 17,084 on the system prompt).
+INSTRUCTIONS = 0.963
+#: A tool's definition, as the API counts it, of what `text` says of it as JSON: 0.88 to 0.94 for tools sent in
+#: full, 0.91 to 0.97 for those a search found (561 for 638, 2,778 for 2,952, 11,109 for 12,165, 7,210 for
+#: 7,429).
+DEFINITION = 0.92
+#: The API's own words about tools, once a request has any (286), the tool search tool (292 on top), and the
+#: catalogue of every tool kept back to be searched for (2,251, the same for 170 tools as for 183).
+TOOL_PREAMBLE = 286
+TOOL_SEARCH = 292
+DEFERRED = 2_251
+
+
+def instructions(s: str) -> int:
+    """Rouh's instructions, the system prompt."""
+    return round(text(s) * INSTRUCTIONS) if s else 0
+
+
+def definition(tool: dict) -> int:
+    """One tool's definition, sent in full or found by a search."""
+    body = {k: v for k, v in (tool or {}).items() if k not in ("defer_loading", "cache_control")}
+    return round(text(json.dumps(body, ensure_ascii=False)) * DEFINITION)
+
+
+def tools(defs: list) -> int:
+    """The tool list of a request as the API counts it: what it says about tools, the search tool, the
+    catalogue of tools kept back, and every tool sent in full."""
+    defs = [d for d in defs or [] if isinstance(d, dict)]
+    if not defs:
+        return 0
+    total = TOOL_PREAMBLE
+    if any(d.get("defer_loading") for d in defs):
+        total += DEFERRED
+    for d in defs:
+        if d.get("defer_loading"):
+            continue
+        if str(d.get("type") or "").startswith("tool_search_tool"):
+            total += TOOL_SEARCH
+        else:
+            total += definition(d)
+    return total
+
+
+def found(msgs: list, defs: list) -> int:
+    """The tools a search found in this conversation, which the API sends again as their whole definitions
+    every time a search result names one (a tool named twice is counted twice)."""
+    by = {str(d.get("name")): d for d in defs or [] if isinstance(d, dict) and d.get("name")}
+    total = 0
+    for m in msgs or []:
+        for b in _field(m, "content") if isinstance(_field(m, "content"), list) else []:
+            if _field(b, "type") != "tool_search_tool_result":
+                continue
+            body = _field(b, "content")
+            refs = body.get("tool_references") if isinstance(body, dict) else None
+            for r in refs or []:
+                name = str(r.get("tool_name") or "") if isinstance(r, dict) else ""
+                if name in by:
+                    total += definition(by[name])
+    return total

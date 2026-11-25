@@ -65,7 +65,7 @@ import { shared } from 'app/shared.js';
 /** @typedef {{ id: string, title: string, text: string, source: string, locked: boolean, own?: boolean,
  *              on: boolean, off: boolean, with?: string, when?: string, live?: boolean, fills?: string }} ReadRule */
 /** @typedef {{ key: string, title: string, sub: string, on: boolean, tokens: number, size: string,
- *              count: number, outlined: number, locked?: boolean }} ContentGroup */
+ *              count: number, outlined: number, locked?: boolean, parts?: SentPart[] }} ContentGroup */
 /** One chat of a fork's tree: a parent chat with its switch, or the chat itself (`self`), with no switch.
     @typedef {{ id: string, label: string, tokens: number, on: boolean, depth: number, self?: boolean }} TreeChat */
 /** @typedef {{ chat: string, kind: string, incognito: boolean, settings: Record<string, any>,
@@ -75,7 +75,15 @@ import { shared } from 'app/shared.js';
  *              outlined: number, reads: number, budget: number, kept?: string,
  *              synapse?: {text: string, on: boolean}, sources?: Record<string, string>,
  *              tools?: Record<string, {name: string, words: string}[]>,
- *              last?: {tokens: number, cached: number, requests: number, ts: number} | null }} ReadView */
+ *              sent?: SentView,
+ *              last?: {tokens: number, cached: number, requests: number, ts: number, searched?: number} | null }} ReadView */
+/** A part of what goes with each message, or of one of its rows, with the heaviest single items of a part of the
+    history. @typedef {{ key?: string, label: string, tokens: number, count?: number,
+                         items?: {label: string, tokens: number, at?: number}[] }} SentPart */
+/** One row of what goes with each message (rouh/reading.py `sent_now`).
+    @typedef {{ key: string, title: string, sub: string, tokens: number, parts?: SentPart[], loaded?: number,
+               named?: number, known?: boolean, messages?: number, on?: boolean }} SentRow */
+/** @typedef {{ rows: SentRow[], reads: number, parents?: number, total: number, request: number | null, own: boolean }} SentView */
 
 var btn = /** @type {HTMLButtonElement | null} */ ($('readingBtn'));
 var pop = $('readingPop');
@@ -209,11 +217,14 @@ function paintStrip(d) {
   var bits = d && d.strip ? d.strip.split(' · ') : [];
   if (d && ASK.doc) bits.push('This page');
   READ.doc = ASK.doc;
-  // Nothing to choose and nothing to say (General, a chat of its own): no strip at all.
+  // What the next message sends in all (`sentPaint`), in every chat, General and a chat of its own included
+  // (Petar, 25 November 2026): the strip is always there to open it.
+  var sent = d && d.sent && d.sent.total ? d.sent.total : 0;
+  if (sent) bits.push(kTokens(sent) + ' tokens a message');
   strip.hidden = !d || (!d.incognito && !bits.length);
   if (strip.hidden) { if (cpop && !cpop.hidden) openContent(false); return; }
-  // Incognito, or nothing to choose: a quiet line, never a press that opens an empty panel.
-  var quiet = !groups.length;
+  // Incognito, or nothing to choose and nothing sent to show: a quiet line, never a press that opens an empty panel.
+  var quiet = !groups.length && !sent;
   strip.disabled = quiet;
   strip.classList.toggle('quiet', quiet);
   words.textContent = '';
@@ -257,7 +268,10 @@ function shortSaid(d, bits) {
   var groups = d.content || [];
   var parents = (d.tree || []).filter(function (c) { return !c.self; });
   var page = ASK.doc ? 1 : 0;
-  if (!groups.length && !parents.length) return bits.length === 1 && page ? 'This page' : 'Content';
+  if (!groups.length && !parents.length) {
+    if (d.sent && d.sent.total) return kTokens(d.sent.total) + ' a message';
+    return bits.length === 1 && page ? 'This page' : 'Content';
+  }
   var onParents = parents.filter(function (c) { return c.on; }).length;
   if (!groups.length && !page) {
     if (parents.length === 1) return onParents ? 'Parent included' : 'Parent left out';
@@ -291,7 +305,67 @@ function sizeTag(n) {
 function contentRow(g) {
   var b = row('c:' + g.key, g.on, g.title, g.sub, 'content', !!g.locked);
   if (g.size) b.insertBefore(sizeTag(g.tokens), b.lastChild);
-  return b;
+  if (!g.parts || !g.parts.length) return b;
+  var box = el('div', 'reading-group');
+  box.appendChild(b);
+  box.appendChild(opener('g:' + g.key, g.title, g.parts));
+  return box;
+}
+
+/** Which rows of the panel are open, by key, so a redraw keeps them open. @type {Record<string, boolean>} */
+var OPEN = {};
+
+/** What a row is made of, biggest first, behind a line that opens it (Petar, 25 November 2026: "I would like to
+    be able to expand or see a list of what things that how much of this tokenage"). A part of the history opens
+    once more, to its heaviest single items. @param {string} key @param {string} name @param {SentPart[]} parts */
+function opener(key, name, parts) {
+  var d = /** @type {HTMLDetailsElement} */ (el('details', 'reading-open'));
+  if (OPEN[key]) d.open = true;
+  d.addEventListener('toggle', function () { OPEN[key] = d.open; });
+  var sm = el('summary', '');
+  sm.appendChild(el('span', 'reading-open-word', 'What it is made of'));
+  sm.appendChild(el('span', 'reading-open-n', parts.length === 1 ? '1 part' : parts.length + ' parts'));
+  sm.setAttribute('aria-label', 'What ' + name + ' is made of, ' + parts.length + ' parts');
+  d.appendChild(sm);
+  var ul = el('ul', 'reading-parts');
+  parts.slice().sort(function (a, b) { return b.tokens - a.tokens; }).forEach(function (p, i) {
+    var li = el('li', '');
+    if (p.items && p.items.length) {
+      var k2 = key + ':' + (p.key || i);
+      var d2 = /** @type {HTMLDetailsElement} */ (el('details', 'reading-open sub'));
+      if (OPEN[k2]) d2.open = true;
+      d2.addEventListener('toggle', function () { OPEN[k2] = d2.open; });
+      var s2 = el('summary', '');
+      s2.appendChild(partLine(p.label + (p.count ? ' · ' + p.count : ''), p.tokens));
+      d2.appendChild(s2);
+      var ul2 = el('ul', 'reading-parts heaviest');
+      ul2.setAttribute('aria-label', 'The heaviest of ' + p.label);
+      p.items.forEach(function (it) {
+        var l2 = el('li', '');
+        l2.appendChild(partLine(it.label + (it.at ? ' (message ' + it.at + ')' : ''), it.tokens));
+        ul2.appendChild(l2);
+      });
+      d2.appendChild(ul2);
+      li.appendChild(d2);
+    } else {
+      li.appendChild(partLine(p.label, p.tokens));
+    }
+    ul.appendChild(li);
+  });
+  d.appendChild(ul);
+  return d;
+}
+
+/** A name and its tokens on one line. @param {string} name @param {number} n */
+function partLine(name, n) {
+  var line = el('span', 'reading-part');
+  var nm = el('span', 'n', name);
+  nm.title = name;
+  line.appendChild(nm);
+  var z = el('span', 'z', tokensSaid(n));
+  z.title = 'About ' + Math.round(n || 0).toLocaleString() + ' tokens';
+  line.appendChild(z);
+  return line;
 }
 
 /** A fork's tree of chats (rouh/reading.py `tree`): each parent chat a row set in by how far down the chain
@@ -424,6 +498,60 @@ function contentPaint(d) {
     }
     cpop.appendChild(sec2);
   }
+  var sent = sentPaint(d);
+  if (sent) cpop.appendChild(sent);
+}
+
+/** What else goes with every message, and the total at the foot (rouh/reading.py `sent_now`; Petar, 25 November
+    2026: the panel counted only what the switches choose, while every message also carries Rouh's
+    instructions, the tool list, the context added for it and the chat's own history). No switches: each is
+    always sent. @param {ReadView} d */
+function sentPaint(d) {
+  var s = d.sent;
+  if (!s || !s.rows || !s.rows.length) return null;
+  var box = sec('Sent with each message');
+  box.classList.add('reading-sent');
+  var list = el('div', 'reading-sent-rows' + (READ.pending ? ' pending' : ''));
+  if (s.reads) {
+    var rr = el('div', 'reading-sent-row');
+    rr.appendChild(partLine('What this chat reads, chosen above', s.reads));
+    list.appendChild(rr);
+  }
+  if (s.parents) {
+    var pr = el('div', 'reading-sent-row');
+    pr.appendChild(partLine('The parent chats switched on above', s.parents));
+    list.appendChild(pr);
+  }
+  s.rows.forEach(function (r) {
+    var tip = r.sub;
+    if (r.key === 'tools' && (r.loaded || r.named)) tip = (r.loaded || 0) + ' tools sent in full, ' + (r.named || 0) + ' kept back for search';
+    if (r.key === 'context' && !r.known) tip = 'Worked out with this chat\'s first message';
+    if (r.key === 'history') {
+      // The one row here with a switch: off, the chat's own earlier messages are not sent.
+      var b = row('c:history', r.on !== false, r.title, r.on !== false
+        ? (r.messages || 0) + ' messages, sent again with every message'
+        : 'Off: Rouh won\'t see what was said earlier in this chat', 'content');
+      b.insertBefore(sizeTag(r.tokens), b.lastChild);
+      var hb = el('div', 'reading-group');
+      hb.appendChild(b);
+      if (r.parts && r.parts.length) hb.appendChild(opener('s:history', r.title, r.parts));
+      list.appendChild(hb);
+      return;
+    }
+    var w = el('div', 'reading-sent-row');
+    var head = partLine(r.title, r.tokens);
+    head.title = tip;
+    w.appendChild(head);
+    if (r.key === 'context' && !r.known) w.appendChild(el('p', 'reading-sent-sub', tip));
+    if (r.parts && r.parts.length) w.appendChild(opener('s:' + r.key, r.title, r.parts));
+    list.appendChild(w);
+  });
+  box.appendChild(list);
+  var foot = el('p', 'reading-total' + (READ.pending ? ' pending' : ''));
+  foot.appendChild(el('b', '', 'Next message: about ' + tokensSaid(s.total)));
+  foot.title = 'About ' + Math.round(s.total).toLocaleString() + ' tokens go to the model with your next message, counted on what is sent, to within a few percent.';
+  box.appendChild(foot);
+  return box;
 }
 
 /** Under the strip on a desk; a sheet from the bottom on a phone. */
@@ -551,7 +679,9 @@ function paintPop(d) {
     var last = el('p', 'reading-last', 'Last message: ' + kTokens(d.last.tokens) + ' tokens in'
       + (d.last.cached ? ' · ' + kTokens(d.last.cached) + ' from the cache' : ''));
     last.title = d.last.tokens.toLocaleString() + ' tokens went to the model with the first request of the last turn'
-      + (d.last.requests > 1 ? ', which took ' + d.last.requests + ' requests' : '') + '.';
+      + (d.last.requests > 1 ? ', which took ' + d.last.requests + ' requests' : '') + '.'
+      + (d.last.searched ? ' It searched the web, and the provider reads the whole request again for each search, so this counts it more than once.' : '');
+    if (d.last.searched) last.textContent += ' · counted again for a web search';
     main.appendChild(last);
   }
   if (READ.oops) {
@@ -1035,7 +1165,7 @@ var MODE_SETS = /** @type {Record<string, Record<string, any>>} */ ({
   full: { memory: true, rules: true, rouh_tools: true, llm_tools: true, off: [] }
 });
 /** What the chat is about (rouh/reading.py `CONTENT_KEYS`): set in the strip's panel, never by a mode. */
-var CONTENT_KEYS = ['task', 'others', 'subtasks', 'picked', 'steps_what', 'step_histories', 'parent_task',
+var CONTENT_KEYS = ['history', 'task', 'others', 'subtasks', 'picked', 'steps_what', 'step_histories', 'parent_task',
                     'parent_task_history', 'fork_history', 'parents'];
 
 /** What the panel will say once this change is saved, as far as it can be told without the server: the
@@ -1060,6 +1190,16 @@ function guess(d, wanted) {
       var on = c.locked ? c.on : c.key === 'steps' ? s.subtasks !== 'none' : !!s[c.key];
       return on === c.on ? c : Object.assign({}, c, { on: on });
     });
+  }
+  if (d.sent && 'history' in wanted) {
+    var was = d.sent;
+    var hist = was.rows.filter(function (r) { return r.key === 'history'; })[0];
+    if (hist && (hist.on !== false) !== !!wanted.history) {
+      g.sent = Object.assign({}, was, {
+        total: was.total + (wanted.history ? hist.tokens : -hist.tokens),
+        rows: was.rows.map(function (r) { return r === hist ? Object.assign({}, r, { on: !!wanted.history }) : r; })
+      });
+    }
   }
   if (d.tree && wanted.parents) {
     g.tree = d.tree.map(function (c) {

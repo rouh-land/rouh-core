@@ -78,7 +78,7 @@ log = logging.getLogger("rouh.reading")
 DEFAULTS = {"mode": "full", "memory": True, "rules": True, "rouh_tools": True, "llm_tools": True, "off": [],
             "task": True, "others": False, "subtasks": "none", "picked": [], "steps_what": "all",
             "step_histories": False, "parent_task": True, "parent_task_history": False, "fork_history": True,
-            "parents": {}}
+            "parents": {}, "history": True}
 #: The three modes, as the selector at the top of Chat Options names them.
 MODES = ("full", "simple", "custom")
 MODE_NAMES = {"simple": "Simple chat", "full": "Full Rouh Capabilities", "custom": "Custom"}
@@ -99,7 +99,7 @@ SWITCH_KEYS = ("memory", "rules", "rouh_tools", "llm_tools", "off")
 TOOL_KEYS = ("rouh_tools", "llm_tools")
 #: What the chat is about: set in the strip's panel, never by a mode, kept with the chat.
 CONTENT_KEYS = ("task", "others", "subtasks", "picked", "steps_what", "step_histories", "parent_task",
-                "parent_task_history", "fork_history", "parents")
+                "parent_task_history", "fork_history", "parents", "history")
 SUBTASKS = ("none", "all", "some")
 #: Of each subtask that is read: everything, its notes (.md) only, or its pages (.html) only.
 STEPS_WHAT = ("all", "md", "html")
@@ -684,16 +684,19 @@ def _carried_tokens(chat_id: str, chain: list[tuple[str, int]]) -> dict[str, int
         n = TranscriptMessage.objects.filter(session_id=parent, id__lte=at).aggregate(
             live=Count("id", filter=Q(live=True)))
         above.append((parent, at, n["live"], chatkinds.profile(parent).history))
-    key = (chat_id, own["last"], own["live"], limit, tuple(above))
+    key = (chat_id, own["last"], own["live"], limit, tuple(above), _last_id(chat_id))
     got = _CARRIED.get(key)
     if got is None:
         memory, store = _runtime()
         ids = [p for p, _at in chain]
 
+        defs = _defs(chat_id)
+
         def counted(msgs: list) -> int:
             if store is not None:
                 msgs = attachments.hydrate(msgs, store)
-            return tokencount.messages(msgs)
+            # And the tools a search found in it, sent again whole each time it names them.
+            return tokencount.messages(msgs) + tokencount.found(msgs, defs)
 
         got = {}
         for parent in ids:
@@ -890,6 +893,18 @@ def block(chat_id: str) -> str:
         tag = "" if it.how == "whole" else " [outline]"
         parts.append(f"=== {it.label}{where}{tag} ===\n{body.strip()}")
     return "\n\n".join(parts)
+
+
+def history_on(chat_id: str) -> bool:
+    """Whether a turn of this chat is sent what was said in it before (the history row's switch in the strip's
+    panel; Petar, 25 November 2026: "you should be able to switch it off"). On unless turned off; a parent
+    chat a fork carries has its own switch (`parent_on`)."""
+    try:
+        row = _chat_row(chat_id) if chat_id else None
+    except Exception:  # noqa: BLE001 - sent as it always was
+        return True
+    own = row.reading if row is not None and isinstance(row.reading, dict) else {}
+    return bool(own.get("history", True))
 
 
 def parent_told(chat_id: str) -> bool:
@@ -1263,7 +1278,11 @@ def content(chat_id: str, s: dict, got: list[Item], task, subs: list) -> dict:
         elif key == "cases":
             sub = of[0].words or sub
         g = {"key": key, "title": title, "sub": sub, "on": on, "tokens": n, "size": size_word(n) if of else "",
-             "count": len(of), "outlined": sum(1 for i in of if i.how == "outline")}
+             "count": len(of), "outlined": sum(1 for i in of if i.how == "outline"),
+             # What it is made of, biggest first, for the row that opens (Petar, 25 November 2026).
+             "parts": [{"label": (f"{i.owner} · {i.label}" if key in ("steps", "step_histories") and i.owner
+                                  else i.label), "tokens": i.sent}
+                       for i in sorted(of, key=lambda i: -i.sent)[:40]] if key != "cases" else []}
         if key == "cases":
             g["locked"] = True
         if key == "parent_task" and of:
@@ -1350,6 +1369,8 @@ def strip(chat_id: str, s: dict | None = None, got: list[Item] | None = None, ta
         else:
             said = f"{k} of {n} parent chats"
         bits.append(f"Forked from {chain[0].label} · {said}" if task is None else f"forked, {said}")
+    if not s.get("history", True):
+        bits.append("this chat's history left out")
     return " · ".join(bits)
 
 
@@ -1370,8 +1391,365 @@ def last_turn(chat_id: str) -> dict | None:
     tokens_in = sum(int(first.get(k) or 0) for k in ("input", "cache_read", "cache_write"))
     if not tokens_in:
         return None
-    return {"tokens": tokens_in, "cached": int(first.get("cache_read") or 0), "requests": max(1, len(calls)),
-            "ts": row["ts"]}
+    out = {"tokens": tokens_in, "cached": int(first.get("cache_read") or 0), "requests": max(1, len(calls)),
+           "ts": row["ts"]}
+    # A web search inside a call makes the API read the whole request again for each pass, and the provider
+    # counts (and bills) every pass: request 824484 sent 408,117 tokens and was counted 1,237,862. Said, so the
+    # number is never taken for the size of what was sent.
+    from .models import LLMRequest
+
+    req = (LLMRequest.objects.filter(session_id=chat_id, purpose="turn", started_at__lte=float(row["ts"]) + 1)
+           .order_by("-started_at").values("turn_id").first())
+    if req and req["turn_id"]:
+        head = (LLMRequest.objects.filter(session_id=chat_id, turn_id=req["turn_id"]).order_by("started_at")
+                .values("usage").first())
+        used = ((head or {}).get("usage") or {}).get("server_tool_use") or {}
+        out["searched"] = sum(int(v or 0) for v in used.values() if isinstance(v, (int, float)))
+    return out
+
+
+# --- everything the next message sends ---------------------------------------------------------------
+#
+# Petar, 25 November 2026 (task 182, step 182-19), of a fork whose panel said about 31,000 tokens when its
+# messages went out with about 64,000, and of a chat whose panel said 12,000 when one message sent 380,000:
+# "it seems that the approval and maybe other things ARE part of the chat context, but are not calculated in
+# the count". The panel counted only what the strip chooses. Now it also says, always, what else goes with
+# every message: Rouh's instructions, the tool list, the context added for each message and the chat's own
+# history, split by what it is made of, and at its foot the total.
+
+#: What goes with each message, by part, in the panel's order.
+SENT_PARTS = (
+    ("instructions", "Rouh's instructions", "How Rouh works, the list of every tool a line each, and your rules"),
+    ("tools", "Tool list", "The tools sent in full, and what the API says about the rest"),
+    ("context", "Context added for each message",
+     "The clock, the page beside the chat, memory, genes on offer, the task's family, the heartbeat"),
+    ("history", "This chat's history", "Everything said in this chat, sent again with every message. Off: Rouh "
+                                       "won't see what was said earlier in this chat"),
+)
+
+#: The history's parts (`_history_split`), as the panel names them. Rouh's own notes in four kinds, which
+#: Petar asked to see apart (25 November 2026: "Tools, chat messages, approval cases etc.").
+HISTORY_PARTS = (
+    ("words", "Your words"),
+    ("replies", "Rouh's replies"),
+    ("calls", "Tool calls"),
+    ("results", "Tool results"),
+    ("mail", "Mail and case notes"),
+    ("asks", "Approvals and questions"),
+    ("jobs", "Job reports"),
+    ("notes", "Other notes from Rouh's software"),
+    ("found", "Tools found by search"),
+    ("files", "Pictures and files"),
+)
+#: How many of the heaviest single items each part lists.
+HEAVIEST = 5
+
+#: The context's stretches the strip already counts, row by row: the task's material (`block`).
+_COUNTED_ABOVE = frozenset({"What this chat is reading"})
+
+#: The whole history a chat sends, by what it is made of (`_history_split`), worked out once per state of it.
+_SENT: dict[tuple, dict] = {}
+
+
+def _last_request(chat_id: str, org: str = ""):
+    """The latest request a message of this chat sent, with its words kept; else this Rouh's latest of any chat,
+    for the instructions and the tools, which are the same in every chat. (row, whether it is this chat's)."""
+    import time
+
+    from .models import LLMRequest
+
+    held = _LAST.get((chat_id, org))
+    if held and time.monotonic() - held[0] < 3:
+        return held[1]
+    fields = ("id", "org_id", "session_id", "started_at", "system_piece", "tools_piece", "message_pieces",
+              "provider", "usage")
+    q = LLMRequest.objects.filter(purpose="turn").exclude(status="sent").exclude(system_piece="")
+    if org:
+        # Only this organisation's requests: another's instructions are never anybody else's to see.
+        q = q.filter(org_id=org)
+    row = q.filter(session_id=chat_id).order_by("-started_at").values(*fields).first()
+    got = (row, True) if row is not None else (q.order_by("-started_at").values(*fields).first(), False)
+    if len(_LAST) > 200:
+        _LAST.clear()
+    _LAST[(chat_id, org)] = (time.monotonic(), got)
+    return got
+
+
+#: The latest request of each chat, for the few seconds one panel asks for it several times.
+_LAST: dict[tuple, tuple] = {}
+
+
+#: The tool definitions of a logged request, by its id: the same for many panels in a row.
+_DEFS: dict[int, list] = {}
+
+
+def _last_id(chat_id: str):
+    row, _mine = _last_request(chat_id)
+    return row.get("id") if row else None
+
+
+def _defs(chat_id: str) -> list:
+    """The tools the next message of this chat declares, as its last message declared them."""
+    row, _mine = _last_request(chat_id)
+    if row is None:
+        return []
+    got = _DEFS.get(row["id"])
+    if got is None:
+        got = _pieces(dict(row, system_piece="", message_pieces=[]))[0]
+        if len(_DEFS) > 20:
+            _DEFS.clear()
+        _DEFS[row["id"]] = got
+    return got
+
+
+def _pieces(row) -> tuple[list, list[str], list]:
+    """(the tool definitions, the instructions' texts, the messages) of a logged request."""
+    from . import call_makeup
+
+    hashes = [row.get("tools_piece") or "", row.get("system_piece") or "", *(row.get("message_pieces") or [])]
+    bodies = call_makeup._bodies(hashes)
+    tools = bodies.get(row.get("tools_piece") or "") or []
+    texts = call_makeup._system_texts(bodies.get(row.get("system_piece") or ""))
+    msgs = [bodies.get(h) or {} for h in (row.get("message_pieces") or [])]
+    return (tools if isinstance(tools, list) else []), texts, msgs
+
+
+def _context_parts(org: str, texts: list[str], msgs: list) -> list[dict]:
+    """What the request added for its message alone, stretch by stretch, without what the strip counts above:
+    the turn's context after the conversation (`brain.turn_context`), and on a request from before 23 November
+    2026 the second block of the system prompt."""
+    from . import call_makeup, tokencount
+
+    said = [t for m in msgs if (t := call_makeup._turn_text(m)) is not None] + list(texts[1:])
+    by: dict[str, int] = {}
+    for words in said:
+        for seg, part in call_makeup._segments(org, words):
+            title = seg.get("title") or ""
+            if title in _COUNTED_ABOVE:
+                continue
+            name = call_makeup.PARTS[call_makeup._turn_part(seg)][1]
+            if name == "This message's context" and title:
+                name = title
+            by[name] = by.get(name, 0) + tokencount.text(part)
+    return [{"label": k, "tokens": v} for k, v in sorted(by.items(), key=lambda kv: -kv[1]) if v]
+
+
+def _note_kind(text: str) -> str:
+    """Which kind of Rouh's own note this is: mail and cases, approvals and questions, job reports, or other."""
+    head = text.lstrip()[:400].lower()
+    if "needs the person to decide" in head or "waiting for the person" in head or "approv" in head \
+            or "a decision" in head:
+        return "asks"
+    if head.startswith("[a job") or head.startswith("[a run"):
+        return "jobs"
+    if "email" in head or "case" in head or "telegram message" in head or "inbox" in head:
+        return "mail"
+    return "notes"
+
+
+def _note_label(text: str) -> str:
+    """A note of Rouh's own software as a person would name it: whose mail, what was approved, which case or job."""
+    from . import call_makeup
+
+    flat = " ".join(text.split())
+    m = re.search(r"What Petar approved, which is the whole of what you do: (.{1,80})", flat) or \
+        re.search(r"What (?:the person|‹owner›|\w+) approved[^:]{0,40}: (.{1,80})", flat)
+    if m:
+        return "Approved: " + _short(m.group(1), 60)
+    m = re.search(r"^\[A note from Rouh's own software, not the person: Case (\d+), ([^,]{1,60}) on ([^,:]{1,30})", flat)
+    if m:
+        # A finished case, sent as one line (`case_lines`).
+        return f"Case {m.group(1)}: {m.group(2).strip()} on {m.group(3).strip()}, one line"
+    m = re.search(r"An email case, ([^<,]{1,60})[^,]*, about \"([^\"]{1,60})\"", flat)
+    if m:
+        return f"Case: {m.group(1).strip()}, \u201c{m.group(2)}\u201d"
+    m = re.search(r"Who wrote it: ([^,.]{1,60})", flat)
+    if m:
+        return "Mail from " + m.group(1).strip()
+    m = re.search(r"\[A (?:job|run)[^\]]{0,80}?: \"([^\"]{1,70})\"", flat)
+    if m:
+        return "Job: " + m.group(1)
+    return call_makeup._note_label(text).removeprefix("Note: ")
+
+
+def _short(text: str, most: int = 70) -> str:
+    text = " ".join(str(text or "").split())
+    return text if len(text) <= most else text[:most - 1].rstrip() + "\u2026"
+
+
+def _history_split(msgs: list, defs: list) -> dict:
+    """The history's tokens by what they are, the way the API counts them (`tokencount`): {part: {"tokens",
+    "count", "items": the heaviest single items}}."""
+    from . import call_makeup, tokencount
+
+    out: dict[str, dict] = {k: {"tokens": 0, "count": 0, "items": []} for k, _n in HISTORY_PARTS}
+    names: dict[str, str] = {}
+    by = {str(d.get("name")): d for d in defs or [] if isinstance(d, dict) and d.get("name")}
+    for i, m in enumerate(msgs):
+        role = m.get("role")
+        content = m.get("content")
+        blocks = [{"type": "text", "text": content}] if isinstance(content, str) else (
+            content if isinstance(content, list) else [])
+        mine: dict[tuple, int] = {}   # this message's blocks, one item per part and label
+        first = None
+        for b in blocks:
+            if not isinstance(b, dict):
+                continue
+            kind = b.get("type")
+            n = tokencount.content([b])
+            if kind == "text":
+                t = str(b.get("text") or "")
+                if role != "user":
+                    key, label = "replies", "Rouh: " + _short(t)
+                elif call_makeup._is_note(t):
+                    label = _note_label(t)
+                    key = "asks" if label.startswith("Approved:") else _note_kind(t)
+                else:
+                    key, label = "words", "You: " + _short(t)
+            elif kind in ("tool_use", "server_tool_use"):
+                name = str(b.get("name") or "a tool")
+                if b.get("id"):
+                    names[str(b["id"])] = name
+                key, label = "calls", f"Call: {name}"
+            elif kind == "tool_result" or (kind or "").endswith("_tool_result"):
+                key, label = "results", f"Result of {names.get(str(b.get('tool_use_id') or ''), 'a tool')}"
+                if kind == "tool_search_tool_result":
+                    body = b.get("content") if isinstance(b.get("content"), dict) else {}
+                    for r in body.get("tool_references") or []:
+                        tool = str((r or {}).get("tool_name") or "")
+                        if tool in by:
+                            f = tokencount.definition(by[tool])
+                            out["found"]["tokens"] += f
+                            out["found"]["count"] += 1
+                            mine[("found", f"Tool found: {tool}")] = mine.get(("found", f"Tool found: {tool}"), 0) + f
+            elif kind in ("image", "document"):
+                key, label = "files", "A picture" if kind == "image" else "A file"
+            else:
+                key, label = ("replies", "Rouh") if role == "assistant" else ("words", "You")
+            out[key]["tokens"] += n
+            out[key]["count"] += 1
+            mine[(key, label)] = mine.get((key, label), 0) + n
+            first = first or key
+        # The few tokens round every message go with what it mostly is.
+        out[first or ("words" if role == "user" else "replies")]["tokens"] += tokencount.PER_MESSAGE
+        for (key, label), n in mine.items():
+            out[key]["items"].append({"label": label, "tokens": n, "at": i + 1})
+    for part in out.values():
+        part["items"] = sorted(part["items"], key=lambda x: -x["tokens"])[:HEAVIEST]
+    return out
+
+
+def _history(chat_id: str, defs: list) -> dict:
+    """This chat's own history as the next message sends it with its history on (`memory.Memory.history`:
+    earlier tool results as stubs, files as they go, after whatever parent chats it carries), by part. The
+    parent chats are rows of their own (`_fork_items`)."""
+    from django.db.models import Count, Max, Q
+
+    from . import attachments, chatkinds, citing, forks, toolsearch
+    from .models.memory import TranscriptMessage
+
+    limit = chatkinds.profile(chat_id).history
+    off = parents_off(chat_id)
+    chain = forks.carried_chain(chat_id)
+    marks = []
+    for c in [chat_id, *(p for p, _at in chain)]:
+        n = TranscriptMessage.objects.filter(session_id=c).aggregate(last=Max("id"),
+                                                                       live=Count("id", filter=Q(live=True)))
+        marks.append((c, n["last"], n["live"]))
+    names = frozenset(str(d.get("name")) for d in defs if isinstance(d, dict) and d.get("name"))
+    key = (chat_id, limit, tuple(marks), tuple(sorted(off)), hash(names))
+    got = _SENT.get(key)
+    if got is None:
+        memory, store = _runtime()
+        limit_of = (lambda c: chatkinds.profile(c).history)
+        msgs = memory.history(chat_id, limit, limit_of=limit_of, files=store)
+        carried = memory.carried_sent(chat_id, limit, limit_of=limit_of, files=store, off=off) if chain else []
+        msgs = msgs[len(carried):]
+        if store is not None:
+            msgs = attachments.hydrate(msgs, store)
+        msgs = citing.for_anthropic(msgs)
+        if names:
+            msgs = toolsearch.clean_references(msgs, set(names))
+        got = {"parts": _history_split(msgs, defs), "messages": len(msgs)}
+        if len(_SENT) > 200:
+            _SENT.clear()
+        _SENT[key] = got
+    return got
+
+
+def _instruction_parts(org: str, text: str) -> list[dict]:
+    """Rouh's instructions stretch by stretch (`prompting`, as `call_makeup` names them)."""
+    from . import call_makeup, tokencount
+
+    by: dict[str, int] = {}
+    for seg, words in call_makeup._segments(org, text):
+        name = call_makeup.PARTS[call_makeup._sys_part(seg)][1]
+        by[name] = by.get(name, 0) + tokencount.instructions(words)
+    return [{"label": k, "tokens": v} for k, v in sorted(by.items(), key=lambda kv: -kv[1]) if v]
+
+
+def _tool_parts(defs: list) -> list[dict]:
+    """The tool list: each tool sent in full, the search tool, and the tools kept back to be searched for."""
+    from . import tokencount
+
+    out = []
+    back = [d for d in defs if isinstance(d, dict) and d.get("defer_loading")]
+    if back:
+        out.append({"label": f"{len(back)} tools kept back until a search finds them", "tokens": tokencount.DEFERRED})
+    for d in defs:
+        if not isinstance(d, dict) or d.get("defer_loading"):
+            continue
+        if str(d.get("type") or "").startswith("tool_search_tool"):
+            out.append({"label": "The tool search", "tokens": tokencount.TOOL_SEARCH})
+        else:
+            out.append({"label": str(d.get("name") or d.get("type") or "A tool"), "tokens": tokencount.definition(d)})
+    if defs:
+        out.append({"label": "What the model is told about using tools", "tokens": tokencount.TOOL_PREAMBLE})
+    return sorted(out, key=lambda p: -p["tokens"])
+
+
+def _org_of(who) -> str:
+    """The organisation of whoever is asking, or of whoever this request speaks for (`tenancy.speaker`); "" for none."""
+    if who is None:
+        from .tenancy import speaker
+
+        who = speaker()
+    return str(getattr(who, "org_id", "") or "") if who is not None else ""
+
+
+def sent_now(chat_id: str, got: list[Item], who=None, s: dict | None = None) -> dict:
+    """Everything the next message of this chat sends, in tokens: Rouh's instructions, the tool list and the
+    context added for each message as its last message sent them (this Rouh's latest message anywhere, for a
+    chat with none yet), the task's material and the parent chats the strip has on (`items`), and the chat's
+    own history as it stands now, split by what it is made of, with its own switch (`history`). The total is
+    the sum of what is on, which is what the model is sent with the next message, to within a few percent
+    (`tokencount`; measured against count_tokens on 25 November 2026)."""
+    from . import tokencount
+
+    s = s or settings(chat_id, who)
+    row, mine = _last_request(chat_id, _org_of(who))
+    defs, texts, msgs = _pieces(row) if row is not None else ([], [], [])
+    org = str((row or {}).get("org_id") or "")
+    rows: dict[str, dict] = {}
+    rows["instructions"] = {"tokens": tokencount.instructions(texts[0]) if texts else 0,
+                            "parts": _instruction_parts(org, texts[0]) if texts else []}
+    loaded = sum(1 for d in defs if isinstance(d, dict) and not d.get("defer_loading"))
+    rows["tools"] = {"tokens": tokencount.tools(defs), "loaded": loaded, "named": len(defs) - loaded,
+                     "parts": _tool_parts(defs)}
+    context = _context_parts(org, texts, msgs) if (row is not None and mine) else []
+    rows["context"] = {"tokens": sum(p["tokens"] for p in context), "parts": context, "known": bool(mine)}
+    own = _history(chat_id, defs)
+    parts = own["parts"]
+    rows["history"] = {"tokens": sum(p["tokens"] for p in parts.values()), "messages": own["messages"],
+                       "on": bool(s.get("history", True)),
+                       "parts": [{"key": k, "label": n, "tokens": parts[k]["tokens"], "count": parts[k]["count"],
+                                  "items": parts[k]["items"]} for k, n in HISTORY_PARTS if parts[k]["tokens"]]}
+    reads = sum(i.sent for i in got if i.on and not i.elsewhere)
+    parents = sum(i.tokens for i in got if i.kind == "fork" and i.on)
+    out = [{"key": key, "title": title, "sub": sub, **rows[key]} for key, title, sub in SENT_PARTS]
+    total = reads + parents + sum(r["tokens"] for r in out if r.get("on", True))
+    return {"rows": out, "reads": reads, "parents": parents, "total": total,
+            "request": row.get("id") if row else None, "own": mine}
 
 
 def tool_sides() -> dict:
@@ -1405,6 +1783,10 @@ def view(chat_id: str, who=None) -> dict:
            "items": [i.public() for i in got if i.on], "budget": BUDGET, "reads": total,
            "outlined": sum(1 for i in read if i.how == "outline"),
            "content": told["groups"], "tree": told["tree"], "strip": told["summary"]}
+    try:
+        out["sent"] = sent_now(chat_id, got, who, s)
+    except Exception:  # noqa: BLE001 - the rest of the panel is still worth having
+        log.exception("what chat %s sends with each message could not be worked out", chat_id)
     try:
         out["last"] = last_turn(chat_id)
     except Exception:  # noqa: BLE001 - a number on a panel

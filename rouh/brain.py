@@ -1417,8 +1417,9 @@ class Brain:
             self.memory.history, session_id, rules.history, before=question.slot.root,
             # A fork carries what it came off the way that chat is sent itself.
             limit_of=lambda chat: chatkinds.profile(chat, self.cfg).history,
-            # Earlier tool results as stubs, older pictures as lines (`context_editing.lean`).
-            files=self.files)
+            # Earlier tool results as stubs, older pictures as lines (`context_editing.lean`). And without the
+            # chat's own earlier messages when its history is switched off in the strip's panel (`reading`).
+            files=self.files, turn=True)
         log.info("a %s turn in %s, with %s of history, on %s",
                  rules.kind, session_id,
                  f"all {len(history)} messages" if rules.history < 0
