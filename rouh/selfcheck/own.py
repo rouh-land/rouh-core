@@ -477,13 +477,18 @@ def decisions_count_is_level() -> None:
 
 
 @check("own", "the count on the notifications bell is every one still to read",
-       "the bell counts every notification of the week still to read, not only those among the "
-       "newest the list sends, and a notice asking a decision answered elsewhere is not counted",
+       "the bell counts every notification still to read, not only those among the newest the "
+       "list sends nor only the week's, and a notice asking a decision answered elsewhere is not "
+       "counted",
        needs_db=True)
 def notices_bell_counts_all() -> None:
     """4 November 2026: the bell looked stuck at 55 or 56. Its number was the unread among the
     60 newest notices sent to the page, so it could never pass that share, and stayed put as
-    each new one pushed an old one out of the 60. This writes more than the list holds."""
+    each new one pushed an old one out of the 60. This writes more than the list holds.
+
+    Since 26 November 2026 the count is every unread one ever kept, older than the week too: it
+    is the number the Notifications page says at its top (`notices.unread_count`), where an old
+    one is read or cleared, and the two are one number."""
     import uuid
     from types import SimpleNamespace
 
@@ -510,9 +515,11 @@ def notices_bell_counts_all() -> None:
                                     status="applied", created_at=now, updated_at=now)
         made(1, notices.NEW, now - 30000, decision_id=d.id)
         expect(notices.listing(who)["unread"] == 70, "a settled decision's notice was counted")
-        # A week and a day old is out of the bell, as it is out of the list.
+        # A week and a day old is still to read: out of the list, never out of the bell, and the
+        # same number as the Notifications page's.
         made(3, notices.LATER, now - (notices.KEEP_DAYS + 1) * 86400)
-        expect(notices.listing(who)["unread"] == 70, "notices older than the week were counted")
+        expect(notices.listing(who)["unread"] == 73, "notices older than the week were not counted")
+        expect(notices.browse(who)["totals"]["unread"] == 73, "the page and the bell disagree")
     finally:
         Notice.objects.filter(user_id=who.user_id).delete()
         Decision.objects.filter(user_id=who.user_id).delete()
