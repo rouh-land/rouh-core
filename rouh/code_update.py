@@ -720,6 +720,21 @@ def _busy_alive(busy: dict) -> bool:
     return busy.get("start") == THIS_START
 
 
+#: How long, after a change went live, the start of Rouh that took it waits to be started again on it
+#: before the walk goes on in it anyway (the protected core waits at most ten minutes for answers).
+RESTART_WAIT = float(os.environ.get("ROUH_CODE_UPDATE_RESTART_WAIT", "900"))
+
+
+def _restarting(s: dict) -> bool:
+    """A change just went live, and this start of Rouh, which took it, is about to be started again on
+    it. The next step waits for the new start: begun here, its git commands were cut off by the
+    restart (exit -15) and the change written down as waiting, as the stack test saw on 26 November
+    2026 ("git reset failed", "git bundle failed")."""
+    cont = s.get("continue_update") or {}
+    return bool(cont.get("start")) and cont.get("start") == THIS_START \
+        and time.time() - float(cont.get("at") or 0) < RESTART_WAIT
+
+
 # --- an update -----------------------------------------------------------------------------------
 
 _run_lock = threading.Lock()
@@ -936,6 +951,10 @@ def progress(s: dict | None = None) -> dict:
                 "said": f"The protected core has the change “{_short(named, 80)}” "
                         f"(commit {str(p.get('commit'))[:12]}): it is checking it, or Rouh is starting again on it. {said}",
                 "next": "Wait with sleep 30, then call update_status again. Do not call update_step yet."}
+    if _restarting(s):
+        return {"phase": "restarting",
+                "said": f"The last change is in place, and Rouh is starting again on it. {said}",
+                "next": "Wait with sleep 30, then call update_status again. Do not call update_step yet."}
     if s.get("continue_update"):
         return {"phase": "ready", "said": f"The last change is in place and Rouh runs it. {said}",
                 "next": "Call update_step for the next change."}
@@ -971,6 +990,8 @@ def _step_now(s: dict) -> str:
         if s.get("pending"):
             raise Refused("The protected core still has the last change (checking it, or Rouh is starting again on "
                           "it). Wait, and call update_status.")
+    if _restarting(s):
+        raise Refused("Rouh is starting again on the change it just took. Wait, and call update_status.")
     if run.get("passes") and not s.get("continue_update"):
         got = progress(s)
         if got["phase"] in ("finished", "stopped"):
@@ -1415,6 +1436,8 @@ async def _ride_once() -> str:
     if continuation or retry:
         urgent = any(r.get("urgent") for r in (s.get("last") or {}).get("waiting", []))
         if continuation or (urgent and mode() != "own" and not on_its_own()) or (mode() == "ride" and not on_its_own()):
+            if continuation and _restarting(s):
+                return "waiting for Rouh to start again on the change it took"
             if not s.get("pending") and not quiet():
                 rel = continuation["release"] if continuation else retry
                 by = continuation.get("by", "riding along") if continuation else "retrying a waiting change"

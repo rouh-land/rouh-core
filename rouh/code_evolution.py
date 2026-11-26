@@ -1054,7 +1054,10 @@ def finish(pending: dict, point: dict) -> None:
         through = row["master"]
     doc["through"] = through
     save(doc)
-    u._change(pending=None, busy=None, continue_update={"release": pending["continuation"], "by": pending["by"]})
+    # Which start of Rouh took it: that start runs the code from before the change and is about to be
+    # started again on it, so the walk goes on only from the next start (code_update._restarting).
+    u._change(pending=None, busy=None, continue_update={"release": pending["continuation"], "by": pending["by"],
+                                                        "start": getattr(u, "THIS_START", ""), "at": time.time()})
 
 
 def join(doc: dict, i: int, rel: dict, by: str, work: Path, start: str, refused: str) -> bool:
