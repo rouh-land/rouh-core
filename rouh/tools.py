@@ -16846,8 +16846,10 @@ class ToolRegistry:
             "and a phone asks ‹him› to press Pair. disconnect or forget (name): a paired device. open: "
             "the robot is visible as Rouh for two minutes, for a phone to pair from its own Bluetooth "
             "settings. Every answer has `said`: say it, nearly word for word, as your answer. When it "
-            "names more than one device, ask which, never guess. Rouh's own voice stays on the robot's "
-            "speaker: connecting a speaker or headset does not move it there.",
+            "names more than one device, ask which, never guess. Once a speaker or headset is connected "
+            "(an Amazon Echo is 'Alexa': its name starts with Echo), Rouh's own voice plays through it, "
+            "and goes back to the robot's own speaker by itself when it disconnects; listening stays on "
+            "the robot's own microphone.",
             {"type": "object", "properties": {
                 "action": {"type": "string", "enum": ["status", "on", "off", "scan", "connect", "disconnect",
                                                       "forget", "open"]},

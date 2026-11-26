@@ -10,6 +10,9 @@ program, and this runs exactly one command on the robot, `rouh/rouh bluetooth <a
 Only Rouh's own connection may ask (`rules.ALLOWED`, "voice"). The action is one of a fixed list, the
 name is plain words, and nothing reaches a shell: ssh is given an argument list, and on the robot the
 words are joined back into one name by its own argument parser.
+
+A connected speaker or headset carries Rouh's voice from then on, and the robot's own speaker again once it
+disconnects: that is the robot's own voice program (`Mouth` in its rouh_voice.py), not this.
 """
 from __future__ import annotations
 
