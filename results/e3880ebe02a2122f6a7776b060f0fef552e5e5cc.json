@@ -1,0 +1,8 @@
+{
+  "commit": "e3880ebe02a2122f6a7776b060f0fef552e5e5cc",
+  "ref": "proof/stack-g9-green",
+  "ok": false,
+  "result": "failure",
+  "at": "2026-11-26T08:35:11Z",
+  "run": "https://github.com/rouh-land/rouh-core/actions/runs/45778434990"
+}
