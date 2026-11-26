@@ -326,6 +326,11 @@ EVOLUTION = "/evolution"
 #: Thoughts (`rouh/thoughts.py`): the person's own thoughts, in their words, newest first by month,
 #: at `/thoughts`, and one of them at `/thoughts/<its number>`. Since 12 October 2026.
 THOUGHTS = "/thoughts"
+#: Notifications (`rouh/notices.py`, `noticespage.js`): every notification ever kept, to find,
+#: read, follow and clear, at `/notifications`, opened by the bell. The view is in the query
+#: (`?q=`, `kind=`, `show=`, `when=`, `from=`, `until=`, `to=`, `task=`, `sort=`), so one can be
+#: bookmarked and Back goes to the one before. Since 26 November 2026.
+NOTIFICATIONS = "/notifications"
 #: Live (Rouh Link, task 189, `rouh/web/link.py`): the live spaces this Rouh works in with other
 #: people's Rouhs, its connections and connect links, at `/live`, drawn in Rouh's own page since
 #: 22 November 2026; `/link` (its address while it was Connections) and `/link/accept` open it too,

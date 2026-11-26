@@ -1,15 +1,16 @@
 {
   "id": "notifications",
   "name": "Notifications",
-  "title": "Notifications: the ones put away for later, and every one of the last week",
+  "title": "Notifications: every one ever kept, on a page of their own to search, filter, read, follow and clear",
   "aliases": [
     "notices",
     "bell",
     "alerts",
-    "notification"
+    "notification",
+    "notifications page"
   ],
   "group": "now",
-  "route": null,
+  "route": "/notifications",
   "icon": "<path d=\"M6 9.5a6 6 0 0 1 12 0c0 4.6 1.6 6.3 2.3 7H3.7c.7-.7 2.3-2.4 2.3-7z\"/><path d=\"M10 20a2.2 2.2 0 0 0 4 0\"/>",
   "attaches_to": [],
   "maturity": "accepted",
@@ -25,6 +26,6 @@
       "notices"
     ],
     "jobs": [],
-    "remove": "Delete rouh/notices.py, app/notices.js, notices.css, the bell in the profile row and this manifest."
+    "remove": "Delete rouh/notices.py, app/notices.js, notices.css, noticespage.js, noticespage.css, web/notifications.py, the bell in the profile row, the Notifications layer in index.html and this manifest."
   }
 }

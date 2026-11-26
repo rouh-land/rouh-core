@@ -177,6 +177,7 @@ with {% asset %}, which gives it its hashed address.
 <link rel="stylesheet" href="{% asset "incubatorpage.css" %}">
 <link rel="stylesheet" href="{% asset "trialspage.css" %}">
 <link rel="stylesheet" href="{% asset "thoughtspage.css" %}">
+<link rel="stylesheet" href="{% asset "noticespage.css" %}">
 <link rel="stylesheet" href="{% asset "boxpage.css" %}">
 <link rel="stylesheet" href="{% asset "offline.css" %}">
 </head>
@@ -202,6 +203,8 @@ with {% asset %}, which gives it its hashed address.
         <h2>Notifications</h2>
         <p class="nt-tally" id="ntTally" aria-live="polite"></p>
       </div>
+      <a class="nt-head-btn" id="ntPage" href="/notifications"
+         title="Every notification, with search and filters">See every one</a>
       <button type="button" class="nt-head-btn" id="ntClear">Clear all</button>
       <button type="button" class="nt-head-btn nt-done" id="ntDone" aria-label="Close notifications">
         <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="none"
@@ -580,13 +583,13 @@ with {% asset %}, which gives it its hashed address.
         </button>
         <span id="conn" class="sr-only" role="status" aria-live="polite"
               data-state="offline" aria-label="Offline">Offline</span>
-        {% comment %} The way back to the notifications (`rouh/notices.py`): the ones put
-             away for later, and every one of the last week. Petar asked for
-             it "somewhere around the versions and the connect button, where
-             the profile is", since a swipe down from the top is the phone's
-             own. The count is how many are still to read. {% endcomment %}
-        <button id="noticeBell" class="sb-tool nt-bell" type="button"
-                aria-expanded="false" aria-controls="notices"
+        {% comment %} The way back to the notifications (`rouh/notices.py`): since 26
+             November 2026 a link to their own page, `/notifications`, with every
+             one ever kept (`noticespage.js`). Petar asked for it "somewhere
+             around the versions and the connect button, where the profile is",
+             since a swipe down from the top is the phone's own. The count is how
+             many are still to read. {% endcomment %}
+        <a id="noticeBell" class="sb-tool nt-bell" href="/notifications"
                 title="Notifications" aria-label="Notifications">
           <svg viewBox="0 0 24 24" width="21" height="21" aria-hidden="true" fill="none"
                stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
@@ -594,7 +597,7 @@ with {% asset %}, which gives it its hashed address.
             <path d="M10 20a2.2 2.2 0 0 0 4 0"/>
           </svg>
           <span class="nt-count" id="noticeCount" hidden></span>
-        </button>
+        </a>
         {% comment %} Search, over everything there is, and with nothing typed the
              latest chats (`findRecent`). At the very end of the row, a
              magnifier and nothing else, since 10 October 2026; it was a link
@@ -4524,6 +4527,41 @@ with {% asset %}, which gives it its hashed address.
       </div>
     </article>
 
+    {% comment %} Notifications (`rouh/notices.py`, `noticespage.js`): every notification
+         ever kept, at `/notifications`, opened by the bell: search, filters with
+         their counts, sort, each one read in place and followed where it leads,
+         and marked or cleared one, a few or a whole view at a time, with Undo.
+         The view is the address's query. {% endcomment %}
+    <article id="notificationsView" class="canvas-layer settings-view clock-view nf-layer" hidden
+             tabindex="-1" aria-label="Notifications">
+      <div class="run-head">
+        <div class="run-heading">
+          <h3>Notifications</h3>
+          <div id="nfMeta" class="run-meta" aria-live="polite"></div>
+        </div>
+        <button id="nfAllRead" class="nf-primary" type="button" hidden>Mark all read</button>
+        <button id="nfClose" class="layer-x" type="button"
+                title="Close (Esc)" aria-label="Close and go back to the canvas">&times;</button>
+      </div>
+      <details id="nfKeys" class="nf-keys">
+        <summary>Keyboard shortcuts</summary>
+        <dl>
+          <dt>j k</dt><dd>Next, previous (or the arrows)</dd>
+          <dt>Enter</dt><dd>Read it all, or fold it again</dd>
+          <dt>x</dt><dd>Pick it</dd>
+          <dt>e</dt><dd>Clear it (on a cleared one, restore it)</dd>
+          <dt>u</dt><dd>Mark it read or unread</dd>
+          <dt>/</dt><dd>Search</dd>
+          <dt>Esc</dt><dd>Unpick, fold, then close the page</dd>
+        </dl>
+      </details>
+      <div class="nf-wrap">
+        <div id="nfBody" class="nf-body" aria-busy="false"></div>
+        <div id="nfToast" class="nf-toast" role="status" aria-live="polite" hidden></div>
+      </div>
+      <dialog id="nfAsk" class="nf-dialog" aria-label="Are you sure?"></dialog>
+    </article>
+
     {% comment %} Thoughts (`rouh/thoughts.py`, `thoughtspage.js`): the person's own
          thoughts in their words, newest first by month, with search, a topic
          filter, and each one whole to edit, archive and follow up, at
@@ -5765,6 +5803,7 @@ with {% asset %}, which gives it its hashed address.
 <script defer src="{% asset "trialspage.js" %}"></script>
 <script defer src="{% asset "evolutionpage.js" %}"></script>
 <script defer src="{% asset "thoughtspage.js" %}"></script>
+<script defer src="{% asset "noticespage.js" %}"></script>
 <script defer src="{% asset "boxpage.js" %}"></script>
 </body>
 </html>

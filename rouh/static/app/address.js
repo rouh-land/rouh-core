@@ -16,6 +16,7 @@ import { JOBVIEW, jobViewing, taskRecs, webOpen, webViewing } from 'app/tasks.js
 import { BRIEF, briefOpen, briefViewing, CANVAS, canvasDoc, controlOpen, controlViewing, CRUMB_HOME,
   WORK, workOpen, workViewing, DECIDE, decisionsOpen, decisionsViewing, ACTS, actionsOpen, actionsViewing, HOLD, handholdingAddress, handholdingOpen, handholdingViewing, receiptsOpen,
   receiptsViewing, homeOpen, homeViewing, APPROVALS, approvalsOpen, approvalsViewing, SOURCES, sourcesOpen, sourcesViewing, LIVE, liveOpen, liveViewing, THOUGHTS, thoughtsOpen, thoughtsViewing,
+  NOTIFS, notificationsOpen, notificationsViewing,
   EVO, evolutionOpen, evolutionViewing,
   BOX, boxOpen, boxViewing,
   crumbLevels, goalsOpen, goalsViewing, goNow, MEMORY, memoryAddress, memoryOpen, memoryViewing, ONE, remindersOpen,
@@ -247,6 +248,8 @@ var ADDR_LIVE = '/live';
 var ADDR_LINK = '/link';
 //: The person's thoughts, every one and one in focus by its number (`addressing.THOUGHTS`).
 var ADDR_THOUGHTS = '/thoughts';
+//: Every notification ever kept, with the view in the query (`addressing.NOTIFICATIONS`).
+var ADDR_NOTIFICATIONS = '/notifications';
 //: The box, what the person keeps from the model (`addressing.BOX`).
 var ADDR_BOX = '/box';
 //: What this device keeps for when there is no connection (`addressing.OFFLINE`).
@@ -467,6 +470,13 @@ function addrReadPlace(path, query) {
   if (parts.length === 1 && '/' + parts[0] === ADDR_THOUGHTS) {
     return { kind: '', id: '', chat: chat, thoughts: '' };
   }
+  // The notifications, and the view they are in (`noticespage.js`), less the conversation.
+  if (parts.length === 1 && '/' + parts[0] === ADDR_NOTIFICATIONS) {
+    var nfView = new URLSearchParams(String(query || ''));
+    nfView.delete('chat');
+    nfView.delete('strip');
+    return { kind: '', id: '', chat: chat, notifications: nfView.toString() };
+  }
   if (parts.length === 2 && '/' + parts[0] === ADDR_THOUGHTS && /^\d+$/.test(parts[1])) {
     return { kind: '', id: '', chat: chat, thoughts: parts[1] };
   }
@@ -611,6 +621,7 @@ function addrOnCanvas() {
   if (evolutionViewing()) return ADDR_EVOLUTION + '/' + (EVO.page === 'parameters' ? 'tuning' : EVO.page === 'trials' ? 'testing' : EVO.page) + (EVO.page !== 'parameters' && EVO.page !== 'nightly' && EVO.sub ? '/' + EVO.sub : '');
   if (liveViewing()) return LIVE.space ? ADDR_LINK + '/space/' + encodeURIComponent(LIVE.space) : ADDR_LIVE;
   if (thoughtsViewing()) return ADDR_THOUGHTS + (THOUGHTS.id ? '/' + THOUGHTS.id : '');
+  if (notificationsViewing()) return ADDR_NOTIFICATIONS + (NOTIFS.query ? '?' + NOTIFS.query : '');
   if (boxViewing()) return ADDR_BOX + (BOX.id ? '/' + BOX.id : '');
   if (offlineViewing()) return ADDR_OFFLINE;
   if (!tasksViewing()) return '';
@@ -822,6 +833,7 @@ function addrName() {
     : (EVO.title ? EVO.title + ' - Mutations' : 'Mutations');
   if (liveViewing()) return LIVE.space ? (LIVE.title || 'Live space') + ' - Live' : 'Live';
   if (thoughtsViewing()) return THOUGHTS.id ? 'Thought ' + THOUGHTS.id + ' - Thoughts' : 'Thoughts';
+  if (notificationsViewing()) return 'Notifications';
   if (boxViewing()) return BOX.id ? 'Box ' + BOX.id + ' - Boxes' : 'Boxes';
   if (offlineViewing()) return 'Offline';
   var rel = addrFolder();
@@ -1132,6 +1144,14 @@ function addrAsk() {
     ADDR.wanted = null;
     ADDR.asked = false;
     liveOpen(want.live.space, want.live.accept);
+    if (want.chat) chatIsWanted();
+    return;
+  }
+  // And the notifications, in the view the address says.
+  if (want.notifications !== undefined) {
+    ADDR.wanted = null;
+    ADDR.asked = false;
+    notificationsOpen(want.notifications);
     if (want.chat) chatIsWanted();
     return;
   }

@@ -1210,7 +1210,10 @@
    "files": [
     "rouh/notices.py",
     "rouh/static/notices.css",
-    "rouh/static/app/notices.js"
+    "rouh/static/app/notices.js",
+    "rouh/static/noticespage.css",
+    "rouh/static/noticespage.js",
+    "rouh/web/notifications.py"
    ],
    "needed_by": [
     "answered-in-chat",

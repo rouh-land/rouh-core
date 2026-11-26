@@ -235,6 +235,8 @@ function noticesHeard(m) {
   if (NT.open && !by[NT.open]) NT.open = 0;
   if (NT.mode !== 'list') NT.mode = fresh().length ? 'stack' : 'off';
   draw();
+  // The page of every one (`noticespage.js`) reads its view again.
+  if (window.RouhNoticesPage) window.RouhNoticesPage.moved();
 }
 
 /** The server's and the page's own as one list, newest first, and the count still to read.
@@ -352,6 +354,9 @@ function draw() {
   var list = $('ntList');
   bell();
   if (NT.mode === 'stack' && !fresh().length) NT.mode = 'off';
+  // The page of every notification is open: a new one shows there, at the top of its list, so
+  // it does not drop in over the page's own search and filters as well (`noticespage.js`).
+  if (NT.mode === 'stack' && window.RouhNoticesPage && window.RouhNoticesPage.isOpen()) NT.mode = 'off';
   root.setAttribute('data-mode', NT.mode);
   root.hidden = NT.mode === 'off';
   // A notice's strip that has the keyboard keeps it when the list is drawn again, as it is
@@ -695,6 +700,12 @@ function follow(n, href) {
   act(fresh().map(function (f) { return f.id; }), 'later');
   draw();
   if (n.run && !href) { n.run(); return true; }
+  return go(link, n);
+}
+
+/** Going to where a notice leads, the one way for the column and the page (`RouhNoticesKit`).
+ *  @param {string} link @param {{reload?: boolean}} n */
+function go(link, n) {
   if (link.indexOf('/files/') === 0) {
     // A file of a task's by the signed link Rouh drew for it (`rouh/filelinks.py`), such as a
     // page made into a PDF (`rouh/page_pdf.py`): saved, never opened as a place in Rouh.
@@ -768,8 +779,6 @@ function openList(openId) {
   void root.offsetWidth;
   root.classList.add('listing');
   var first = /** @type {HTMLElement | null} */ (document.querySelector('#ntList .nt-side'));
-  var bellBtn = $('noticeBell');
-  if (bellBtn) bellBtn.setAttribute('aria-expanded', 'true');
   if (first) first.focus({ preventScroll: true });
 }
 
@@ -781,8 +790,6 @@ function closeList() {
   NT.mode = 'off';
   NT.open = 0;
   NT.cut = 0;
-  var bellBtn = $('noticeBell');
-  if (bellBtn) bellBtn.setAttribute('aria-expanded', 'false');
   draw();
 }
 
@@ -1110,11 +1117,15 @@ function noteBuild(theirs) {
 }
 
 (function wire() {
-  var b = $('noticeBell');
-  if (b) {
-    b.addEventListener('click', function () {
-      if (NT.mode === 'list') closeList();
-      else openList(0);
+  // The bell is a link to the page of every one since 26 November 2026 (`notificationsOpen` in
+  // app/runs.js); the column opens from the stack, and goes there from its head.
+  var page = $('ntPage');
+  if (page) {
+    linkTo(page, '/notifications');
+    page.addEventListener('click', function (e) {
+      if (e.button || e.metaKey || e.ctrlKey || e.shiftKey) return;
+      closeList();
+      goToAddress('/notifications');
     });
   }
   var grip = $('ntGrip');
@@ -1137,6 +1148,8 @@ function noteBuild(theirs) {
     if (e.key === 'Escape' && NT.mode === 'list') { e.preventDefault(); closeList(); }
   });
   document.addEventListener('visibilitychange', tellSeen);
+  // The page of every notification opened or closed: the stack steps aside for it, or comes back.
+  window.addEventListener('rouh:notices-page', function () { draw(); });
   // The times on the cards ("4m") move on by themselves.
   setInterval(function () {
     var times = document.querySelectorAll('#ntList .nt-when');
@@ -1147,6 +1160,19 @@ function noteBuild(theirs) {
     }
   }, 30000);
 })();
+
+/* What the page of every notification (`noticespage.js`) borrows from here, so a notification
+   looks and behaves there as it does in the column: its kind's mark, its words as markdown or
+   as one plain paragraph, the decision it asks drawn in place, going where it leads, and
+   whether it carries a Reload. */
+window.RouhNoticesKit = {
+  icon: function (kind) { return icon(kind); },
+  plain: plain,
+  markdown: function (text) { return renderMarkdown(text); },
+  decision: function (id) { return decisionIn(id); },
+  reloadable: function (n) { return ranHere(n); },
+  go: function (href, n) { return go(href, n); }
+};
 
 /** What an error with nothing to press is offered, set by another module (app/build_faster.js).
  *  @type {{offer: ((title: string, body: string) => ({label: string, run: () => void} | null)) | null}} */

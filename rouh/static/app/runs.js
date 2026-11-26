@@ -7,7 +7,7 @@ import { subscriptionsLoad } from "app/subscriptions.js";
 import { ago, byStart, JOBVIEW, jobViewing, markSeen, railPaint, renderTasks, runsShowing,
   SHOW_ARCHIVED, since, taskCard, taskRecs } from 'app/tasks.js';
 import { shared } from 'app/shared.js';
-import { $, el, esc, linkTo, safeParse, siloChip } from 'app/helpers.js';
+import { $, browserTakes, el, esc, linkTo, safeParse, siloChip } from 'app/helpers.js';
 import { anatomyGroups, anatomyMoved, navNowCount } from 'app/navgroups.js';
 import { drop, load, store } from 'app/settings.js';
 import { notify } from 'app/notices.js';
@@ -19413,6 +19413,77 @@ window.RouhThoughtsHost = {
   }
 })();
 
+/* ------------------------------------------------------------------ notifications
+
+   Every notification ever kept (`rouh/notices.py`), at `/notifications`, drawn
+   by `noticespage.js`, and opened by the bell. Petar, 26 November 2026: "When
+   I press on the notifications icon in the navigation, it should take me to a
+   new url with a full-scale management page." This is the layer's side, as
+   with the thoughts: opening and closing it, and its address, which carries
+   the page's view in its query (`NOTIFS.query`), so a view can be bookmarked
+   and Back goes to the one before. */
+
+var NOTIFS = { open: false, query: '' };
+
+function notificationsViewing() { return NOTIFS.open; }
+
+/** @param {string} [query] the view, as the address's query without its `?` */
+function notificationsOpen(query) {
+  if (ORBX.open) orbExpand(false);
+  var want = String(query || '').replace(/^\?/, '');
+  var moved = NOTIFS.open && NOTIFS.query !== want;
+  NOTIFS.query = want;
+  if (window.RouhNoticesPage) window.RouhNoticesPage.shown(want);
+  if (NOTIFS.open) {
+    notificationsBell();
+    if (moved) addrTouch();
+    return;
+  }
+  NOTIFS.open = true;
+  showLayer('notificationsView');
+  sidebarDone();
+  notificationsBell();
+  if (!narrow()) $('notificationsView').focus({ preventScroll: true });
+}
+
+function notificationsClose() {
+  if (!NOTIFS.open) return;
+  NOTIFS.open = false;
+  if (window.RouhNoticesPage) window.RouhNoticesPage.hidden();
+  showLayer(null);
+  notificationsBell();
+}
+
+function notificationsBell() {
+  var bell = $('noticeBell');
+  if (!bell) return;
+  bell.classList.toggle('on', NOTIFS.open);
+  if (NOTIFS.open) bell.setAttribute('aria-current', 'page');
+  else bell.removeAttribute('aria-current');
+}
+
+// What `noticespage.js` is handed: closing the layer, and the view it moved to,
+// which is written into the address as one more step of the history.
+window.RouhNoticesHost = {
+  close: notificationsClose,
+  moved: function (query) {
+    if (!NOTIFS.open || NOTIFS.query === query) return;
+    NOTIFS.query = query;
+    addrTouch();
+  }
+};
+
+(function () {
+  var bell = $('noticeBell');
+  if (bell) {
+    linkTo(bell, '/notifications');
+    bell.addEventListener('click', function (e) {
+      if (browserTakes(e)) return;
+      if (NOTIFS.open && !NOTIFS.query) notificationsClose(); else notificationsOpen('');
+    });
+  }
+})();
+
 /* ------------------------------------------------------------------ box
 
    The box (`rouh/boxes.py`): somewhere to put words the model never sees, at
@@ -19640,6 +19711,7 @@ export { applyObjects, applyWorkspace, ASK, askDelete, askFromPage, askPageNow, 
   APPROVALS, approvalsClose, approvalsOpen, approvalsViewing,
   EVO, evolutionClose, evolutionOpen, evolutionViewing, incubatorHeard,
   THOUGHTS, thoughtsClose, thoughtsHeard, thoughtsOpen, thoughtsShown, thoughtsViewing, settingsShown,
+  NOTIFS, notificationsClose, notificationsOpen, notificationsViewing,
   BOX, boxClose, boxesHeard, boxOpen, boxShown, boxViewing,
   briefViewing, BROWSE_ROOT, browseGo, browserZone, CANVAS, canvasChatsFollow, canvasDoc,
   canvasLeftBehind, canvasLoad, canvasMessage, canvasOn, canvasStep, canvasStepPage, canvasTask,

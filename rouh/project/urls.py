@@ -48,6 +48,7 @@ from rouh.web import landaccount as landaccount_web
 from rouh.web import signin as signin_web
 from rouh.web import relay as relay_web
 from rouh.web import slack as slack_web
+from rouh.web import notifications as notifications_web
 from rouh.web import synapse as synapse_web
 from rouh.web import actions as actions_web
 from rouh.web import handholding as handholding_web
@@ -719,6 +720,10 @@ urlpatterns = [
     path("api/receipts/zip", receipts.bundle),
     path("api/receipts/file", receipts.one_file),
     # Thoughts: the person's own thoughts, in their words (`rouh/web/thoughts.py`).
+    # Notifications: every one ever kept, to find, read, follow and clear (`rouh/web/notifications.py`).
+    path("api/notifications", notifications_web.listing),
+    path("api/notifications/act", notifications_web.act),
+    path("api/notifications/undo", notifications_web.undo),
     path("api/thoughts", thoughts.listing),
     path("api/thoughts/new", thoughts.add),
     path("api/thoughts/<int:ident>", thoughts.one),
@@ -1015,6 +1020,7 @@ urlpatterns = [
     re_path(r"^" + addressing.EVOLUTION.lstrip("/") + r"/library(?P<rest>/.*)?$",
             evolution_library_old_address),
     path(addressing.THOUGHTS.lstrip("/"), views.index),
+    path(addressing.NOTIFICATIONS.lstrip("/"), views.index),
     path(addressing.BOX.lstrip("/"), views.index),
     # One box in focus, by its number.
     re_path(r"^" + addressing.BOX.lstrip("/") + r"/\d+$", views.index),

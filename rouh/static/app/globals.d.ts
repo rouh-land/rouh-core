@@ -36,6 +36,9 @@ interface Window {
   RouhLiveHost: Record<string, any>;
   RouhEvolutionHost: Record<string, any>;
   RouhThoughtsHost: Record<string, any>;
+  /** What `noticespage.js` is handed by app/runs.js (close, moved) and app/notices.js. */
+  RouhNoticesHost: Record<string, any>;
+  RouhNoticesKit: Record<string, any>;
   RouhBoxHost: Record<string, any>;
   RouhGenesHost: Record<string, any>;
   /** The pages themselves, once controlroom.js, synapse.js and briefpage.js have run. */
@@ -110,6 +113,8 @@ interface Window {
   RouhEvolution?: any;
   /** The Thoughts page (thoughtspage.js). */
   RouhThoughts?: any;
+  /** The page of every notification (`noticespage.js`): shown, hidden, moved, query. */
+  RouhNoticesPage?: any;
   /** Live (`link/live.js`). */
   RouhLive?: any;
   /** The Box page (boxpage.js). */
