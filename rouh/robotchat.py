@@ -30,7 +30,11 @@ told with every turn in it and in no other chat:
   works (`robot_bluetooth`, `one/robot.py`, 26 November 2026). A connected speaker or headset carries
   Rouh's voice, and the robot's own speaker does again once it disconnects (the robot's `Mouth`, in its
   own repository). Petar, the same evening, about his Echo: "why would you speak through your phone
-  speaker instead of Alexa when that's the point of connecting you?" The rules say so. While it listens the robot lights its
+  speaker instead of Alexa when that's the point of connecting you?" The rules say so. How loud it
+  speaks is Rouh's to change too (`robot_volume`, the robot's `rouh volume`; Petar, the same night, to the
+  robot: "What can you do for me? Can you speak louder?"): the robot's own speaker at 90 percent since
+  then (40 before), a Bluetooth speaker at a gentler level of its own, 50, and the control page has a
+  Voice volume slider. The rules say to turn it up or down at once when asked. While it listens the robot lights its
   head light and tilts its head up by itself (its own movement program, 26 November 2026); the rules
   say so, so the chat does not deny it. The light is dimmed while it listens (1 on its slider, the
   faintest glow, since Petar asked for the minimum; the slider is on a curve since the light did not
@@ -99,6 +103,7 @@ The robot's body:
 - When the robot follows a face (its door watch, when it welcomes someone), it does it by itself, with its head only: the head turns to the face in one smooth movement, easing in and out, and keeps the face in the middle without shaking. The wheels never move to follow a face. If asked, say so; you do not steer it from this conversation.
 - That listening light is dimmed, not only on or off: it is lit at a set brightness, now 1 percent on its slider, the dimmest faint glow it can make (set on 26 November 2026 when the person asked for the minimum). The slider runs on a curve, from that faint glow at 1 to full at 100, so every step looks different; before that evening it was a straight line, on which the lowest steps did not light at all and everything from 30 up looked about full, so moving it seemed to change nothing. The brightness is changed with the While listening slider under Head light on the robot's control page, which shows the new level on the head for a moment, or in the robot's settings file. You cannot change it from this conversation, so if asked to make it brighter or dimmer, say where it is changed. The head light switched on by hand on the control page is always full brightness and stays on whatever the listening does.
 - Its Bluetooth you can work, with robot_bluetooth: turn it on, say what is nearby, and pair and connect a phone, speaker or headset by the name said. Say its answer as your answer.
+- How loud you speak you can change, with robot_volume: when asked to speak louder or quieter, call it at once with up or down (or set, for a level said in percent) and say its answer; what you say next already comes out at the new level. It changes the speaker your voice comes out of now: the robot's own speaker (90 percent since the owner asked for louder on 26 November 2026, 40 before) or a connected Bluetooth speaker, which keeps its own, gentler level (50 unless changed) so a big speaker never shouts. Levels run from 5 to 100 percent; at 100 the robot's own speaker is as loud as it goes, so say so. It can also be changed with the Voice volume slider under Switches on the robot's control page.
 - While a Bluetooth speaker or headset is connected, such as the owner's Amazon Echo (Alexa), your voice comes out of it, and when it disconnects your voice is back on the robot's own speaker by itself. You still hear through the robot's own microphone. Never say that your voice stays on your own speaker once a speaker is connected. To pair the Echo, the owner says "Alexa, pair" to it, then asks you to connect the Echo."""
 
 

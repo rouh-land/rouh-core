@@ -16863,6 +16863,52 @@ class ToolRegistry:
             brief="The robot's Bluetooth: on, off, what is nearby, pair and connect a device by name",
         )
 
+        # How loud the robot speaks (task 122; Petar, 26 November 2026, to the robot: "What can you do
+        # for me? Can you speak louder?"). The same road as its Bluetooth: the program runs the robot's
+        # `rouh volume` (`one/robot.py`). Like the lights: done at once, one sentence to say.
+        self._own(
+            "robot_volume",
+            "How loud Rouh's voice is on ‹owner›'s robot (the Waveshare UGV Beast Rouh lives in), on what "
+            "the voice comes out of now: the robot's own speaker, or a connected Bluetooth speaker such as "
+            "‹his› Echo, which has its own, gentler level. up: louder, 10 points. down: quieter, 10 points. "
+            "set (level): that level, 5 to 100 percent. status: where the voice comes out and how loud. "
+            "which: 'speaker' or 'bluetooth' only when ‹he› names the other one than the voice is on now. "
+            "Call it at once when ‹he› asks you to speak louder, quieter, or at a level, without asking "
+            "first; the answer you then speak already comes out at the new level. Every answer has `said`: "
+            "say it, nearly word for word, as your answer.",
+            {"type": "object", "properties": {
+                "action": {"type": "string", "enum": ["status", "up", "down", "set"]},
+                "level": {"type": "number", "description": "For set: the level in percent, 5 to 100."},
+                "which": {"type": "string", "enum": ["speaker", "bluetooth"],
+                          "description": "Only when ‹he› names the speaker the voice is not on now."},
+            }, "required": ["action"]},
+            self._robot_volume, area="home",
+            brief="How loud the robot speaks: louder, quieter, a level, or how loud it is now",
+        )
+
+    async def _robot_volume(self, args, emit):
+        """How loud the robot speaks, through the one program (`one/robot.py`): one sentence to say."""
+        args = dict(args or {})
+        fields = {"action": str(args.get("action") or "status")}
+        if isinstance(args.get("level"), (int, float)) and not isinstance(args.get("level"), bool):
+            fields["level"] = args["level"]
+        if args.get("which") in ("speaker", "bluetooth"):
+            fields["which"] = args["which"]
+        from .one_client import OneClient
+
+        # The robot is two ssh hops away: longer than the program's usual ten seconds.
+        slow = OneClient(self.one.socket_path, self.one.token_file, timeout=35)
+        try:
+            got = await slow.ask("robot_volume", **fields)
+        except OneUnavailable as exc:
+            return untrusted.ours(f"I can't reach the robot's volume: the worker is not answering ({exc}).")
+        except OneRefused as exc:
+            return untrusted.ours(f"I can't reach the robot's volume: {exc}.")
+        got = got or {}
+        said = str(got.get("said") or "The robot gave no answer about its volume.")
+        more = {k: got[k] for k in ("ok", "voice_out", "levels", "level_now", "why") if k in got}
+        return untrusted.ours(said + ("\n" + json.dumps(more, ensure_ascii=False)[:600] if more else ""))
+
     async def _robot_bluetooth(self, args, emit):
         """The robot's Bluetooth, through the one program (`one/robot.py`): one sentence to say."""
         from .one_client import OneClient

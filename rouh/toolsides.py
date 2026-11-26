@@ -132,7 +132,7 @@ WORDS: dict[str, str] = {
     "slack_channels": "lists channels", "slack_read": "reads Slack", "slack_search": "searches Slack",
     "slack_join": "joins a channel", "slack_send": "posts to Slack", "slack_link": "links Slack",
     # Home
-    "hue": "the lights", "vacuum": "the robot vacuum", "robot_bluetooth": "the robot's Bluetooth",
+    "hue": "the lights", "vacuum": "the robot vacuum", "robot_bluetooth": "the robot's Bluetooth", "robot_volume": "how loud the robot speaks",
     # Reminders and goals
     "schedule": "reminders and repeats", "upcoming": "what is coming", "change_scheduled": "changes a reminder",
     "set_goal": "sets a goal", "plan_goal": "plans a goal", "goal_step": "a goal's step", "goals": "your goals",

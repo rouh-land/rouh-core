@@ -527,6 +527,15 @@ class Client:
                                        str(m.get("name") or ""), bool(m.get("restart")),
                                        float(seconds) if isinstance(seconds, (int, float)) else None)
 
+    async def _do_robot_volume(self, m):
+        """How loud the robot speaks, on the robot over the worker's link to it (one/robot.py)."""
+        from . import robot
+
+        level = m.get("level")
+        return await asyncio.to_thread(robot.volume, str(m.get("action") or "status"),
+                                       level if isinstance(level, (int, float)) else None,
+                                       str(m.get("which") or ""))
+
     async def _do_claude_signin(self, m):
         """Rouh's page signs Claude Code in, in the containers (one/claude_signin.py).
 

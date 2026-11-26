@@ -118,6 +118,7 @@ ALLOWED: dict[str, frozenset[str]] = {
     # October 2026): only stages Rouh's own read-only rules allowed.
     # "robot_bluetooth" is the robot's Bluetooth, run on the robot over the worker's link to it
     # (one/robot.py, task 122, 26 November 2026): one fixed command, only for Rouh's own connection.
+    # "robot_volume" is how loud the robot speaks, the same way (`rouh volume`, the same evening).
     # "run_logs" is Rouh's setting for how long the terminal logs of ended runs are kept
     # (task 185, `rouh/lean.py`, Anatomy, Meta, What Rouh keeps and runs): it counts them, and
     # removes them only when Rouh says the owner confirmed it (`Runs.trim_logs`). Only Rouh's own
@@ -125,7 +126,7 @@ ALLOWED: dict[str, frozenset[str]] = {
     "voice": frozenset({
         "hello", "ping", "runs", "run", "tree", "tail", "questions", "start", "stop", "say",
         "answer", "take", "give", "spaces", "codex_key", "archive", "calls", "claude_signin",
-        "codex_signin", "shell", "robot_bluetooth", "run_logs", "run_doors", "run_token_check", "door_attempts", "proof",
+        "codex_signin", "shell", "robot_bluetooth", "robot_volume", "run_logs", "run_doors", "run_token_check", "door_attempts", "proof",
     }),
     "phone": frozenset({"hello", "ping", "answer"}),
     # A run's own processes, known by the kernel's process tree (one/peers.py), whatever token
