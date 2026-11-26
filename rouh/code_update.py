@@ -1067,6 +1067,10 @@ def check_run() -> str:
         return ""
     if s.get("busy") and _busy_alive(s["busy"]):
         return ""
+    if _restarting(s):
+        # Between a change going live and Rouh starting again on it nothing is busy, and the run only
+        # waits: it is not over (the stack test, 26 November 2026: "update_done was not kept").
+        return ""
     got = progress(s)
     word = run_word(run["id"]) or "gone"
     said = (f"its run {run['id']} ended ({word}) before it finished. Where it got to: {got['said']}")
