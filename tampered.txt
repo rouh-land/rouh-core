@@ -1,0 +1,48 @@
+Rouh on Linux: one command. It checks this server, installs what is missing, and starts Rouh.
+
+Checking this server
+  ✓ Ubuntu 24.04.5 LTS, x86_64
+  ✓ 4 processor cores
+  ✓ 16 GB of memory
+  ✓ 105 GB of free disk
+  ✓ Python 3.12.3 for Rouh's updater
+  ✓ Port 8420 is free (Rouh's page, on this machine only)
+  ✓ Reaches rouh.land, ghcr.io and github.com
+
+What happens now
+  · Install Docker, from Docker's own packages (get.docker.com), with sudo
+  · Get Rouh's updater (rouh-core) into /home/runner/rouh-core, at the commit rouh.land signed
+  · Install the rouh command, and turn on the nightly update (03:00 to 05:00, after a backup)
+  · Download and start Rouh: about 2 GB, about 5 minutes
+  · Then set your Rouh up, here in this terminal: rouh setup
+  Nothing of Rouh's listens beyond this machine. Uninstall any time: rouh uninstall
+
+Installing what is missing
+
+Checking what rouh.land hands out, before anything is installed
+  ✓ rouh.land's release: signed with Rouh's key
+  ✓ rouh.land's newest tested code: signed with Rouh's key (9493f679cb)
+  Installing Docker (a few minutes)…
+  ✓ Docker version 29.10.1, Compose 5.8.0
+
+Getting Rouh's updater
+  ✓ Rouh's updater at the signed, tested commit 9493f679cb
+Made the settings file /home/runner/rouh/.env.
+This machine is taken as not only for Rouh: your runs do not log in to it. Change it: rouh access
+
+Starting Rouh (the first time downloads about 2 GB)
+Updating to base 1.0.20, release 20261120005930
+No code yet: nothing to check the new base with.
+The graphics card is given to Rouh's worker (/dev/dri, groups 44); only the owner's own runs open it, while the switch is Unrestricted.
+The stack in use is the release's own.
+Started base 1.0.20 (release 20261120005930): every part is healthy
+[ok] Nightly update is on: every night between 03:00 and 05:00 (this server's time), after a backup. Next: Fri 2026-11-27 04:29:55 UTC
+[ok] Rouh is running (base 1.0.20, release 20261120005930, signature checked).
+The host's login for the switch: off (ROUH_STANDING_HOST=0); your runs do not log in to this machine.
+
+Next, set your Rouh up in a terminal on this server:
+
+    rouh setup
+
+ To use docker yourself without sudo, sign out and back in once.
+exit 0
