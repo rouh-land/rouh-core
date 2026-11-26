@@ -1,0 +1,304 @@
+## browser_navigate {'url': 'http://127.0.0.1:8420/login'}
+### Ran Playwright code
+```js
+await page.goto('http://127.0.0.1:8420/login');
+```
+### Page
+- Page URL: http://127.0.0.1:8420/login
+- Page Title: Sign in to Rouh
+### Snapshot
+- [Snapshot](.playwright-mcp/page-2026-11-26T15-16-37-748Z.yml)
+
+## browser_type {'target': '#email', 'text': 'alex@example.com'}
+### Ran Playwright code
+```js
+await page.locator('#email').fill('alex@example.com');
+```
+
+## browser_click {'target': '#continueBtn'}
+### Ran Playwright code
+```js
+await page.locator('#continueBtn').click();
+```
+### Page
+- Page URL: http://127.0.0.1:8420/login
+- Page Title: Check your email - Rouh
+### Snapshot
+- [Snapshot](.playwright-mcp/page-2026-11-26T15-16-38-440Z.yml)
+
+## browser_snapshot {}
+### Page
+- Page URL: http://127.0.0.1:8420/login
+- Page Title: Check your email - Rouh
+### Snapshot
+```yaml
+- main [ref=f1e2]:
+  - heading "Rouh" [level=1] [ref=f1e5]
+  - heading "Check your email" [level=2] [ref=f1e6]
+  - paragraph [ref=f1e7]:
+    - text: If
+    - strong [ref=f1e8]: alex@example.com
+    - text: signs in to this Rouh, a sign-in link is on its way to it. Press the link in that email, or type the code from it here. Both work once, for 15 minutes.
+  - generic [ref=f1e9]:
+    - generic [ref=f1e10]:
+      - generic [ref=f1e11]: Code from the email
+      - textbox "Code from the email" [ref=f1e12]:
+        - /placeholder: "123456"
+    - button "Sign in" [ref=f1e13] [cursor=pointer]
+  - paragraph [ref=f1e14]:
+    - link "Use a different email, or send it again" [ref=f1e15] [cursor=pointer]:
+      - /url: /login?email=alex%40example.com
+  - group [ref=f1e16]:
+    - generic "Can't get the email?" [ref=f1e17] [cursor=pointer]
+```
+
+## browser_click {'target': "text=Can't get the email?"}
+### Ran Playwright code
+```js
+await page.locator('text=Can\'t get the email?').click();
+```
+### Page
+- Page URL: http://127.0.0.1:8420/login
+- Page Title: Check your email - Rouh
+### Snapshot
+- [Snapshot](.playwright-mcp/page-2026-11-26T15-16-39-000Z.yml)
+
+## browser_type {'target': '#password', 'text': 'stack-test-garden-hedgehog-91'}
+### Ran Playwright code
+```js
+await page.locator('#password').fill('stack-test-garden-hedgehog-91');
+```
+
+## browser_click {'target': "button:text-is('Sign in with password')"}
+### Ran Playwright code
+```js
+await page.locator('button:text-is(\'Sign in with password\')').click();
+```
+### Page
+- Page URL: http://127.0.0.1:8420/guide/path?chat=conversation
+- Page Title: General Chat | Guide
+- Console: 0 errors, 1 warnings
+### Snapshot
+- [Snapshot](.playwright-mcp/page-2026-11-26T15-16-41-219Z.yml)
+### Events
+- New console entries: .playwright-mcp/console-2026-11-26T15-16-37-623Z.log#L1-L3
+
+## browser_wait_for {'time': 3}
+### Result
+Waited for 3 seconds
+### Ran Playwright code
+```js
+await new Promise(f => setTimeout(f, 3 * 1000));
+```
+### Page
+- Page URL: http://127.0.0.1:8420/guide/path?chat=conversation
+- Page Title: General Chat | Guide
+- Console: 0 errors, 1 warnings
+### Snapshot
+- [Snapshot](.playwright-mcp/page-2026-11-26T15-16-44-358Z.yml)
+
+## browser_navigate {'url': 'http://127.0.0.1:8420/anatomy/meta/changes'}
+### Ran Playwright code
+```js
+await page.goto('http://127.0.0.1:8420/anatomy/meta/changes');
+```
+### Page
+- Page URL: http://127.0.0.1:8420/anatomy/meta/changes
+- Page Title: Rouh
+- Console: 0 errors, 1 warnings
+### Snapshot
+- [Snapshot](.playwright-mcp/page-2026-11-26T15-16-45-340Z.yml)
+### Events
+- New console entries: .playwright-mcp/console-2026-11-26T15-16-44-361Z.log#L1-L3
+
+## browser_wait_for {'time': 6}
+### Result
+Waited for 6 seconds
+### Ran Playwright code
+```js
+await new Promise(f => setTimeout(f, 6 * 1000));
+```
+### Page
+- Page URL: http://127.0.0.1:8420/anatomy/meta/changes?chat=conversation
+- Page Title: General Chat | Changes - Meta
+- Console: 0 errors, 1 warnings
+### Snapshot
+- [Snapshot](.playwright-mcp/page-2026-11-26T15-16-51-688Z.yml)
+
+## browser_snapshot {}
+### Page
+- Page URL: http://127.0.0.1:8420/anatomy/meta/changes?chat=conversation
+- Page Title: General Chat | Changes - Meta
+- Console: 0 errors, 1 warnings
+### Snapshot
+```yaml
+- generic [ref=f4e1]:
+  - region "Notifications":
+    - generic [ref=f4e81]:
+      - article "Your spending limit" [ref=f4e83]:
+        - generic [aria-hidden] [ref=f4e84]: What the models cost
+        - generic [aria-hidden] [ref=f4e85]: Dismiss
+        - generic [ref=f4e86] [cursor=pointer]:
+          - button "Show all of Your spending limit" [ref=f4e87]
+          - generic [ref=f4e95]:
+            - generic [ref=f4e96]:
+              - generic [ref=f4e97]: Your spending limit
+              - time [ref=f4e98]: now
+            - paragraph [ref=f4e99]: "Rouh keeps a spending limit on what it pays per use: $20.00 a day and $300.00 a month. Change it on What the models cost."
+            - link "What the models cost" [ref=f4e101]:
+              - /url: /?costs=1
+        - button "Dismiss Your spending limit" [ref=f4e104] [cursor=pointer]
+      - button "Put this away for later" [ref=f4e108] [cursor=pointer]: Later
+  - main [ref=f4e2]:
+    - region "Conversation" [ref=f4e3]:
+      - generic [ref=f4e5]:
+        - generic [ref=f4e6]:
+          - generic [ref=f4e7]:
+            - heading "Transcript" [level=2] [ref=f4e8]
+            - button "Hide the chat" [ref=f4e9] [cursor=pointer]
+            - button "General Chat, the main chat. Show the latest chats" [ref=f4e112] [cursor=pointer]:
+              - generic [aria-hidden] [ref=f4e113]: 🪸
+              - generic [ref=f4e114]: General Chat
+          - 'button "Included content: 27k tokens a message. Press to choose what this chat reads." [ref=f4e115] [cursor=pointer]':
+            - generic [ref=f4e120]:
+              - text: Included content
+              - generic [ref=f4e121]: 27k tokens a message
+          - log [ref=f4e16]:
+            - paragraph [ref=f4e125]: General Chat
+            - generic [ref=f4e126]:
+              - generic [ref=f4e127]: Rouh
+              - paragraph [ref=f4e130]: "Hey, Alex, I will be your Rouh, we will continuously co-evolve into better and more capable beings. The best place to start is to get some connections going on: your Gmail and calendar, Telegram, and your phone. Say which, and I will take you through it one step at a time."
+              - generic [ref=f4e131]:
+                - button "Answer this again" [ref=f4e132] [cursor=pointer]
+                - button "Copy this answer" [ref=f4e136] [cursor=pointer]
+                - button "When this was written" [ref=f4e140] [cursor=pointer]
+                - button "Read this aloud" [ref=f4e144] [cursor=pointer]
+                - button "Say it more simply" [ref=f4e148] [cursor=pointer]
+        - generic [ref=f4e19]:
+          - button [aria-hidden] [ref=f4e20]
+          - generic [ref=f4e21]:
+            - generic [ref=f4e22]: Message
+            - textbox "Message" [active] [ref=f4e23]:
+              - /placeholder: Type to Rouh · Shift+Enter for a new line
+            - meter "Microphone input level" [ref=f4e24]
+            - generic [ref=f4e25]: "off"
+            - generic [ref=f4e26]:
+              - generic [ref=f4e27]:
+                - generic [ref=f4e28]:
+                  - 'button "Voice: microphone off, voice replies off" [ref=f4e29] [cursor=pointer]'
+                  - text: off off
+                - button "Attach files" [ref=f4e35] [cursor=pointer]
+                - button "Make a picture" [ref=f4e38] [cursor=pointer]
+                - 'button "Model for this chat: Auto, the default" [ref=f4e151] [cursor=pointer]':
+                  - generic [ref=f4e46]: Auto
+                - button "Chat Options, Full" [ref=f4e152] [cursor=pointer]:
+                  - generic [ref=f4e55]: Full
+                - button "Incognito" [ref=f4e56] [cursor=pointer]
+              - generic [ref=f4e61]:
+                - button "Fork this chat" [disabled] [ref=f4e153]
+                - button "Send message" [ref=f4e62] [cursor=pointer]
+      - separator "Resize the conversation" [ref=f4e65]
+    - region "Canvas" [ref=f4e66]:
+      - button "Hide the canvas" [ref=f4e67] [cursor=pointer]
+      - paragraph [ref=f4e72]: Anything Rouh shows you appears here.
+      - text: ↓
+      - article "Anatomy" [ref=f4e157]:
+        - generic [ref=f4e158]:
+          - link "Back to Meta" [ref=f4e159] [cursor=pointer]:
+            - /url: /anatomy/meta
+            - generic [ref=f4e162]: Meta
+          - heading "Changes" [level=3] [ref=f4e164]
+          - button "Close Anatomy and go back to the canvas" [ref=f4e165] [cursor=pointer]: ×
+        - generic [ref=f4e166]:
+          - navigation "Anatomy's groups" [ref=f4e167]:
+            - generic [ref=f4e168]:
+              - link "You" [ref=f4e169] [cursor=pointer]:
+                - /url: /anatomy/you
+              - link "Your Rouh" [ref=f4e177] [cursor=pointer]:
+                - /url: /anatomy/your-rouh
+              - link "Connections" [ref=f4e184] [cursor=pointer]:
+                - /url: /anatomy/connections
+              - link "Behaviour" [ref=f4e191] [cursor=pointer]:
+                - /url: /anatomy/behaviour
+              - link "Money" [ref=f4e199] [cursor=pointer]:
+                - /url: /anatomy/money
+              - link "Meta" [ref=f4e206] [cursor=pointer]:
+                - /url: /anatomy/meta
+          - generic [ref=f4e213]:
+            - text: › › › › ›
+            - generic "Changes" [ref=f4e214]:
+              - generic [ref=f4e216]:
+                - generic [ref=f4e217]:
+                  - heading "Rouh’s updates" [level=4] [ref=f4e218]
+                  - status [ref=f4e219]: This Rouh is on its own, so it does not look for releases by itself.
+                  - generic [ref=f4e220]:
+                    - term [ref=f4e221]: You have
+                    - definition [ref=f4e222]: Rouh 9493f679, with 1 change of its own
+                  - paragraph [ref=f4e223]: Changes come from Rouh’s shared main branch, in order, after checks on the early-test Rouhs.
+                  - paragraph [ref=f4e224]: The record of copied, adapted and waiting changes begins with the first update.
+                  - button "Look for a newer Rouh" [ref=f4e226] [cursor=pointer]
+                  - group "How new releases come" [ref=f4e227]:
+                    - generic [ref=f4e229] [cursor=pointer]:
+                      - radio "Ride along (the default) Takes each new release by itself, at a quiet moment, at most once a day." [checked] [ref=f4e230]
+                      - generic [ref=f4e231]:
+                        - generic [ref=f4e232]: Ride along (the default)
+                        - generic [ref=f4e233]: Takes each new release by itself, at a quiet moment, at most once a day.
+                    - generic [ref=f4e234] [cursor=pointer]:
+                      - radio "Update when I press Nothing comes in until you press Update to the newest Rouh." [ref=f4e235]
+                      - generic [ref=f4e236]:
+                        - generic [ref=f4e237]: Update when I press
+                        - generic [ref=f4e238]: Nothing comes in until you press Update to the newest Rouh.
+                    - generic [ref=f4e239] [cursor=pointer]:
+                      - radio "My own path Never looks for releases by itself. You can still press the button." [ref=f4e240]
+                      - generic [ref=f4e241]:
+                        - generic [ref=f4e242]: My own path
+                        - generic [ref=f4e243]: Never looks for releases by itself. You can still press the button.
+                    - paragraph [ref=f4e244]: "This Rouh is on its own, so it never rides along: it asks rouh.land only when you press a button here."
+                  - paragraph [ref=f4e245]: Every update is a run of its own that you can follow. Each change is fitted to this Rouh and checked before it becomes an undo point, and the update stops at the first change that cannot be taken. Database changes are rehearsed on a copy first, with a full backup and checks that existing memory is kept.
+                - generic [ref=f4e246]:
+                  - heading "Undo points" [level=4] [ref=f4e247]
+                  - list [ref=f4e248]:
+                    - listitem [ref=f4e249]:
+                      - generic [ref=f4e250]:
+                        - generic [ref=f4e251]: "2"
+                        - generic [ref=f4e252]: Rouh's update to Rouh 9493f679 of 26 November 2026, once, by rouh-catch-up, 1 own change kept
+                        - generic [ref=f4e253]: Runs now
+                      - generic [ref=f4e254]: f54bc33d9609 · Nov 26, 03:15 PM · a person, in the guard container · 42 checks passed
+                    - listitem [ref=f4e255]:
+                      - generic [ref=f4e256]:
+                        - generic [ref=f4e257]: "1"
+                        - generic [ref=f4e258]: the code this Rouh had when its protected core first started
+                      - generic [ref=f4e259]: c986ed0c6b42 · Nov 26, 03:14 PM · the protected core
+                      - button "Put back to this" [ref=f4e261] [cursor=pointer]
+                - generic [ref=f4e262]:
+                  - heading "The protected core rouh-guard 1.1.1" [level=4] [ref=f4e263]:
+                    - text: The protected core
+                    - generic [ref=f4e264]: rouh-guard 1.1.1
+                  - paragraph [ref=f4e265]: "The parts of Rouh that its own changes cannot reach: the key proxy, the checks every change must pass, and the doctor. Only signed releases update them."
+                  - generic [ref=f4e266]:
+                    - term [ref=f4e267]: Rouh
+                    - definition [ref=f4e268]: answering
+                    - term [ref=f4e269]: The doctor
+                    - definition [ref=f4e270]: goes back after 15 minutes without an answer, within 30 minutes of a change
+                    - term [ref=f4e271]: Contracts
+                    - definition [ref=f4e272]: keys 1 · changes 1 · check 1 · checkface 1
+    - complementary "Feedback"
+  - generic:
+    - button "Open menu" [ref=f4e76] [cursor=pointer]
+    - button "What is the orb?" [ref=f4e77]: "?"
+  - button "On battery power, 57%" [ref=f4e78]
+```
+
+## browser_take_screenshot {'filename': '/home/runner/work/rouh-core/rouh-core/.playwright-mcp/changes-after.png', 'fullPage': True}
+### Result
+- [Screenshot of full page](.playwright-mcp/changes-after.png)
+### Ran Playwright code
+```js
+// Screenshot full page and save it as .playwright-mcp/changes-after.png
+await page.screenshot({
+  fullPage: true,
+  path: '.playwright-mcp/changes-after.png',
+  scale: 'css',
+  type: 'png'
+});
+```
