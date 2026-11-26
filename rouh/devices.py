@@ -20,6 +20,11 @@ same voice protocol the browser uses" (sound up, the spoken answer down, a way t
 What a device may do is exactly what the person may do by speaking in that chat: the key is the person's,
 so it is kept like their passwords (on the robot, readable by its own user only, and a copy root-only
 where the robot's other secrets are).
+
+**A display only looks.** Petar, 26 November 2026, for the home projector: a Raspberry Pi behind it shows
+the Robot chat full screen (`rouh/projector.py`). Its key is a device key of the kind `display`: it reads
+that one chat's newest words and cards through `/api/projector/feed` and nothing else, and the WebSocket
+refuses it, so a display can never speak, type or press anything in the person's name.
 """
 from __future__ import annotations
 
@@ -41,6 +46,10 @@ LIST_PREFIX = "devices:"
 TOKEN_PREFIX = "rouhdev_"
 #: A device's name: a short word the person can say.
 NAME = re.compile(r"^[a-z][a-z0-9-]{0,31}$")
+#: What a device is: a voice (the robot: talks in its chat) or a display (a projector: only reads it).
+KINDS = ("voice", "display")
+#: Seconds between two writes of when a key was last used: a display asks every two seconds.
+USED_EVERY = 60
 
 #: The chat a robot talks in: one per person, kept with them by its id.
 ROBOT_CHAT_PREFIX = "robot-"
@@ -103,14 +112,16 @@ def listed(user_id: str, org_id: str) -> list[dict]:
         rec = _get(KEY_PREFIX + h)
         if isinstance(rec, dict) and rec.get("user_id") == user_id and rec.get("org_id") == org_id:
             out.append({k: rec.get(k) for k in ("name", "chat", "created_at", "last_used_at", "revoked_at")}
-                       | {"key_starts": h[:8]})
+                       | {"key_starts": h[:8], "kind": rec.get("kind") or "voice"})
     return out
 
 
-def add(user_id: str, org_id: str, name: str) -> tuple[str, dict]:
+def add(user_id: str, org_id: str, name: str, kind: str = "voice") -> tuple[str, dict]:
     """A new key for a device of this person's: (the key, shown once and never kept, its record).
     A live device of the same name is revoked first: one name, one key."""
     name = str(name or "").strip().lower()
+    if kind not in KINDS:
+        raise ValueError(f"A device is one of: {', '.join(KINDS)}.")
     if not NAME.match(name):
         raise ValueError("A device's name is a short word: letters, digits and dashes, starting with a letter.")
     if not user_id or not org_id:
@@ -119,7 +130,7 @@ def add(user_id: str, org_id: str, name: str) -> tuple[str, dict]:
     key = TOKEN_PREFIX + secrets.token_urlsafe(32)
     h = digest(key)
     rec = {"user_id": str(user_id), "org_id": str(org_id), "name": name, "chat": robot_chat_id(str(user_id)),
-           "created_at": time.time(), "last_used_at": None, "revoked_at": None}
+           "kind": kind, "created_at": time.time(), "last_used_at": None, "revoked_at": None}
     _put(KEY_PREFIX + h, rec)
     hashes = [x for x in (_get(_list_key(user_id, org_id)) or []) if x != h] + [h]
     _put(_list_key(user_id, org_id), hashes)
@@ -155,8 +166,11 @@ def who(key: str) -> dict | None:
         # The hash was the lookup; compared again in constant time so nothing about a near miss is told.
         if not hmac.compare_digest(h, digest(key)):
             return None
-        rec["last_used_at"] = time.time()
-        _put(KEY_PREFIX + h, rec)
+        now = time.time()
+        if now - float(rec.get("last_used_at") or 0) >= USED_EVERY:
+            rec["last_used_at"] = now
+            _put(KEY_PREFIX + h, rec)
+        rec.setdefault("kind", "voice")
         return rec
     except Exception:  # noqa: BLE001 - an unreadable key is no key
         log.exception("a device key could not be read")

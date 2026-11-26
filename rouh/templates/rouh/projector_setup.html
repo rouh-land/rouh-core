@@ -1,0 +1,83 @@
+{% load rouh_assets %}<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Projector setup</title>
+{% comment %}The projector's setup page (`rouh/projector.py`, `rouh/web/projector.py`, projectorsetup.js): the
+   four things done by hand to put the Robot chat on a projector with a Raspberry Pi, and the one file.{% endcomment %}
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ccircle cx='16' cy='16' r='13' fill='%230b0d10'/%3E%3Ccircle cx='16' cy='16' r='7' fill='%235ec2ff'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="{% asset "projectorsetup.css" %}">
+<script src="{% asset "csrf.js" %}"></script>
+</head>
+<body>
+<main class="page">
+  <a class="back" href="/chat/{{ robot_chat }}">Back to the Robot Chat</a>
+  <header class="head">
+    <h1>Put Rouh on your projector</h1>
+    <p class="verdict" id="verdict" aria-live="polite">Looking for your projector...</p>
+  </header>
+
+  <ol class="steps">
+    <li class="step">
+      <h2>Write Raspberry Pi OS to the SD card</h2>
+      <p>On this computer, open Raspberry Pi Imager (free, from raspberrypi.com/software). Choose <strong>Raspberry Pi 3</strong>, then <strong>Raspberry Pi OS Lite (64-bit)</strong> under Raspberry Pi OS (other), then the SD card, and write it. Skip the settings it offers: the file below has them.</p>
+    </li>
+    <li class="step">
+      <h2>Download this projector's setup file</h2>
+      <form id="make" class="form" autocomplete="off">
+        <div class="field">
+          <label for="ssid">Wi-Fi name</label>
+          <input id="ssid" placeholder=" " name="ssid" required maxlength="32" spellcheck="false" autocapitalize="off">
+        </div>
+        <div class="field">
+          <label for="psk">Wi-Fi password</label>
+          <div class="with-button">
+            <input id="psk" placeholder=" " name="psk" type="password" maxlength="63" spellcheck="false" autocapitalize="off">
+            <button type="button" class="quiet" id="showPsk" aria-controls="psk" aria-pressed="false">Show</button>
+          </div>
+          <p class="note">Written into the file on this computer only. Rouh never receives it.</p>
+        </div>
+        <div class="pair">
+          <div class="field">
+            <label for="country">Wi-Fi country</label>
+            <input id="country" placeholder=" " name="country" required maxlength="2" pattern="[A-Za-z]{2}" spellcheck="false" autocapitalize="characters">
+          </div>
+          <div class="field">
+            <label for="tz">Time zone</label>
+            <input id="tz" placeholder=" " name="tz" required maxlength="64" spellcheck="false">
+          </div>
+        </div>
+        <details class="more">
+          <summary>Rouh's address</summary>
+          <div class="field">
+            <label for="origin">The address the projector opens</label>
+            <input id="origin" placeholder=" " name="origin" type="url" required spellcheck="false">
+          </div>
+        </details>
+        <button type="submit" class="primary" id="go">Download the setup file</button>
+        <p class="said" id="said" role="status" hidden></p>
+      </form>
+    </li>
+    <li class="step">
+      <h2>Put the file on the card</h2>
+      <p>The card shows up on this computer as a drive called <strong>bootfs</strong>. Drag the downloaded file <code>user-data</code> onto it, choose <strong>Replace</strong>, then eject the card.</p>
+    </li>
+    <li class="step">
+      <h2>Plug it in</h2>
+      <p>Put the card in the Pi, connect the Pi to the projector with an HDMI cable, then plug in its power. The first start takes about 15 minutes while it sets itself up; after that it shows your Robot Chat about a minute after power on, every time.</p>
+    </li>
+  </ol>
+
+  <footer class="after">
+    <a class="quiet" href="/projector" target="_blank" rel="noopener">Preview it here</a>
+    <span class="off">
+      <button type="button" class="quiet danger" id="off" hidden>Turn off this projector</button>
+      <button type="button" class="quiet danger" id="offSure" hidden>Yes, turn it off now</button>
+      <button type="button" class="quiet" id="offKeep" hidden>Keep it</button>
+    </span>
+  </footer>
+</main>
+<script src="{% asset "projectorsetup.js" %}"></script>
+</body>
+</html>

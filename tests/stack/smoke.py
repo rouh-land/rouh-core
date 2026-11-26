@@ -431,6 +431,47 @@ def chat_robot(s: Stack) -> None:
     expect(got[1].get("chat") == got[0].get("chat"), f"a second press made another chat: {got}")
 
 
+@check("projector.display")
+def projector_display(s: Stack) -> None:
+    """The projector (`rouh/projector.py`): the setup page's file carries a display key that reads the
+    Robot chat's feed, the wall itself answers without a sign-in, and Turn off ends the key at once."""
+    import base64
+    import re
+
+    token = next((c.split("=", 1)[1] for c in (x.strip() for x in s.cookie.split(";"))
+                  if c.startswith("rouh_csrftoken=")), "")
+
+    def post(path: str, body: dict) -> dict:
+        req = urllib.request.Request(s.url + path, data=json.dumps(body).encode(), method="POST", headers={
+            "Cookie": s.cookie, "Content-Type": "application/json", "X-CSRFToken": token, "Referer": s.url + "/"})
+        try:
+            with urllib.request.urlopen(req, timeout=30) as r:
+                return json.loads(r.read().decode())
+        except urllib.error.HTTPError as e:
+            raise Failed(f"{path} answered {e.code}: {e.read().decode()[:300]}")
+
+    def feed(key: str) -> int:
+        req = urllib.request.Request(s.url + "/api/projector/feed", headers={"Authorization": "Bearer " + key})
+        try:
+            with urllib.request.urlopen(req, timeout=30) as r:
+                got = json.loads(r.read().decode())
+                expect(got.get("title") == "Robot Chat", f"the feed is not the Robot chat's: {got}")
+                return r.status
+        except urllib.error.HTTPError as e:
+            return e.code
+
+    made = post("/api/projector/setup-file", {"origin": s.url})
+    found = re.search(r"path: /etc/rouh-projector/key\n\s+encoding: b64\n\s+content: '([^']+)'", made.get("file", ""))
+    expect(made.get("ok") and found and made["file"].startswith("#cloud-config"), "the setup file carries no key")
+    key = base64.b64decode(found.group(1)).decode()
+    expect(feed(key) == 200, "the display key does not read the feed")
+    req = urllib.request.Request(s.url + "/projector")
+    with urllib.request.urlopen(req, timeout=30) as r:
+        expect(r.status == 200 and b'id="stage"' in r.read(), "the wall does not open without a sign-in")
+    post("/api/projector/off", {})
+    expect(feed(key) == 401, "a turned-off projector still reads the feed")
+
+
 @check("chat-turn")
 def chat_turn(s: Stack) -> None:
     text, _ = s.say("Hello from the stack test")

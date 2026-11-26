@@ -1,0 +1,56 @@
+#cloud-config
+# Rouh's projector: this Raspberry Pi shows your Robot chat full screen on the projector, from power on.
+# Made by Rouh's projector setup page for one Pi. It holds that Pi's own key, which can only read
+# the Robot chat and which "Turn off this projector" on the setup page ends at once. Keep it private.
+hostname: rouh-projector
+timezone: __TIMEZONE__
+enable_ssh: false
+ssh_pwauth: false
+users:
+  - name: kiosk
+    shell: /usr/sbin/nologin
+    lock_passwd: true
+write_files:
+  - path: /etc/rouh-projector/url
+    encoding: b64
+    content: '{{URL_B64}}'
+    permissions: '0640'
+  - path: /etc/rouh-projector/key
+    encoding: b64
+    content: '{{KEY_B64}}'
+    permissions: '0640'
+  - path: /etc/rouh-projector/wifi-ssid
+    encoding: b64
+    content: '__WIFI_SSID_B64__'
+    permissions: '0600'
+  - path: /etc/rouh-projector/wifi-psk
+    encoding: b64
+    content: '__WIFI_PSK_B64__'
+    permissions: '0600'
+  - path: /etc/rouh-projector/wifi-country
+    content: '__WIFI_COUNTRY__'
+    permissions: '0600'
+  - path: /usr/local/sbin/rouh-projector-install
+    encoding: b64
+    content: '{{INSTALL_B64}}'
+    permissions: '0755'
+  - path: /etc/systemd/system/rouh-projector-install.service
+    permissions: '0644'
+    content: |
+      [Unit]
+      Description=Set up Rouh's projector (at every start until it has finished once)
+      Wants=network-online.target
+      After=network-online.target cloud-final.service
+      ConditionPathExists=!/etc/rouh-projector/installed
+
+      [Service]
+      Type=oneshot
+      ExecStart=/usr/local/sbin/rouh-projector-install
+      TimeoutStartSec=3600
+
+      [Install]
+      WantedBy=multi-user.target
+runcmd:
+  - [systemctl, daemon-reload]
+  - [systemctl, enable, rouh-projector-install.service]
+  - [systemctl, start, --no-block, rouh-projector-install.service]

@@ -22,6 +22,10 @@ told with every turn in it and in no other chat:
   fully removed". Until then a spoken turn was told to keep all of that off. What still needs the
   owner's yes (spending money, deleting for good, giving access to an outsider) needs it here too,
   by the same rules as anywhere else.
+* **A projector may be showing it.** Petar, 26 November 2026: a Raspberry Pi behind his home projector shows
+  this chat full screen (`rouh/projector.py`). While one has asked for the wall in the last two minutes, the
+  rule against cards gives way to `ON_THE_WALL`: what is worth seeing goes on screen as one card, and the
+  spoken answer stays short and says so. With no projector the chat is told nothing about one.
 * **Its body.** No tool in this chat moves the robot yet. Its Bluetooth is the first part of it Rouh
   works (`robot_bluetooth`, `one/robot.py`, 26 November 2026). While it listens the robot lights its
   head light and tilts its head up by itself (its own movement program, 26 November 2026); the rules
@@ -89,6 +93,26 @@ The robot's body:
 - Its Bluetooth you can work, with robot_bluetooth: turn it on, say what is nearby, and pair and connect a phone, speaker or headset by the name said. Say its answer as your answer."""
 
 
+#: What a Robot chat is told while a projector is showing it, in place of the rule against cards.
+ON_THE_WALL = """A projector in the room is showing this chat right now, full screen: the newest card you put on screen with show_on_screen fills the wall, and what you say appears under it.
+- When something is worth seeing (a list, a table, a few numbers, a picture, a schedule), put it on screen as one card with a short title, large and simple, and still say the short spoken answer, ending with a few words saying it is on the screen.
+- A card is read from across the room: few words, few rows, no links or small print.
+- Plain talk needs no card."""
+
+_NO_CARDS = "- No cards, tables, lists, headings, links, web addresses, file paths, code, emoji or formatting of any kind: nobody is looking at a screen."
+_WALL_WORDS = "- In what you say: no tables, lists, headings, links, web addresses, file paths, code, emoji or formatting of any kind."
+
+
 def prompt_block(chat_id: str) -> str:
-    """In a Robot chat, its rules; "" in any other chat."""
-    return RULES if is_robot(chat_id) else ""
+    """In a Robot chat, its rules, with the projector's while one is showing it; "" in any other chat."""
+    if not is_robot(chat_id):
+        return ""
+    try:
+        from . import projector
+
+        on_the_wall = projector.showing(str(chat_id)[len(PREFIX):])
+    except Exception:  # noqa: BLE001 - the rules are told whatever happened to the projector
+        on_the_wall = False
+    if not on_the_wall:
+        return RULES
+    return RULES.replace(_NO_CARDS, _WALL_WORDS) + "\n\nThe projector:\n" + ON_THE_WALL

@@ -3,6 +3,7 @@
     python manage.py device add --user alex --name beast      # prints the key once, on stdout alone
     python manage.py device list --user alex
     python manage.py device revoke --user alex --name beast
+    python manage.py device add --user alex --name projector --kind display   # a display: only reads
 
 The device shows the key on Rouh's WebSocket as ``Authorization: Bearer <key>`` and reaches its own chat
 and nothing else. Only the key's sha256 is kept. Adding a name that has a live key revokes that one first.
@@ -23,8 +24,10 @@ class Command(BaseCommand):
         parser.add_argument("action", choices=("add", "list", "revoke"))
         parser.add_argument("--user", default="", help="whose device it is, by username; the owner if left out")
         parser.add_argument("--name", default="", help="the device's name, such as beast")
+        parser.add_argument("--kind", default="voice", choices=devices.KINDS,
+                            help="voice talks in its chat (the robot); display only reads it (a projector)")
 
-    def handle(self, *args, action="list", user="", name="", **options):
+    def handle(self, *args, action="list", user="", name="", kind="voice", **options):
         from rouh.models import User
 
         if user:
@@ -41,13 +44,13 @@ class Command(BaseCommand):
                          if r["revoked_at"] else "live")
                 used = (time.strftime("%Y-%m-%d %H:%M", time.localtime(r["last_used_at"]))
                         if r["last_used_at"] else "never")
-                self.stdout.write(f"{r['name']}\t{state}\tchat {r['chat']}\tlast used {used}\tkey {r['key_starts']}...")
+                self.stdout.write(f"{r['name']}\t{r['kind']}\t{state}\tchat {r['chat']}\tlast used {used}\tkey {r['key_starts']}...")
             if not rows:
                 self.stdout.write("no devices")
             return
         if action == "add":
             try:
-                key, rec = devices.add(uid, org, name)
+                key, rec = devices.add(uid, org, name, kind)
             except ValueError as exc:
                 raise CommandError(str(exc)) from exc
             self.stdout.write(key)

@@ -183,7 +183,8 @@ class RouhSocket(AsyncWebsocketConsumer):
             from rouh.models import User
 
             rec = devices.who(key)
-            if rec is None:
+            if rec is None or rec.get("kind") == "display":
+                # A display only looks, through its feed (`rouh/projector.py`): it never talks here.
                 return None, None
             account = User.objects.filter(pk=rec["user_id"], org_id=rec["org_id"], is_active=True).first()
             if account is None or getattr(account, "is_guest", False):

@@ -43,6 +43,7 @@ from rouh.web import phoneapi
 from rouh.web import filesapi
 from rouh.web import home as home_web
 from rouh.web import hue as hue_web
+from rouh.web import projector as projector_web
 from rouh.web import birth as birth_web
 from rouh.web import landaccount as landaccount_web
 from rouh.web import signin as signin_web
@@ -384,6 +385,15 @@ urlpatterns = [
     path("api/incubator/prefs", incubator_web.prefs),
     path("api/incubator/chat", incubator_web.chat),
     path("api/robot/chat", robotchat_web.chat),
+    # The projector: the Robot chat full screen on a wall, shown by a Raspberry Pi on a key of its own
+    # (`rouh/projector.py`, `rouh/web/projector.py`).
+    path("projector", projector_web.wall),
+    path("projector/setup", projector_web.setup),
+    path("api/projector/feed", projector_web.feed),
+    path("api/projector/image", projector_web.image),
+    path("api/projector/state", projector_web.state),
+    path("api/projector/setup-file", projector_web.setup_file),
+    path("api/projector/off", projector_web.off),
     path("api/incubator/scoring", incubator_web.scoring),
     path("api/incubator/gists", incubator_web.gists),
     path("api/incubator/<int:number>", incubator_web.idea),

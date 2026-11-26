@@ -1,0 +1,31 @@
+{
+  "id": "projector",
+  "name": "Projector",
+  "title": "Projector: the Robot Chat full screen on a wall, shown by a Raspberry Pi on a key of its own",
+  "aliases": [
+    "projector",
+    "projector mode",
+    "display mode",
+    "raspberry pi",
+    "wall"
+  ],
+  "group": "now",
+  "route": "/projector/setup",
+  "icon": "<rect x=\"3\" y=\"7\" width=\"18\" height=\"10\" rx=\"2\"/><circle cx=\"15.5\" cy=\"12\" r=\"2.5\"/><path d=\"M6 17v2M18 17v2\"/>",
+  "attaches_to": [],
+  "maturity": "accepted",
+  "nav": {
+    "place": "none",
+    "opens": "address"
+  },
+  "touches": {
+    "permissions": [],
+    "accounts": [],
+    "tables": [
+      "app_state",
+      "messages"
+    ],
+    "jobs": [],
+    "remove": "rouh/projector.py, rouh/web/projector.py and its routes (/projector, /projector/setup, /api/projector/*), its two entries in TOKEN_PATHS and OPEN_PATHS in rouh/web/gate.py, the templates projector.html and projector_setup.html, projector.js, projector.css, projectorsetup.js and projectorsetup.css, deploy/projector/, ON_THE_WALL in rouh/robotchat.py, the display kind in rouh/devices.py, its row and check in CONTAINERS.md and tests/stack/smoke.py, and this manifest. Turn off any projector first, on its setup page."
+  }
+}

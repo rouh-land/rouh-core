@@ -112,12 +112,18 @@ log = logging.getLogger("rouh.gate")
 #: An address that answers to a key rather than a sign-in, and checks the key itself:
 #: `/api/task`, where `workspace/bin/task` on Petar's laptop changes a task's status or
 #: summary (`rouh/web/taskapi.py`). A request there with no live key is refused by the view.
-TOKEN_PATHS = frozenset({"/api/task"})
+#: The projector's feed and its pictures (`rouh/web/projector.py`), where a Raspberry Pi behind the person's
+#: projector reads their Robot chat on a display key made for it on the setup page; the view checks the key
+#: and that it is a display's, and answers a sign-in too, for Preview it here.
+TOKEN_PATHS = frozenset({"/api/task", "/api/projector/feed", "/api/projector/image"})
 
 OPEN_PATHS = frozenset({"/shared/in", "/shared/in/back", "/login", "/setup", "/setup/connect", "/setup/you", "/phone/in", "/login/forgot",
                         "/login/help", "/login/passkey/options", "/login/passkey/verify", "/logout", "/healthz",
                         "/favicon.ico", "/auth/google/callback", "/login/common-passwords",
                         "/api/hooks/meeting-library", "/hooks/whatsapp",
+                        # The projector's wall (`rouh/web/projector.py`): the page alone, the same for
+                        # everybody and holding nothing; what it shows comes from its feed, on a key.
+                        "/projector",
                         # The service worker: the same script for everybody, holding nothing of
                         # anybody's, checked by the browser for an update signed in or not.
                         "/sw.js",

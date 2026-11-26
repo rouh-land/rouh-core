@@ -4326,6 +4326,22 @@
     "rouh/genes/manifests/robot.json"
    ]
   },
+  "projector": {
+   "name": "Projector",
+   "what": "The Robot Chat full screen on a wall, shown by a Raspberry Pi behind the projector on a display key that only reads it, and the setup file that makes the Pi do it by itself.",
+   "files": [
+    "rouh/projector.py",
+    "rouh/web/projector.py",
+    "rouh/templates/rouh/projector.html",
+    "rouh/templates/rouh/projector_setup.html",
+    "rouh/static/projector.js",
+    "rouh/static/projector.css",
+    "rouh/static/projectorsetup.js",
+    "rouh/static/projectorsetup.css",
+    "deploy/projector/**",
+    "rouh/genes/manifests/projector.json"
+   ]
+  },
   "n55-world-ready": {
    "name": "A run finds a ready test world",
    "what": "A run of Rouh's code links a ready .venv-e2e from another checkout on its machine and finds or makes one shared PostgreSQL for test worlds, so ./e2e.sh serve needs no setting up by hand, and its brief says so.",
