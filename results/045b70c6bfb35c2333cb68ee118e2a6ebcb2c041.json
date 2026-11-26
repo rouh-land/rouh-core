@@ -1,0 +1,8 @@
+{
+  "commit": "045b70c6bfb35c2333cb68ee118e2a6ebcb2c041",
+  "ref": "proof/stack-live-page",
+  "ok": false,
+  "result": "failure",
+  "at": "2026-11-26T15:51:31Z",
+  "run": "https://github.com/rouh-land/rouh-core/actions/runs/45846200385"
+}
