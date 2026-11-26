@@ -921,7 +921,8 @@ async def reader_view(request: HttpRequest, kind: str, token: str):
             response = await views._task_response(
                 {"rel": reader.rel, "owner_id": reader.owner_id},
                 request.GET.get("at", ""), reader.base.rstrip("/"), pages.HEADERS,
-                can_edit=reader.can_edit, home="/shared", person=True, may_edit=may_edit)
+                can_edit=reader.can_edit, home="/shared", person=True, may_edit=may_edit,
+                file=request.GET.get(taskshare.FILE_PARAM, ""))
             response["X-Frame-Options"] = "DENY"
             return response
     if reader is None:
@@ -1123,9 +1124,13 @@ async def reader_markup(request: HttpRequest, kind: str, token: str):
             comments=comments.page_config(person, _number(request.GET.get("comment")),
                                           ai_pass=reader.can_edit)
             if person else None, options=options, highlights=person is not None)
+        # In a shared task, the files its links name open under the share
+        # (`taskshare.file_link`), in a tab of their own (`reader.js`).
+        files = taskshare.file_linker(reader.task, reader.at) if reader.task else None
         body, kind_of = await asyncio.to_thread(pages.read, root, reader.rel, reader.rel,
                                                 reader.base + "page" + _at(reader), drawer,
-                                                reader.can_edit or bool(options))
+                                                reader.can_edit or bool(options), None, None,
+                                                files)
     except (pages.Refused, OSError):
         response = HttpResponse("This page is not there any more.", status=404,
                                 content_type="text/plain")

@@ -28,6 +28,13 @@ simplest way, as it asked:
 - **Never its conversations, runs, cards, decisions, files or folders.** Those
   are the owner's working life, held in Rouh's database or beside the pages,
   and a reader has nothing to open them with. The view says so in one line.
+  The one exception is a file one of its pages links to, which the owner put
+  in the page for its reader: a `.zip` to download, a note to read. Petar,
+  26 November 2026, on step 169-15, whose package and setup guide answered
+  "Not found" to the person the task was shared with. Each such link is given
+  a place under the share that names that one file, signed so that only a link
+  a page really has opens it (`file_link`), and the file must still be inside
+  the shared folder and pass the rules a task's file is downloaded by.
 - **Read only, unless the owner shared it with a person to change.** A link
   anybody can open is always "Read it" (`sharing.VIEW`), whatever is sent.
   Shared with one person, a task takes the role the owner gave it, as a page
@@ -59,7 +66,9 @@ import html
 import logging
 from datetime import datetime
 from pathlib import Path
-from urllib.parse import quote
+from urllib.parse import quote, urlencode
+
+from django.core import signing
 
 from . import docview, objectindex, pages
 
@@ -407,8 +416,9 @@ def _level(root, top: str, level: str, base: str, owner: str,
 
 
 def _note(root, top: str, level: str, name: str, base: str, owner: str,
-          can_edit: bool = False, home: str = "") -> bytes:
-    """One note of one level, read."""
+          can_edit: bool = False, home: str = "", back_at: str | None = None) -> bytes:
+    """One note of one level, read. `back_at` is the place its way back goes to, when that is
+    not its level: the page that linked it (`file_view`)."""
     path = Path(str(root)) / level / name
     text = objectindex._read_head(path, objectindex.DOC_LONGEST)
     if name.lower() == docview.STEP_FILE:
@@ -423,7 +433,10 @@ def _note(root, top: str, level: str, name: str, base: str, owner: str,
         shown = _number(here)
         words = (f"{objectindex._called(tree, here)} {shown}".strip() + " · "
                  + (here.get("title") or here.get("slug") or words))
-    back = (f'<p class="oback"><a href="{html.escape(_link(base, _inside(top, level) or ""), quote=True)}">'
+    if back_at is not None:
+        words = "Back to the page"
+    there = _link(base, back_at if back_at is not None else (_inside(top, level) or ""))
+    back = (f'<p class="oback"><a href="{html.escape(there, quote=True)}">'
             f'<span aria-hidden="true">←</span> {html.escape(words)}</a></p>')
     head = (f'<header class="ohead"><h1 class="oname-big"><span>{html.escape(title)}</span>'
             f'{objectindex._kind_pill(".md", "md")}</h1></header>')
@@ -505,9 +518,81 @@ def view(root, rel: str, at: str, base: str, owner: str = "",
         return _level(root, top, level, base, owner, can_edit, home), pages.TYPES[".html"]
     held = objectindex._contents(root, level)
     if rest in held["pages"]:
-        # A page, served exactly as a shared page is (`views.public_page`).
-        return pages.read(root, f"{level}/{rest}", f"{level}/{rest}")
+        # A page, served exactly as a shared page is (`views.public_page`), with the
+        # files its links name given places of their own under the share (`file_link`).
+        return pages.read(root, f"{level}/{rest}", f"{level}/{rest}",
+                          files=file_linker(str(base), at))
     if rest in held["md"] and not objectindex.instructions_file(rest):
         return (_note(root, top, level, rest, base, owner, can_edit, home),
                 pages.TYPES[".html"])
     raise pages.Missing("That is not a place in this task.")
+
+
+# --- a file a shared page links to ------------------------------------------------------------
+
+_FILE_SALT = "rouh.taskshare.file"
+
+#: The query a file's place under the share is named by, beside `?at=`.
+FILE_PARAM = "file"
+
+
+def file_link(base: str, at: str, rel: str) -> str:
+    """The place under the share `base` that opens the file at `rel`, linked from the page
+    at `at`: signed, so that only a file a shared page really links to is ever opened."""
+    token = signing.dumps({"b": str(base), "a": str(at or ""), "p": str(rel)},
+                          salt=_FILE_SALT, compress=True)
+    # The page it was linked from is inside the token, never beside it: `?at=` on a page
+    # a person may change opens that page to change (`guests._for_guest`).
+    return str(base) + "?" + urlencode({FILE_PARAM: token})
+
+
+def file_linker(base: str, at: str):
+    """For `pages.read`: `file_link` for each file a shared page's links name."""
+    def address(rel: str) -> str | None:
+        return file_link(base, at, rel)
+    return address
+
+
+def file_at(root, rel: str, token: str, base: str, *, person: bool = False) -> tuple[str, str, Path, str]:
+    """The file a `file_link` names, for the share whose path is `rel` and whose own
+    address is `base`: (the shared folder, the file's path inside it, the file on disk,
+    the page that linked it).
+
+    `pages.Refused` or `pages.Missing` when the token is not one this share drew, or
+    the file is not inside the shared folder, or fails the rules a task's file is
+    downloaded by (`objectindex.doc_download`): never a page, a folder, a name
+    starting with a dot, a secret's, or a task's instructions.
+    """
+    try:
+        said = signing.loads(str(token or ""), salt=_FILE_SALT)
+    except signing.BadSignature:
+        raise pages.Refused("That is not a file of this task.") from None
+    if not isinstance(said, dict) or said.get("b") != str(base) \
+            or not isinstance(said.get("p"), str) or not isinstance(said.get("a"), str):
+        raise pages.Refused("That is not a file of this task.")
+    top = folder_of(rel)
+    goal, _rest = goal_of(said["a"])
+    if goal:
+        found = linked_goals(root, top).get(goal) if person and top else None
+        if found is None:
+            raise pages.Refused("That is not a file of this task.")
+        top = found["folder"]
+    path = "/".join(part for part in said["p"].split("/") if part)
+    inside = _inside(top, path) if top else None
+    if not inside or objectindex.instructions_file(inside.rsplit("/", 1)[-1]):
+        raise pages.Refused("That is not a file of this task.")
+    return top, inside, objectindex.doc_download(root, top, inside), said["a"]
+
+
+def file_view(root, rel: str, token: str, base: str, owner: str = "", can_edit: bool = False,
+              home: str = "", person: bool = False) -> tuple[bytes | None, Path]:
+    """What a `file_link` shows: a note, read on the share's own view as its notes are,
+    with the way back to the page that linked it; or None and the file, to download."""
+    top, inside, path, at = file_at(root, rel, token, base, person=person)
+    if path.suffix.lower() != ".md":
+        return None, path
+    folder, _, name = inside.rpartition("/")
+    level = f"{top}/{folder}" if folder else top
+    body = _note(root, top, level, name, _under(base, goal_of(at)[0]), owner, can_edit, home,
+                 back_at=goal_of(at)[1])
+    return body, path

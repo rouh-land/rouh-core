@@ -197,6 +197,11 @@
       try { went = new URL(String(m.href)); } catch (err) { return; }
       if (/^https?:$/.test(went.protocol) && went.origin !== location.origin) {
         window.open(went.href, '_blank', 'noopener,noreferrer');
+      } else if (went.origin === location.origin && /^\/(shared|p)\//.test(went.pathname)
+                 && went.searchParams.has('file')) {
+        // A file the page links to, in a shared task: a note to read or a
+        // download, under the share (`taskshare.file_link`).
+        window.open(went.href, '_blank', 'noopener');
       }
       return;
     }

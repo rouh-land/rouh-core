@@ -1393,6 +1393,22 @@ async def workspace_page(request: HttpRequest, path: str = ""):
         for header, value in pages.HEADERS.items():
             response[header] = value
         return response
+    suffix = os.path.splitext(path.lower())[1]
+    if suffix and suffix not in pages.TYPES and suffix not in _SHOWN_IN_ROUH \
+            and not path.startswith(objectindex.TASK_PREFIX):
+        # A working file beside a page - a `.zip`, a `.docx` - by its own address, as
+        # the link in its page used to name it and as one is copied: saved, by the rules
+        # its Download button saves it (`filelinks.for_page`). Until 26 November 2026
+        # this answered "Not found." (step 169-15's `design-recipe.zip`).
+        found = await asyncio.to_thread(_working_file, root, path, raw)
+        if found is None:
+            return _page_response("Not found.", "text/plain", status=404)
+        response = file_response(str(found), mimetypes.guess_type(found.name)[0]
+                                 or "application/octet-stream")
+        for header, value in pages.HEADERS.items():
+            response[header] = value
+        response["Content-Disposition"] = content_disposition_header(True, found.name)
+        return response
     try:
         if path in ("", "index.html"):
             # Whose "Others' tasks" switch the browser starts from (`rouh/task_origin.py`).
@@ -1422,6 +1438,7 @@ async def workspace_page(request: HttpRequest, path: str = ""):
         mark = False
         source = None
         pictures = None
+        files = None
         if framed and path.lower().endswith(".html"):
             # The Ask AI drawer, for the page Rouh is about to frame. `hosted=1`
             # is the canvas saying it draws the conversation itself, beside
@@ -1481,8 +1498,12 @@ async def workspace_page(request: HttpRequest, path: str = ""):
             # device keeps for offline, which has to be whole.
             if me is not None and request.headers.get("X-Rouh-Later") != "1":
                 pictures = picturelinks.linker(me, path)
+            # And the working files its links name, a `.zip` beside it, by a download
+            # link of their own (`filelinks.for_page`).
+            if me is not None:
+                files = filelinks.for_page(me, root, path)
         body, kind = await asyncio.to_thread(pages.read, root, path, raw, at, drawer, mark,
-                                             source, pictures)
+                                             source, pictures, files)
         body = _in_demo(body, kind, lens, path)
         if pictures is not None:
             # The service worker never keeps this over a whole copy (`sw.js`).
@@ -1499,6 +1520,19 @@ async def workspace_page(request: HttpRequest, path: str = ""):
             return HttpResponseRedirect(pages.url_for(now) + ("?" + query if query else ""))
         return _page_response("Not found.", "text/plain", status=404)
     return _page_response(body, kind)
+
+
+def _working_file(root, path: str, raw: str):
+    """The working file of a task at `path` in the workspace, or None: inside a task,
+    by the rules a task's file is downloaded by (`objectindex.doc_download`)."""
+    rel = "/".join(part for part in str(path or "").split("/") if part)
+    task = steps.task_part(rel.rsplit("/", 1)[0]) if "/" in rel else ""
+    if not task or not rel.startswith(task + "/"):
+        return None
+    try:
+        return objectindex.doc_download(root, task, rel[len(task) + 1:], raw)
+    except (pages.Refused, OSError):
+        return None
 
 
 def _in_demo(body, kind: str, lens, path: str):
@@ -2027,7 +2061,8 @@ async def public_page(request: HttpRequest, token: str):
                                            can_note=False, home="")
     if taskshare.is_task(found["rel"]):
         return await _task_response(found, request.GET.get("at", ""),
-                                    sharing.ROUTE + found["token"], PUBLIC_HEADERS)
+                                    sharing.ROUTE + found["token"], PUBLIC_HEADERS,
+                                    file=request.GET.get(taskshare.FILE_PARAM, ""))
     if found["role"] == sharing.EDIT:
         from . import guests
 
@@ -2052,24 +2087,45 @@ def _owner_called(owner_id: str) -> str:
 
 async def _task_response(found: dict, at: str, base: str, headers: dict,
                          can_edit: bool = False, home: str = "",
-                         person: bool = False, may_edit=None) -> HttpResponse:
+                         person: bool = False, may_edit=None, file: str = "") -> HttpResponse:
     """A shared task, at one place inside it, for somebody it lets in.
 
     What is shown and what never is, is `rouh/taskshare.py`. A place that is
     not one of the task's levels, pages or notes is "Not found", the same as
     a page that has gone. `can_edit` is a person it was shared with to
     change, which the view says (`rouh/web/guests.py` opens its pages).
+    `file` is a file one of its pages links to (`taskshare.file_link`): a note
+    read on the view, anything else downloaded.
     """
     from rouh import taskshare
 
     owner = await asyncio.to_thread(_owner_called, found["owner_id"])
     try:
-        body, kind = await asyncio.to_thread(taskshare.view, config.assistant_repo,
-                                             found["rel"], str(at or ""), base, owner,
-                                             can_edit, home, person, may_edit)
+        if file:
+            body, path = await asyncio.to_thread(taskshare.file_view, config.assistant_repo,
+                                                 found["rel"], str(file), base, owner,
+                                                 can_edit, home, person)
+            if body is None:
+                kind = mimetypes.guess_type(path.name)[0] or "application/octet-stream"
+                response = file_response(str(path), kind)
+                for header, value in headers.items():
+                    response[header] = value
+                response["Content-Disposition"] = content_disposition_header(True, path.name)
+                return response
+            kind = pages.TYPES[".html"]
+        else:
+            body, kind = await asyncio.to_thread(taskshare.view, config.assistant_repo,
+                                                 found["rel"], str(at or ""), base, owner,
+                                                 can_edit, home, person, may_edit)
     except (pages.Refused, OSError):
         log.info("sharing: a place in the shared task %s could not be read", found["rel"])
         return _page_response("Not found.", "text/plain", status=404, headers=headers)
+    if kind.startswith("text/html"):
+        # A page of it links to files to take away (`taskshare.file_link`), which a
+        # page sandboxed with no `allow-downloads` is not let save.
+        headers = {**headers, "Content-Security-Policy":
+                   headers.get("Content-Security-Policy", pages.CSP).replace(
+                       "sandbox allow-scripts;", "sandbox allow-scripts allow-downloads;", 1)}
     return _page_response(body, kind, headers=headers)
 
 

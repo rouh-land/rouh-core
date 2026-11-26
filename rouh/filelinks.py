@@ -68,3 +68,37 @@ def read(token: str) -> dict:
                                              for k in ("u", "o", "r", "d")):
         raise Refused("That is not a download link Rouh made.")
     return said
+
+
+def for_page(who, root, page: str):
+    """For `pages.read`: the download link of each working file a link in the page at
+    ``page`` names, for ``who``, or None for one the workspace already serves or reads.
+
+    Petar, 26 November 2026, on step 169-15's `design-recipe.zip`: the link in the page
+    answered "That page is not here any more", because a file beside a page that is not a
+    page, a picture or a note had no address at all. Now it has the same link a task's
+    Download button carries, for the task the page is in, checked by the same rules
+    (`objectindex.doc_download`), and the task frame saves it (`allow-downloads`).
+    """
+    import os
+
+    from . import objectindex, pages
+    from .steps import task_part
+
+    folder = str(page).strip("/").rsplit("/", 1)[0] if "/" in str(page).strip("/") else ""
+    task = task_part(folder)
+    if not task:
+        return None
+
+    def address(rel: str) -> str | None:
+        suffix = os.path.splitext(str(rel).lower())[1]
+        if suffix in pages.TYPES or suffix == ".md" or not str(rel).startswith(task + "/"):
+            return None
+        doc = str(rel)[len(task) + 1:]
+        try:
+            objectindex.doc_download(root, task, doc)
+        except (pages.Refused, OSError):
+            return None
+        return link(who, task, doc)
+
+    return address

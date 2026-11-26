@@ -276,6 +276,18 @@ SUBTITLES = (".vtt",)
 LINKED_FILES = MEDIA + SUBTITLES + (".srt",)
 #: Everything that may be fetched by an address of its own (`picturelinks`).
 BY_ADDRESS = PICTURES + LINKED_FILES
+
+#: What a plain link in a page never names as a working file: a page, which
+#: opens as the page it is. Every other file a link names beside the page - a
+#: `.zip`, a `.docx`, a `.csv`, a note - is a working file of the task, and the
+#: caller of ``read(files=...)`` says what address it has, if any: for the
+#: owner a download, for a kind the workspace does not already serve or read
+#: (a note is read in Rouh, `frameGo` in cards.js); in a shared task, a place
+#: inside the share that reads a note and downloads anything else.
+#: Until 26 November 2026 none had one: the link was read as a page, and
+#: Rouh answered "That page is not here any more" for step 169-15's
+#: `design-recipe.zip`, to its owner and to the person the task was shared with.
+NOT_DOWNLOADS = (".html", ".htm")
 STYLESHEETS = (".css",)
 SCRIPTS = (".js",)
 
@@ -670,6 +682,13 @@ def follow_script() -> bytes:
         b"if(u.origin===home.origin&&u.pathname.indexOf('" + own + b"')===0){e.preventDefault();"
         b"try{window.open(u.href,'_blank','noopener,noreferrer')}catch(err){}"
         b"return}"
+        # A file a page in a shared task links to (`taskshare.file_link`): its
+        # place under the share, which the reader's page opens in a tab of its
+        # own, where the browser sends the sign-in and may save a download.
+        b"if(u.origin===home.origin&&/^\\/(shared|p)\\//.test(u.pathname)&&/[?&]file=/.test(u.search)){"
+        b"e.preventDefault();"
+        b"try{p.postMessage({type:'" + kind + b"',href:u.href,out:true},'*')}catch(err){}"
+        b"return}"
         b"if(a.target&&a.target!=='_self')return;"
         b"if(u.origin!==home.origin||!ours(u.pathname))return;"
         b"e.preventDefault();"
@@ -1005,7 +1024,7 @@ def _read_upto(target: Path, limit: int) -> bytes:
 
 def read(root, asked: str, raw: str = "", at: str | None = None,
          askai: bytes = b"", mark: bool = False,
-         source: str | None = None, pictures=None) -> tuple[bytes, str]:
+         source: str | None = None, pictures=None, files=None) -> tuple[bytes, str]:
     """A file's bytes and its type. A page comes with the files it names put
     into it, and with the storage stand-in.
 
@@ -1026,6 +1045,11 @@ def read(root, asked: str, raw: str = "", at: str | None = None,
 
     ``pictures`` links the pictures the page names rather than putting them in
     (``with_files``), and is given only with ``at``.
+
+    ``files`` is the address of a working file a link in the page names, by its
+    path in the workspace, or None for one it may not have (`NOT_DOWNLOADS`):
+    the owner's signed download link (`rouh/filelinks.py`), or a place inside
+    the share that shows it (`rouh/taskshare.py`).
     """
     target = check(root, asked, raw)
     suffix = os.path.splitext(target.name.lower())[1]
@@ -1041,7 +1065,7 @@ def read(root, asked: str, raw: str = "", at: str | None = None,
             body = with_marks(body.decode("utf-8", "surrogateescape")).encode(
                 "utf-8", "surrogateescape")
         body = with_storage(with_files(root, asked, body,
-                                       pictures if at is not None else None), at, askai)
+                                       pictures if at is not None else None, files), at, askai)
     return body, TYPES[suffix]
 
 
@@ -1145,8 +1169,10 @@ def _candidates(srcset: str):
 class _Inliner:
     """Puts the files one page names into it. One for each page sent."""
 
-    def __init__(self, root, page: str, pictures=None) -> None:
+    def __init__(self, root, page: str, pictures=None, files=None) -> None:
         self.root = root
+        # The address of a working file a link names, by its path (`read`), else None.
+        self.files = files
         self.page = page
         self.folder = page.rsplit("/", 1)[0]
         self.total = 0
@@ -1197,6 +1223,38 @@ class _Inliner:
         if suffix not in kinds or os.path.splitext(asked.lower())[1] not in kinds:
             return None
         return asked, target, suffix, fragment
+
+    def working_file(self, folder: str, ref: str) -> str | None:
+        """The address ``self.files`` gives the working file a link names, read
+        from ``folder``, or None to leave the link exactly as it was.
+
+        Read the way ``find`` reads a reference, and climbing stops at the
+        page's own task in the same way; whether the file may be had at all is
+        the callable's to say, by the rules a task's files are downloaded by.
+        """
+        if self.files is None:
+            return None
+        ref = re.sub(r"[\t\n\r]", "", ref.strip(_SPACE))
+        if not ref or ref[0] in "#/?\\" or _SCHEME.match(ref):
+            return None
+        path = ref.partition("#")[0].split("?", 1)[0]
+        if not path or path.endswith("/"):
+            return None
+        asked = posixpath.normpath(f"{folder}/{unquote(path)}")
+        if asked == ".." or asked.startswith(("../", "/")):
+            return None
+        from .steps import task_part
+        task = task_part(self.folder)
+        if not task or not asked.startswith(task + "/"):
+            return None
+        suffix = os.path.splitext(asked.lower())[1]
+        if not suffix or suffix in NOT_DOWNLOADS:
+            return None
+        try:
+            return self.files(asked)
+        except Exception:  # noqa: BLE001 - a link left as it was is the worst that happens
+            log.exception("pages: no address for %s in %s", asked, self.page)
+            return None
 
     def take(self, target: Path, ref: str) -> bytes | None:
         """A file's bytes, counted against the page's limits, or None past them."""
@@ -1379,6 +1437,11 @@ class _Inliner:
             one("src", SUBTITLES)
         elif tag == "a":
             one("href", LINKED_FILES, link=True, only_link=True)
+            attr = found.get("href")
+            if not swaps and attr is not None and attr.group("value"):
+                new = self.working_file(self.folder, html.unescape(_value(attr)))
+                if new:
+                    swaps.append((attr, new))
         elif tag == "image":
             one("href", PICTURES, link=True)
             one("xlink:href", PICTURES, link=True)
@@ -1709,7 +1772,7 @@ def enclosing(spans, lo: int, hi: int) -> tuple[int, int, str] | None:
     return best
 
 
-def with_files(root, asked: str, page: bytes, pictures=None) -> bytes:
+def with_files(root, asked: str, page: bytes, pictures=None, files=None) -> bytes:
     """The page with every file its markup names put in, as data: addresses.
 
     ``asked`` is the page's path in the workspace as the route received it, so
@@ -1725,7 +1788,7 @@ def with_files(root, asked: str, page: bytes, pictures=None) -> bytes:
         log.info("pages: %s has a <base> address, so its references are left as they are",
                  asked)
         return page
-    done = _Inliner(root, str(asked), pictures).walk(text)
+    done = _Inliner(root, str(asked), pictures, files).walk(text)
     return page if done == text else done.encode("utf-8", "surrogateescape")
 
 
