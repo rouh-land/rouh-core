@@ -118,6 +118,15 @@ def words_only(text: str) -> str:
     return stripped
 
 
+def tunes_latency(model: str) -> bool:
+    """Whether ElevenLabs takes `optimize_streaming_latency` for this model.
+
+    The v4 models refuse the request outright (400 unsupported_model) when it is
+    sent, so it goes only to the older ones, Flash and Turbo v2 among them.
+    """
+    return not (model or "").startswith("eleven_v4")
+
+
 class Voice:
     """Text to speech."""
 
@@ -137,10 +146,9 @@ class Voice:
         if not text:
             return
         url = f"{API}/text-to-speech/{self.cfg.voice_id}/stream"
-        params = {
-            "output_format": f"pcm_{self.cfg.tts_sample_rate}",
-            "optimize_streaming_latency": "3",
-        }
+        params = {"output_format": f"pcm_{self.cfg.tts_sample_rate}"}
+        if tunes_latency(self.cfg.tts_model):
+            params["optimize_streaming_latency"] = "3"
         body = {
             "text": text,
             "model_id": self.cfg.tts_model,

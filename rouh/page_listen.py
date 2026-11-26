@@ -58,7 +58,7 @@ new name for BigBongo: "add a functionality where I can select something and hav
 eleven labs to pronounce it so I can hear it". So a page can ask for a short text said aloud, ``do:
 "word"`` with ``text`` and ``lang`` (`say_word`): ``bg`` says it as a Bulgarian would, ``en`` as an
 English speaker would read it, which is what a brand name has to survive. It is said by a model
-that can be told the language (`WORD_MODEL`, ElevenLabs' Flash v2.5, which speaks Bulgarian), in
+that can be told the language (`_word_model`, the voice's own model, Eleven v4 Turbo, which speaks Bulgarian), in
 Rouh's own voice, and each clip is kept per person by its words, language, voice and model
 (`_word_file`), so the same word is never paid for twice. Kept on the server under the data
 folder's ``page_listen/<person>/words/``, for every page and every device of that person; only a
@@ -481,14 +481,18 @@ async def speak(who, rel: str, key: str, i, jump: bool = False, cfg=None) -> dic
 #: The longest text "Hear a word" says, and the languages it says it in.
 WORD_CHARS = 200
 WORD_LANGS = ("bg", "en")
-#: A model that can be told which language to say a word in (`language_code`), and speaks Bulgarian.
-WORD_MODEL = "eleven_flash_v2_5"
+#: A model that can be told which language to say a word in (`language_code`), and speaks
+#: Bulgarian: the voice's own model, Eleven v4 Turbo unless an installation names another.
+def _word_model() -> str:
+    from .config import config
+
+    return config.tts_model or "eleven_v4_turbo"
 #: The clips kept for one person; the oldest go first.
 WORDS_KEPT = 3000
 
 
 def _word_file(who, text: str, lang: str, rate: int, voice_id: str) -> Path:
-    said = json.dumps([WORD_MODEL, voice_id, lang, rate, text], ensure_ascii=False)
+    said = json.dumps([_word_model(), voice_id, lang, rate, text], ensure_ascii=False)
     return _folder(who) / "words" / f"{hashlib.sha256(said.encode('utf-8')).hexdigest()[:32]}.pcm"
 
 
@@ -515,7 +519,7 @@ async def _ask_word(text: str, lang: str, path: Path, cfg) -> bytes:
                 f"{speech.API}/text-to-speech/{cfg.voice_id}/stream",
                 params={"output_format": f"pcm_{rate}"},
                 headers={"xi-api-key": cfg.elevenlabs_api_key, "accept": "audio/pcm"},
-                json={"text": text, "model_id": WORD_MODEL, "language_code": lang,
+                json={"text": text, "model_id": _word_model(), "language_code": lang,
                       "voice_settings": {"stability": 0.5, "similarity_boost": 0.75, "speed": 0.9}})
     except httpx.HTTPError:
         log.exception("the voice could not be reached for a word")

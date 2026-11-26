@@ -126,6 +126,11 @@ def build_app(record_dir: str | None = None) -> FastAPI:
         # A voice id with "unknown" in it is one ElevenLabs has no voice for.
         if "unknown" in voice_id:
             return JSONResponse({"detail": {"status": "voice_not_found"}}, status_code=404)
+        # The v4 models refuse this setting outright, as ElevenLabs does (checked 26 November 2026).
+        model = (body or {}).get("model_id") or ""
+        if model.startswith("eleven_v4") and "optimize_streaming_latency" in request.query_params:
+            return JSONResponse({"detail": {"status": "unsupported_model", "code": "unsupported_model",
+                                            "param": "model_id"}}, status_code=400)
         # `pcm_24000`, the way Rouh asks for it. Anything else and the page
         # would be handed audio at a rate it was not told about, which is a
         # real failure and not one to paper over here.
@@ -136,7 +141,7 @@ def build_app(record_dir: str | None = None) -> FastAPI:
             counter["n"] += 1
             name = f"{counter['n']:04d}-{int(time.time() * 1000)}.json"
             with open(os.path.join(record_dir, name), "w", encoding="utf-8") as fh:
-                json.dump({"voice_id": voice_id, "text": text, "rate": rate}, fh)
+                json.dump({"voice_id": voice_id, "text": text, "rate": rate, "model": model}, fh)
 
         pcm = tone(text, rate)
 

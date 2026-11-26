@@ -871,7 +871,11 @@ class Config:
     voice_id: str = field(
         default_factory=lambda: _env("ROUH_VOICE_ID", "JBFqnCBsd6RMkjVDRZzb")
     )
-    tts_model: str = field(default_factory=lambda: _env("ROUH_TTS_MODEL", "eleven_flash_v2_5"))
+    # Eleven v4 Turbo since 26 November 2026, on the owner's word: the same price per
+    # character as Flash v2.5, about 100 ms to the first sound against Flash's 75, and
+    # checked with this voice, Bulgarian and streaming. ROUH_TTS_MODEL=eleven_flash_v2_5
+    # puts Flash back.
+    tts_model: str = field(default_factory=lambda: _env("ROUH_TTS_MODEL", "eleven_v4_turbo"))
     # Batch is the fallback; realtime is the normal path.
     stt_model: str = field(default_factory=lambda: _env("ROUH_STT_MODEL", "scribe_v1"))
     stt_realtime_model: str = field(
