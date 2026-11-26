@@ -5677,6 +5677,9 @@ class Session:
         #: A device of the person's own on its key (`rouh/devices.py`), or None for a browser tab: it
         #: stays in its own chat and may send only the voice's messages.
         self.device: dict | None = None
+        #: On a device: what Rouh last said aloud there, and when, so its own voice coming back through
+        #: the device's microphone is never taken for the person (`devices.own_echo`).
+        self.said_aloud: tuple[str, float] = ("", 0.0)
 
     # --- plumbing -----------------------------------------------------------
 
@@ -5689,6 +5692,8 @@ class Session:
         """
         if self.closed:
             return
+        if self.device is not None and message.get("type") == "assistant_done":
+            self.said_aloud = (str(message.get("text") or ""), time.monotonic())
         with contextlib.suppress(Exception):
             await self.ws.send_text(json.dumps(message))
 
@@ -5817,8 +5822,16 @@ class Session:
         arrives would otherwise leave those words both in the conversation and
         in the pending list, and the model would be asked them twice.
         """
-        await self.cancel_turn(quiet=True)
         words = (words or "").strip()
+        if self.device is not None and words and devices.own_echo(
+                words, self.said_aloud[0], time.monotonic() - self.said_aloud[1]):
+            # Rouh's own answer, heard back from the room's speaker: never the person, never answered, and
+            # nothing of it is kept as pending words. The device is told it is idle, so it listens again.
+            log.info("device %s heard Rouh's own words back, dropped: %r",
+                     (self.device or {}).get("name"), words[:120])
+            await self.state("idle", share=False)
+            return
+        await self.cancel_turn(quiet=True)
         if words:
             self.pending.append(words)
         asked = " ".join(self.pending).strip()

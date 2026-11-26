@@ -25,6 +25,13 @@ where the robot's other secrets are).
 the Robot chat full screen (`rouh/projector.py`). Its key is a device key of the kind `display`: it reads
 that one chat's newest words and cards through `/api/projector/feed` and nothing else, and the WebSocket
 refuses it, so a display can never speak, type or press anything in the person's name.
+
+**Rouh never answers its own voice.** Petar, 26 November 2026, once the robot's voice came out of his Echo: the
+robot's microphone heard Rouh's own answer from the Echo and sent it back in as his turn ("Great, so my voice is
+coming out of the Echo now" came back as "Great. So my voice is coming out of the effort"). The robot's echo
+canceller and its wake word guard are the first line; this is the last: `own_echo` says whether heard words are
+mostly a repeat of what Rouh said aloud on that device in the last `ECHO_S` seconds, and such a turn is dropped
+before it reaches the model (`Session.ask` in `rouh/runtime.py`).
 """
 from __future__ import annotations
 
@@ -64,6 +71,35 @@ ALLOWED_IN = frozenset({"hello", "ping", "set_mode", "speech_start", "speech_end
 ALLOWED_OUT = frozenset({"ready", "mode", "state", "turn_end", "stt", "assistant_delta", "assistant_done",
                          "assistant_retract", "audio_start", "audio_end", "dictation", "stopped", "error",
                          "pong"})
+#: How long after Rouh said something on a device its own words coming back are taken for an echo.
+ECHO_S = 45.0
+#: Of the heard words, how many must be Rouh's own, and how long a run of them in Rouh's order.
+ECHO_SHARE = 0.8
+ECHO_RUN = 4
+
+
+def _words(text: str) -> list[str]:
+    return re.findall(r"[a-z0-9]+", (text or "").lower().replace("'", ""))
+
+
+def own_echo(heard: str, said: str, age: float) -> bool:
+    """Whether `heard` is Rouh's own `said`, said aloud `age` seconds ago, coming back through a microphone.
+
+    Both tests have to hold, so a person who answers with some of Rouh's words ("yes, it is coming out of
+    the Echo") is still heard: most of the heard words are Rouh's (`ECHO_SHARE`), and at least `ECHO_RUN` of
+    them in a row are in the order Rouh said them. Speech to text mishears a word or two of it ("the Echo"
+    came back as "the effort"), which is why it is a share and a run, not an equal."""
+    if not heard or not said or age < 0 or age > ECHO_S:
+        return False
+    h, s = _words(heard), _words(said)
+    if len(h) < ECHO_RUN or not s:
+        return False
+    if sum(w in set(s) for w in h) / len(h) < ECHO_SHARE:
+        return False
+    grams = {tuple(s[i:i + ECHO_RUN]) for i in range(len(s) - ECHO_RUN + 1)}
+    return any(tuple(h[i:i + ECHO_RUN]) in grams for i in range(len(h) - ECHO_RUN + 1))
+
+
 #: Of `ready`, what a device is sent: no transcript, no conflicts, no browser, no orb.
 READY_KEYS = ("type", "asked", "session_id", "voice", "voice_reply", "ears", "state", "now")
 
