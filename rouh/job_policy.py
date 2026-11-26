@@ -51,7 +51,7 @@ gets done". The cause was here: `RISKY` meant "ask him", whatever he had asked f
 means only "not safe on its tool and arguments alone"; what he asked for is judged after, in
 the gateway, against his own words kept with the run, never against anything the job read.
 - `NEVER`: what only makes sense in a live chat with the owner - the screen and the canvas,
-  the orb, boxes and thoughts - and what answers for the owner: decisions, a run's
+  the orb and boxes - and what answers for the owner: decisions, a run's
   permission question, a conflict's pick, who decides for him. Also what would have Rouh's
   own model do the work, because the gateway spends no tokens of Rouh's on a plain call.
   Never listed to a job, and refused if named.
@@ -191,6 +191,11 @@ OWNS = frozenset({
     "print_page",
     # A contact's card file (.vcf) made for an attachment: it sends nothing.
     "contact_card",
+    # One of the owner's thoughts, kept on their Thoughts page (26 November 2026): only words the
+    # owner said for this very job, matched in code against their own recorded words
+    # (`tools._capture_thought`, `his_word.CARRY`), so a page or an email a job read can never
+    # put a thought in their name, and a process's job, which has none of their words, keeps none.
+    "capture_thought",
 })
 
 #: Tools that read with some actions (`READ_ACTIONS`) and, with these, write only on the owner's
@@ -249,8 +254,8 @@ NEVERS = frozenset({
     "show_on_screen", "what_was_on_screen", "show_again", "revise_on_screen", "set_panels",
     "show_canvas", "show_workspace_page", "show_inbox", "show_contact", "show_the_gaps",
     "ask_for_location", "rename_this_chat", "make_a_task", "pin",
-    # Boxes and thoughts, which are the owner's to capture.
-    "open_box", "new_box", "capture_thought",
+    # Boxes, which are the owner's to make and open.
+    "open_box", "new_box",
     # What answers for the owner.
     "decisions", "actions", "one_answer", "answer_conflict", "delegate", "delegate_act",
     # Taking over and handing back a run's terminal, and the live browser the owner watches:

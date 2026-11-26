@@ -233,6 +233,11 @@ class Prompt:
         if self.allow is not None and not self.allow(r):
             return
         text = (fill(r["text"], self.values) if r.get("fills") else r["text"]).strip("\n")
+        if r.get("key") == "tier-index":
+            # The index of rules told with their tools names only tools this turn has (`rule_tiers.index_for`).
+            from . import rule_tiers
+
+            text = rule_tiers.index_for(text, self.situation.tools)
         if not text.strip():
             return
         why = "; ".join(situation_words(r.get("when") or {})) or "every turn"

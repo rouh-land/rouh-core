@@ -217,9 +217,11 @@ def _reads(chat_id: str) -> dict:
 
 def _reads_off_line(reads: dict) -> str:
     tools_off = not reads.get("any_tools", reads.get("tools", True))
+    from . import reading
+
     off = [w for k, w in (("memory", "memory: you are told nothing of who the person is, where they are or "
-           "what they have told you before, so do not guess it"), ("rules", "the person's own rules, "
-           "except those about permission, privacy and safety")) if not reads[k]]
+           "what they have told you before, so do not guess it, and " + reading.MEMORY_OFF),
+           ("rules", "the person's own rules, except those about permission, privacy and safety")) if not reads[k]]
     if tools_off:
         off.append("tools: you cannot call any in this chat, so answer from what you know and say so when a "
                    "tool would be needed")

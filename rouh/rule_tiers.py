@@ -150,6 +150,32 @@ Some of your built-in rules are not in these instructions every turn. Each comes
 - A box keeps something from you: never ask or guess what is in one, and one is opened only with open_box when their own words name it."""
 
 
+def index_for(text: str, tools) -> str:
+    """The index rule as one turn is told it: without a line whose every tool is missing from this turn's tools.
+
+    26 November 2026: a chat with Memory off was told "Their own thought or idea goes to capture_thought", the
+    tool search found no capture_thought, because Memory off leaves it out on purpose (`reading.MEMORY_TOOLS`),
+    and Rouh told the person the tool was unavailable. A line that names tools only some of which are here is
+    kept; one that names none of them (the waiting line) is kept as it is. The tools of a chat change only with
+    its settings, so the cached part stays the same from one message to the next."""
+    from . import toolsearch
+
+    have = set(tools or ())
+    known = set(toolsearch.AREA_OF) | set(TOOL_TOPICS)
+    out, dropped = [], 0
+    for line in str(text or "").split("\n"):
+        if line.startswith("- "):
+            named = {w for w in re.findall(r"\b[a-z][a-z0-9]*(?:_[a-z0-9]+)+\b|\b[a-z]+\b", line) if w in known}
+            if named and not named & have:
+                dropped += 1
+                continue
+        out.append(line)
+    if dropped and not any(line.startswith("- ") for line in out):
+        # Nothing left to load (Tools off): the index has nothing to say.
+        return ""
+    return "\n".join(out)
+
+
 # --- what a rule says about its tier -------------------------------------------------------------------
 
 

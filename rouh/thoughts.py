@@ -123,6 +123,41 @@ def _same(a: str, b: str) -> bool:
     return norm(a) == norm(b)
 
 
+#: How many of a thought's words may differ from what the person said and still be theirs: the obvious
+#: dictation slips a thought may be mended for ("we have eto" said, "we have to" kept), one in ten words and
+#: never more than three, so a short thought is theirs word for word and a long one is never a rewording.
+SLIPS_MOST = 3
+SLIPS_SHARE = 0.1
+
+
+def theirs(words: str, said) -> bool:
+    """Whether a thought's words are the person's own: one stretch of something they said (`said`, their
+    words as Rouh recorded them), case and punctuation aside, with at most a few words mended
+    (`SLIPS_MOST`, `SLIPS_SHARE`). What a job keeps as their thought is held to this, so a job can keep
+    only what they told it, never a summary and never words it read somewhere."""
+    import difflib
+
+    want = re.findall(r"\w+", str(words or "").lower())
+    if not want:
+        return False
+    room = min(SLIPS_MOST, int(len(want) * SLIPS_SHARE))
+    for text in said or ():
+        have = re.findall(r"\w+", str(text or "").lower())
+        if len(have) < len(want) - room:
+            continue
+        m = difflib.SequenceMatcher(None, have, want, autojunk=False)
+        blocks = [b for b in m.get_matching_blocks() if b.size]
+        if not blocks:
+            continue
+        matched = sum(b.size for b in blocks)
+        # One stretch of what they said: from the first word matched to the last, nothing much left out
+        # or put in between.
+        span = blocks[-1].a + blocks[-1].size - blocks[0].a
+        if len(want) - matched <= room and span - matched <= room:
+            return True
+    return False
+
+
 # --- whose --------------------------------------------------------------------------------------
 
 
@@ -506,6 +541,17 @@ def sync_master(ds: dict) -> dict:
     return out
 
 
+def _keeps_in(chat: str) -> bool:
+    """Whether a thought may be kept from this chat: not an incognito one, and Memory on in its Chat Options."""
+    try:
+        from . import incognito, reading
+
+        return not incognito.quiet(chat) and bool(reading.switches(chat).get("memory", True))
+    except Exception:  # noqa: BLE001 - the person's words are kept rather than lost
+        log.exception("whether chat %s keeps memory could not be read", chat)
+        return True
+
+
 async def keep_prefixed(who, text: str, chat: str, *, source: str = "") -> dict | None:
     """A message starting "thought:" or "idea:" is always a thought: kept here by code, before the model
     reads it, and copied into Synapse Master. The model, told to keep it, finds it already kept and gives
@@ -514,6 +560,10 @@ async def keep_prefixed(who, text: str, chat: str, *, source: str = "") -> dict 
 
     words = prefixed(text, spoken=source in ("voice", "voice_note") or HOW.get() == "voice")
     if not words or who is None:
+        return None
+    if chat and not await asyncio.to_thread(_keeps_in, chat):
+        # Memory off in Chat Options, or an incognito chat: nothing of the person's is kept from it, a thought
+        # neither (26 November 2026); the model is told so, and says it plainly (`reading.MEMORY_OFF`).
         return None
     try:
         v, new = await asyncio.to_thread(lambda: capture(who, words, chat=chat, source=source))

@@ -392,7 +392,7 @@ async def verify(job: str, token: str) -> str:
 
     token = str(token or "").strip()
     client = OneClient()
-    if not client.configured:
+    if not client.configured():
         return "noprogram"
     if not token:
         try:
@@ -533,7 +533,7 @@ async def sync_once() -> dict:
         client = OneClient()
         doors = []
         attempts = []
-        if client.configured:
+        if client.configured():
             got = await asyncio.wait_for(client.ask("run_doors"), 10)
             doors = got.get("doors") or []
             _state["door_started"] = float(got.get("started_at") or 0)

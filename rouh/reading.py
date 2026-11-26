@@ -957,11 +957,27 @@ PLAIN_RULES = frozenset({"turn-marks", "this-turn-spoken"})
 #: Built-in rules that hold what this Rouh knows of its setting up: the name it was born with and the
 #: nickname the person gave it. They go with Memory.
 MEMORY_RULES = frozenset({"born-name", "nickname"})
+#: Built-in rules about keeping a rule, a note or a thought (26 November 2026): they go with Rouh Tools like
+#: any rule about a tool, and are not told with Memory off either, because they name remember and
+#: capture_thought, which Memory off does not declare (`MEMORY_TOOLS`); such a chat is told `MEMORY_OFF`.
+KEEPING_RULES = frozenset({"remember", "thoughts"})
 #: The tools that read or keep the person's memory: not declared while Memory is off. Synapse's own tools are
 #: among them (16 November 2026): with them a chat on Memory off could still look the person up.
 MEMORY_TOOLS = frozenset({"remember", "forget", "list_memory", "agent_instructions", "capture_thought",
                           "thoughts", "goals", "plan_goal", "goal_step", "set_goal", "goal_control",
                           "synapse_find", "synapse_query", "synapse_add", "synapse_edit"})
+
+#: What a chat with Memory off is told in place of the rules about keeping things (26 November 2026), in the
+#: line that says what is turned off (`brain._reads_off_line`). In such
+#: a chat a thought was said, the tool search found no capture_thought, and Rouh told the person "the tool I
+#: use to keep thoughts isn't available in this chat" and handed it to a job: the tool was left out on purpose,
+#: and the person was never told why.
+MEMORY_OFF = ("nothing can be kept from here: a thought, a note, a rule or a word they want kept is not kept, "
+              "because the tools that keep them (capture_thought, remember) are left out of this chat on purpose. "
+              "When they ask to keep one, say so plainly in one short line: Memory is off in this chat, so it is "
+              "not kept; turning Memory on in Chat Options, or saying it in a chat with Memory on, keeps it. Never "
+              "say a tool is missing or unavailable, never search for one, and never hand it to a job to keep "
+              "instead")
 
 #: The live context a turn may be told beside the rules: (key, title, source, what it holds).
 CONTEXT = (
@@ -1031,6 +1047,8 @@ def rule_told(r: dict, reads: dict) -> bool:
     if src in ("safety", "builtin"):
         return True
     if rule_item(r) in set(reads.get("off") or ()):
+        return False
+    if src == "tools" and not reads["memory"] and str(r.get("key") or "") in KEEPING_RULES:
         return False
     if src == "rules":
         from . import tool_rules

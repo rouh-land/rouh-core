@@ -2075,7 +2075,8 @@ class ToolRegistry:
             "short title and a few topics you read in it. It is listed newest first, searchable, and copied "
             "into Synapse Master as a thought. Answer with one short line saying it is kept. When the tool "
             "names an earlier thought this one clearly continues, link them (thoughts, action link) and say so "
-            "in one short line.",
+            "in one short line. A background job keeps one only when the person asked for it to be kept, with "
+            "their words exactly as they said them for that job (a summary or words from a page are refused).",
             {
                 "type": "object",
                 "properties": {
@@ -4236,7 +4237,12 @@ class ToolRegistry:
         Research on that card, which the server answers itself (`card_pick`),
         or by saying which one, which is `linkedin_profile` with the card and
         the number. An address they already have goes straight to the harvest.
+
+        Declared once: a key saved again in Settings (`service_keys._after_apify`) asks again, and
+        the two already there stand, without the warning a second declaration makes.
         """
+        if "linkedin_search" in self._handlers and "linkedin_profile" in self._handlers:
+            return
         self._own(
             "linkedin_search",
             "Find people on LinkedIn by name, so the person can pick who they meant "
@@ -13245,18 +13251,26 @@ class ToolRegistry:
         """Keep one of the person's thoughts in their words (`rouh/thoughts.py`), copy it into Synapse
         Master at once so a question finds it, and name any earlier thought it is close to. A new one
         is enriched by itself, in a task of its own (`rouh/thought_enrich.py`)."""
-        from . import signups, thought_enrich, thoughts
+        from . import his_word, signups, thought_enrich, thoughts
 
         who = await self._thought_who()
         if who is None:
             return "Nobody is signed in to keep it for."
+        words = str(args.get("words") or args.get("text") or "")
         if not signups.PERSON_TURN.get():
-            return ("A thought is the person's own words, so it is kept only in a turn they started, never "
-                    "from a note, an email, a job or a reminder. Nothing was kept.")
-        chat = self.memory.answering_chat() or ""
+            # A job handed one of their thoughts (`job_gateway`): kept only when its words are theirs, said
+            # for this job and recorded by Rouh itself, never what the job read.
+            if not thoughts.theirs(words, [w for w, _how, _run in (his_word.CARRY.get() or [])]):
+                return ("A thought is the person's own words, so it is kept only in a turn they started, or by a "
+                        "job they asked to keep it whose words are theirs, as they said them for this job, never "
+                        "from a note, an email, a page or a reminder. Nothing was kept: give their words exactly "
+                        "as they said them.")
+        # A job's thought belongs to no chat: and outside a turn the chat would be read from the database here,
+        # on the event loop, which Django refuses.
+        chat = (self.memory.answering_chat() or "") if signups.PERSON_TURN.get() else ""
         try:
             v, new = await asyncio.to_thread(
-                lambda: thoughts.capture(who, str(args.get("words") or args.get("text") or ""),
+                lambda: thoughts.capture(who, words,
                                          title=str(args.get("title") or ""), tags=args.get("tags") or [],
                                          follows=args.get("follows"), chat=chat))
         except (ValueError, thoughts.NotFound) as exc:
