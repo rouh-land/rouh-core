@@ -1,0 +1,8 @@
+{
+  "commit": "3f2acc46e1960f8f6e8e01aeb9fcc9f08a14b42d",
+  "ref": "proof/stack-standing-default",
+  "ok": false,
+  "result": "failure",
+  "at": "2026-11-26T15:52:08Z",
+  "run": "https://github.com/rouh-land/rouh-core/actions/runs/45846199181"
+}
