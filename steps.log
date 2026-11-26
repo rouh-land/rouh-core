@@ -1,0 +1,78 @@
+== __run
+uid=1001(runner) gid=1001(runner) groups=1001(runner),4(adm),100(users),117,999(systemd-journal)
+Python 3.12.3
+4
+               total        used        free      shared  buff/cache   available
+Mem:              15           0          13           0           1          14
+Swap:              2           0           2
+Filesystem      Size  Used Avail Use% Mounted on
+/dev/root       145G   38G  107G  27% /
+== __run_2
+
+Running kernel seems to be up-to-date.
+
+No services need to be restarted.
+
+No containers need to be restarted.
+
+No user sessions are running outdated binaries.
+
+No VM guests are running outdated hypervisor (qemu) binaries on this host.
+== __run_4
++ sh -c apt-get -qq update >/dev/null
++ sh -c DEBIAN_FRONTEND=noninteractive apt-get -y -qq install ca-certificates curl >/dev/null
++ sh -c install -m 0755 -d /etc/apt/keyrings
++ sh -c curl -fsSL "https://download.docker.com/linux/ubuntu/gpg" -o /etc/apt/keyrings/docker.asc
++ sh -c chmod a+r /etc/apt/keyrings/docker.asc
++ sh -c echo "deb [arch=amd64 signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu noble stable" > /etc/apt/sources.list.d/docker.list
++ sh -c apt-get -qq update >/dev/null
++ apt_flags=-y -qq
++ [ -n  ]
++ sh -c DEBIAN_FRONTEND=noninteractive apt-get -y -qq install docker-ce docker-ce-cli containerd.io docker-compose-plugin docker-ce-rootless-extras docker-buildx-plugin docker-model-plugin >/dev/null
+
+Running kernel seems to be up-to-date.
+
+No services need to be restarted.
+
+No containers need to be restarted.
+
+No user sessions are running outdated binaries.
+
+No VM guests are running outdated hypervisor (qemu) binaries on this host.
+Using systemd to manage Docker service
++ sh -c systemctl enable --now docker.service 2>/dev/null
+INFO: Docker daemon enabled and started
+
++ sh -c docker version
+29.10.1
+== __run_5
+6c9cb08b8c738e4f2f2492618c4e6af68fd783a9 proof: out of the folder uninstall removes
+== __run_6
+
+WARNING! Your credentials are stored unencrypted in '/home/runner/.docker/config.json'.
+Configure a credential helper to remove this warning. See
+https://docs.docker.com/go/credential-store/
+
+Login Succeeded
+#13 exporting to image
+#13 exporting layers
+#13 exporting layers 1.2s done
+#13 exporting manifest sha256:33f080e670d4ff1d513f102467ac36308dd2790320593bb6abe85320fcf112ae done
+#13 exporting config sha256:0f4e7726c2327efddf24b225a41c757e01464553f215614c4b5b2e175df51bf5 done
+#13 exporting attestation manifest sha256:d071487382d013c52b9b821f71804c0777904e21c700691553c5f25d399587f5 done
+#13 exporting manifest list sha256:f6caf86fbb35d2c58ca08ed9e9619d7a0d82f5ea2fb64e8b43c2183c5052157b done
+#13 pushing layers
+#13 ...
+
+#14 [auth] rouh-it/rouh-guard:pull,push token for ghcr.io
+#14 DONE 0.0s
+
+#13 exporting to image
+#13 pushing layers 0.7s done
+#13 ERROR: failed to push ghcr.io/rouh-it/rouh-guard: denied: permission_denied: The requested installation does not exist.
+------
+ > exporting to image:
+------
+ERROR: failed to build: failed to solve: failed to push ghcr.io/rouh-it/rouh-guard: denied: permission_denied: The requested installation does not exist.
+== __run_19
+== __run_20
