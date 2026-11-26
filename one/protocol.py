@@ -518,6 +518,15 @@ class Client:
                                        timeout=float(m.get("timeout") or 20), limit=int(m.get("limit") or 4000))
         return {"text": text}
 
+    async def _do_robot_bluetooth(self, m):
+        """The robot's Bluetooth, on the robot over the worker's link to it (one/robot.py)."""
+        from . import robot
+
+        seconds = m.get("seconds")
+        return await asyncio.to_thread(robot.bluetooth, str(m.get("action") or "status"),
+                                       str(m.get("name") or ""), bool(m.get("restart")),
+                                       float(seconds) if isinstance(seconds, (int, float)) else None)
+
     async def _do_claude_signin(self, m):
         """Rouh's page signs Claude Code in, in the containers (one/claude_signin.py).
 

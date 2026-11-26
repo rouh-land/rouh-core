@@ -4322,6 +4322,7 @@
     "rouh/management/commands/device.py",
     "rouh/robotchat.py",
     "rouh/web/robotchat.py",
+    "one/robot.py",
     "rouh/genes/manifests/robot.json"
    ]
   },

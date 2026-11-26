@@ -152,6 +152,8 @@ SOURCES = {
     "look_at_task": "a task's files and pages, which may quote mail, pages and files written by others",
     "read_task_log": "a run's log, which quotes what the run read: pages, mail, files and commands",
     "what_task_changed": "what changed in a task's files, which may quote anything",
+    # The robot's Bluetooth (task 122): the names of devices nearby, which anyone can set.
+    "robot_bluetooth": "Bluetooth devices near the robot, whose names anyone nearby can set",
     # Synapse, the person's memory, which holds mail, meetings, pages and messages of others.
     "synapse_find": "items in the person's memory, which hold mail, meetings, pages and messages written by others",
     "synapse_query": "what the person's memory holds, which quotes mail, meetings, pages and messages written by others",

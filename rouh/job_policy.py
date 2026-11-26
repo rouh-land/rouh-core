@@ -150,6 +150,8 @@ READ_ACTIONS = {
                              "email_routing_status", "email_routing_rules", "zone_settings"}),
     "hue": frozenset({"list"}),
     "vacuum": frozenset({"status"}),
+    # The robot's Bluetooth (`one/robot.py`): status and scan only read.
+    "robot_bluetooth": frozenset({"status", "scan"}),
     # What the heartbeat reads of Stripe (`heartbeat.STRIPE_READS`); "status" when not said.
     "stripe": frozenset({"status", "payments", "balance", "list"}),
     # The comments pinned to one of the owner's pages (`rouh/page_comments.py`); "list" when

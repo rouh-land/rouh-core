@@ -16830,6 +16830,61 @@ class ToolRegistry:
             self._one_give,
             brief=FAMILY["one_runs"],
         )
+        # The robot's Bluetooth (task 122; Petar, 26 November 2026, to the robot: "Rouh, can you build
+        # yourself a tool so that I can connect you by Bluetooth?"). The robot is reached only from the
+        # worker, over its own link, so the program runs it (`one/robot.py`, then the robot's
+        # `rouh bluetooth`). Like the lights: done at once, and the answer is one sentence to say.
+        self._own(
+            "robot_bluetooth",
+            "Bluetooth on ‹owner›'s robot (the Waveshare UGV Beast Rouh lives in): turn it on, see what is "
+            "nearby, and pair and connect a device by the name ‹he› says ('my phone', 'the JBL speaker', "
+            "'my headphones'). status: on or off, and what is paired and connected. on: turn it on; the "
+            "very first time it needs one restart of the robot, about a minute: ask ‹him› once, and on a "
+            "yes call on again with restart true. off: switch the radio off. scan: what is nearby, by "
+            "name, in about 12 seconds. connect (name): finds it, pairs it with no code, trusts it and "
+            "connects it; the device must be in pairing mode, a phone with its Bluetooth settings open, "
+            "and a phone asks ‹him› to press Pair. disconnect or forget (name): a paired device. open: "
+            "the robot is visible as Rouh for two minutes, for a phone to pair from its own Bluetooth "
+            "settings. Every answer has `said`: say it, nearly word for word, as your answer. When it "
+            "names more than one device, ask which, never guess. Rouh's own voice stays on the robot's "
+            "speaker: connecting a speaker or headset does not move it there.",
+            {"type": "object", "properties": {
+                "action": {"type": "string", "enum": ["status", "on", "off", "scan", "connect", "disconnect",
+                                                      "forget", "open"]},
+                "name": {"type": "string", "description": "For connect, disconnect or forget: the device, as "
+                                                          "‹he› says it, such as 'my phone' or 'JBL Flip'."},
+                "restart": {"type": "boolean", "description": "For on: true only after ‹he› said yes to a "
+                                                              "one-minute restart of the robot."},
+                "seconds": {"type": "number", "description": "For scan or open: how long, if ‹he› says."},
+            }, "required": ["action"]},
+            self._robot_bluetooth, area="home",
+            brief="The robot's Bluetooth: on, off, what is nearby, pair and connect a device by name",
+        )
+
+    async def _robot_bluetooth(self, args, emit):
+        """The robot's Bluetooth, through the one program (`one/robot.py`): one sentence to say."""
+        from .one_client import OneClient
+
+        args = dict(args or {})
+        fields = {"action": str(args.get("action") or "status"), "name": str(args.get("name") or "")[:80],
+                  "restart": bool(args.get("restart"))}
+        if isinstance(args.get("seconds"), (int, float)):
+            fields["seconds"] = args["seconds"]
+        # Pairing waits for the device and for a press on a phone: far longer than the program's
+        # usual ten seconds.
+        slow = OneClient(self.one.socket_path, self.one.token_file, timeout=110)
+        try:
+            got = await slow.ask("robot_bluetooth", **fields)
+        except OneUnavailable as exc:
+            return untrusted.ours(f"I can't reach the robot's Bluetooth: the worker is not answering ({exc}).")
+        except OneRefused as exc:
+            return untrusted.ours(f"I can't reach the robot's Bluetooth: {exc}.")
+        said = str(got.get("said") or "The robot gave no answer about Bluetooth.")
+        more = {k: got[k] for k in ("ok", "nearby", "devices", "device", "needs_restart", "restarting",
+                                    "visible_as", "why") if k in got}
+        # Not `ours`: a device's name is whatever anyone nearby set it to, so the answer is boxed
+        # (`untrusted.SOURCES`).
+        return said + ("\n" + json.dumps(more, ensure_ascii=False)[:1500] if more else "")
 
     async def _one_ask(self, t: str, **fields):
         """The program's answer, or one sentence saying why there is none."""

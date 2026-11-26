@@ -188,7 +188,7 @@ AREA_OF: dict[str, str] = {
     "slack_channels": "slack", "slack_read": "slack", "slack_search": "slack", "slack_join": "slack",
     "slack_send": "slack", "slack_link": "slack",
     # Home
-    "hue": "home", "vacuum": "home",
+    "hue": "home", "vacuum": "home", "robot_bluetooth": "home",
     # Reminders and goals
     "schedule": "reminders", "upcoming": "reminders", "change_scheduled": "reminders",
     "set_goal": "reminders", "plan_goal": "reminders", "goal_step": "reminders",

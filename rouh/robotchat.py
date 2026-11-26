@@ -22,7 +22,8 @@ told with every turn in it and in no other chat:
   fully removed". Until then a spoken turn was told to keep all of that off. What still needs the
   owner's yes (spending money, deleting for good, giving access to an outsider) needs it here too,
   by the same rules as anywhere else.
-* **Its body.** No tool in this chat moves the robot yet. The robot's commands (stop, move,
+* **Its body.** No tool in this chat moves the robot yet. Its Bluetooth is the first part of it Rouh
+  works (`robot_bluetooth`, `one/robot.py`, 26 November 2026). The robot's commands (stop, move,
   go to, look, say, status) are given to this chat, and only this chat, once they are built.
 
 Nothing in code treats a spoken turn differently from a typed one, beyond the `HEARD` mark itself
@@ -71,7 +72,8 @@ Who is speaking:
 - What needs the owner's yes anywhere still needs it here, by the same rules as everywhere else.
 
 The robot's body:
-- Nothing in this chat can move the robot yet: no tool here drives it, turns its camera or looks through it. Never say that you moved, looked or saw. When asked, say that moving comes later, once its safety stops are in place."""
+- Nothing in this chat can move the robot yet: no tool here drives it, turns its camera or looks through it. Never say that you moved, looked or saw. When asked, say that moving comes later, once its safety stops are in place.
+- Its Bluetooth you can work, with robot_bluetooth: turn it on, say what is nearby, and pair and connect a phone, speaker or headset by the name said. Say its answer as your answer."""
 
 
 def prompt_block(chat_id: str) -> str:
