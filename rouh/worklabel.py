@@ -27,7 +27,7 @@ import re
 from typing import Any, Callable, Mapping
 from urllib.parse import urlsplit
 
-__all__ = ["WHAT_MAX", "DETAIL_MAX", "redact", "describe_step", "describe_helper",
+__all__ = ["WHAT_MAX", "DETAIL_MAX", "redact", "words", "describe_step", "describe_helper",
            "given", "describe_doing", "command_input", "command_output"]
 
 #: The hover line. Short enough to read in a glance next to the pointer.
@@ -47,14 +47,26 @@ _SECRET_WORD = r"(?:KEY|TOKEN|SECRET|PASSWORD|PASSWD|PASSPHRASE|PWD|CREDENTIALS?
 #: greedy hides a whole command and one that is too shy shows a key. These
 #: first ones go by what a secret looks like, wherever it is written.
 _BY_SHAPE: list[tuple[re.Pattern[str], str]] = [
-    # Keys with a known shape: Anthropic, OpenAI, GitHub, Slack, AWS, Google.
+    # Keys with a known shape: Anthropic, OpenAI, GitHub, Slack, AWS, Google, Apify, Stripe,
+    # Google's OAuth tokens and client secrets, a Telegram bot's key, a JSON web token, a
+    # private key. Each starts with letters nothing else starts with, so none can match the
+    # id of a Drive folder or a document.
     (re.compile(r"\bsk-(?:ant-)?[A-Za-z0-9_\-]{8,}"), _HIDDEN),
     (re.compile(r"\bgh[pousr]_[A-Za-z0-9]{12,}"), _HIDDEN),
     (re.compile(r"\bgithub_pat_[A-Za-z0-9_]{16,}"), _HIDDEN),
-    (re.compile(r"\bxox[abprs]-[A-Za-z0-9\-]{8,}"), _HIDDEN),
+    (re.compile(r"\bxox[abposr]-[A-Za-z0-9\-]{8,}"), _HIDDEN),
+    (re.compile(r"\bxapp-[A-Za-z0-9\-]{10,}"), _HIDDEN),
     (re.compile(r"\bAKIA[0-9A-Z]{16}\b"), _HIDDEN),
     (re.compile(r"\bAIza[0-9A-Za-z\-_]{20,}"), _HIDDEN),
     (re.compile(r"\bapify_api_[A-Za-z0-9]{8,}"), _HIDDEN),
+    (re.compile(r"\b(?:sk|rk)_(?:live|test)_[A-Za-z0-9]{10,}"), _HIDDEN),
+    (re.compile(r"\bwhsec_[A-Za-z0-9]{10,}"), _HIDDEN),
+    (re.compile(r"\bGOCSPX-[A-Za-z0-9_\-]{6,}"), _HIDDEN),
+    (re.compile(r"\bya29\.[A-Za-z0-9_\-.]{10,}"), _HIDDEN),
+    (re.compile(r"(?<![A-Za-z0-9:/])1//[A-Za-z0-9_\-]{10,}"), _HIDDEN),
+    (re.compile(r"(?<![0-9])\d{6,12}:AA[A-Za-z0-9_\-]{30,}"), _HIDDEN),
+    (re.compile(r"\beyJ[A-Za-z0-9_\-]{8,}\.[A-Za-z0-9_\-]{8,}\.[A-Za-z0-9_\-]{4,}"), _HIDDEN),
+    (re.compile(r"-----BEGIN [A-Z ]*PRIVATE KEY-----[\s\S]*?(?:-----END [A-Z ]*PRIVATE KEY-----|$)"), _HIDDEN),
     # "Authorization: Bearer abc", "Authorization=...", "x-api-key: abc".
     (re.compile(r"(?i)(authorization\s*[:=]\s*)(?:(?:bearer|basic|token)\s+)?[^\s'\"]+"), r"\1" + _HIDDEN),
     (re.compile(r"(?i)\b(bearer|basic)\s+[A-Za-z0-9\-._~+/=]{8,}"), r"\1 " + _HIDDEN),
@@ -67,12 +79,8 @@ _BY_SHAPE: list[tuple[re.Pattern[str], str]] = [
     (re.compile(r"(?i)(--(?:password|passwd|token|api[-_]?key|secret|auth)(?:=|\s+))(\"[^\"]*\"|'[^']*'|\S+)"),
      r"\1" + _HIDDEN),
 ]
-
-#: Long random-looking strings: mixed case and digits, 32 characters or more.
-#: A git hash (lower-case hex) and a file path are not caught. Last, so a key
-#: another rule has already named is hidden once.
-_RANDOM = (re.compile(r"(?<![A-Za-z0-9_\-+=])(?=[A-Za-z0-9_\-+=]*[A-Z])(?=[A-Za-z0-9_\-+=]*[a-z])"
-                      r"(?=[A-Za-z0-9_\-+=]*\d)[A-Za-z0-9_\-+=]{32,}"), _HIDDEN)
+#: How many of `_BY_SHAPE`'s rules, from the top, are keys known by their shape alone.
+_SHAPED_KEYS = 16
 
 _REDACTIONS: list[tuple[re.Pattern[str], str]] = _BY_SHAPE + [
     # An environment variable given a value, VAR=value: never shown, whatever
@@ -81,7 +89,6 @@ _REDACTIONS: list[tuple[re.Pattern[str], str]] = _BY_SHAPE + [
     # Any name that sounds secret, in any case: api_key=..., "password": "..."
     (re.compile(r"(?i)\b([a-z0-9_\-]*" + _SECRET_WORD + r"[a-z0-9_\-]*)(\"?\s*[:=]\s*)(\"[^\"]*\"|'[^']*'|[^\s,;&|}'\"]+)"),
      r"\1\2" + _HIDDEN),
-    _RANDOM,
 ]
 
 #: What a command printed is mostly code, settings and listings, where
@@ -91,22 +98,61 @@ _REDACTIONS: list[tuple[re.Pattern[str], str]] = _BY_SHAPE + [
 #: down: an upper-case name that sounds secret given a value, as in `.env` and
 #: `env` (`ANTHROPIC_API_KEY=...`), or a name that sounds secret given a quoted
 #: value, as in JSON and code (`"api_key": "..."`). Neither reaches past the
-#: end of its line.
+#: end of its line. The same rules are used for words written for the person
+#: (a run's closing words, a prompt, a message): see `words`.
 _IN_OUTPUT: list[tuple[re.Pattern[str], str]] = _BY_SHAPE + [
     (re.compile(r"\b([A-Z0-9_]*" + _SECRET_WORD + r"[A-Z0-9_]*)=(\"[^\"\n]*\"|'[^'\n]*'|[^\s;&|'\"]+)"),
      r"\1=" + _HIDDEN),
     (re.compile(r"(?i)\b([a-z0-9_\-]*" + _SECRET_WORD + r"[a-z0-9_\-]*)(\"?\s*[:=]\s*)(\"[^\"\n]*\"|'[^'\n]*')"),
      r"\1\2" + _HIDDEN),
-    _RANDOM,
+]
+
+#: There is no rule for "anything long and random-looking", on purpose. Until
+#: 26 November 2026 one hid every run of 32 or more letters and digits in mixed
+#: case, and a Google Drive folder's id is exactly that: a run's report said
+#: `https://drive.google.com/drive/folders/[hidden]`, and the link the person
+#: needed was gone from the chat, the notice and the card ("I don't want things
+#: hidden. I want to be able to see them"). Docs, Sheets, Slides, YouTube and
+#: most other ids look the same. A secret is hidden here by what it is - a key
+#: of a known shape, a login, a value given to a name that says it is secret -
+#: and never by how random it looks.
+
+#: A web address, to be shown whole: only a login in it and a query parameter
+#: with a secret-sounding name are hidden (`_IN_LINK`), whatever the other rules
+#: would make of its path. Stops before what closes it in Markdown or a sentence.
+_LINK = re.compile(r"(\b[a-zA-Z][a-zA-Z0-9+.\-]*://[^\s<>\"'`)\]]+)")
+_IN_LINK: list[tuple[re.Pattern[str], str]] = [
+    (re.compile(r"^([a-zA-Z][a-zA-Z0-9+.\-]*://)[^/\s:@]+:[^/\s@]+@"), r"\1" + _HIDDEN + "@"),
+    # The parameter's name is a secret word, or ends in one: ?token=, &access_token=, ?key=,
+    # &X-Amz-Signature=, &X-Goog-Credential=, &sig= (a signed address's credentials).
+    (re.compile(r"(?i)([?&#](?:[a-z0-9_\-]*[_\-])?(?:" + _SECRET_WORD + r"|APIKEY|SIG|PASS)=)[^&\s#'\"]+"),
+     r"\1" + _HIDDEN),
+    # A key of a known shape given as an address's value (`?key=AIza...`) is caught above by its
+    # name; one sitting in a path is caught by its shape.
+    *_BY_SHAPE[:_SHAPED_KEYS],
 ]
 
 
 def redact(text: Any, rules: list[tuple[re.Pattern[str], str]] = _REDACTIONS) -> str:
-    """The same text with anything that looks like a secret replaced by [hidden]."""
-    out = str(text or "")
-    for pattern, replacement in rules:
-        out = pattern.sub(replacement, out)
-    return out
+    """The same text with anything that is a secret replaced by [hidden].
+
+    Every web address in it is shown whole but for a login and a secret-named
+    parameter (`_IN_LINK`): the other rules are applied only to the text between
+    addresses, so none of them, `VAR=value` included, ever reaches into one.
+    """
+    out: list[str] = []
+    for i, part in enumerate(_LINK.split(str(text or ""))):
+        for pattern, replacement in (_IN_LINK if i % 2 else rules):
+            part = pattern.sub(replacement, part)
+        out.append(part)
+    return "".join(out)
+
+
+def words(text: Any) -> str:
+    """Words written for the person - a run's closing words, a prompt, a message - with
+    only real secrets hidden: a key of a known shape, a login in a link, a value given
+    to a secret-sounding name. Links and ids are shown whole."""
+    return redact(text, _IN_OUTPUT)
 
 
 # ---------------------------------------------------------------------------

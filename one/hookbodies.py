@@ -105,7 +105,9 @@ def closed_body(payload: Mapping[str, Any], *, failed: bool = False) -> dict[str
 
 
 def plain(text: Any, limit: int) -> str:
-    text = worklabel.redact(str(text or "")).strip()
+    """Words written for the person (a prompt, a run's closing words, a message), with only
+    real secrets hidden and every link whole (`worklabel.words`)."""
+    text = worklabel.words(str(text or "")).strip()
     return text if len(text) <= limit else text[: limit - 6].rstrip() + " [cut]"
 
 
