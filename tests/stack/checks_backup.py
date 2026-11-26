@@ -197,7 +197,7 @@ def backup_offsite(s: Stack) -> None:
     # Not set up, it says so and sends nothing.
     off = _core(s, "env -u ROUH_OFFSITE_ENDPOINT -u ROUH_OFFSITE_BUCKET -u ROUH_OFFSITE_KEY_ID -u ROUH_OFFSITE_SECRET "
                    "python manage.py offsite_backup run")
-    expect("Nothing done: no off-site copy is set up" in off, f"offsite_backup run with nothing set up: {off[-300:]}")
+    expect("Nothing done: no copy off this machine is set up" in off, f"offsite_backup run with nothing set up: {off[-300:]}")
     _copy_now(s)
     # As a person runs it, beside the server: the key is found in the keys volume.
     sent = _core(s, "env -u ROUH_ENCRYPTION_KEY python manage.py offsite_backup run")

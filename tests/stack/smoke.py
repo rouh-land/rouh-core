@@ -309,6 +309,26 @@ def first_run(s: Stack) -> None:
         s.cookie = "; ".join(f"{c['name']}={c['value']}" for c in ctx.cookies())
         (s.out / "cookie.txt").write_text(s.cookie)
         b.close()
+    owner_windows_answered(s)
+
+
+def owner_windows_answered(s: Stack) -> None:
+    """The windows a new owner meets once in their first hours, answered now as their own press would
+    answer them: the one about Unrestricted (`rouh/mode_intro.py`, at about the tenth message) with
+    Keep Unrestricted, and the first night's explanation (`nightly_feature.first_seen`) with Keep it on.
+    Each is a modal that covers the whole page, and it comes up part way through this run, so without
+    this every later check that presses something on a page is pressing the window instead. The two
+    windows are checked on their own (`gene.unrestricted-mode` looks at its window as a new owner
+    has it, then answers it again)."""
+    s.manage("""
+from rouh.models import User
+from rouh.tenancy import Identity
+from rouh import mode_intro, nightly_feature
+u = User.objects.filter(is_superuser=False).order_by('id').first() or User.objects.order_by('id').first()
+who = Identity(user_id=str(u.pk), org_id=str(u.org_id), email=u.email or '')
+mode_intro.answered(who, "kept")
+nightly_feature.first_seen(who)
+""")
 
 
 #: The owner's password, set on the first run's details screen (the way in while a Rouh cannot email): a

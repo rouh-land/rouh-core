@@ -3966,6 +3966,9 @@ def unrestricted_mode_intro(s: Stack) -> None:
     """A new Rouh's owner is told once, at about the tenth message, what Unrestricted means; an answer puts it away."""
     out = core_py(s, _owner_py("""
 from rouh import handholding, mode_intro, unrestricted
+from rouh.models import UserSetting
+# The first run answered it (smoke.owner_windows_answered); look at it as a new owner has it.
+UserSetting.objects.filter(user_id=str(who.user_id), name=mode_intro.NAME).delete()
 mode = unrestricted.current(who)
 default = mode.unrestricted and mode.set_by == unrestricted.DEFAULT_BY
 page = mode_intro.for_page(who)
@@ -3991,7 +3994,7 @@ print(json.dumps({"page": sorted(page["on"]), "steps": sorted(page["steps"]), "t
     "moved": list(new_owner.tidy("openai", 'export ANTHROPIC_API_KEY="sk-ant-api03-abc"', who)[:2]),
     "whole": new_owner.clean("Abc123==")}))
 """))
-    expect('"key_clean", "key_steps", "page_links", "show_around"' in out and '"anthropic", "google", "openai", "xai"' in out
+    expect('"key_clean", "key_steps", "page_links", "show_around"' in out and '"anthropic", "google", "local", "openai", "openrouter", "xai"' in out
            and '"pages": true' in out and '"moved": ["anthropic", "sk-ant-api03-abc"]' in out and '"whole": "Abc123=="' in out,
            f"the new owner genes were not told as they should be: {out[-500:]}")
 
@@ -4016,6 +4019,8 @@ def agent_import(s: Stack) -> None:
     home = core_py(s, """
 import os, tempfile
 root = tempfile.mkdtemp(prefix="stack-openclaw-")
+# mkdtemp keeps the folder to the user this runs as; Rouh's tool reads it as the core's own user.
+os.chmod(root, 0o755)
 w = os.path.join(root, ".openclaw", "workspace")
 os.makedirs(os.path.join(w, "memory"))
 os.makedirs(os.path.join(w, "skills", "stack-tidy"))

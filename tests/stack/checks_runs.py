@@ -252,23 +252,28 @@ def runs_hardware(s: Stack) -> None:
     leaves every other file open (one/hardware.py, the lock every run not given the card starts
     under); and with a card written down as present, the core gives it to no run it cannot vouch is
     the owner's, Permissions lists it, and such a run is told it gets none of it."""
-    r = s.py("core", """
-import json, os, sys, tempfile
-sys.path.insert(0, "/code/deploy/container")
-import linux_stack as ls
-dev = tempfile.mkdtemp()
-open(os.path.join(dev, "kfd"), "w").close()
-os.makedirs(os.path.join(dev, "dri")); open(os.path.join(dev, "dri", "renderD128"), "w").close()
-stack = {"services": {"worker": {"image": "x", "group_add": ["5"]}, "core": {"image": "y"}}}
-said = ls.add_hardware(stack, on=True, dev=dev)
-w = stack["services"]["worker"]
-print("ON", json.dumps(sorted(d["target"] for d in w.get("devices") or [])), "core" in stack["services"] and "devices" not in stack["services"]["core"])
-ls.add_hardware(stack, on=True, dev=dev)
-print("AGAIN", len(w.get("devices") or []))
-ls.add_hardware(stack, on=False, dev=dev)
-print("OFF", "devices" in w, w.get("group_add"))
-""")
-    out = r.stdout + r.stderr
+    # The machine's step runs on the machine, not in a Rouh: deploy/container/ is left out of a
+    # Rouh's own code (guard/bin/rouh-code-install, LEFT_OUT), so it is run here, beside the stack.
+    import io, json, os, sys, tempfile
+    from contextlib import redirect_stdout, redirect_stderr
+    from pathlib import Path
+
+    sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "deploy" / "container"))
+    import linux_stack as ls
+
+    buf = io.StringIO()
+    with tempfile.TemporaryDirectory() as dev, redirect_stdout(buf), redirect_stderr(buf):
+        open(os.path.join(dev, "kfd"), "w").close()
+        os.makedirs(os.path.join(dev, "dri")); open(os.path.join(dev, "dri", "renderD128"), "w").close()
+        stack = {"services": {"worker": {"image": "x", "group_add": ["5"]}, "core": {"image": "y"}}}
+        ls.add_hardware(stack, on=True, dev=dev)
+        w = stack["services"]["worker"]
+        print("ON", json.dumps(sorted(d["target"] for d in w.get("devices") or [])), "core" in stack["services"] and "devices" not in stack["services"]["core"])
+        ls.add_hardware(stack, on=True, dev=dev)
+        print("AGAIN", len(w.get("devices") or []))
+        ls.add_hardware(stack, on=False, dev=dev)
+        print("OFF", "devices" in w, w.get("group_add"))
+    out = buf.getvalue()
     expect('ON ["/dev/dri", "/dev/kfd"] True' in out, f"the machine's step did not give the worker the card's files: {out[-400:]}")
     expect("AGAIN 2" in out, f"the machine's step, run twice, did not leave the card's files once: {out[-400:]}")
     expect("OFF False ['5']" in out, f"the machine's step did not take the card out again, or took the worker's own group: {out[-400:]}")
