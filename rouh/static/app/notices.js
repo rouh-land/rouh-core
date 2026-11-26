@@ -461,9 +461,10 @@ function cardFor(n, where) {
   main.appendChild(top);
   // Opened, a decision says its question itself, in its own card; anything else says every
   // word of it, drawn as the markdown it is.
-  if (n.body && opened && !n.decision) {
+  // Its details, when it has them, under the overview (a finished job's one result).
+  if ((n.body || n.details) && opened && !n.decision) {
     var whole = el('div', 'nt-body nt-md');
-    whole.innerHTML = renderMarkdown(n.body);
+    whole.innerHTML = renderMarkdown(n.details ? (n.body ? n.body + '\n\n---\n\n' : '') + n.details : n.body);
     main.appendChild(whole);
   } else if (n.body && !opened) {
     main.appendChild(el('p', 'nt-body', plain(n.body)));
@@ -741,7 +742,12 @@ function go(link, n) {
     // on a request for access to a file in Rouh's Drive (`/mail/access-asked/<key>`, rouh/access_asked.py),
     // and Open the comment and Say Rouh has seen it on a comment asking Rouh (`/mail/comment-asks/<key>`,
     // rouh/comment_asks.py).
-    if (/^\/mail\/(case\/[^/?#]+\/.|not-arrived\/|away-after\/|new-number\/|new-address\/|new-company\/|told-address\/|new-title\/|new-address-sig\/|rouh-invited\/|access-asked\/|comment-asks\/)/.test(link) || n.reload) location.assign(link);
+    // Since 26 November 2026 that is every address under `/mail/` but a case and the approvals,
+    // which are Rouh's own: the payment that failed, the bank details that changed and the
+    // document to sign (`/mail/payment-failed/`, `/mail/bank-changed/`, `/mail/sign-request/`)
+    // were missing from the list, so a press on them went nowhere.
+    if (/^\/mail\/(case\/[^/?#]+\/.|not-arrived\/|away-after\/|new-number\/|new-address\/|new-company\/|told-address\/|new-title\/|new-address-sig\/|rouh-invited\/|access-asked\/|comment-asks\/)/.test(link) ||
+        (/^\/mail\//.test(link) && !/^\/mail\/(case\/[^/?#]+\/?([?#]|$)|approvals\b)/.test(link)) || n.reload) location.assign(link);
     else {
       // On a phone the bell is inside the navigation's drawer, which goes with the press like
       // after any other link followed from it, or it stays over the place just opened.
@@ -749,7 +755,9 @@ function go(link, n) {
       // What the models cost is a screen in the orb, not an address: the spending limit's notices
       // open it there (`rouh/spending_limit.py`, `wireOrbUsage`).
       if (/[?&]costs=1(&|#|$)/.test(link)) window.dispatchEvent(new Event('rouh:costs'));
-      else goToAddress(link);
+      // An address of Rouh's that the page has no place for is the server's to answer, as a
+      // whole page: a press is never one that goes nowhere.
+      else if (!goToAddress(link)) location.assign(link);
     }
   } else {
     window.open(link, '_blank', 'noopener,noreferrer');

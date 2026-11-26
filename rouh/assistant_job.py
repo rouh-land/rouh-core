@@ -283,6 +283,101 @@ def answer_from(final_text: str, limit: int | None = None) -> str:
     return (body + "\n\n" + sources).strip() if sources else body
 
 
+#: How long a result's overview may be: the two or three sentences a job is asked to close with.
+OVERVIEW = 420
+_SENTENCE_END = re.compile(r"(?<=[.!?])\s+(?=[A-Z0-9\"'(\[])")
+
+
+def overview_from(final_text: str, limit: int = OVERVIEW) -> str:
+    """The short overview at the top of a job's one result: its closing words' first paragraph,
+    the two or three sentences every job is asked to end with, cut at a sentence.
+
+    Petar, 26 November 2026: "there should be one response with short overview and then details
+    below it and that should also be the notification." This is the overview: what the notice
+    says before it is opened, and the first thing its message in the chat says."""
+    text = answer_from(final_text)
+    text = citing.split_sources(text)[0]
+    first = ""
+    for para in re.split(r"\n\s*\n", text):
+        line = para.strip()
+        # A heading, a rule or a code fence is not an overview.
+        if not line or line.startswith(("#", "```", "---", "|")):
+            continue
+        first = " ".join(line.split())
+        break
+    if len(first) <= limit:
+        return first
+    kept = ""
+    for sentence in _SENTENCE_END.split(first):
+        if len(kept) + len(sentence) + 1 > limit:
+            break
+        kept = (kept + " " + sentence).strip()
+    return kept or first[: limit - 1].rsplit(" ", 1)[0] + "..."
+
+
+def details_from(final_text: str, blocks, overview: str = "") -> str:
+    """Everything under a result's overview, as markdown: the job's closing words whole, then
+    what its report card said beside them (what it was asked, how it ended, what it changed).
+
+    The card itself is not drawn any more when its result goes into the chat as one message
+    (`Lander._card`): these are its words, so nothing it said is lost. Its links are the
+    notice's own buttons, so they are left out here. The overview is not said twice: when the
+    closing words start with it, they start after it."""
+    whole = answer_from(final_text)
+    short = summary_from(final_text)
+    parts: list[str] = []
+    placed = False
+    for one in blocks or ():
+        if not isinstance(one, dict):
+            continue
+        kind, label = one.get("block"), str(one.get("label") or "").strip()
+        if kind == "text":
+            text = str(one.get("text") or "").strip()
+            if text and whole and text in (whole, short):
+                if placed:
+                    continue
+                text, placed = whole, True
+            if text:
+                parts.append(f"**{label}:** {text}" if label and "\n" not in text
+                             else (f"**{label}**\n\n{text}" if label else text))
+        elif kind == "list":
+            items = [str(i).strip() for i in one.get("items") or () if str(i).strip()]
+            if items:
+                head = f"**{label}**\n\n" if label else ""
+                parts.append(head + "\n".join(f"- {i}" for i in items))
+    if whole and not placed:
+        parts.insert(0, whole)
+    out = "\n\n".join(parts).strip()
+    lead = " ".join(str(overview or "").split())
+    if lead:
+        # The closing words start with the overview: they go on from after it.
+        para, _, rest = out.partition("\n\n")
+        if " ".join(para.split()) == lead:
+            out = rest.strip()
+    return out
+
+
+def kept_text(said: dict) -> str:
+    """A notice as one message in a chat: its title, its overview, and its details under them."""
+    title = str(said.get("title") or "").strip()
+    body = str(said.get("body") or "").strip()
+    details = str(said.get("details") or "").strip()
+    parts = [f"**{title}**" if title else "", body]
+    if details:
+        parts.append("**Details**\n\n" + details if body else details)
+    return "\n\n".join(p for p in parts if p)
+
+
+_CARD_WORDS = re.compile(r"\b([Cc])ard None\b")
+
+
+def folded_note(note: str) -> str:
+    """A report's note for Rouh when its card is not drawn (`Lander._card`): where it says the
+    card is, it says the one result in this chat instead."""
+    return _CARD_WORDS.sub(lambda m: ("T" if m.group(1) == "C" else "t")
+                           + "he result message in this chat", str(note or ""))
+
+
 def saved_files(files) -> str:
     """What a job that handed a step on had saved first, in words, or ""."""
     count = len([f for f in files or [] if f])
@@ -468,6 +563,9 @@ class Lander:
         self.profile = profile
         self.copy = copy
         self._locks: dict[str, asyncio.Lock] = {}
+        #: A report's card that is not drawn, by job, because its words go into the job's one
+        #: result instead (`_card`, `_phone`): drawn after all only if that result is not kept.
+        self._folded: dict[str, dict] = {}
         self._tasks: set[asyncio.Task] = set()
         #: What a goal step's run is handed to when it ends, instead of being
         #: reported on its own (`timekeeper.Timekeeper.run_finished`). None
@@ -959,7 +1057,26 @@ class Lander:
         )
 
     async def _phone(self, job_id, title, final, result) -> None:
-        """Tell him a job has finished, or needs him, with a link to open it.
+        """`_said_once`, and the report's card drawn after all when its result was not kept in
+        the chat as one message (`_card`). Never raises."""
+        kept = False
+        try:
+            kept = await self._said_once(job_id, title, final, result)
+        except Exception:
+            log.exception("job %s: its one result could not be said", job_id)
+        spec = self._folded.pop(job_id, None)
+        if spec is not None and not kept:
+            card_id = await self._draw(spec)
+            if card_id is not None:
+                result["card_id"] = card_id
+
+    async def _said_once(self, job_id, title, final, result) -> bool:
+        """Tell him a job has finished, or needs him, with a link to open it. True when its
+        result went into its chat as one message.
+
+        Since 26 November 2026 that notice is the job's one result: its overview is what the
+        notice says, its details open under it (what the report card said, which is not drawn
+        any more, `_card`), and the chat keeps the two together as one message (`_keep`).
 
         Called once a report has been drawn and said, whatever it was: a page,
         files, an answer, a change to Rouh, or a job that needs him. Every one
@@ -990,7 +1107,7 @@ class Lander:
 
             try:
                 if await asyncio.to_thread(nightly_feature.still_filling, job_id):
-                    return
+                    return False
             except Exception:
                 log.exception("job %s: could not read whether its night is still building", job_id)
         summary = summary_from(final)
@@ -1017,35 +1134,53 @@ class Lander:
                                           result, self.public_url, done=True, whole=True)
         except Exception:
             log.exception("job %s: could not write its notice", job_id)
-            return
+            return False
         if shown is None:
-            return
+            return False
         what, text = shown
         try:
             if not await asyncio.to_thread(job_phone.claim, job_id, what):
                 log.info("job %s: its notice for %s was given already", job_id, what)
                 result["phoned"] = "already"
-                return
+                return False
         except Exception:
             log.exception("job %s: could not tell whether its notice had been given", job_id)
-            return
+            return False
         # A finished job is on the screen and nowhere else, unless the setting says the
         # phone is told of those too (`config.phone_done_jobs`). A change to Rouh that went
         # live names its commit, so a tab left behind by that deploy says Reload on this
         # notice instead of in a second one of its own (Petar, 11 October 2026,
         # fr_c09961ff435d: "These are two notifications for the same thing").
         live = result.get("kind") == "change" and result.get("live")
+        # The overview and the details of its one result: the overview is what the notice says
+        # before it is opened, the details what it says under that once opened (`notices.post`).
+        overview, details = self._result_words(job_id, final, result, needs_him)
         said = await notices.phone(text, kind="job", key=f"job:{job_id}:{what}",
                                    link=run_report.chat_address(chat),
                                    phone_too=phoned is not None,
                                    whole=whole[1] if whole else "",
                                    deployed=str(result.get("sha") or "")[:7] if live else "",
-                                   links=places)
+                                   links=places, summary=overview, details=details)
         result["phoned"] = "on the screen" if said is not None else "failed"
         if said is not None and chat:
-            await self._keep(chat, said)
+            return await self._keep(chat, said)
+        return False
 
-    async def _keep(self, chat: str, said: dict) -> None:
+    def _result_words(self, job_id, final, result, needs_him: bool) -> tuple[str, str]:
+        """A result's overview, and its details: the job's closing words whole, with what its
+        held-back card said beside them (`_card`, `details_from`)."""
+        spec = self._folded.get(job_id) or {}
+        why = ""
+        if result.get("kind") == "change" and not result.get("live"):
+            why = (f"On main at {str(result.get('sha') or '')[:7]} and NOT live: "
+                   f"{result.get('deployed') or 'it was not deployed'}.")
+        elif needs_him:
+            why = " ".join(str(result.get("reason") or "").split())
+        overview = why or overview_from(final) or summary_from(final, limit=OVERVIEW)
+        details = details_from(final, spec.get("blocks") or (), overview)
+        return overview, details
+
+    async def _keep(self, chat: str, said: dict) -> bool:
         """The notice just said, kept in the chat it leads to as one of Rouh's messages.
 
         Petar, 12 October 2026 (fr_c8fb46a5a132): "when a run completes and the
@@ -1057,21 +1192,24 @@ class Lander:
         followed it for. Once, because the notice is (`job_phone.claim` above,
         and its key). Drawn at once on every tab standing in that chat, and
         read back with the chat after that (`Memory.add_notice`). Never raises.
+
+        Since 26 November 2026 it is the job's one result in that chat: its overview first and
+        its details under it (`kept_text`), so the chat holds one message about it and not three.
+        True when it was kept.
         """
-        title = str(said.get("title") or "").strip()
-        body = str(said.get("body") or "").strip()
-        text = f"**{title}**\n\n{body}" if title and body else title or body
+        text = kept_text(said)
         try:
             row = await asyncio.to_thread(self.memory.add_notice, chat, text)
         except Exception:
             log.exception("the notice for chat %s could not be kept in it", chat)
-            return
+            return False
         if row is None:
-            return
+            return False
         with contextlib.suppress(Exception):
             await self.broadcast({"type": "transcript_add", "role": "assistant", "text": text,
                                   "ts": time.time(), "chat": chat, "id": row,
                                   "notice": True})
+        return True
 
     async def _show_handoff(self, job_id, title, handoff, result, *, saved: str = "") -> None:
         """A job stopped at a step that is the person's and handed it to the live browser.
@@ -1113,6 +1251,19 @@ class Lander:
         if foot is not None and job:
             blocks = list(blocks) + await asyncio.to_thread(run_report.footer, job, **foot)
         spec = {"title": title, "description": description, "blocks": blocks}
+        # One result, not three (Petar, 26 November 2026: "when something is ready I get three
+        # different things. A short message, a long message ... and the notification. Those need
+        # to be consolidated"). A report in a chat is its notice, kept in that chat as one
+        # message, its overview first and these words under it (`_phone`, `_keep`), so the card
+        # is held back here and drawn only if that message cannot be kept (`_unfold`). What a job
+        # is stopped on (`always`) is not a result, and is drawn as it was.
+        if not always and job and ANSWERING.get():
+            self._folded[job] = spec
+            return None
+        return await self._draw(spec)
+
+    async def _draw(self, spec: dict) -> int | None:
+        """Draw one card, kept and numbered, on the screens standing in its chat."""
         card_id = None
         drawn = dict(spec, at=time.time())
         with contextlib.suppress(Exception):
@@ -1172,6 +1323,7 @@ class Lander:
                          job or "?")
                 return
         else:
+            plain = note
             with contextlib.suppress(Exception):
                 note = await asyncio.to_thread(outbox.with_notes, job, note)
             # What Rouh said it would do once this job was done, and what was
@@ -1179,5 +1331,27 @@ class Lander:
             if job and not needs_person:
                 note = await asyncio.to_thread(follow_through.extend, note,
                                                chat=self.memory.answering_chat(), job=job)
+            if job and not needs_person and job in self._folded:
+                # Its result is said once, as one message in this chat that is its notification
+                # too (`_phone`). So Rouh is told, and writes nothing of its own about it - unless
+                # there is something for it to do: a note the job queued to be emailed, or a step
+                # it promised to take once the job was done. Then it does that, and only that.
+                note = folded_note(note)
+                if note.strip() == folded_note(plain).strip():
+                    quiet = note.rstrip()
+                    quiet = (quiet[:-1] if quiet.endswith("]") else quiet) + (
+                        " Nothing was said about it by you, because its result is already in "
+                        "this chat as one message, overview first and details under it, which is "
+                        "its notification too. This is here so you know it, if it comes up: do "
+                        "not answer this note, repeat the result or bring it up unasked.]")
+                    with contextlib.suppress(Exception):
+                        await self.announce(quiet, self.memory.answering_chat(), quiet=True)
+                    return
+                note = note.rstrip()
+                note = (note[:-1] if note.endswith("]") else note) + (
+                    " Its result is already in this chat as one message, with its overview "
+                    "first and its details under it, and it is the notification too: do not "
+                    "repeat it, summarise it or point to it. Only do what is asked above that "
+                    "is not about telling the person the result.]")
         with contextlib.suppress(Exception):
             await self.announce(note, self.memory.answering_chat())

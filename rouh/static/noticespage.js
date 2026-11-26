@@ -343,12 +343,22 @@
       if (strip) strip.focus({ preventScroll: true });
     }
   }
-  /** Going where it leads, in this tab: it has done its job, so it is cleared (fr_a7c05457e6a3).
+  /** Going where it leads, in this tab. It is marked read, never cleared: Petar, 26 November
+   *  2026, of pressing one's chat here, "Didn't take me to the page ... and it just made the
+   *  notification disappear." It stays on this page to be read again.
+   *  A chat is beside this page rather than on the canvas under it, so going to one closes the
+   *  page first: until then the address said the chat and the page stayed over it.
    *  @param {any} n @param {string} href */
   function follow(n, href) {
-    if (n.state !== 'dismissed') {
-      postJSON('/api/notifications/act', { act: 'clear', ids: [n.id] }).catch(function () {});
+    if (isUnread(n)) {
+      n.state = 'read';
+      postJSON('/api/notifications/act', { act: 'read', ids: [n.id] }).then(function () {
+        if (P.totals && P.totals.unread) P.totals.unread -= 1;
+        drawHead();
+      }).catch(function () {});
+      draw();
     }
+    if (/^\/chat\//.test(href) && host().close) host().close();
     if (kit().go) kit().go(href, n);
     else location.assign(href);
   }
@@ -1016,6 +1026,14 @@
     } else if (n.body) {
       main.appendChild(marked(el('p', 'nf-peek'), kit().plain ? kit().plain(n.body) : n.body));
     }
+    // Reading the whole of it here, rather than in the chat it came from: a press in words, not
+    // only the chevron at the row's start (Petar, 26 November 2026, "I want to be able to expand
+    // the whole message and read it there").
+    if (n.details || (n.body && n.body.length > 160)) {
+      var rd = button('nf-readmore', opened ? 'Show less' : (n.details ? 'Read the details' : 'Read it all'), function () { toggle(n); });
+      rd.setAttribute('aria-expanded', opened ? 'true' : 'false');
+      main.appendChild(rd);
+    }
 
     var places = placesOf(n);
     var reload = kit().reloadable && kit().reloadable(n);
@@ -1094,8 +1112,16 @@
       }
       return box;
     }
+    // The overview, then everything under it (`details`, a finished job's whole result since
+    // 26 November 2026); a notice from before has its body alone, which was every word of it.
     if (n.body) box.appendChild(md(n.body));
-    else box.appendChild(el('p', 'nf-peek', 'Nothing more than its title.'));
+    if (n.details) {
+      var more = el('div', 'nf-details');
+      more.appendChild(el('h5', 'nf-details-head', 'Details'));
+      more.appendChild(md(n.details));
+      box.appendChild(more);
+    }
+    if (!n.body && !n.details) box.appendChild(el('p', 'nf-peek', 'Nothing more than its title.'));
     return box;
   }
   function md(text) {

@@ -74,6 +74,9 @@ TITLE = 140
 #: Room for every word a job closes with (`assistant_job.answer_from`), which an opened notice
 #: shows whole; the card in the stack and an unopened row show the first three lines of it.
 BODY = 6000
+#: Room for a result's details under its overview (`details`): a job's whole closing message and
+#: what it changed. The overview stays `BODY` or shorter.
+DETAILS = 20000
 
 URL = re.compile(r"https?://[^\s<>\"']+")
 
@@ -198,6 +201,7 @@ def _model():
 def as_dict(row) -> dict:
     return {
         "id": row.id, "kind": row.kind, "title": row.title, "body": row.body,
+        "details": getattr(row, "details", "") or "",
         "link": row.link, "link_label": row.link_label, "links": list(row.links or []),
         "decision": row.decision_id,
         "state": row.state, "phone": row.phone, "at": row.created_at,
@@ -222,9 +226,15 @@ def _links(links) -> list[dict]:
 
 def post(who, *, title: str, body: str = "", link: str = "", link_label: str = "",
          links=(), kind: str = "", key: str = "", phone_text: str = "",
-         decision_id: int | None = None, deployed: str = "",
+         decision_id: int | None = None, deployed: str = "", details: str = "",
          now: float | None = None) -> dict | None:
-    """Write one notice. None when its key was said before."""
+    """Write one notice. None when its key was said before.
+
+    `body` is what it says in short, and `details` everything under that, when there is more:
+    a finished job's result is one notice, its overview first and its details below it."""
+    details = str(details or "").strip()
+    if details and details == str(body or "").strip():
+        details = ""
     from django.db import IntegrityError, transaction
 
     user_id, org_id = _ids(who)
@@ -234,6 +244,7 @@ def post(who, *, title: str, body: str = "", link: str = "", link_label: str = "
             row = _model().objects.create(
                 user_id=user_id, org_id=org_id, key=str(key or "")[:500], kind=kind or "rouh",
                 title=_cut(title, TITLE) or "Rouh", body=str(body or "").strip()[:BODY],
+                details=details[:DETAILS],
                 link=link[:2000], link_label=(link_label or label_for(link))[:80],
                 links=_links(links),
                 decision_id=decision_id, deployed=str(deployed or "")[:40], state=NEW,
@@ -567,7 +578,8 @@ def _light_rows(who, c: dict) -> list[dict]:
     user_id, org_id = _ids(who)
     rows = _model().objects.filter(user_id=user_id, org_id=org_id)
     for word in c["q"].split()[:8]:
-        rows = rows.filter(Q(title__icontains=word) | Q(body__icontains=word))
+        rows = rows.filter(Q(title__icontains=word) | Q(body__icontains=word)
+                           | Q(details__icontains=word))
     out = []
     for r in rows.values("id", "kind", "state", "created_at", "link", "links", "decision_id"):
         places, tasks = _leads(r)
@@ -777,7 +789,7 @@ def _same(a, b) -> bool:
 async def notify(*, title: str, body: str = "", link: str = "", link_label: str = "",
                  links=(), kind: str = "", key: str = "", phone_text: str = "",
                  decision_id: int | None = None, deployed: str = "", who=None,
-                 at_once: bool = False) -> dict | None:
+                 at_once: bool = False, details: str = "") -> dict | None:
     """Say one notice: on the screen now, on the phone later if it is left there.
 
     `who` is the install's owner when it is not given. `phone_text` is what the phone is sent
@@ -795,7 +807,7 @@ async def notify(*, title: str, body: str = "", link: str = "", link_label: str 
     try:
         said = await asyncio.to_thread(
             post, who, title=title, body=body, link=link, link_label=link_label, links=links,
-            kind=kind,
+            kind=kind, details=details,
             key=key, phone_text=phone_text, decision_id=decision_id, deployed=deployed)
     except Exception:
         log.exception("a notice could not be written; its phone copy goes now")
@@ -848,7 +860,7 @@ async def _phone_now(who, row_id: int, text: str) -> str:
 async def phone(text: str, *, kind: str = "", key: str = "", who=None,
                 title: str = "", link: str = "", phone_too: bool = True,
                 whole: str = "", deployed: str = "", links=(),
-                at_once: bool = False) -> dict | None:
+                at_once: bool = False, summary: str = "", details: str = "") -> dict | None:
     """A note that was a Telegram message until 10 October 2026, as a notice first.
 
     The phone's own words are its title, body and link (`from_text`), and are what the phone
@@ -856,9 +868,13 @@ async def phone(text: str, *, kind: str = "", key: str = "", who=None,
     false it stays on the screen.
     `whole` is the same message with nothing cut out of it, when the phone's is a short form
     of something longer: its body is the notice's, so opening it shows every word.
+    `summary` and `details`, given together, are a result said once (26 November 2026): the
+    overview is the notice's body, and the details open under it; `whole` is not needed then.
     """
     shaped = from_text(text)
-    if whole:
+    if summary:
+        shaped["body"] = str(summary).strip()[:BODY]
+    elif whole:
         shaped["body"] = from_text(whole)["body"] or shaped["body"]
     if title:
         shaped["title"] = title
@@ -866,7 +882,8 @@ async def phone(text: str, *, kind: str = "", key: str = "", who=None,
         shaped["link"] = local_link(link)
         shaped["link_label"] = label_for(shaped["link"])
     return await notify(kind=kind, key=key, who=who, phone_text=text if phone_too else "",
-                        deployed=deployed, links=links, at_once=at_once, **shaped)
+                        deployed=deployed, links=links, at_once=at_once,
+                        details=details if summary else "", **shaped)
 
 
 async def _send(text: str) -> str:

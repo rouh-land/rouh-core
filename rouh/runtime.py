@@ -8373,8 +8373,15 @@ async def _drop_unknown_task(job_id: str) -> None:
     await Hub.broadcast({"type": "tasks", "tasks": rows})
 
 
-async def announce(note: str, chat: str = "") -> bool:
+async def announce(note: str, chat: str = "", *, quiet: bool = False) -> bool:
     """Say something unprompted, in the thread the note belongs to.
+
+    `quiet` writes the note into that thread for the model to read and starts nothing: what it
+    is about is on the screen already, said once. A finished job's result is one message in its
+    chat, its overview first and its details under it, which is its notification too (Petar, 26
+    November 2026: "when something is ready I get three different things ... Those need to be
+    consolidated"), so Rouh is told it happened without writing a second message about it. It
+    lands between two turns, never inside one, as the inbox card's presses do (`_written`).
 
     `chat` is that thread: the conversation the run was started from, or
     General for a run no conversation started (`runs.reports_to`). It is
@@ -8404,6 +8411,21 @@ async def announce(note: str, chat: str = "") -> bool:
     already being answered: the card on the canvas is enough, and whoever is
     waiting on this tries again.
     """
+    if quiet:
+        wanted = (chat or "").strip()
+        if wanted and memory.chat(wanted) is None:
+            wanted = ""
+        wanted = wanted or memory.ensure_general()
+        while (running := Turns.of(wanted)) is not None and running.task is not None:
+            await asyncio.wait({running.task})
+        if memory.chat(wanted) is None:
+            return False
+        text = str(note or "").strip()
+        if text.startswith("[") and not text.startswith(turnmarks.NOTE):
+            text = f"{turnmarks.NOTE} {text[1:]}"
+        # Nothing is awaited from the wait to the write, so no turn starts in between.
+        memory.add_message(wanted, "user", text, note=True)
+        return True
     live = [s for s in Hub.sockets if not s.closed]
     if not live:
         return False

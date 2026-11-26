@@ -273,6 +273,8 @@ export interface Notice {
   deployed?: string;
   /** Every place it leads, each a button of its own, or [] for one with `link` alone. */
   links?: NoticeLink[];
+  /** Everything under `body`, its overview, or "": a finished job's one result (26 November 2026). */
+  details?: string;
 }
 
 /** One place a notice leads (`run_report.destinations`): a finished run's run, chat, task or

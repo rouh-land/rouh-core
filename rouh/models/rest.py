@@ -2678,7 +2678,12 @@ class Notice(models.Model):
     #: "conflict", "browser", "rouh". Its icon on the screen, and nothing else.
     kind = models.TextField(blank=True, default="")
     title = models.TextField()
+    #: What it says in short: the overview the stack, the column and an unopened row show.
     body = models.TextField(blank=True, default="")
+    #: Everything under the overview, or "" for a notice that is its body alone. A finished job's
+    #: whole result is one notice: the overview first, its details under it (26 November 2026),
+    #: and the chat it leads to keeps the two together as one message (`assistant_job._keep`).
+    details = models.TextField(blank=True, default="")
     #: Where swiping it right goes: an address in Rouh ("/run/<id>"), or a whole URL elsewhere.
     link = models.TextField(blank=True, default="")
     #: What that is, in a few words: "Open the run".
