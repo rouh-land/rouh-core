@@ -102,11 +102,26 @@ def task_folder(s: Stack, title: str) -> str:
         mine = [t["rel"] for t in tasks if (t.get("name") or "").strip().lower() == title.lower()]
         if mine:
             found = mine[0]
-            if not found.startswith("unfiled/"):
+            if not found.startswith("unfiled/") and _settled(s, found):
                 return found
         time.sleep(3)
     expect(found, f"the task {title!r} never reached the task list")
     return found
+
+
+def _settled(s: Stack, folder: str) -> bool:
+    """Rouh has finished filing the task: its folder is still where the list says and its AGENTS.md is
+    unchanged a few seconds later. A check that wrote the notes before that, on a slow runner, wrote
+    them where the filing then moved or rewrote them ("That document is not linked in this task's
+    notes", gene.meeting-attach, gene.task-docs and gene.doc-add on Arm, 26 November 2026)."""
+    look = ("from pathlib import Path\nfrom rouh.config import config\n"
+            f"p = Path(config.assistant_repo) / {folder!r} / 'AGENTS.md'\n"
+            "print('AT', p.stat().st_mtime_ns if p.is_file() else 0)")
+    first = s.manage(look).split("AT")[-1].strip()
+    time.sleep(5)
+    tasks = api(s, "/api/workspace/index", "tasks")["tasks"]
+    again = s.manage(look).split("AT")[-1].strip()
+    return first != "0" and first == again and any(t["rel"] == folder for t in tasks)
 
 
 # --- the heartbeat, its beats, quests, goals, decisions --------------------------------------------
