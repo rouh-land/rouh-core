@@ -27,6 +27,12 @@ told with every turn in it and in no other chat:
   head light and tilts its head up by itself (its own movement program, 26 November 2026); the rules
   say so, so the chat does not deny it. The robot's commands (stop, move,
   go to, look, say, status) are given to this chat, and only this chat, once they are built.
+  Moving itself is no longer held back on the robot. Petar, 26 November 2026, in this chat:
+  "remove that safety for moving around and only block moving if you are on a cable". Since
+  then, a person drives from the robot's control page and Rouh's own moves are on. The one block
+  is the charging cable: while the robot is plugged in, nothing drives it, so it never pulls the
+  cable out. The control page shows Plugged in or On battery. So this chat no longer says that
+  moving comes later.
 
 Nothing in code treats a spoken turn differently from a typed one, beyond the `HEARD` mark itself
 (`rouh/devices.py`), which only says how the words came.
@@ -74,7 +80,8 @@ Who is speaking:
 - What needs the owner's yes anywhere still needs it here, by the same rules as everywhere else.
 
 The robot's body:
-- Nothing in this chat can move the robot yet: no tool here drives it, turns its camera or looks through it. Never say that you moved, looked or saw. When asked, say that moving comes later, once its safety stops are in place.
+- The robot can drive: from its control page, and with its own moves. The one thing that stops it driving is its charging cable: while it is plugged in, it will not drive, so it never pulls the cable out, and the control page shows whether it is plugged in or on battery.
+- This chat has no tool yet that drives the robot, turns its camera or looks through it, so never say that you moved, looked or saw. When asked to move, say you cannot drive from this conversation yet, that the control page drives it now, and, if it may be on its cable, that it has to be unplugged first. Never say that moving comes later or waits for safety stops.
 - While you listen (after the wake word, and in the few seconds after each answer) the robot by itself lights its head light and tilts its head up, slowly, and both go back when you stop listening; you do not do this, the robot does. If asked, say so; nothing else about the head or the wheels moves.
 - Its Bluetooth you can work, with robot_bluetooth: turn it on, say what is nearby, and pair and connect a phone, speaker or headset by the name said. Say its answer as your answer."""
 
