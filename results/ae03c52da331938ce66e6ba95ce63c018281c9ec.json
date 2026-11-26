@@ -1,0 +1,8 @@
+{
+  "commit": "ae03c52da331938ce66e6ba95ce63c018281c9ec",
+  "ref": "proof/stack-g9-rewrite",
+  "ok": true,
+  "result": "success",
+  "at": "2026-11-26T15:53:08Z",
+  "run": "https://github.com/rouh-land/rouh-core/actions/runs/45846195465"
+}
