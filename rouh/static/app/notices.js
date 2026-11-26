@@ -981,6 +981,12 @@ function notify(words, how) {
   how = how || {};
   var tone = how.tone || 'info';
   var title = String(words || '').trim() || (tone === 'error' ? 'Something failed.' : '');
+  // An error with nothing to press may be offered one, such as Fix it (`rouh/build_faster.py`,
+  // error_fix): it still goes by itself, as an error with no button does.
+  if (tone === 'error' && !how.action && !how.link && ON_ERROR.offer) {
+    var offer = ON_ERROR.offer(title, String(how.body || ''));
+    if (offer) how = Object.assign({}, how, { action: offer, for: how.for || 12000 });
+  }
   var body = how.body || '';
   // A notice is a title over its words, so more than a sentence is the first one over the
   // rest, rather than every word of it in bold.
@@ -1142,4 +1148,8 @@ function noteBuild(theirs) {
   }, 30000);
 })();
 
-export { notify, noteBuild, noticesHeard };
+/** What an error with nothing to press is offered, set by another module (app/build_faster.js).
+ *  @type {{offer: ((title: string, body: string) => ({label: string, run: () => void} | null)) | null}} */
+var ON_ERROR = { offer: null };
+
+export { notify, noteBuild, noticesHeard, ON_ERROR };

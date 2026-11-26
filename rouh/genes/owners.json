@@ -4311,7 +4311,133 @@
    "what": "A device of the person's own, the robot first, talking to Rouh on a key of its own through the voice, kept to its own Robot chat.",
    "files": [
     "rouh/devices.py",
-    "rouh/management/commands/device.py"
+    "rouh/management/commands/device.py",
+    "rouh/robotchat.py",
+    "rouh/web/robotchat.py",
+    "rouh/genes/manifests/robot.json"
+   ]
+  },
+  "n55-world-ready": {
+   "name": "A run finds a ready test world",
+   "what": "A run of Rouh's code links a ready .venv-e2e from another checkout on its machine and finds or makes one shared PostgreSQL for test worlds, so ./e2e.sh serve needs no setting up by hand, and its brief says so.",
+   "switch": "world_ready",
+   "signals": {
+    "events": {
+     "briefed": "A run of Rouh's code you or the night started was told its test world needs no setting up by hand"
+    }
+   },
+   "files": [
+    "rouh/build_faster.py",
+    "rouh/web/build_faster.py",
+    "rouh/static/app/build_faster.js"
+   ]
+  },
+  "n55-error-fix": {
+   "name": "Fix it, on an error",
+   "what": "A red error notice on Rouh's screen carries Fix it, which opens Start a run on Rouh's own code with the error's words, the screen's address and the page's last script errors in the brief.",
+   "switch": "error_fix",
+   "signals": {
+    "events": {
+     "opened": "You pressed Fix it on an error Rouh showed, and Start a run opened with the error in its brief",
+     "started": "You started the run Fix it opened about an error"
+    }
+   },
+   "files": [
+    "rouh/build_faster.py",
+    "rouh/web/build_faster.py",
+    "rouh/static/app/build_faster.js"
+   ]
+  },
+  "n55-run-undo": {
+   "name": "Take it back",
+   "what": "A run whose work landed has Take it back on its head, which opens Start a run with a brief that reverts what it landed.",
+   "switch": "run_undo",
+   "signals": {
+    "events": {
+     "opened": "You pressed Take it back on a run that landed, and Start a run opened with the revert in its brief",
+     "started": "You started the run that takes back what an earlier run landed"
+    }
+   },
+   "files": [
+    "rouh/build_faster.py",
+    "rouh/web/build_faster.py",
+    "rouh/static/app/build_faster.js"
+   ]
+  },
+  "n55-chat-to-run": {
+   "name": "Make it a run",
+   "what": "Each of your own messages in the chat has Make it a run, which opens Start a run on Rouh's own code with that message as the brief.",
+   "switch": "chat_to_run",
+   "signals": {
+    "events": {
+     "opened": "You pressed Make it a run under one of your chat messages",
+     "started": "You started the run Make it a run opened from your message"
+    }
+   },
+   "files": [
+    "rouh/build_faster.py",
+    "rouh/web/build_faster.py",
+    "rouh/static/app/build_faster.js"
+   ]
+  },
+  "n55-draft-kept": {
+   "name": "Unsent words kept",
+   "what": "What you typed in the chat's box and did not send is kept in this browser, per chat, and put back when the page or the chat comes back.",
+   "switch": "draft_kept",
+   "signals": {
+    "events": {
+     "restored": "You came back to a chat and the words you had not sent were still in the box"
+    }
+   },
+   "files": [
+    "rouh/first_week.py",
+    "rouh/web/first_week.py",
+    "rouh/static/app/first_week.js"
+   ]
+  },
+  "n55-ask-again": {
+   "name": "Ask it now",
+   "what": "What you asked before chat was set up is kept, and once chat is set up a card over the box offers Ask it now.",
+   "switch": "ask_again",
+   "signals": {
+    "events": {
+     "asked": "You pressed Ask it now on what you asked before chat was set up"
+    }
+   },
+   "files": [
+    "rouh/first_week.py",
+    "rouh/web/first_week.py",
+    "rouh/static/app/first_week.js"
+   ]
+  },
+  "n55-text-size": {
+   "name": "Chat text size",
+   "what": "Chat text size, on About You, makes the chat's messages and its box Bigger or Biggest on this device.",
+   "switch": "text_size",
+   "signals": {
+    "events": {
+     "changed": "You picked a size under Chat text size on About You"
+    }
+   },
+   "files": [
+    "rouh/first_week.py",
+    "rouh/web/first_week.py",
+    "rouh/static/app/first_week.js"
+   ]
+  },
+  "n55-last-again": {
+   "name": "Up arrow brings back your last message",
+   "what": "In the chat's empty box the Up arrow brings back the last message sent in that chat, to change and send again.",
+   "switch": "last_again",
+   "signals": {
+    "events": {
+     "recalled": "You pressed the Up arrow in the empty chat box and your last message came back"
+    }
+   },
+   "files": [
+    "rouh/first_week.py",
+    "rouh/web/first_week.py",
+    "rouh/static/app/first_week.js"
    ]
   }
  }

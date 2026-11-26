@@ -516,6 +516,8 @@ with {% asset %}, which gives it its hashed address.
         {{ MODE_INTRO|json_script:"rouhModeIntro" }}
         {{ NEW_OWNER|json_script:"rouhNewOwner" }}
         {{ BUILD_PROOF|json_script:"rouhBuildProof" }}
+        {{ BUILD_FASTER|json_script:"rouhBuildFaster" }}
+        {{ FIRST_WEEK|json_script:"rouhFirstWeek" }}
         {# Change something here, pressed by its link in the menu (`rouh/build_proof.py`, point_change). #}
         <button id="pointChangeBtn" type="button" hidden>Change something here</button>
         {{ PLAINER|json_script:"rouhPlainer" }}
@@ -1995,6 +1997,9 @@ with {% asset %}, which gives it its hashed address.
         {# Start again on an ended run (`rouh/run_tools.py`, run_again). #}
         <button id="oneAgain" class="ctl small" type="button" hidden
                 title="Open Start a run with this run's brief, workspace and agent filled in">Start again</button>
+        {# Take back what it landed: Start a run with the revert written (`rouh/build_faster.py`, run_undo). #}
+        <button id="oneUndo" class="ctl small" type="button" hidden
+                title="Open Start a run with a brief that reverts what this run landed">Take it back</button>
         {# Its title, state, commit, files and last words on the clipboard (`rouh/run_desk.py`, run_copy). #}
         <button id="oneCopyReport" class="ctl small" type="button" hidden
                 title="Copy this run's title, state, commit, files and last words, as Markdown">Copy report</button>

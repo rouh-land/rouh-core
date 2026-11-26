@@ -115,6 +115,8 @@ import 'app/help_spots.js';
 import 'app/mode_intro.js';
 import 'app/new_owner.js';
 import 'app/build_proof.js';
+import 'app/build_faster.js';
+import 'app/first_week.js';
 import 'app/nightly_first.js';
 import { addrEarly } from 'app/address.js';
 

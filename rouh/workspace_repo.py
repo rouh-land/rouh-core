@@ -132,4 +132,13 @@ def code_run_note() -> str:
     except Exception:  # noqa: BLE001 - the note that always stood
         log.exception("brief_workspace: the note for the containers could not be written")
         here = ""
-    return here or CODE_RUN_NOTE.format(space=config.workspace_space)
+    note = here or CODE_RUN_NOTE.format(space=config.workspace_space)
+    # And that its test world needs no setting up by hand (`rouh/build_faster.py`, world_ready).
+    try:
+        from . import build_faster
+
+        world = build_faster.world_note()
+    except Exception:  # noqa: BLE001 - the note stands without it
+        log.exception("world_ready: the note about the test world could not be written")
+        world = ""
+    return note + ("\n\n" + world if world else "")

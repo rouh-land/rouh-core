@@ -137,7 +137,8 @@ def bites() -> list[str]:
             dict(page=page[:nav_at] + '\n<a class="sb-row" href="/somewhere" data-nav="somewhere">X</a>'
                  + page[nav_at:]),
         "a data-nav link outside the navigation":
-            dict(page=page.replace("<body>", '<body>\n<button data-nav="elsewhere">Y</button>', 1)),
+            dict(page=re.sub(r"<body[^>]*>", lambda m: m.group(0) + '\n<button data-nav="elsewhere">Y</button>',
+                             page, count=1)),
         "a link made in script":
             dict(scripts={"x.js": "a.setAttribute('data-nav', 'made');"}),
         "the orb drawing genes":

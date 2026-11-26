@@ -10286,12 +10286,15 @@ function modesDraw(d, locked) {
   var box = $('modelsModes');
   if (!box) return;
   var tier = function (id) {
-    return (d.tiers.filter(function (t) { return t.id === id; })[0] || {}).model_name || 'a model with a key';
+    return (d.tiers.filter(function (t) { return t.id === id; })[0] || {}).model_name || '';
   };
+  // With no key yet there is no model to name, so each says what it means in plain words.
+  var smart = tier('smart'), cheap = tier('cheaper');
   var said = {
-    best: 'Always ' + tier('smart'),
-    balanced: tier('smart') + ', or ' + tier('cheaper') + ' when a message is easy',
-    saver: 'Always ' + tier('cheaper')
+    best: smart ? 'Always ' + smart : 'The strongest model answers every message. It costs the most.',
+    balanced: smart && cheap ? smart + ', or ' + cheap + ' when a message is easy'
+      : 'The strongest model for hard messages, a cheaper one for easy ones.',
+    saver: cheap ? 'Always ' + cheap : 'A cheaper model answers every message. It costs the least.'
   };
   if (!box.firstChild) {
     (d.modes || []).forEach(function (m) {

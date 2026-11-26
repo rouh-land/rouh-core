@@ -12557,3 +12557,41 @@ html.pointing, html.pointing * { cursor: crosshair !important; }
 .help-spots-count { margin: 10px 0 0; font-weight: 600; font-size: 14px; }
 .help-spots-bar { height: 6px; margin: 8px 0 12px; border-radius: 3px; background: var(--line); overflow: hidden; }
 .help-spots-bar i { display: block; height: 100%; width: 0; background: var(--accent); }
+
+/* What you asked before chat was set up, and Ask it now (`rouh/first_week.py`, ask_again): under the
+   note that said chat was not set up, in its place once it is. */
+.ask-again {
+  flex: 0 0 auto;
+  margin: 12px 12px 0;
+  padding: 14px 16px;
+  display: grid; gap: 8px;
+  background: var(--panel-2);
+  border: 1px solid var(--line); border-radius: var(--radius);
+}
+.ask-again p { margin: 0; max-width: 60ch; }
+.ask-again-head { font-size: 15px; font-weight: 600; line-height: 1.35; }
+.ask-again-say { font-size: 13px; line-height: 1.5; color: var(--dim); }
+.ask-again-row { display: grid; gap: 8px; padding-top: 8px; border-top: 1px solid var(--line); }
+.ask-again-q { margin: 0; font-size: 14px; line-height: 1.5; overflow-wrap: anywhere; white-space: pre-wrap; }
+.ask-again-acts { display: flex; flex-wrap: wrap; gap: 8px; }
+.ask-again-acts .ctl { min-height: 44px; padding: 0 16px; font-size: 14px; }
+.col-chat[data-chat="page"] .ask-again { display: none; }
+
+/* Chat text size (`rouh/first_week.py`, text_size): the chat's messages and its box, bigger. */
+html.fw-ts-bigger #transcript, html.fw-ts-bigger #input { zoom: 1.15; }
+html.fw-ts-biggest #transcript, html.fw-ts-biggest #input { zoom: 1.3; }
+.fw-size-row { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 4px; }
+.fw-size-btn { min-height: 44px; min-width: 96px; padding: 0 16px; border: 1px solid var(--line);
+  border-radius: 10px; background: transparent; color: var(--text); cursor: pointer; font: inherit; }
+.fw-size-btn[aria-checked="true"] { border-color: var(--accent); background: var(--accent-soft); color: var(--accent);
+  font-weight: 600; }
+.fw-size-btn:hover { border-color: var(--accent); }
+.fw-size-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+/* On a phone it starts under the conversation's floating head, as the note does. */
+@media (max-width: 899px) {
+  .ask-again { margin: calc(var(--top-air) * 2 + var(--top-chip) + 4px) 14px 0; }
+  .col-chat .ask-again + .transcript { padding-top: 10px !important; }
+  .col-chat:has(#readingStrip:not([hidden])) .ask-again {
+    margin-top: calc(var(--top-air) + var(--top-chip) - 2px + 44px + 4px);
+  }
+}

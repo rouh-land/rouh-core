@@ -4043,3 +4043,34 @@ print("HOME=" + os.path.join(root, ".openclaw"))
            f"a second run would add what is already there: {again[:800]}")
     undone = s.tool("import_agent", {"undo": m.group(1)})
     expect("is undone: took away 2 rules, 2 notes" in undone, f"the import was not undone: {undone[:500]}")
+
+
+@check("gene.build-faster")
+def build_faster(s: Stack) -> None:
+    """A run of Rouh's code is told its test world needs no setting up; the page is told which are on."""
+    out = core_py(s, _owner_py("""
+from rouh import build_faster, workspace_repo
+page = build_faster.for_page(who)
+note = workspace_repo.code_run_note()
+print(json.dumps({"page": sorted(page["on"]), "code": page["code"], "world": "./e2e.sh ready" in note,
+    "counted": build_faster.used(who, "chat_to_run", "opened", "stack"),
+    "refused": build_faster.used(who, "chat_to_run", "nonsense", "stack")}))
+"""))
+    expect('"chat_to_run", "error_fix", "run_undo", "world_ready"' in out and '"world": true' in out
+           and '"counted": true' in out and '"refused": false' in out,
+           f"the build faster genes were not told as they should be: {out[-500:]}")
+
+
+@check("gene.first-week")
+def first_week(s: Stack) -> None:
+    """The page is told which of the four are on, with the text sizes; a use is counted, a wrong one refused."""
+    out = core_py(s, _owner_py("""
+from rouh import first_week
+page = first_week.for_page(who)
+print(json.dumps({"page": sorted(page["on"]), "sizes": [z["id"] for z in page["sizes"]],
+    "counted": first_week.used(who, "text_size", "changed", "bigger"),
+    "refused": first_week.used(who, "text_size", "opened", "x")}))
+"""))
+    expect('"ask_again", "draft_kept", "last_again", "text_size"' in out
+           and '"sizes": ["normal", "bigger", "biggest"]' in out and '"counted": true' in out and '"refused": false' in out,
+           f"the first week genes were not told as they should be: {out[-500:]}")

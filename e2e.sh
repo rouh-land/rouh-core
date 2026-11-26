@@ -11,6 +11,7 @@
 # kept working:
 #
 #   ./e2e.sh                     build .venv-e2e and the browser, and say so
+#   ./e2e.sh ready               link a ready venv and find or make PostgreSQL, and say so
 #   ./e2e.sh serve               stand Rouh up and hold it, for a browser
 #   ./e2e.sh serve --list        name the worlds tests/e2e/conftest.py builds
 #   ./e2e.sh serve one_deploy_world      stand one of the others up
@@ -66,6 +67,58 @@ install() {
   fi
 }
 
+# A ready test world from what this machine already has (`rouh/build_faster.py`, world_ready).
+# Every run's checkout is new, and making .venv-e2e takes minutes: another checkout's, made from
+# the same requirements, is linked instead. Only one that is the same is taken, so nothing here
+# ever installs into a venv another run is using.
+want=$(cat "$REQ" rouh/requirements.txt one/requirements.txt | sha256sum | cut -d' ' -f1)
+if [ ! -e "$VENV" ] && [ -z "${ROUH_E2E_OWN_VENV:-}" ]; then
+  for other in $(ls -dt ../*/"$VENV" 2>/dev/null); do
+    [ -L "$other" ] && continue
+    [ "$(cat "$other/.installed-from" 2>/dev/null || true)" = "$want" ] || continue
+    "$other/bin/python" -c "import django, playwright" >/dev/null 2>&1 || continue
+    ln -s "$(realpath "$other")" "$VENV"
+    echo "e2e: using the ready $VENV of $(realpath "$other")"
+    break
+  done
+fi
+
+# The PostgreSQL a test world makes its throwaway database with (rouh/testing/postgres.py): the
+# machine's own when it has one, else one made once for every run on this machine, in the home
+# folder, with micromamba (PostgreSQL 18 and pgvector, which Rouh's migrations need).
+SHARED_PG="${ROUH_E2E_PG:-$HOME/.local/share/rouh-e2e/pg}"
+find_micromamba() {
+  for m in "$(command -v micromamba 2>/dev/null || true)" "$HOME/.local/bin/micromamba" \
+           $(ls -dt ../*/.one/tmp/micromamba ../*-mm/bin/micromamba 2>/dev/null); do
+    [ -n "$m" ] && [ -x "$m" ] && "$m" --version >/dev/null 2>&1 && { echo "$m"; return; }
+  done
+}
+pg_ready() {
+  # $1: make it when there is none.
+  if [ -n "${ROUH_PG_BIN:-}" ] || command -v initdb >/dev/null 2>&1; then return 0; fi
+  if [ -x "$SHARED_PG/bin/initdb" ] && "$SHARED_PG/bin/initdb" --version >/dev/null 2>&1; then
+    export ROUH_PG_BIN="$SHARED_PG/bin"; return 0
+  fi
+  [ "${1:-}" = "make" ] || return 0
+  local mm; mm=$(find_micromamba)
+  if [ -z "$mm" ]; then
+    mkdir -p "$HOME/.local/bin"
+    echo "e2e: fetching micromamba"
+    curl -fsSL "https://micro.mamba.pm/api/micromamba/linux-$( [ "$(uname -m)" = aarch64 ] && echo aarch64 || echo 64)/latest" \
+      | tar -xj -C "$HOME/.local" bin/micromamba && mm="$HOME/.local/bin/micromamba"
+  fi
+  [ -n "$mm" ] || { echo "e2e: no micromamba, and none could be fetched: set ROUH_PG_BIN" >&2; return 0; }
+  echo "e2e: making the machine's PostgreSQL for test worlds in $SHARED_PG (a minute or two, once)"
+  mkdir -p "$(dirname "$SHARED_PG")"
+  # One run makes it; another that asks meanwhile waits for it.
+  (
+    flock 9
+    [ -x "$SHARED_PG/bin/initdb" ] || MAMBA_ROOT_PREFIX="$(dirname "$SHARED_PG")/mamba" "$mm" create -y -q \
+      -p "$SHARED_PG" -c conda-forge "postgresql>=18" pgvector >/dev/null
+  ) 9>"$(dirname "$SHARED_PG")/.making"
+  if [ -x "$SHARED_PG/bin/initdb" ]; then export ROUH_PG_BIN="$SHARED_PG/bin"; fi
+}
+
 if [ ! -x "$VENV/bin/python" ]; then
   echo "e2e: making $VENV"
   if command -v uv >/dev/null 2>&1; then
@@ -77,7 +130,6 @@ if [ ! -x "$VENV/bin/python" ]; then
 fi
 
 # Reinstall only when the requirements have actually changed.
-want=$(cat "$REQ" rouh/requirements.txt one/requirements.txt | sha256sum | cut -d' ' -f1)
 if [ "$(cat "$STAMP" 2>/dev/null || true)" != "$want" ]; then
   echo "e2e: installing $REQ (a few minutes the first time)"
   install -r "$REQ"
@@ -96,11 +148,29 @@ if [ "$(cat "$STAMP" 2>/dev/null || true)" != "$want" ]; then
   echo "$want" > "$STAMP"
 fi
 
+# A PostgreSQL already made for test worlds is found for whatever runs below.
+pg_ready
+
 # `./e2e.sh serve ...` stands one of conftest.py's worlds up and holds it, which
 # is what a browser driven over MCP needs pointing at.
 if [ "${1:-}" = "serve" ]; then
   shift
+  pg_ready make
   exec "$VENV/bin/python" -m tests.e2e.serve "$@"
+fi
+
+# `./e2e.sh ready` makes the test world's tools ready and says what it used (world_ready).
+if [ "${1:-}" = "ready" ]; then
+  pg_ready make
+  echo "e2e: ready. $VENV is $(realpath "$VENV")"
+  if [ -n "${ROUH_PG_BIN:-}" ]; then
+    echo "e2e: PostgreSQL for test worlds: $ROUH_PG_BIN (./e2e.sh serve finds it by itself)"
+  elif command -v initdb >/dev/null 2>&1; then
+    echo "e2e: PostgreSQL for test worlds: $(dirname "$(command -v initdb)")"
+  else
+    echo "e2e: no PostgreSQL for test worlds yet: set ROUH_PG_BIN" >&2
+  fi
+  exit 0
 fi
 
 # `./e2e.sh visual` is the screenshot comparisons, the one committed suite
@@ -108,6 +178,7 @@ fi
 # purpose; anything else goes to pytest, so `-k brief` picks one screen.
 if [ "${1:-}" = "visual" ]; then
   shift
+  pg_ready make
   args=()
   for a in "$@"; do
     if [ "$a" = "--update" ]; then export ROUH_VISUAL_UPDATE=1; else args+=("$a"); fi

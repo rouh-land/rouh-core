@@ -1035,6 +1035,28 @@ def _help_spots(request: HttpRequest) -> dict:
     return help_spots.for_page(who(request))
 
 
+def _build_faster(request: HttpRequest) -> dict:
+    """Which of night 55's four genes for building Rouh faster are on here (`rouh/build_faster.py`)."""
+    from rouh import build_faster
+
+    try:
+        return build_faster.for_page(who(request))
+    except Exception:
+        log.warning("build_faster: not read for the page", exc_info=True)
+        return {"on": []}
+
+
+def _first_week(request: HttpRequest) -> dict:
+    """Which of night 55's four genes for somebody's first week are on here (`rouh/first_week.py`)."""
+    from rouh import first_week
+
+    try:
+        return first_week.for_page(who(request))
+    except Exception:
+        log.warning("first_week: not read for the page", exc_info=True)
+        return {"on": []}
+
+
 def _newcomer(request: HttpRequest) -> dict:
     """Which of night 51's four genes for a newcomer are on here, and what they need (`rouh/newcomer.py`)."""
     from rouh import newcomer
@@ -1122,6 +1144,10 @@ def _page_for(request: HttpRequest) -> HttpResponse:
         "NEW_OWNER": _new_owner(request),
         # A run's pictures and screens, Change something here (`rouh/build_proof.py`).
         "BUILD_PROOF": _build_proof(request),
+        # A ready test world, Fix it on an error, Take it back, Make it a run (`rouh/build_faster.py`).
+        "BUILD_FASTER": _build_faster(request),
+        # Unsent words kept, Ask it now, Chat text size, Up arrow for the last message (`rouh/first_week.py`).
+        "FIRST_WEEK": _first_week(request),
         # Say it more simply, under an answer (`rouh/say_plainer.py`).
         "PLAINER": _plainer(request),
         # The open orb's music: Rouh's own, or the Cornfield Chase arrangement where its switch is on.
