@@ -16849,7 +16849,9 @@ class ToolRegistry:
             "names more than one device, ask which, never guess. Once a speaker or headset is connected "
             "(an Amazon Echo is 'Alexa': its name starts with Echo), Rouh's own voice plays through it, "
             "and goes back to the robot's own speaker by itself when it disconnects; listening stays on "
-            "the robot's own microphone.",
+            "the robot's own microphone. A paired speaker that drops is connected again by the robot "
+            "within about half a minute, and 'Alexa, connect to Rouh' said to the Echo works too; one "
+            "disconnected on request stays disconnected until connect is asked for.",
             {"type": "object", "properties": {
                 "action": {"type": "string", "enum": ["status", "on", "off", "scan", "connect", "disconnect",
                                                       "forget", "open"]},
