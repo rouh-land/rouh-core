@@ -103,7 +103,12 @@
   function loadUpdates(look) {
     if (look) { U.said = ''; U.error = ''; }
     return updatesCall('GET', '/api/settings/updates' + (look ? '?look=1' : '')).then(function (j) {
-      if (look && j && j.mode && !U.error) { U.said = j.check_error ? '' : 'Asked rouh.land just now.'; draw(); }
+      if (look && j && j.mode && !U.error) {
+        U.said = j.check_error ? '' : j.release_from === 'github'
+          ? 'rouh.land did not answer, so the release was read from GitHub just now, its signature checked.'
+          : 'Asked rouh.land just now.';
+        draw();
+      }
       return j;
     });
   }
@@ -318,6 +323,7 @@
         ? ', with ' + d.current.own_commits + ' change' + (d.current.own_commits === 1 ? '' : 's') + ' of its own' : '')]);
     }
     if (d.newest) rows.push(['Newest', d.newest.label]);
+    if (d.newest && d.release_from === 'github') rows.push(['Read from', 'GitHub, signed: rouh.land did not answer']);
     if (d.makes_releases && d.publishing) rows.push(['Releases', d.publishing.said || 'None published from here yet.']);
     rows.forEach(function (row) { dl.appendChild(el('dt', '', row[0])); dl.appendChild(el('dd', '', row[1])); });
     if (rows.length) s.appendChild(dl);

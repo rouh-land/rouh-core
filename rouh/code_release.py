@@ -276,7 +276,76 @@ def published() -> dict:
         return {}
 
 
-def publish(point: dict, since: str) -> dict:
+# --- the release's number (task 98, gap G10) ------------------------------------------------------
+#
+# Petar, 25 November 2026: "g10 - okay do it". Every release has a number like 1.1.3. The last part
+# goes up for an ordinary release, the middle one (and the last back to 0) for a release that changes
+# the database or the settings an installation is set up with. pyproject.toml's version is the
+# number of the newest release on main (the GitHub workflow code-release.yml writes it there with
+# CHANGELOG.md), and a person who sets it higher by hand (2.0.0) makes the next release that number.
+
+FIRST = "1.1.0"
+#: The files an installation's settings are read from: a change to one is a change of the settings.
+SETTINGS = ("rouh/config.py", "one/config.py", "rouh/settings.py", "deploy/installation.env.example",
+            "deploy/stack/")
+_PYPROJECT_VERSION = re.compile(r'^version\s*=\s*"([^"]*)"', re.M)
+
+
+def changes_kind(since: str, commit: str) -> dict:
+    """{"database": bool, "settings": bool}: what the changes from `since` to `commit` touch."""
+    from .code_evolution import database_file
+
+    if not since:
+        return {"database": False, "settings": False}
+    files = [f for f in _git("diff", "--name-only", since, commit).stdout.splitlines() if f.strip()]
+    return {"database": any(database_file(f) for f in files),
+            "settings": any(f == s or (s.endswith("/") and f.startswith(s)) for f in files for s in SETTINGS)}
+
+
+def floor(commit: str) -> str:
+    """pyproject.toml's version at `commit`, when it is a release number; else ""."""
+    from . import release_signature
+
+    m = _PYPROJECT_VERSION.search(_git("show", f"{commit}:pyproject.toml").stdout)
+    try:
+        return m[1] if m and release_signature.number_key(m[1]) else ""
+    except release_signature.Bad:
+        return ""
+
+
+def next_number(before: str, kind: dict, at_least: str = "") -> str:
+    """The number of the release after `before` ("" for the first): its last part up, or its
+    middle one for a change of the database or the settings; never below `at_least`."""
+    from .release_signature import number_key
+
+    if before:
+        major, minor, patch = number_key(before)
+        bumped = f"{major}.{minor + 1}.0" if kind.get("database") or kind.get("settings") else f"{major}.{minor}.{patch + 1}"
+    else:
+        bumped = FIRST
+    if at_least and number_key(at_least) > number_key(bumped):
+        return at_least
+    return bumped
+
+
+def signed_release(point: dict, since: str, before: str, seed: bytes, public: str) -> dict:
+    """The release as the signed envelope rouh.land serves and its GitHub Release carries."""
+    from . import release_signature
+
+    key_id = next((k for k, v in release_signature.keys().items()
+                   if v.get("type") == "ed25519" and v.get("key") == public), "")
+    if not key_id:
+        raise RuntimeError("this Rouh's key is not one of the keys that sign Rouh's releases (rouh/code_release_keys.json)")
+    kind = changes_kind(since, point["commit"])
+    now = dt.datetime.now(dt.timezone.utc)
+    payload = {"kind": release_signature.KIND, "format": 1, "commit": point["commit"],
+               "number": next_number(before, kind, floor(point["commit"])), "since": since or "",
+               "live_since": dt.datetime.fromtimestamp(float(point["at"]), dt.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+               "signed_at": now.strftime("%Y-%m-%dT%H:%M:%SZ"), "notes": notes(since, point["commit"]), **kind}
+    return release_signature.sign_ed25519(payload, seed, key_id)
+
+
+def publish(point: dict, since: str, before: str = "") -> dict:
     """POST /mac/code/release, signed with this Rouh's daily key in the relay client's format (the key
     in the body, the four X-Rouh headers). Not `relay._signed_post`, which asks the first run's
     Connected choice: the Creator Rouh is older than that question, and rouh.land judges it by its
@@ -291,8 +360,10 @@ def publish(point: dict, since: str) -> dict:
         raise RuntimeError("this Rouh has no owner yet")
     me, _row = relay._identity(user)
     live = dt.datetime.fromtimestamp(float(point["at"]), dt.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    signed = signed_release(point, since, before, me["seed"], me["public"])
+    said = json.loads(signed["payload"])
     payload = {"v": 1, "public_key": me["public"], "commit": point["commit"], "live_since": live,
-               "notes": notes(since, point["commit"]),
+               "notes": said["notes"], "number": said["number"], "signed": signed,
                "checks": {"passed": (point.get("checked") or {}).get("passed"), "point": point.get("n")}}
     url = os.environ.get("ROUH_CODE_RELEASE_PUBLISH") or site_url("/mac/code/release")
     raw = json.dumps(payload, separators=(",", ":"), sort_keys=True).encode()
@@ -330,18 +401,18 @@ def once(now: float | None = None, *, force: bool = False) -> dict:
     if point is None:
         return _save(tried_at=now, said=f"No new release: {why}.", looked_at=now)
     try:
-        got = publish(point, since)
+        got = publish(point, since, str(rel.get("number") or ""))
     except Exception as exc:  # noqa: BLE001 - said, and tried again tomorrow
         log.warning("the release could not be published: %s", exc)
         return _save(tried_at=now, said=f"The release of {point['commit'][:12]} could not be published: {exc}",
                      looked_at=now)
-    log.info("released %s (undo point %s) on rouh.land", point["commit"][:12], point.get("n"))
+    log.info("released %s %s (undo point %s) on rouh.land", got.get("number") or "", point["commit"][:12], point.get("n"))
     with contextlib.suppress(Exception):
         from . import code_update
 
         code_update.newest(fresh=True)
     return _save(tried_at=now, looked_at=now, released={"commit": point["commit"], "at": now, "point": point.get("n")},
-                 said=f"Released {point['commit'][:12]} ({got.get('state') or 'published'}).")
+                 said=f"Released {(got.get('number') or '') + ' ' if got.get('number') else ''}{point['commit'][:12]} ({got.get('state') or 'published'}).")
 
 
 def public() -> dict:
@@ -439,7 +510,8 @@ def publish_by_hand(commit: str = "", now: float | None = None) -> dict:
     point = next((p for p in points if p.get("commit") == commit), {})
     when = _went_live(commit, points) or now
     got = publish({"commit": commit, "at": when, "n": point.get("n"),
-                   "checked": {"passed": (point.get("checked") or {}).get("passed", True)}}, since)
+                   "checked": {"passed": (point.get("checked") or {}).get("passed", True)}}, since,
+                  str(rel.get("number") or ""))
     log.info("released %s by hand on rouh.land", commit[:12])
     with contextlib.suppress(Exception):
         from . import code_update

@@ -1916,7 +1916,12 @@
     "rouh/github_org.py",
     "rouh/management/commands/code_release.py",
     "rouh/web/changes.py",
-    "rouh/static/changespage.*"
+    "rouh/static/changespage.*",
+    "rouh/release_signature.py",
+    "rouh/code_release_keys.json",
+    "CHANGELOG.md",
+    ".github/workflows/code-release.yml",
+    "deploy/container/code_release_mirror.py"
    ]
   },
   "n23-doc-last-changed": {

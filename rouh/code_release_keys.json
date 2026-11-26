@@ -1,0 +1,15 @@
+{
+  "_": "The keys whose signature makes a release of Rouh's code (task 98, gap G21). A release signed by any one of them is taken, from rouh.land or from its GitHub Release; one signed by no key here is refused. rouh/release_signature.py and deploy/container/mac_release.py read this file, and rouh.land keeps the same list (rouhit/code_release_views.py, CODE_RELEASE_KEYS): change them together.",
+  "keys": {
+    "creator-rouh-1": {
+      "type": "ed25519",
+      "key": "JZmeNpA6P1B8AoNRJaAgCFKTJ2t0eDU5mLtTWYxkmTw=",
+      "what": "The Creator Rouh's own key (its daily key on rouh.land), which signs each release by itself"
+    },
+    "owner-macbook-1": {
+      "type": "ssh-ed25519",
+      "key": "AAAAC3NzaC1lZDI1NTE5AAAAIB+rJqasTbiK06zqF3ChaSO7hQS/RB3RyBB++vSwgRj9",
+      "what": "The owner's MacBook: its SSH key kept in Bitwarden, signing with ssh-keygen -Y sign -n rouh-code-release (mac_release.py code-release-sign)"
+    }
+  }
+}

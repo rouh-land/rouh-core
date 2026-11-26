@@ -24,6 +24,7 @@ Add --debug to any of them for the technical detail (commands and their output).
 from __future__ import annotations
 
 import argparse
+import datetime as dt
 import json
 import os
 import re
@@ -187,7 +188,17 @@ def _verified_code_commit() -> tuple[str, int]:
     try:
         got = mac_release._get("/mac/code/newest.json")
         payload = mac_release._signed(got["record"])
-    except (mac_release.FetchError, KeyError, ValueError, TypeError) as e:
+    except mac_release.FetchError as e:
+        # rouh.land does not answer (task 98, gap G21): the newest release of Rouh's code on
+        # rouh-core's GitHub Releases, signed by one of the release keys (rouh/code_release_keys.json).
+        try:
+            rel = mac_release.code_release_from_github()
+        except (mac_release.FetchError, ValueError) as also:
+            raise Stop(f"rouh.land's newest tested code could not be read ({e}), and GitHub's release neither ({also}); nothing changed")
+        say(f"rouh.land did not answer; the updater follows Rouh {rel['number']} from GitHub, its signature checked")
+        when = dt.datetime.strptime(str(rel.get("signed_at") or "1970-01-01T00:00:00Z"), "%Y-%m-%dT%H:%M:%SZ")
+        return rel["commit"], int(when.strftime("%Y%m%d%H%M%S"))
+    except (KeyError, ValueError, TypeError) as e:
         raise Stop(f"rouh.land's newest tested code could not be checked ({e}); nothing changed")
     commit = str(payload.get("commit") or "")
     if payload.get("kind") != "rouh-code-pass" or payload.get("branch") != "main" or not re.fullmatch(r"[0-9a-f]{40}", commit):

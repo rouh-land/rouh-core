@@ -96,6 +96,8 @@ async def healthz(request: HttpRequest):
         # environment, or a file beside the data made on first use.
         "encryption_key": rt.encryption_key_source,
         "version": VERSION,
+        # The number of the release of Rouh's code this Rouh is on, "" for none it knows (G10).
+        "release": _release_number(),
         "revision": REVISION,
         "build": BUILD,
         # When this process started and whether the one before went on purpose,
@@ -1098,6 +1100,15 @@ def _orb_cornfield(request: HttpRequest) -> bool:
         return False
 
 
+def _release_number() -> str:
+    try:
+        from rouh import code_update
+
+        return code_update.number_here()
+    except Exception:  # noqa: BLE001 - only a label
+        return ""
+
+
 def _page_for(request: HttpRequest) -> HttpResponse:
     """The one page, with the values the server fills in."""
     from rouh import demo_style
@@ -1107,7 +1118,8 @@ def _page_for(request: HttpRequest) -> HttpResponse:
     work = modeldefaults.use_pair("askai", modeldefaults.org_now(who(request)), config)
     nickname = _nickname(request)
     response = render(request, "rouh/index.html", {
-        "VERSION": VERSION,
+        # The number of the release this Rouh's code is on (task 98, gap G10), else main's.
+        "VERSION": _release_number() or VERSION,
         "REVISION": REVISION or "local",
         # The marker itself has room for a hash and nothing else. The date is
         # what makes the hash mean something, so it goes in the tooltip.

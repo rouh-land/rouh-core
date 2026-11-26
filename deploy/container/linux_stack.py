@@ -64,6 +64,8 @@ import sys
 import tarfile
 import tempfile
 import time
+import urllib.error
+import urllib.request
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
@@ -540,6 +542,21 @@ def switch(m: Machine, r: dict, *, going_back: str) -> bool:
     return False
 
 
+#: The signed release of the newest base, on rouh-core's GitHub Releases: base.yml puts the very file it
+#: sent rouh.land there as release.json, on the release it marks as GitHub's latest.
+GITHUB_RELEASE = os.environ.get("ROUH_GITHUB_RELEASE_FILE") or \
+    f"https://github.com/{mac_release.ORG}/rouh-core/releases/latest/download/release.json"
+
+
+def github_release() -> bytes:
+    req = urllib.request.Request(GITHUB_RELEASE, headers={"User-Agent": mac_release.UA, "Accept": "application/json"})
+    try:
+        with urllib.request.urlopen(req, timeout=60) as r:
+            return r.read(4 * 1024 * 1024)
+    except (urllib.error.URLError, OSError) as e:
+        raise mac_release.FetchError(f"{GITHUB_RELEASE} could not be read ({getattr(e, 'reason', e)})") from None
+
+
 def newest_release(release_file: str | None, line: str) -> tuple[dict, bytes]:
     """rouh.land's newest release of the line (or the file given), its signature and shape checked."""
     if release_file:
@@ -553,7 +570,14 @@ def newest_release(release_file: str | None, line: str) -> tuple[dict, bytes]:
             try:
                 data = json.dumps(mac_release._get(f"/mac/release/{line}.json")).encode()
             except mac_release.FetchError as e:
-                raise Stop(f"refused: rouh.land did not hand out the newest release: {e}; nothing changed")
+                # rouh.land does not answer (task 98, gap G21): the same signed file, from the newest
+                # base release on rouh-core's GitHub Releases, checked below exactly as rouh.land's.
+                try:
+                    data = github_release()
+                except mac_release.FetchError as also:
+                    raise Stop(f"refused: rouh.land did not hand out the newest release: {e}; "
+                               f"and GitHub's could not be read: {also}; nothing changed")
+                say(f"rouh.land did not answer ({e}); took the signed release from GitHub")
     try:
         new = mac_release.check_release(json.loads(data))
     except (ValueError, KeyError, json.JSONDecodeError) as e:

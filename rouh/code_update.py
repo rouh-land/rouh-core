@@ -263,7 +263,7 @@ def _own_commits(code: Path, local: str) -> int:
 # --- the release, from rouh.land ---------------------------------------------------------------
 
 
-def _get_json(url: str) -> dict:
+def _get_json(url: str, where: str = "rouh.land") -> dict:
     req = urllib.request.Request(url, headers={"User-Agent": UA, "Accept": "application/json"})
     try:
         with urllib.request.urlopen(req, timeout=30) as r:
@@ -274,29 +274,137 @@ def _get_json(url: str) -> dict:
         except ValueError:
             said = ""
         if e.code == 404:
-            raise Refused("rouh.land has no release of Rouh's code yet.") from None
-        raise Refused(f"rouh.land answered {e.code}{': ' + said if said else ''}.") from None
+            raise Refused(f"{where} has no release of Rouh's code yet.") from None
+        raise Refused(f"{where} answered {e.code}{': ' + said if said else ''}.") from None
     except (urllib.error.URLError, OSError, ValueError) as e:
-        raise Refused(f"rouh.land could not be reached ({getattr(e, 'reason', e)}).") from None
+        raise Refused(f"{where} could not be reached ({getattr(e, 'reason', e)}).") from None
     if not isinstance(got, dict) or not re.fullmatch(r"[0-9a-f]{40}", str(got.get("commit") or "")):
-        raise Refused("rouh.land's answer named no release.")
+        raise Refused(f"{where}'s answer named no release.")
     return got
 
 
+#: Where a release is read when rouh.land does not answer (task 98, gap G21): rouh-core's GitHub
+#: Releases, each of which carries the signed file rouh.land served for it (code-release.json).
+GITHUB_RELEASES = os.environ.get("ROUH_CODE_RELEASES_GITHUB") or "https://api.github.com/repos/{org}/rouh-core/releases?per_page=30"
+RELEASE_ASSET = "code-release.json"
+RELEASE_TAG = re.compile(r"^v\d+\.\d+\.\d+$")
+FIELDS = ("commit", "version", "number", "released_at", "live_since", "notes", "signed")
+
+
+def _checked(got: dict, *, need_signature: bool) -> dict:
+    """release.json with every row's words taken from its own signature (rouh/release_signature.py).
+    A row whose signature is there and does not check refuses the whole answer; a row with none is
+    kept as rouh.land said it only where `need_signature` is false (releases from before 26 November
+    2026, which nobody signed)."""
+    from . import release_signature
+
+    def row(r: dict) -> dict | None:
+        if not isinstance(r, dict):
+            return None
+        if r.get("signed"):
+            try:
+                return {k: v for k, v in release_signature.checked_row(r).items() if k in FIELDS + ("signed_by",)}
+            except release_signature.Bad as exc:
+                raise Refused(f"A release of {str(r.get('commit') or '')[:8] or 'Rouh'} was refused: {exc}.") from None
+        if need_signature:
+            return None
+        return {k: r.get(k) for k in FIELDS if k != "signed"}
+
+    top = row(got)
+    if top is None:
+        raise Refused("The release names no signature this Rouh trusts.")
+    recent = [x for x in (row(r) for r in got.get("recent") or []) if x]
+    if not any(r.get("commit") == top["commit"] for r in recent):
+        recent.insert(0, {k: v for k, v in top.items() if k != "recent"})
+    return {**top, "recent": recent}
+
+
+def from_github() -> dict:
+    """The newest release from rouh-core's GitHub Releases, its signature checked; raises Refused."""
+    from . import github_org
+
+    try:
+        listed = github_org.read_json(GITHUB_RELEASES, headers={"Accept": "application/vnd.github+json", "User-Agent": UA})
+    except Exception as exc:  # noqa: BLE001 - said
+        raise Refused(f"GitHub's releases could not be read ({type(exc).__name__}).") from None
+    for rel in listed if isinstance(listed, list) else []:
+        if rel.get("draft") or not RELEASE_TAG.match(str(rel.get("tag_name") or "")):
+            continue
+        asset = next((a for a in rel.get("assets") or [] if a.get("name") == RELEASE_ASSET), None)
+        if not asset:
+            continue
+        url = str(asset.get("browser_download_url") or "")
+        if not url.startswith("https://"):
+            continue
+        got = _checked(_get_json(url, where="GitHub"), need_signature=True)
+        return {**got, "from": "github", "tag": rel.get("tag_name")}
+    raise Refused("GitHub has no signed release of Rouh's code yet.")
+
+
 def newest(*, fresh: bool = False) -> dict:
-    """The newest release, as rouh.land says it, kept for an hour. Raises Refused."""
+    """The newest release, kept for an hour: rouh.land's, or when rouh.land cannot be reached or
+    answers with an error, the newest GitHub Release's signed file. Raises Refused."""
     s = state()
     kept = s.get("release") or {}
     if not fresh and kept and time.time() - float(s.get("checked_at") or 0) < FRESH:
         return kept
     try:
-        got = _get_json(release_url())
+        got = _checked(_get_json(release_url()), need_signature=False)
+        got["from"] = "rouh.land"
     except Refused as exc:
-        _change(checked_at=time.time(), check_error=str(exc))
-        raise
-    got = {k: got.get(k) for k in ("commit", "version", "released_at", "live_since", "notes", "recent")}
+        try:
+            got = from_github()
+        except Refused as also:
+            said = f"{exc} {also}"
+            _change(checked_at=time.time(), check_error=said)
+            raise Refused(said) from None
+        log.info("rouh.land gave no release (%s); took %s from GitHub", exc, got.get("tag"))
+    got = {k: got.get(k) for k in FIELDS + ("recent", "from", "tag", "signed_by")}
     _change(release=got, checked_at=time.time(), check_error="")
     return got
+
+
+def number_of(commit: str, release: dict | None = None) -> str:
+    """The release number of `commit` ("1.1.3"), as the releases this Rouh has read say it; else ""."""
+    rel = (state().get("release") or {}) if release is None else release
+    for r in [rel, *(rel.get("recent") or [])]:
+        if commit and r.get("commit") == commit and r.get("number"):
+            return str(r["number"])
+    return ""
+
+
+_NUMBER_HERE: dict = {}
+
+
+def number_here() -> str:
+    """The number of the release this Rouh's code is on, or "" when it is on none it knows. A whole
+    copy of Rouh's history (the Creator Rouh) is on the newest release its code contains. Kept for
+    five minutes, as every page asks it."""
+    s = state()
+    key = (str((s.get("release") or {}).get("commit") or ""), s.get("checked_at"))
+    if _NUMBER_HERE.get("key") == key and time.time() - _NUMBER_HERE.get("at", 0) < 300:
+        return _NUMBER_HERE["number"]
+    number = _number_here()
+    _NUMBER_HERE.update(key=key, at=time.time(), number=number)
+    return number
+
+
+def _number_here() -> str:
+    try:
+        from . import code_evolution
+
+        b = base()
+        here = code_evolution.shown().get("through") or b.get("release") or ""
+        if here or b.get("how") != "history":
+            return number_of(here)
+        rel = state().get("release") or {}
+        for r in [rel, *(rel.get("recent") or [])]:
+            c = str(r.get("commit") or "")
+            if r.get("number") and c and _git("merge-base", "--is-ancestor", c, "HEAD", cwd=code_dir(), timeout=20).returncode == 0:
+                return str(r["number"])
+    except Exception:  # noqa: BLE001 - only a label
+        return ""
+    return ""
 
 
 def _day(iso: str) -> str:
@@ -308,12 +416,18 @@ def _day(iso: str) -> str:
 
 
 def label(commit: str, release: dict | None = None) -> str:
-    """A release as a person reads it: "Rouh of 11 November 2026 (fff88ca6)"."""
+    """A release as a person reads it: "Rouh 1.1.3, of 26 November 2026 (fff88ca6)", or for a
+    release from before numbers, "Rouh of 11 November 2026 (fff88ca6)"."""
     if not commit:
         return "unknown"
-    for r in (release or {}).get("recent") or []:
-        if r.get("commit") == commit and _day(r.get("released_at") or ""):
-            return f"Rouh of {_day(r['released_at'])} ({commit[:8]})"
+    for r in [release or {}, *((release or {}).get("recent") or [])]:
+        if r.get("commit") != commit:
+            continue
+        day = _day(r.get("released_at") or "")
+        if r.get("number"):
+            return f"Rouh {r['number']}" + (f", of {day}" if day else "") + f" ({commit[:8]})"
+        if day:
+            return f"Rouh of {day} ({commit[:8]})"
     return f"Rouh {commit[:8]}"
 
 
@@ -397,11 +511,20 @@ def public(who, *, look: bool = False) -> dict:
         out["ledger"] = evolution
     here = evolution.get("through") or b.get("release") or ""
     own_base = b.get("local") or evolution.get("installed")
-    out["current"] = {"commit": here, "label": label(here, rel) if here else "",
+    out["current"] = {"commit": here, "label": label(here, rel) if here else "", "number": number_of(here, rel) if here else "",
                       "own_commits": _own_commits(code_dir(), own_base) if own_base else 0}
+    if not here and b.get("how") == "history" and rel:
+        # A whole copy of Rouh's history (the Creator Rouh): the newest release its code contains (G10).
+        n = number_here()
+        got = next((r for r in [rel, *(rel.get("recent") or [])] if n and r.get("number") == n), None)
+        if got:
+            head = _out("rev-parse", "HEAD", cwd=code_dir())
+            out["current"].update(number=n, label=label(got["commit"], rel)
+                                  + ("" if head == got["commit"] else ", and changes made after it"))
     if rel:
-        out["newest"] = {"commit": rel["commit"], "label": label(rel["commit"], rel),
+        out["newest"] = {"commit": rel["commit"], "label": label(rel["commit"], rel), "number": rel.get("number") or "",
                          "released_at": rel.get("released_at"), "live_since": rel.get("live_since")}
+        out["release_from"] = rel.get("from") or "rouh.land"
         if b.get("how") == "history":
             has = _git("cat-file", "-e", f"{rel['commit']}^{{commit}}", cwd=code_dir()).returncode == 0
             out["up_to_date"] = has and _git("merge-base", "--is-ancestor", rel["commit"], "HEAD",
@@ -534,6 +657,8 @@ def said(got: dict) -> str:
             parts.append(f"The newest release is {new['label']}.")
             if got.get("whats_new"):
                 parts.append("What is new: " + "; ".join(got["whats_new"]) + ".")
+        if got.get("release_from") == "github":
+            parts.append("rouh.land did not answer, so the release was read from Rouh's GitHub Releases, its signature checked.")
     elif got.get("check_error"):
         parts.append(f"The newest release is not known: {got['check_error']}")
     run = got.get("run") or {}

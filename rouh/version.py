@@ -42,7 +42,21 @@ from .config import config
 
 log = logging.getLogger("rouh.version")
 
-VERSION = "1.0.0"
+def _pyproject_version() -> str:
+    """pyproject.toml's version: the number of the newest release of Rouh's code on main (task 98,
+    gap G10), written there by .github/workflows/code-release.yml. "1.0.0" when it has none."""
+    import re
+
+    try:
+        with open(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "pyproject.toml"),
+                  encoding="utf-8") as fh:
+            m = re.search(r'^version\s*=\s*"(\d+\.\d+\.\d+)"', fh.read(), re.M)
+    except OSError:
+        m = None
+    return m[1] if m else "1.0.0"
+
+
+VERSION = _pyproject_version()
 
 # The checkout this package was imported from. Taken from __file__ rather than
 # the working directory so it is right whoever started the process and from

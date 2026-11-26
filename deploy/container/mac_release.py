@@ -69,6 +69,11 @@ of this release's guard image.
     mac_release.py code-pass --commit SHA --run URL OUT    signs "this commit of main passed"
     mac_release.py code-publish FILE                        sends it to rouh.land
     mac_release.py code-newest                              what rouh.land hands out now
+    mac_release.py code-release-sign --commit SHA --number N --notes-file F --ssh-key KEY [--since SHA]
+                       [--live-since T] [--database] [--settings] OUT
+                                                            a release of Rouh's code signed on the
+                                                            owner's MacBook (G21); then code-release-publish OUT
+    mac_release.py code-release-verify FILE | code-release-publish FILE | code-release-github
     mac_release.py check-sha256 [ROOT]                      check_sha256 of a checkout (this one)
     mac_release.py release-matches FILE --src DIR --commit SHA --base REF --guard REF [--code SHA] [--tag base-<level>]
         refuses a signed release that is not, every part of it, the one commit it names: its commit
@@ -574,6 +579,129 @@ def make_code_pass(commit: str, run: str, key_pem: bytes) -> dict:
     return {"format": 1, "key": KEY_ID, "payload": payload, "signature": sign_payload(payload, key_pem)}
 
 
+# ---------------------------------------------------------------- releases of Rouh's code (G10, G21)
+#
+# A release of Rouh's code is a signed envelope (rouh/release_signature.py), signed by one of the keys
+# in rouh/code_release_keys.json: the Creator Rouh's own, by itself, or the owner's MacBook's SSH key,
+# by hand (code-release-sign). rouh.land serves it in /mac/code/release.json and every GitHub Release
+# v<number> of rouh-core carries the same file as code-release.json, so a Linux machine's updater
+# can take it from GitHub when rouh.land does not answer.
+
+CODE_KEYS = REPO / "rouh" / "code_release_keys.json"
+CODE_RELEASE_ASSET = "code-release.json"
+GITHUB_API = os.environ.get("ROUH_GITHUB_API") or "https://api.github.com"
+
+
+def _release_signature():
+    """rouh/release_signature.py, loaded by its path, without the rest of Rouh."""
+    import importlib.util
+
+    spec = importlib.util.spec_from_file_location("rouh_release_signature", REPO / "rouh" / "release_signature.py")
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod
+
+
+def _ed25519_ok(raw_public: bytes, sig: bytes, message: bytes) -> bool:
+    if len(raw_public) != 32 or len(sig) != 64:
+        return False
+    with tempfile.TemporaryDirectory() as t:
+        Path(t, "p.pem").write_bytes(_public_pem(base64.b64encode(raw_public).decode()))
+        Path(t, "m").write_bytes(message)
+        Path(t, "s").write_bytes(sig)
+        code, _, _ = _openssl("pkeyutl", "-verify", "-pubin", "-inkey", str(Path(t, "p.pem")), "-rawin",
+                              "-in", str(Path(t, "m")), "-sigfile", str(Path(t, "s")))
+    return code == 0
+
+
+def check_code_release(envelope: dict) -> dict:
+    """A signed release of Rouh's code, checked with openssl alone; raises ValueError."""
+    rs = _release_signature()
+    try:
+        return rs.check(envelope, rs.keys(CODE_KEYS), _ed25519_ok)
+    except rs.Bad as e:
+        raise ValueError(str(e)) from None
+
+
+def code_release_from_github() -> dict:
+    """The newest release of Rouh's code on rouh-core's GitHub Releases, its signature checked:
+    the signed payload. Raises FetchError when GitHub has none that checks."""
+    url = f"{GITHUB_API}/repos/{ORG}/rouh-core/releases?per_page=30"
+    req = urllib.request.Request(url, headers={"User-Agent": UA, "Accept": "application/vnd.github+json"})
+    try:
+        with urllib.request.urlopen(req, timeout=30) as r:
+            listed = json.loads(r.read(4 * 1024 * 1024))
+    except (urllib.error.URLError, OSError, ValueError) as e:
+        raise FetchError(f"{url} could not be read ({getattr(e, 'reason', e)})") from None
+    why = "no GitHub Release of Rouh's code carries a signed code-release.json"
+    for rel in listed if isinstance(listed, list) else []:
+        if rel.get("draft") or not re.fullmatch(r"v\d+\.\d+\.\d+", str(rel.get("tag_name") or "")):
+            continue
+        asset = next((a for a in rel.get("assets") or [] if a.get("name") == CODE_RELEASE_ASSET), None)
+        if not asset or not str(asset.get("browser_download_url") or "").startswith("https://"):
+            continue
+        req = urllib.request.Request(asset["browser_download_url"], headers={"User-Agent": UA, "Accept": "application/json"})
+        try:
+            with urllib.request.urlopen(req, timeout=60) as r:
+                doc = json.loads(r.read(4 * 1024 * 1024))
+            payload = check_code_release(doc.get("signed"))
+        except (urllib.error.URLError, OSError, ValueError, AttributeError) as e:
+            why = f"{rel.get('tag_name')}'s code-release.json is not one this trusts ({e})"
+            continue
+        if f"v{payload['number']}" != rel.get("tag_name"):
+            why = f"{rel.get('tag_name')} carries the signed release {payload['number']}"
+            continue
+        return payload
+    raise FetchError(why)
+
+
+def sign_code_release_ssh(payload: dict, ssh_key: str) -> dict:
+    """The owner's MacBook's half: the payload signed with ssh-keygen -Y sign (an SSH key, or its
+    .pub when the private half is in an agent such as Bitwarden's), as the envelope rouh.land takes."""
+    rs = _release_signature()
+    text = rs.canonical(payload)
+    pub = Path(ssh_key if ssh_key.endswith(".pub") else ssh_key + ".pub")
+    blob = pub.read_text().split()[1] if pub.exists() else ""
+    key_id = next((k for k, v in rs.keys(CODE_KEYS).items() if v.get("type") == "ssh-ed25519" and v.get("key") == blob), "")
+    if not key_id:
+        die(f"{pub} is not one of the keys that sign Rouh's releases (rouh/code_release_keys.json)")
+    with tempfile.TemporaryDirectory() as t:
+        msg = Path(t, "release.json")
+        msg.write_text(text)
+        r = subprocess.run(["ssh-keygen", "-Y", "sign", "-n", rs.NAMESPACE, "-f", ssh_key, str(msg)],
+                           capture_output=True, text=True)
+        if r.returncode:
+            die(f"ssh-keygen could not sign: {r.stderr.strip()}")
+        sig = Path(t, "release.json.sig").read_text()
+    envelope = {"format": 1, "key": key_id, "payload": text, "signature": sig}
+    check_code_release(envelope)
+    return envelope
+
+
+def code_release_payload(*, commit: str, number: str, since: str, live_since: str, notes: list,
+                         database: bool, settings: bool) -> dict:
+    rs = _release_signature()
+    if not COMMIT.match(commit) or (since and not COMMIT.match(since)):
+        die("--commit and --since are whole commit ids")
+    rs.number_key(number)
+    now = dt.datetime.now(dt.timezone.utc).replace(microsecond=0).strftime("%Y-%m-%dT%H:%M:%SZ")
+    return {"kind": rs.KIND, "format": 1, "commit": commit, "number": number, "since": since,
+            "live_since": live_since or now, "signed_at": now, "notes": [str(n) for n in notes][:30],
+            "database": database, "settings": settings}
+
+
+def publish_code_release(envelope: dict) -> dict:
+    """POST the signed release to rouh.land, which takes it for its signature alone."""
+    body = json.dumps({"signed": envelope}).encode()
+    req = urllib.request.Request(SITE + "/mac/code/release", data=body, method="POST",
+                                 headers={"Content-Type": "application/json", "User-Agent": UA})
+    try:
+        with urllib.request.urlopen(req, timeout=60) as r:
+            return json.loads(r.read())
+    except urllib.error.HTTPError as e:
+        die(f"rouh.land refused it ({e.code}): {e.read().decode(errors='replace')[:400]}")
+
+
 # ---------------------------------------------------------------- rouh.land
 
 
@@ -713,6 +841,19 @@ def main():
     cp.add_argument("out")
     sub.add_parser("code-publish").add_argument("file")
     sub.add_parser("code-newest")
+    cs = sub.add_parser("code-release-sign", help="a release of Rouh's code signed with an SSH key (the owner's MacBook)")
+    cs.add_argument("--commit", required=True)
+    cs.add_argument("--number", required=True, help="the release's number, such as 1.1.4")
+    cs.add_argument("--since", default="", help="the release before it")
+    cs.add_argument("--live-since", default="")
+    cs.add_argument("--notes-file", required=True, help="one plain line a change")
+    cs.add_argument("--database", action="store_true", help="it changes the database")
+    cs.add_argument("--settings", action="store_true", help="it changes an installation's settings")
+    cs.add_argument("--ssh-key", required=True, help="the SSH key, or its .pub when the key is in an agent")
+    cs.add_argument("out")
+    sub.add_parser("code-release-verify").add_argument("file")
+    sub.add_parser("code-release-publish").add_argument("file")
+    sub.add_parser("code-release-github")
     sub.add_parser("check-sha256").add_argument("root", nargs="?", default=str(REPO))
     rm = sub.add_parser("release-matches")
     rm.add_argument("file")
@@ -809,6 +950,28 @@ def main():
         return
     if a.cmd == "check-sha256":
         print(check_sha256(Path(a.root).resolve()))
+        return
+    if a.cmd == "code-release-sign":
+        lines = [x.strip() for x in Path(a.notes_file).read_text().splitlines() if x.strip()]
+        env = sign_code_release_ssh(code_release_payload(commit=a.commit, number=a.number, since=a.since,
+                                                         live_since=a.live_since, notes=lines,
+                                                         database=a.database, settings=a.settings), a.ssh_key)
+        Path(a.out).write_text(json.dumps(env, indent=1) + "\n")
+        print(f"signed: Rouh {a.number} ({a.commit[:12]}) with the key {env['key']}, in {a.out}")
+        return
+    if a.cmd == "code-release-verify":
+        doc = json.loads(Path(a.file).read_text())
+        r = check_code_release(doc.get("signed", doc) if isinstance(doc, dict) else doc)
+        print(f"good: Rouh {r['number']} ({r['commit'][:12]}), signed by {r['signed_by']}")
+        return
+    if a.cmd == "code-release-publish":
+        doc = json.loads(Path(a.file).read_text())
+        got = publish_code_release(doc.get("signed", doc))
+        print(f"published: Rouh {got.get('number')} ({str(got.get('commit'))[:12]}), {got.get('state')}")
+        return
+    if a.cmd == "code-release-github":
+        r = code_release_from_github()
+        print(f"GitHub's newest: Rouh {r['number']} ({r['commit']}), signed by {r['signed_by']}")
         return
     if a.cmd == "code-newest":
         print(json.dumps(_get("/mac/code/newest.json"), indent=1))

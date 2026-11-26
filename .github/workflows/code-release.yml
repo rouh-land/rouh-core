@@ -1,0 +1,38 @@
+# Releases of Rouh's code on GitHub (task 98, gaps G10 and G21, 26 November 2026).
+#
+# The Creator Rouh makes each release by itself and signs it (rouh/code_release.py, the keys in
+# rouh/code_release_keys.json); rouh.land serves it at /mac/code/release.json. This mirrors each new
+# one here: the tag v<number> on the release's commit, the GitHub Release "Rouh <number>" carrying
+# code-release.json (the very signed file rouh.land served, so a Rouh can update from here when
+# rouh.land does not answer), and its section in CHANGELOG.md with pyproject.toml's version, as one
+# commit on main. deploy/container/code_release_mirror.py does it all; it changes nothing when
+# GitHub already has the release.
+
+name: Releases of Rouh's code
+
+on:
+  schedule:
+    - cron: "7,37 * * * *"
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+concurrency:
+  group: code-release
+  cancel-in-progress: false
+
+jobs:
+  mirror:
+    name: The newest signed release, on GitHub
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          ref: main
+          fetch-depth: 0
+      - name: Mirror it
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: python3 deploy/container/code_release_mirror.py

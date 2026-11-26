@@ -512,8 +512,18 @@ def _uptime_section() -> dict:
 
 
 def _version_section() -> dict:
-    """Which build of Rouh is answering. Read once at startup and cached."""
-    return get_version()
+    """Which build of Rouh is answering: the release number it is on (task 98, gap G10), when it
+    knows one, and the commit, read once at startup and cached."""
+    got = get_version()
+    try:
+        from . import code_update
+
+        number = code_update.number_here()
+    except Exception:  # noqa: BLE001 - only a label
+        number = ""
+    if number:
+        got = {**got, "release": number, "human_readable": f"Rouh {number}, " + got.get("human_readable", "")}
+    return got
 
 
 def _sandbox_section() -> dict:
