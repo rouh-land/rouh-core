@@ -148,21 +148,59 @@ async def _check_whatsapp(v: dict) -> tuple[dict, str]:
     return await _check_app(whatsapp_chat, v)
 
 
+def _eleven_status(r) -> str:
+    try:
+        d = r.json().get("detail")
+        return str(d.get("status") or d.get("code") or "") if isinstance(d, dict) else ""
+    except Exception:  # noqa: BLE001
+        return ""
+
+
 def _check_voice(v: dict) -> tuple[dict, str]:
     from . import speech
+    from .config import config
 
-    r = _http("GET", speech.API + "/voices", headers={"xi-api-key": v["ELEVENLABS_API_KEY"]})
+    key = v["ELEVENLABS_API_KEY"]
+    want = v.get("ROUH_VOICE_ID", "")
+    r = _http("GET", speech.API + "/voices", headers={"xi-api-key": key})
+    if r.status_code in (401, 403) and _eleven_status(r) == "missing_permissions":
+        # A key made for speech alone may not list the account's voices, so it is
+        # checked the way Rouh uses it: one short word, spoken with the voice asked for.
+        return v, _check_voice_by_speaking(key, want or _DEFAULTS.get("voice_id") or config.voice_id)
     if r.status_code in (401, 403):
         raise Refused("ElevenLabs did not accept that key. Copy it again from elevenlabs.io, "
                       "Developers, API Keys.")
     if r.status_code >= 400:
         raise Refused(f"ElevenLabs answered {r.status_code}. Nothing was saved.")
     voices = {str(x.get("voice_id")): str(x.get("name") or "") for x in (r.json().get("voices") or [])}
-    want = v.get("ROUH_VOICE_ID", "")
     if want and voices and want not in voices:
-        some = ", ".join(f"{n} ({i})" for i, n in list(voices.items())[:4])
-        raise Refused(f"That voice id is not one of this account's voices. Some it has: {some}.")
+        # The account's list holds only its own and added voices; a voice of ElevenLabs'
+        # library can still speak with this key, so it is asked before it is refused.
+        _check_voice_by_speaking(key, want)
+        return v, "the key works, with a voice that is not in this account's list but speaks"
     return v, f"the key works{', with the voice ' + voices[want] if want in voices else ''}"
+
+
+def _check_voice_by_speaking(key: str, voice: str) -> str:
+    from . import speech
+    from .config import config
+
+    r = _http("POST", f"{speech.API}/text-to-speech/{voice}/stream",
+              params={"output_format": "pcm_16000"}, headers={"xi-api-key": key},
+              json={"text": "Hi.", "model_id": config.tts_model})
+    status = _eleven_status(r)
+    if r.status_code in (401, 403) and status != "missing_permissions":
+        raise Refused("ElevenLabs did not accept that key. Copy it again from elevenlabs.io, "
+                      "Developers, API Keys.")
+    if r.status_code in (401, 403):
+        raise Refused("That key may not turn text into speech. In elevenlabs.io, Developers, API Keys, "
+                      "give it Text to Speech.")
+    if r.status_code in (400, 404) and "voice" in status:
+        raise Refused("ElevenLabs has no voice with that id for this key. Copy the id again from "
+                      "elevenlabs.io, Voices.")
+    if r.status_code >= 400:
+        raise Refused(f"ElevenLabs answered {r.status_code}. Nothing was saved.")
+    return "the key speaks with that voice"
 
 
 def _check_voyage(v: dict) -> tuple[dict, str]:

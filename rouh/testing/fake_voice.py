@@ -109,12 +109,23 @@ def build_app(record_dir: str | None = None) -> FastAPI:
         # A key with "wrong" in it is one ElevenLabs does not know (Settings, Keys checks it here).
         if "wrong" in (request.headers.get("xi-api-key") or ""):
             return JSONResponse({"detail": {"status": "invalid_api_key"}}, status_code=401)
+        # One with "speakonly" in it was made for speech alone, as a real key can be: it may
+        # not list the voices, and ElevenLabs says which permission it lacks.
+        if "speakonly" in (request.headers.get("xi-api-key") or ""):
+            return JSONResponse({"detail": {"status": "missing_permissions",
+                                            "message": "missing the permission voices_read"}},
+                                status_code=401)
         return JSONResponse({"voices": [{"voice_id": "test-voice", "name": "A test voice"}]})
 
     @app.post("/v1/text-to-speech/{voice_id}/stream")
     async def speak(voice_id: str, request: Request):
         body = await request.json()
         text = (body or {}).get("text") or ""
+        if "wrong" in (request.headers.get("xi-api-key") or ""):
+            return JSONResponse({"detail": {"status": "invalid_api_key"}}, status_code=401)
+        # A voice id with "unknown" in it is one ElevenLabs has no voice for.
+        if "unknown" in voice_id:
+            return JSONResponse({"detail": {"status": "voice_not_found"}}, status_code=404)
         # `pcm_24000`, the way Rouh asks for it. Anything else and the page
         # would be handed audio at a rate it was not told about, which is a
         # real failure and not one to paper over here.
