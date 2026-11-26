@@ -126,11 +126,19 @@ def _client(company: str, cfg, org_id: str | None = None):
 
 
 def compat_effort(provider: str, model: str, effort: str) -> str:
-    """How deeply a Gemini or Grok model is asked to think, in its provider's words, or ""
-    to send none. Gemini takes minimal, low, medium and high (ai.google.dev, "Thinking");
+    """How deeply a Gemini, Grok or own-server model is asked to think, in its provider's
+    words, or "" to send none. Gemini takes minimal, low, medium and high (ai.google.dev, "Thinking");
     Grok 4.5 and later take low, high and xhigh, and Grok 4.3 none and low (docs.x.ai,
     "Reasoning"). A deeper level than the model takes is its deepest."""
     level = (effort or "").strip().lower()
+    if provider == LOCAL:
+        # A server of your own (Ollama, LM Studio, vLLM, llama.cpp all take `reasoning_effort`):
+        # no level asked means "none", so a thinking model such as Qwen 3.5 answers at once. Left
+        # to think, a small model on one graphics card spent a one-question use's whole budget
+        # thinking and said nothing, and in a chat it took 86 s to say nothing (task 98, step
+        # 98-31). A level picked for it is still sent.
+        return {"": "none", "none": "none", "minimal": "none", "low": "low",
+                "medium": "medium"}.get(level, "high")
     if not level or provider in OPEN:
         # A server of your own or OpenRouter's many models: not all take a level, so none is sent.
         return ""
