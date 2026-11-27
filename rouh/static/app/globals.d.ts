@@ -3,6 +3,9 @@
  * browser: a .d.ts file is types and nothing else. */
 
 interface Window {
+  /** The glass orb's own settings as the server kept them (app/socket.js), and the call that takes them (app/orb3d.js). */
+  rouhOrb3dServer?: any;
+  orb3dFromServer?: (cfg: any) => void;
   /** Another Rouh is at work in a live space with this one (Rouh Link): the orb's second colour. */
   rouhPartnerAtWork?: { on: boolean; who: string[] };
   /** What can wait until the conversation is on the screen, and the call that lets it go (index.html). */

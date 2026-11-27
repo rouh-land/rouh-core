@@ -391,6 +391,7 @@ urlpatterns = [
     path("projector/setup", projector_web.setup),
     path("api/projector/feed", projector_web.feed),
     path("api/projector/image", projector_web.image),
+    path("api/projector/picture", projector_web.picture),
     path("api/projector/state", projector_web.state),
     path("api/projector/setup-file", projector_web.setup_file),
     path("api/projector/off", projector_web.off),

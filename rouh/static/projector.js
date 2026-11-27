@@ -14,6 +14,10 @@
  * seen with nobody pressing anything. When the network goes, the last card stays and the top line says
  * since when it has been reconnecting; it carries on by itself when the network is back.
  *
+ * A card's blocks are drawn by the canvas's own code (app/cardblocks.js, loaded as a module before this
+ * script), exactly as on Rouh's page; a picture Rouh drew in the Robot chat comes as a card of one picture
+ * (`projector.picture_of`) and fills the stage (task 200, 200-06).
+ *
  * window.PROJECTOR_DEMO, when a design's page sets it, is a feed to draw instead of asking for one.
  */
 (function () {
@@ -73,208 +77,110 @@
   // The 24-hour clock, as the household reads it.
   function hhmm(d) { return d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', hour12: false }); }
 
-  // --- words: the little markdown a card's text or an answer may carry, drawn plain and safe -----------
-  function inline(parent, text) {
-    var parts = String(text).split(/(\*\*[^*]+\*\*|`[^`]+`)/g);
-    parts.forEach(function (p) {
-      if (!p) return;
-      if (/^\*\*[^*]+\*\*$/.test(p)) parent.appendChild(el('strong', null, p.slice(2, -2)));
-      else if (/^`[^`]+`$/.test(p)) parent.appendChild(el('code', null, p.slice(1, -1)));
-      else parent.appendChild(document.createTextNode(p.replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')));
-    });
-  }
+  // --- words: plain, for the caption band and a waiting job's question ----------------------------------
   function plain(text) {
     return String(text || '').replace(/\*\*([^*]+)\*\*/g, '$1').replace(/`([^`]+)`/g, '$1')
       .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1').replace(/^#+\s*/gm, '').replace(/\s+/g, ' ').trim();
   }
-  function textBlock(text) {
+  function wordsBlock(text) {
     var wrap = el('div', 'b-text');
     String(text || '').split(/\n{2,}/).forEach(function (para) {
-      para = para.trim();
-      if (!para) return;
-      var lines = para.split('\n');
-      if (lines.every(function (l) { return /^\s*([-*]|\d+\.)\s+/.test(l); })) {
-        wrap.appendChild(listBlock(lines.map(function (l) { return l.replace(/^\s*([-*]|\d+\.)\s+/, ''); })));
-        return;
-      }
-      var p = el('p');
-      inline(p, para.replace(/^#+\s*/, ''));
-      wrap.appendChild(p);
+      if (para.trim()) wrap.appendChild(el('p', null, plain(para)));
     });
     return wrap;
   }
-  function listBlock(items) {
-    var ul = el('ul', 'b-list');
-    (items || []).forEach(function (it) {
-      var li = el('li');
-      var span = el('span');
-      inline(span, typeof it === 'string' ? it : (it && (it.text || it.title)) || JSON.stringify(it));
-      li.appendChild(span);
-      ul.appendChild(li);
-    });
-    return ul;
-  }
 
-  // --- pictures: fetched by Rouh, with the Pi's key, when the wall cannot fetch them itself -----------
+  // --- a card's blocks: the canvas's own (app/cardblocks.js), the same as on Rouh's page ------------------
+  //
+  // Petar, 27 November 2026: a picture of a mouse reached his Robot chat and not the wall, and he asked
+  // "shall we have the projector part canvas part the custom stuff?". So the wall draws a card's blocks
+  // with the code the canvas draws them with, loaded as a module before this script (projector.html), and
+  // keeps only what is the wall's own: the orb, fitting a card to the wall, moving through a long one, and
+  // a waiting job's question. A block that does something on the canvas (a contact to save, an email to
+  // write, an inbox) is shown here as its words: nothing on the wall is ever pressed.
+  var CB = window.RouhCardBlocks || null;
+
+  // Pictures: fetched by Rouh, with the Pi's key, when the wall cannot fetch them itself.
   function pictureInto(img, src, gone) {
     if (!src) { gone(); return; }
-    if (/^(data:|blob:)/.test(src)) { img.src = src; return; }
-    if (DEMO) { img.src = src; return; }
-    var proxied = '/api/projector/image?src=' + encodeURIComponent(src);
-    if (!key) {
-      img.onerror = function () { img.onerror = gone; img.src = proxied; };
-      img.src = src;
-      return;
-    }
-    var local = src.charAt(0) === '/' && src.charAt(1) !== '/';
-    fetch(local ? src : proxied, { headers: local ? {} : { Authorization: 'Bearer ' + key }, credentials: 'omit' })
+    if (/^(data:|blob:)/.test(src) || DEMO) { img.src = src; return; }
+    var same = false;
+    try { same = new URL(src, location.href).origin === location.origin; } catch (e) { gone(); return; }
+    if (!key) { img.src = src; return; }   // the person's own browser: its sign-in, and the canvas's proxy after
+    var at = same ? src : '/api/projector/image?src=' + encodeURIComponent(src);
+    fetch(at, { headers: { Authorization: 'Bearer ' + key }, credentials: 'omit' })
       .then(function (r) { if (!r.ok) throw new Error(r.status); return r.blob(); })
       .then(function (b) { var url = URL.createObjectURL(b); blobs.push(url); img.src = url; })
       .catch(gone);
   }
-  function imageBlock(b) {
-    var fig = el('figure', 'b-image');
-    var img = el('img');
-    img.alt = b.alt || b.caption || '';
-    var missing = function () {
-      img.remove();
-      if (!fig.querySelector('.img-gone')) fig.insertBefore(el('div', 'img-gone', 'The picture could not be loaded'), fig.firstChild);
-      fit();
-    };
-    img.addEventListener('load', fit);
-    img.addEventListener('error', missing);
-    fig.appendChild(img);
-    if (b.caption) fig.appendChild(el('figcaption', null, b.caption));
-    pictureInto(img, b.src, missing);
-    return fig;
+  if (CB) {
+    CB.blocksUse({
+      picture: pictureInto,
+      // A markup block is read from across a room: its letters at the wall's size, not the canvas's.
+      frameDoc: function (doc) {
+        var px = Math.round(1.5 * u());   // the size of a card's own words on the wall (projector.css, .card)
+        return doc.replace('</head>', '<style>body{font-size:' + px + 'px}h1{font-size:1.7em}h2{font-size:1.45em}' +
+          'h3{font-size:1.2em}h4{font-size:1.05em}table{font-size:1em}th{font-size:.8em}code,kbd,pre{font-size:.85em}' +
+          'img,video{max-height:' + Math.round(stage.clientHeight * 0.9) + 'px;object-fit:contain}</style></head>');
+      }
+    });
   }
+  // A markup block's frame says how tall it is (cardblocks.js, `rouh-html-size`): the wall sizes it so, then fits.
+  window.addEventListener('message', function (e) {
+    var m = e.data;
+    if (!CB || !m || m.type !== 'rouh-html-size' || !(m.height > 0)) return;
+    var frames = stage.querySelectorAll('iframe');
+    for (var i = 0; i < frames.length; i++) {
+      if (frames[i].contentWindow === e.source) {
+        CB.htmlFrameHeight(frames[i], Math.max(24, Math.min(CB.HTML_FRAME_MAX, Math.ceil(m.height))));
+        fit();
+        return;
+      }
+    }
+  });
 
-  // --- the blocks a card is made of (PROTOCOL.md, "The `ui` spec") -------------------------------------
-  function table(b) {
-    var t = el('table', 'b-table');
-    if (b.columns && b.columns.length) {
-      var hr = el('tr');
-      b.columns.forEach(function (c) { hr.appendChild(el('th', null, plain(c))); });
-      var th = el('thead'); th.appendChild(hr); t.appendChild(th);
-    }
-    var body = el('tbody');
-    (b.rows || []).forEach(function (row) {
-      var tr = el('tr');
-      (Array.isArray(row) ? row : [row]).forEach(function (cell) {
-        tr.appendChild(el('td', null, cell == null ? '' : plain(typeof cell === 'object' ? (cell.text || JSON.stringify(cell)) : cell)));
-      });
-      body.appendChild(tr);
-    });
-    t.appendChild(body);
-    return t;
-  }
-  function chart(b) {
-    var values = (b.values || []).map(Number).filter(function (v) { return isFinite(v); });
-    if (!values.length) return null;
-    var labels = b.labels || [];
-    var W = 1000, H = 420, pad = 56, top = 20, max = Math.max.apply(null, values.concat([0])) || 1;
-    var ns = 'http://www.w3.org/2000/svg';
-    var svg = document.createElementNS(ns, 'svg');
-    svg.setAttribute('viewBox', '0 0 ' + W + ' ' + H);
-    svg.setAttribute('class', 'b-chart');
-    svg.setAttribute('role', 'img');
-    svg.setAttribute('aria-label', b.title || 'A chart');
-    function add(tag, attrs, text) {
-      var n = document.createElementNS(ns, tag);
-      Object.keys(attrs).forEach(function (k) { n.setAttribute(k, attrs[k]); });
-      if (text != null) n.textContent = text;
-      svg.appendChild(n);
-      return n;
-    }
-    add('line', { x1: pad, y1: H - pad, x2: W, y2: H - pad, class: 'axis' });
-    var step = (W - pad) / values.length;
-    var y = function (v) { return top + (H - pad - top) * (1 - v / max); };
-    if (b.kind === 'line') {
-      add('polyline', { class: 'line', points: values.map(function (v, i) { return (pad + step * (i + .5)) + ',' + y(v); }).join(' ') });
-    } else {
-      values.forEach(function (v, i) {
-        add('rect', { class: 'bar', x: pad + step * i + step * .15, y: y(v), width: step * .7, height: H - pad - y(v), rx: 4 });
-      });
-    }
-    values.forEach(function (v, i) {
-      if (labels[i] != null) add('text', { x: pad + step * (i + .5), y: H - pad + 34, 'text-anchor': 'middle', 'font-size': 26 }, String(labels[i]).slice(0, 14));
-    });
-    add('text', { x: pad - 10, y: top + 10, 'text-anchor': 'end', 'font-size': 24 }, String(max));
-    return svg;
-  }
-  function htmlFrame(b) {
-    var markup = typeof b.html === 'string' ? b.html : (typeof b.text === 'string' ? b.text : '');
-    if (!markup.trim()) return null;
-    var size = Math.round(2.1 * u());
-    var css = ':root{color-scheme:dark}*{box-sizing:border-box}html,body{margin:0;background:transparent}' +
-      'body{font-family:-apple-system,"Segoe UI",Roboto,"DejaVu Sans",sans-serif;font-size:' + size + 'px;line-height:1.4;' +
-      'color:' + getComputedStyle(document.documentElement).getPropertyValue('--ink') + '}' +
-      'img,svg,canvas,video{max-width:100%}table{border-collapse:collapse}th,td{padding:.3em .7em .3em 0;text-align:left}';
-    var csp = "default-src 'none'; img-src https: http: data: blob:; style-src 'unsafe-inline'; " +
-      "script-src 'unsafe-inline'; font-src data:; base-uri 'none'; form-action 'none'";
-    var frame = el('iframe', 'b-html');
-    // Only scripts of its own: no origin of this page's, so it can read nothing here and ask nothing.
-    frame.setAttribute('sandbox', 'allow-scripts');
-    frame.setAttribute('referrerpolicy', 'no-referrer');
-    frame.title = b.title || 'Something Rouh drew';
-    frame.style.height = Math.round(stage.clientHeight * 0.72) + 'px';
-    frame.srcdoc = '<!doctype html><meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="' + csp +
-      '"><style>' + css + '</style>' + markup;
-    return frame;
-  }
   function rowsOf(rows) {
     var ul = el('ul', 'b-list');
     (rows || []).forEach(function (r) {
       var text = Array.isArray(r) ? r.filter(Boolean).join(': ')
         : (r && typeof r === 'object') ? [r.label, r.value || r.text].filter(Boolean).join(': ') : r;
-      if (text) { var li = el('li'); li.appendChild(el('span', null, plain(text))); ul.appendChild(li); }
+      if (text) ul.appendChild(el('li', null, plain(text)));
     });
     return ul.children.length ? ul : null;
   }
+  function labelled(b, node) {
+    if (!node || b.label == null || !String(b.label).trim()) return node;
+    var wrap = el('div', 'b-labelled');
+    wrap.appendChild(el('div', 'b-label', String(b.label)));
+    wrap.appendChild(node);
+    return wrap;
+  }
   function block(b) {
     if (!b || typeof b !== 'object') return null;
+    var drawn = CB ? CB.drawBlock(b) : null;
+    if (drawn) return drawn;
     switch (b.block) {
-      case 'text': return b.text ? textBlock(b.text) : null;
-      case 'list': return b.items && b.items.length ? listBlock(b.items) : null;
-      case 'stat': {
-        var s = el('div', 'b-stat');
-        s.appendChild(el('div', 'value', b.value == null ? '' : b.value));
-        if (b.hint) s.appendChild(el('div', 'hint', b.hint));
-        return s;
-      }
-      case 'table': return table(b);
-      case 'code': return b.text ? el('pre', 'b-code', b.text) : null;
-      case 'chart': return chart(b);
-      case 'link': return b.href ? el('div', 'b-link', b.text || b.href) : null;
-      case 'image': return imageBlock(b);
-      case 'html': return htmlFrame(b);
-      case 'sources': {
-        var ol = el('ol', 'b-sources');
-        (b.sources || []).forEach(function (x) {
-          var t = typeof x === 'string' ? x : (x.title || x.url || x.href || '');
-          if (t) ol.appendChild(el('li', null, t));
-        });
-        return ol.children.length ? ol : null;
-      }
+      case 'link': return b.href ? labelled(b, el('div', 'b-link', b.text || b.label || b.href)) : null;
       case 'email': {
         var m = el('div', 'b-email');
-        if (b.subject) m.appendChild(el('div', 'label', b.subject));
+        if (b.subject) m.appendChild(el('div', 'em-subject', b.subject));
         var meta = [b.from && ('From ' + b.from), b.date].filter(Boolean).join(', ');
         if (meta) m.appendChild(el('div', 'meta', meta));
-        if (b.body) m.appendChild(el('div', 'body', String(b.body).slice(0, 2400)));
+        if (b.body) m.appendChild(el('div', 'em-body', String(b.body).slice(0, 2400)));
         return m;
       }
       case 'contact': {
         var c = el('div', 'b-email');
-        if (b.name) c.appendChild(el('div', 'label', b.name));
+        if (b.name) c.appendChild(el('div', 'em-subject', b.name));
         var list = rowsOf(b.rows);
         if (list) c.appendChild(list);
         return c;
       }
       default: {
-        // A block made by one of Rouh's own tools that the wall has no drawing for: its words, if any.
+        // A block only the canvas can do something with, or a wall whose module did not load: its words.
         var words = b.title || b.heading || b.question || b.text;
-        return words ? textBlock(String(words)) : null;
+        if (!words && b.block === 'list' && b.items) words = b.items.join('\n\n');
+        return words ? labelled(b, wordsBlock(String(words))) : null;
       }
     }
   }
@@ -290,31 +196,31 @@
     cycleMs = 0;
     if (!card) { cardWords = 0; cardPictures = 0; return; }
     // Sliding in only when it replaces a card already up; over the orb, the wall's own fade brings it.
-    var box = el('article', document.body.classList.contains('up') ? 'card enter' : 'card');
+    var cls = (document.body.classList.contains('up') ? 'card enter' : 'card') + (card.picture ? ' picture' : '');
+    var box = el('article', cls);
     if (card.title) box.appendChild(el('h1', null, card.title));
     if (card.description) box.appendChild(el('p', 'desc', card.description));
     var stats = null;
-    (card.blocks || []).forEach(function (b) {
-      var drawn = block(b);
+    var blocks = Array.isArray(card.blocks) ? card.blocks : [];
+    (CB ? CB.sourcesLast(blocks) : blocks).forEach(function (b) {
+      var drawn = null;
+      try { drawn = block(b); } catch (e) { drawn = null; }  // one block that cannot be drawn never blanks the card
       if (!drawn) return;
-      var wrap = drawn;
-      if (b.label && b.block !== 'stat') {
-        wrap = el('section');
-        wrap.appendChild(el('div', 'label', b.label));
-        wrap.appendChild(drawn);
-      } else if (b.block === 'stat' && b.label) {
-        drawn.insertBefore(el('div', 'label', b.label), drawn.firstChild);
-      }
       if (b.block === 'stat') {
         // Numbers side by side, as a row of them reads at a glance.
         if (!stats) { stats = el('div', 'stats'); box.appendChild(stats); }
-        stats.appendChild(wrap);
+        stats.appendChild(drawn);
         return;
       }
       stats = null;
-      box.appendChild(wrap);
+      box.appendChild(drawn);
     });
+    if (CB) CB.footnotes(box);
     stage.appendChild(box);
+    Array.prototype.forEach.call(box.querySelectorAll('img'), function (img) {
+      img.addEventListener('load', fit);
+      img.addEventListener('error', fit);
+    });
     cardWords = wordsIn(box.textContent);
     cardPictures = box.querySelectorAll('img, svg, iframe').length;
     fit();

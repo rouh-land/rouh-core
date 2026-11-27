@@ -94,45 +94,78 @@ body:not(.up) .wall.lost > .top .who, body:not(.up) .wall.lost > .top .clock { d
 .card .desc { margin: calc(-.8 * var(--u) * var(--s)) 0 0; color: var(--dim); font-size: calc(var(--tx) * 1.9 * var(--u) * var(--s)); }
 .card p { margin: 0; text-wrap: pretty; }
 .card .label { color: var(--dim); font-size: calc(var(--tx) * 1.6 * var(--u) * var(--s)); font-weight: 600; margin: 0 0 calc(.5 * var(--u) * var(--s)); }
+/* A card's blocks are the canvas's own (app/cardblocks.js, the same markup as on Rouh's page: task 200,
+   200-06); these are their sizes on the wall, read from across a room. */
 .b-text { display: grid; gap: calc(1 * var(--u) * var(--s)); max-width: 62em; }
+.b-text > * { margin: 0; }
+.b-text h1, .b-text h2, .b-text h3, .b-text h4 { margin: 0; line-height: 1.2; font-size: 1.15em; }
+.b-text h1 { font-size: 1.4em; }
+.b-text ul, .b-text ol { margin: 0; padding-left: 1.3em; display: grid; gap: calc(.6 * var(--u) * var(--s)); }
 .b-text strong { font-weight: 700; }
-.b-text code, .b-code { font-family: var(--mono); }
-.b-code {
-  margin: 0; white-space: pre-wrap; font-size: calc(var(--tx) * 1.6 * var(--u) * var(--s));
+.b-text a, .b-link a { color: var(--accent); text-decoration: none; }
+.b-text code, .b-code, .md-code { font-family: var(--mono); }
+.b-text .code-box, .b-code { position: relative; }
+.b-code .lang { display: none; }
+.b-code pre, .b-text pre.md-code {
+  margin: 0; white-space: pre-wrap; font-size: calc(var(--tx) * 2.2 * var(--u) * var(--s));
   background: var(--ground); border-radius: calc(.8 * var(--u)); padding: calc(1.2 * var(--u) * var(--s));
 }
+.code-copy { display: none; }
+.b-labelled { display: grid; gap: calc(.5 * var(--u) * var(--s)); }
+.b-label, .card .label { color: var(--dim); font-size: calc(var(--tx) * 2.2 * var(--u) * var(--s)); font-weight: 600; }
 .b-list { margin: 0; padding: 0; list-style: none; display: grid; gap: calc(.9 * var(--u) * var(--s)); }
-.b-list li { display: grid; grid-template-columns: calc(1.4 * var(--u) * var(--s)) 1fr; gap: calc(1.1 * var(--u) * var(--s)); align-items: baseline; }
+.b-list li { position: relative; padding-left: calc(2.4 * var(--u) * var(--s)); }
 .b-list li::before {
-  content: ""; width: calc(.8 * var(--u) * var(--s)); height: calc(.8 * var(--u) * var(--s));
-  border-radius: 50%; background: var(--accent); transform: translateY(-.1em);
+  content: ""; position: absolute; left: 0; top: .5em; width: calc(.8 * var(--u) * var(--s)); height: calc(.8 * var(--u) * var(--s));
+  border-radius: 50%; background: var(--accent);
 }
 .b-stat { display: grid; gap: calc(.3 * var(--u) * var(--s)); }
-.b-stat .value { font-size: calc(var(--tx) * 8 * var(--u) * var(--s)); line-height: 1; font-weight: 700; letter-spacing: -.02em; font-variant-numeric: tabular-nums; }
+.b-stat .lbl { color: var(--dim); font-size: calc(var(--tx) * 2.2 * var(--u) * var(--s)); font-weight: 600; }
+.b-stat .num { font-size: calc(var(--tx) * 8 * var(--u) * var(--s)); line-height: 1; font-weight: 700; letter-spacing: -.02em; font-variant-numeric: tabular-nums; }
 .b-stat .hint { color: var(--dim); }
 .stats { display: flex; flex-wrap: wrap; gap: calc(2 * var(--u) * var(--s)) calc(5 * var(--u) * var(--s)); }
-.b-table { border-collapse: collapse; width: 100%; font-size: calc(var(--tx) * 2.2 * var(--u) * var(--s)); font-variant-numeric: tabular-nums; }
-.b-table th, .b-table td { text-align: left; padding: calc(.7 * var(--u) * var(--s)) calc(1.4 * var(--u) * var(--s)) calc(.7 * var(--u) * var(--s)) 0; border-bottom: 1px solid var(--line); vertical-align: top; }
-.b-table th { color: var(--dim); font-weight: 600; font-size: calc(var(--tx) * 1.7 * var(--u) * var(--s)); }
+.b-table table, table.md-table { border-collapse: collapse; width: 100%; font-size: calc(var(--tx) * 2.8 * var(--u) * var(--s)); font-variant-numeric: tabular-nums; }
+.b-table th, .b-table td, .md-table th, .md-table td { text-align: left; padding: calc(.7 * var(--u) * var(--s)) calc(1.4 * var(--u) * var(--s)) calc(.7 * var(--u) * var(--s)) 0; border-bottom: 1px solid var(--line); vertical-align: top; }
+.b-table th, .md-table th { color: var(--dim); font-weight: 600; font-size: calc(var(--tx) * 2.2 * var(--u) * var(--s)); }
 .b-link { color: var(--accent); }
+.b-link .href { display: block; color: var(--faint); font-size: .75em; }
 .b-image { margin: 0; display: grid; gap: calc(.8 * var(--u) * var(--s)); justify-items: start; }
-.b-image img { max-width: 100%; max-height: calc(58 * var(--u)); border-radius: calc(.8 * var(--u)); object-fit: contain; }
-.b-image figcaption { color: var(--dim); font-size: calc(var(--tx) * 1.7 * var(--u) * var(--s)); }
+.b-image img { display: block; max-width: 100%; width: auto; height: auto; max-height: calc(58 * var(--u)); border-radius: calc(.8 * var(--u)); object-fit: contain; }
+.b-image figcaption { color: var(--dim); font-size: calc(var(--tx) * 2.2 * var(--u) * var(--s)); }
+.b-image .img-gone a { display: none; }
+/* A picture Rouh drew in the chat (`projector.picture_of`): the picture alone, as big as the stage takes. */
+.card.picture { height: 100%; padding: calc(1.2 * var(--u)); grid-template-rows: minmax(0, 1fr); justify-items: center; }
+.card.picture .b-image { height: 100%; min-height: 0; grid-template-rows: minmax(0, 1fr) auto; place-items: center; }
+.card.picture .b-image img { max-height: 100%; }
 .img-gone {
   display: grid; place-items: center; width: min(100%, calc(48 * var(--u))); aspect-ratio: 16 / 10;
   border: 2px dashed var(--line); border-radius: calc(.8 * var(--u)); color: var(--faint);
-  font-size: calc(var(--tx) * 1.6 * var(--u) * var(--s)); padding: calc(2 * var(--u)); text-align: center;
+  font-size: calc(var(--tx) * 2.2 * var(--u) * var(--s)); padding: calc(2 * var(--u)); text-align: center;
 }
-.b-chart { width: 100%; height: auto; max-height: calc(40 * var(--u)); }
-.b-chart text { fill: var(--dim); font-family: var(--sans); }
-.b-chart .bar { fill: var(--accent); }
-.b-chart .line { fill: none; stroke: var(--accent); stroke-width: 4; stroke-linejoin: round; }
-.b-chart .axis { stroke: var(--line); stroke-width: 2; }
-.b-sources { margin: 0; padding: 0; list-style: none; display: grid; gap: calc(.5 * var(--u) * var(--s)); color: var(--dim); font-size: calc(var(--tx) * 1.6 * var(--u) * var(--s)); }
-.b-html { width: 100%; border: 0; background: transparent; display: block; }
+.b-chart { display: grid; gap: calc(.8 * var(--u) * var(--s)); }
+.b-chart .card-title { color: var(--dim); font-size: calc(var(--tx) * 2.2 * var(--u) * var(--s)); font-weight: 600; }
+.b-chart svg { display: block; width: min(100%, calc(70 * var(--u))); height: auto; min-width: 0 !important; }
+.b-chart text { fill: var(--dim); font-family: var(--sans); font-size: 13px; }
+.b-chart .ch-bar, .b-chart .ch-dot { fill: var(--accent); }
+.b-chart .ch-line { fill: none; stroke: var(--accent); stroke-width: 3; stroke-linejoin: round; }
+.b-chart .ch-area { fill: rgba(94, 194, 255, .14); }
+.b-chart .ch-grid { stroke: var(--line); stroke-width: 1; }
+.b-chart .ch-axis { stroke: var(--faint); stroke-width: 1.5; }
+.b-chart .ch-val { fill: var(--ink); }
+.b-sources { display: grid; gap: calc(.5 * var(--u) * var(--s)); color: var(--dim); font-size: calc(var(--tx) * 2.2 * var(--u) * var(--s)); }
+.b-sources .sources-head, .sources-head { margin: 0; font-weight: 600; color: var(--dim); }
+.sources-list { margin: 0; padding-left: 1.4em; display: grid; gap: calc(.4 * var(--u) * var(--s)); color: var(--dim); }
+.sources-list a { color: var(--ink); text-decoration: none; }
+.sources-list .src-where { display: block; color: var(--dim); font-size: .85em; }
+sup.cites { font-size: .6em; }
+.cite { all: unset; color: var(--accent); padding: 0 .1em; }
+.b-html { display: grid; gap: calc(.8 * var(--u) * var(--s)); }
+.b-html .card-title { color: var(--dim); font-size: calc(var(--tx) * 2.2 * var(--u) * var(--s)); font-weight: 600; }
+.b-html iframe { width: 100%; border: 0; background: transparent; display: block; }
 .b-email { display: grid; gap: calc(.6 * var(--u) * var(--s)); }
-.b-email .meta { color: var(--dim); font-size: calc(var(--tx) * 1.7 * var(--u) * var(--s)); }
-.b-email .body { white-space: pre-wrap; }
+.b-email .em-subject { font-weight: 700; }
+.b-email .meta { color: var(--dim); font-size: calc(var(--tx) * 2.2 * var(--u) * var(--s)); }
+.b-email .em-body { white-space: pre-wrap; }
 
 .unpaired .addr, .addr { font-family: var(--mono); color: var(--accent); font-size: calc(var(--tx) * 2.2 * var(--u)); word-break: break-all; }
 
@@ -197,11 +230,6 @@ body:not(.up) .wall.lost > .top .who, body:not(.up) .wall.lost > .top .clock { d
 .card { font-size: calc(var(--tx) * 3 * var(--u) * var(--s)); }
 .card h1 { font-size: calc(var(--tx) * 4.8 * var(--u) * var(--s)); }
 .card .desc { font-size: calc(var(--tx) * 2.6 * var(--u) * var(--s)); }
-.card .label { font-size: calc(var(--tx) * 2.2 * var(--u) * var(--s)); }
-.b-table { font-size: calc(var(--tx) * 2.8 * var(--u) * var(--s)); }
-.b-table th { font-size: calc(var(--tx) * 2.2 * var(--u) * var(--s)); }
-.b-code { font-size: calc(var(--tx) * 2.2 * var(--u) * var(--s)); }
-.b-image figcaption, .b-email .meta, .b-sources { font-size: calc(var(--tx) * 2.2 * var(--u) * var(--s)); }
 .caption { max-height: calc(var(--tx) * 22 * var(--u)); }
 .heard { font-size: calc(var(--tx) * 2.6 * var(--u)); }
 .said { font-size: calc(var(--tx) * 3.6 * var(--u)); }

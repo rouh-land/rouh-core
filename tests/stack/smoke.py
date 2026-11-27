@@ -473,6 +473,21 @@ def projector_display(s: Stack) -> None:
         page = r.read()
         expect(r.status == 200 and b'id="stage"' in page and b'id="orb"' in page,
                "the wall, with its orb, does not open without a sign-in")
+        # A card on the wall is drawn by the canvas's own blocks (task 200, 200-06).
+        expect(b'app/cardblocks.js' in page and b'importmap' in page, "the wall does not load the canvas's card blocks")
+
+    def picture(key: str) -> int:
+        req = urllib.request.Request(s.url + "/api/projector/picture?id=nothing0here",
+                                     headers={"Authorization": "Bearer " + key} if key else {})
+        try:
+            with urllib.request.urlopen(req, timeout=30) as r:
+                return r.status
+        except urllib.error.HTTPError as e:
+            return e.code
+
+    # A picture Rouh drew in the Robot chat, on the display key: one it does not have is not found; no key, refused.
+    expect(picture(key) == 404, "the display key cannot ask for the Robot chat's pictures")
+    expect(picture("") == 401, "the Robot chat's pictures answer without a key")
     post("/api/projector/off", {})
     expect(feed(key) == 401, "a turned-off projector still reads the feed")
 

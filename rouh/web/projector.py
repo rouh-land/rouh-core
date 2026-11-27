@@ -4,6 +4,7 @@
                                      shows comes from the feed, with the Pi's key or the person's sign-in
     GET  /api/projector/feed         the newest card, what was heard and said; a display key or a sign-in
     GET  /api/projector/image?src=   a picture on that card, fetched by Rouh, for the same two
+    GET  /api/projector/picture?id=  a picture Rouh drew in the Robot chat, no bigger than the wall, the same two
     GET  /projector/setup            the setup page, signed in
     GET  /api/projector/state        whether a projector is set up and when it was last seen, signed in
     POST /api/projector/setup-file   {origin}: a new key for the projector, ending the old one, in its setup
@@ -102,6 +103,28 @@ async def image(request: HttpRequest):
     response = HttpResponse(body, content_type=media)
     for name, value in dict(picture.ANSWER_HEADERS).items():
         response[name] = value
+    return response
+
+
+@only("GET")
+async def picture(request: HttpRequest):
+    """A picture Rouh drew in this person's Robot chat, made no bigger than the wall (`projector.picture_file`)."""
+    from rouh import projector
+
+    try:
+        user_id = await asyncio.to_thread(_display, request)
+    except Exception:  # noqa: BLE001 - the key could not be checked just now
+        return refuse("Rouh is busy for a moment.", 503, retry=True)
+    if user_id is None:
+        return refuse(NOT_SET_UP, 401, set_up=False)
+    got = await asyncio.to_thread(projector.picture_file, user_id, str(request.GET.get("id") or "")[:80])
+    if got is None:
+        return refuse("not found", 404)
+    body, media = got
+    response = HttpResponse(body, content_type=media)
+    response["Cache-Control"] = "private, max-age=86400"
+    response["X-Content-Type-Options"] = "nosniff"
+    response["Referrer-Policy"] = "no-referrer"
     return response
 
 

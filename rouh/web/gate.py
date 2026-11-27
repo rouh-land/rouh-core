@@ -115,7 +115,8 @@ log = logging.getLogger("rouh.gate")
 #: The projector's feed and its pictures (`rouh/web/projector.py`), where a Raspberry Pi behind the person's
 #: projector reads their Robot chat on a display key made for it on the setup page; the view checks the key
 #: and that it is a display's, and answers a sign-in too, for Preview it here.
-TOKEN_PATHS = frozenset({"/api/task", "/api/projector/feed", "/api/projector/image"})
+TOKEN_PATHS = frozenset({"/api/task", "/api/projector/feed", "/api/projector/image",
+                         "/api/projector/picture"})
 
 OPEN_PATHS = frozenset({"/shared/in", "/shared/in/back", "/login", "/setup", "/setup/connect", "/setup/you", "/phone/in", "/login/forgot",
                         "/login/help", "/login/passkey/options", "/login/passkey/verify", "/logout", "/healthz",

@@ -13,7 +13,9 @@ So three things, and this module is the middle of all of them:
   fading and colours of the glass orb on Rouh's own page, ported to a 2D canvas, since a Raspberry Pi 3 has
   no WebGL 2), with each job's short name at its tip. A new card the Robot chat draws, or a new answer,
   comes up while the orb moves to the corner, stays about 30 seconds or as long as it takes to read, and
-  goes, the orb coming back; a job waiting for the person shows its question in big words (Petar, 27 November 2026: "not seeing the desktop, seeing something
+  goes, the orb coming back (a card is drawn by the canvas's own blocks, `app/cardblocks.js`, and the newest
+  picture Rouh drew in the chat comes as a card of one picture, `picture_of`; task 200, 200-06); a job waiting
+  for the person shows its question in big words (Petar, 27 November 2026: "not seeing the desktop, seeing something
   maybe orb tenticles by default unless I need to see a specific thing on screen"). It asks `feed` every
   two seconds; nothing on it can be pressed.
 * **Its key.** The Pi signs in with a device key of the kind `display` (`rouh/devices.py`), made for that one
@@ -130,6 +132,90 @@ def _picture_card(card: dict) -> dict:
     return {k: card.get(k) for k in keep if k in card}
 
 
+#: The kinds of picture the wall is handed: what a browser draws and Pillow reads.
+PICTURE_TYPES = ("image/png", "image/jpeg", "image/webp", "image/gif")
+#: The most a picture is sent to the wall at, which is its projector's own size (a ViewSonic at 1280x800).
+PICTURE_MOST = (1280, 800)
+
+
+def picture_of(rows: list[dict]) -> dict | None:
+    """The newest picture Rouh put in the chat (`make_picture`, `change_picture`), as the wall needs it.
+
+    Task 200, 27 November 2026: Petar asked the Robot chat for a picture of a mouse, it was drawn in the chat,
+    and the wall never showed it. A picture Rouh draws is an attachment on its answer, not a card, and the wall
+    read only cards and words. So the newest such picture is the wall's news too, as a card with one picture.
+    """
+    for row in reversed(rows):
+        if row.get("role") != "assistant" or row.get("note") or row.get("notice"):
+            continue
+        for f in reversed(row.get("attachments") or []):
+            if not isinstance(f, dict) or f.get("kind") != "image" or f.get("media_type") not in PICTURE_TYPES:
+                continue
+            made = f.get("made") if isinstance(f.get("made"), dict) else {}
+            return {"id": str(f.get("id") or ""), "ts": row.get("ts"), "name": f.get("name"),
+                    "prompt": str(made.get("prompt") or "")[:400],
+                    "width": made.get("width"), "height": made.get("height")}
+    return None
+
+
+def _picture_as_card(pic: dict) -> dict:
+    """A picture of the chat's as a card of one picture block, so the wall draws it as the canvas draws one."""
+    from urllib.parse import quote
+
+    block = {"block": "image", "src": "/api/projector/picture?id=" + quote(pic["id"]), "alt": pic.get("prompt") or ""}
+    if pic.get("width") and pic.get("height"):
+        block["width"], block["height"] = pic["width"], pic["height"]
+    return {"card_id": "picture-" + pic["id"], "title": "", "blocks": [block], "at": pic.get("ts"), "picture": True}
+
+
+def _when(value) -> float:
+    """A card's or a row's time as seconds, whichever way it is written; 0 when it has none."""
+    if isinstance(value, (int, float)):
+        return float(value)
+    if hasattr(value, "timestamp"):
+        return float(value.timestamp())
+    if isinstance(value, str) and value:
+        try:
+            return float(value)
+        except ValueError:
+            from datetime import datetime
+
+            try:
+                return datetime.fromisoformat(value.replace("Z", "+00:00")).timestamp()
+            except ValueError:
+                return 0.0
+    return 0.0
+
+
+def picture_file(user_id: str, att_id: str) -> tuple[bytes, str] | None:
+    """A picture of this person's Robot chat, made no bigger than the wall, as (bytes, media type); else None.
+
+    Only a picture of their own Robot chat is read: the display key reads that chat and nothing else.
+    """
+    import io
+
+    from PIL import Image
+
+    from . import robotchat, runtime
+
+    record = runtime.files.get(f"{robotchat.PREFIX}{user_id}", str(att_id or ""))
+    if record is None or str(record.get("media_type") or "") not in PICTURE_TYPES:
+        return None
+    try:
+        with Image.open(record["path"]) as im:
+            im.thumbnail(PICTURE_MOST)
+            out = io.BytesIO()
+            if im.mode in ("RGBA", "LA", "P"):
+                im = im.convert("RGBA")
+                im.save(out, "PNG", optimize=False)
+                return out.getvalue(), "image/png"
+            im.convert("RGB").save(out, "JPEG", quality=86)
+            return out.getvalue(), "image/jpeg"
+    except (OSError, ValueError):
+        log.warning("a picture of the Robot chat could not be read for the projector", exc_info=True)
+        return None
+
+
 def feed(user_id: str) -> dict:
     """What the wall shows for this person: their Robot chat's newest card, what was heard and said."""
     from . import artifacts, robotchat, runtime
@@ -150,6 +236,10 @@ def feed(user_id: str) -> dict:
             card = _picture_card(got[0]) if got else None
         except Exception:  # noqa: BLE001 - one card that cannot be read must not blank the wall
             log.warning("the newest card of %s could not be read", chat, exc_info=True)
+    # The newest picture Rouh drew in the chat, when it is newer than the newest card: the wall's news then.
+    pic = picture_of(rows)
+    if pic is not None and pic["id"] and (card is None or _when(pic.get("ts")) >= _when(card.get("at"))):
+        card = _picture_as_card(pic)
     turn = runtime.Turns.of(chat)
     live = turn.picture() if turn is not None else None
     answering = bool(live)

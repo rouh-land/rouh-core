@@ -32,7 +32,11 @@
   <p class="addr" id="setupAddr"></p>
   <p class="code" id="pairCode" hidden></p>
 </div>
-<script src="{% asset "projector-orb.js" %}"></script>
-<script src="{% asset "projector.js" %}"></script>
+{% comment %}A card is drawn with the canvas's own blocks (app/cardblocks.js), the same as on Rouh's page (task 200,
+   200-06). The module and the two scripts after it run in this order, once the page is read.{% endcomment %}
+<script type="importmap">{% importmap %}</script>
+<script type="module">import * as blocks from 'app/cardblocks.js'; window.RouhCardBlocks = blocks;</script>
+<script defer src="{% asset "projector-orb.js" %}"></script>
+<script defer src="{% asset "projector.js" %}"></script>
 </body>
 </html>
