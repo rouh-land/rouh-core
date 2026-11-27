@@ -2486,39 +2486,26 @@ function forkKeys() {
   return onMac() ? '⌘↩' : 'Ctrl+Enter';
 }
 
-/* Whether a keyboard with keys of its own is in use on a touch screen: a
-   phone or an iPad with a keyboard attached. The on-screen keyboards send no
-   key of their own for Shift, Ctrl, Cmd, Alt, Tab or Escape (they change the
-   letters instead), so a press of one of those is a real keyboard, and from
-   then on the box keeps a desk's keys. When the on-screen keyboard comes up
-   again (the visible page shrinks by a third or more while a box has the
-   cursor), the real one has gone, and Return is a new line again. */
-var KEYBOARD = { real: false };
-document.addEventListener('keydown', function (e) {
-  if (KEYBOARD.real || !/^(Shift|Control|Meta|Alt|AltGraph|Tab|Escape)$/.test(e.key)) return;
-  KEYBOARD.real = true;
-  keysHintPaint();
-}, true);
-if (window.visualViewport) {
-  window.visualViewport.addEventListener('resize', function () {
-    var vv = window.visualViewport;
-    var typing = document.activeElement && document.activeElement.tagName === 'TEXTAREA';
-    if (!KEYBOARD.real || !typing || !vv || vv.height > window.innerHeight * 0.67) return;
-    KEYBOARD.real = false;
-    keysHintPaint();
-  });
-}
-
-/* Whether the box is being typed on with a phone's own keyboard: a touch
-   screen, nothing finer to point with, and no keyboard of its own seen
-   (`KEYBOARD`). A tablet with a keyboard and a trackpad has a fine pointer as
-   well, and types as a desk does. */
+/* Whether the box is on a phone or a tablet, where Return is always a new
+   line and the arrow sends. Petar, 27 November 2026: "On mobile/iPad, the
+   Enter should make a new line, not submit. On computer Enter should submit."
+   From 15 November until then a press of Shift, Ctrl, Cmd, Alt, Tab or Escape
+   was taken for a keyboard attached and gave a phone or an iPad a desk's
+   keys, and so did an iPad's trackpad (a fine pointer): an iPad with a Magic
+   Keyboard, or a stray Shift, sent on Return. Now the device decides alone:
+   an iPhone, iPad or Android (iPadOS Safari calls itself a Mac, and is told
+   from one by its touch screen), or a touch screen with nothing finer to
+   point with. A laptop with a touch screen has a trackpad or a mouse, and
+   types as a desk does. The same rule is copied in every page of its own
+   with a message box (taskpage.js, projectpage.js, decision.js,
+   askai/askai.js, askai/comments.js). */
 function touchTyping() {
-  // Asked by modules that run before this one has (runs.js, for Ask's
-  // tooltip), when `KEYBOARD` is not set yet.
-  if (!window.matchMedia || (KEYBOARD && KEYBOARD.real)) return false;
-  return window.matchMedia('(pointer: coarse)').matches
-    && !window.matchMedia('(any-pointer: fine)').matches;
+  var n = navigator, ua = n.userAgent || '';
+  if (/iPhone|iPad|iPod|Android|Mobi/.test(ua)) return true;
+  // iPadOS Safari calls itself a Mac; a real Mac has no touch screen.
+  if (/Mac/.test(n.platform || ua) && n.maxTouchPoints > 0) return true;
+  return !!(window.matchMedia && window.matchMedia('(pointer: coarse)').matches
+    && !window.matchMedia('(any-pointer: fine)').matches);
 }
 
 /* What a key pressed in a box a message is written in does: 'send', 'fork',
@@ -2532,10 +2519,10 @@ function touchTyping() {
    Ctrl+Enter no longer sends anywhere there is a fork to make.
    - A composition in progress (an IME choosing a character, a dead key, the
      key code 229 a browser gives while one is open) owns the key.
-   - On a phone's own keyboard Return stays a new line and the arrow sends,
+   - On a phone or an iPad Return stays a new line and the arrow sends,
      because a message sent by accident there is the worse mistake; Shift+
-     Return is a new line there too. A phone or an iPad with a keyboard
-     attached keeps a desk's keys (`KEYBOARD`).
+     Return is a new line there too, with a keyboard attached or not
+     (`touchTyping`, 27 November 2026).
    - `canFork` false is a box with nothing to fork (Ask AI, a note to a
      parent task): Cmd/Ctrl+Enter sends there, the same as Enter, rather
      than doing nothing. */

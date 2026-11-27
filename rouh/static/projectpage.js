@@ -215,16 +215,15 @@
      in Rouh keeps, so the one on this page does not need learning
      separately (`composerKey` in app/chats.js, and why). Nothing is forked
      from here, so Ctrl+Enter, or Cmd+Enter, sends as well. On a phone's own
-     keyboard Return is a new line and the arrow sends; a phone or a tablet
-     with a keyboard attached (a press of Shift, Ctrl, Cmd, Alt, Tab or
-     Escape, which an on-screen keyboard never sends) keeps a desk's keys. */
-  var realKeys = false;
-  document.addEventListener('keydown', function (e) {
-    if (/^(Shift|Control|Meta|Alt|AltGraph|Tab|Escape)$/.test(e.key)) { realKeys = true; }
-  }, true);
+     keyboard Return is a new line and the arrow sends; on a phone or a tablet
+     it stays so with a keyboard attached (`touchTyping` in app/chats.js). */
 
   function touchTyping() {
-    return !realKeys && !!(window.matchMedia && window.matchMedia('(pointer: coarse)').matches
+    var n = navigator, ua = n.userAgent || '';
+    if (/iPhone|iPad|iPod|Android|Mobi/.test(ua)) { return true; }
+    // iPadOS Safari calls itself a Mac; a real Mac has no touch screen.
+    if (/Mac/.test(n.platform || ua) && n.maxTouchPoints > 0) { return true; }
+    return !!(window.matchMedia && window.matchMedia('(pointer: coarse)').matches
       && !window.matchMedia('(any-pointer: fine)').matches);
   }
 
@@ -270,14 +269,6 @@
     HINTED.forEach(hintPut);
   }
   document.addEventListener('keydown', hintAll, true);
-  if (window.visualViewport) {
-    window.visualViewport.addEventListener('resize', function () {
-      var vv = window.visualViewport, on = document.activeElement;
-      if (!realKeys || !on || on.tagName !== 'TEXTAREA' || vv.height > window.innerHeight * 0.67) { return; }
-      realKeys = false;
-      hintAll();
-    });
-  }
 
   /* And it grows the way every one does: a line at a time, with no
      scrollbar, up to fifteen lines, and only then a scrollbar, in the box's

@@ -1862,9 +1862,9 @@ if (input) {
     // Enter sends, Shift+Enter is the new line the box makes of it, and
     // Cmd+Enter (Ctrl+Enter off a Mac) sends as a fork, as Cmd/Ctrl+Shift+
     // Enter still does: the same as Fork beside Send (`composerKey`,
-    // `rouh/forks.py`). Ctrl+Enter no longer sends. A phone's own keyboard
-    // keeps Return as a new line and the arrow sends; with a keyboard
-    // attached it has a desk's keys.
+    // `rouh/forks.py`). Ctrl+Enter no longer sends. A phone or an iPad
+    // keeps Return as a new line and the arrow sends, keyboard attached or
+    // not (`touchTyping`).
     var does = composerKey(e);
     if (!does) return;
     e.preventDefault();

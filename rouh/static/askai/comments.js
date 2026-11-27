@@ -100,16 +100,16 @@ function words(s) { return String(s || "").replace(/\s+/g, " ").trim(); }
  * Rouh keeps, a comment's too (`composerKey` in Rouh's app/chats.js, and why). Nothing is
  * forked from this box, so Cmd+Enter, or Ctrl+Enter, sends as well. On a
  * phone's own keyboard Return is a new line and the arrow sends; a phone or a
- * tablet with a keyboard attached (a press of Shift, Ctrl, Cmd, Alt, Tab or
- * Escape, which an on-screen keyboard never sends) keeps a desk's keys. An
+ * tablet keeps those keys with a keyboard attached too (`touchTyping` in
+ * Rouh's app/chats.js). An
  * input method still choosing a character keeps Enter. */
-var REAL_KEYS = false;
-document.addEventListener("keydown", function (e) {
-  if (/^(Shift|Control|Meta|Alt|AltGraph|Tab|Escape)$/.test(e.key)) REAL_KEYS = true;
-}, true);
 function touchTyping() {
-  return !REAL_KEYS && !!(window.matchMedia && window.matchMedia("(pointer: coarse)").matches &&
-    !window.matchMedia("(any-pointer: fine)").matches);
+  var n = navigator, ua = n.userAgent || "";
+  if (/iPhone|iPad|iPod|Android|Mobi/.test(ua)) { return true; }
+  // iPadOS Safari calls itself a Mac; a real Mac has no touch screen.
+  if (/Mac/.test(n.platform || ua) && n.maxTouchPoints > 0) { return true; }
+  return !!(window.matchMedia && window.matchMedia("(pointer: coarse)").matches
+    && !window.matchMedia("(any-pointer: fine)").matches);
 }
 function isSendKey(e) {
   if (e.key !== "Enter" || e.isComposing || e.keyCode === 229 || e.altKey) return false;
@@ -151,14 +151,6 @@ function hintAll() {
   HINTED.forEach(hintPut);
 }
 document.addEventListener("keydown", hintAll, true);
-if (window.visualViewport) {
-  window.visualViewport.addEventListener("resize", function () {
-    var vv = window.visualViewport, on = document.activeElement;
-    if (!REAL_KEYS || !on || on.tagName !== "TEXTAREA" || vv.height > window.innerHeight * 0.67) { return; }
-    REAL_KEYS = false;
-    hintAll();
-  });
-}
 function hashOf(s) {
   var h = 5381, i;
   s = String(s || "");

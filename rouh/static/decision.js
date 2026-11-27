@@ -45,16 +45,14 @@
 (function () {
   'use strict';
 
-  /* A phone's own keyboard, where Return is a new line and the button sends:
-     a touch screen, nothing finer to point with, and no keyboard of its own
-     seen (a press of Shift, Ctrl, Cmd, Alt, Tab or Escape, which an
-     on-screen keyboard never sends). `composerKey` in app/chats.js. */
-  var realKeys = false;
-  document.addEventListener('keydown', function (e) {
-    if (/^(Shift|Control|Meta|Alt|AltGraph|Tab|Escape)$/.test(e.key)) { realKeys = true; }
-  }, true);
+  /* A phone or a tablet, where Return is a new line and the button sends,
+     with a keyboard attached or not (`touchTyping` in app/chats.js). */
   function touchOnly() {
-    return !realKeys && !!(window.matchMedia && window.matchMedia('(pointer: coarse)').matches
+    var n = navigator, ua = n.userAgent || '';
+    if (/iPhone|iPad|iPod|Android|Mobi/.test(ua)) { return true; }
+    // iPadOS Safari calls itself a Mac; a real Mac has no touch screen.
+    if (/Mac/.test(n.platform || ua) && n.maxTouchPoints > 0) { return true; }
+    return !!(window.matchMedia && window.matchMedia('(pointer: coarse)').matches
       && !window.matchMedia('(any-pointer: fine)').matches);
   }
   /* Petar, 16 November 2026: "nowhere does it say SHIFT + ENTER is a new line". So an
@@ -89,14 +87,6 @@
     HINTED.forEach(hintPut);
   }
   document.addEventListener('keydown', hintAll, true);
-  if (window.visualViewport) {
-    window.visualViewport.addEventListener('resize', function () {
-      var vv = window.visualViewport, on = document.activeElement;
-      if (!realKeys || !on || on.tagName !== 'TEXTAREA' || vv.height > window.innerHeight * 0.67) { return; }
-      realKeys = false;
-      hintAll();
-    });
-  }
 
   var SOURCE_ICON = {
     task: '<path d="M9 11l3 3 8-8"/><path d="M20 12v6a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h9"/>',
