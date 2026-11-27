@@ -294,6 +294,8 @@ def is_cache_mark_refused(exc) -> bool:
 # - a 400 before anything is written, "prompt is too long: 1052341 tokens >
 #   1000000 maximum", when the request and all it carries is more than the
 #   window holds;
+# - the same words inside a stream that already answered 200, as an `error`
+#   event of type `invalid_request_error`;
 # - a 413, when the request is past the size the API takes at all;
 # - a reply that stops with `model_context_window_exceeded`, when the window
 #   filled while the answer was being written, which is a stop reason and not
@@ -326,9 +328,16 @@ def overflowed(exc) -> tuple[int, int] | None:
     0)`` when it said the request was too long without them, and None for a
     refusal that is about something else.
     """
-    status = getattr(exc, "status_code", 0)
+    status = status_of(exc)
     words = api_words(exc)
-    if status == 400:
+    # The same refusal can come inside a stream that has already answered 200,
+    # as an `error` event of type `invalid_request_error`: a topic chat of 34
+    # messages was refused that way on 27 November 2026, "prompt is too long:
+    # 1344192 tokens > 1000000 maximum", and reached the person as "The model
+    # call failed part way through: invalid request error." because only a
+    # 400 was read here.
+    if status == 400 or (not is_failure_status(status)
+                         and error_type_of(exc) == "invalid_request_error"):
         found = _TOO_LONG.search(words)
         if found:
             return int(found.group(1)), int(found.group(2))

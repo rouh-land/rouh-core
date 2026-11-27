@@ -166,6 +166,13 @@ TOGETHER_LINE = re.compile(r"\bTOGETHER\b")
 #:                              Petar's turn on 22 September 2026.
 #:   DROP 99 billing_error      the same shape with a reason that does not
 #:                              pass, so a test can show it is not hammered
+#:   DROP 1 prompt_too_long_error
+#:                              the stream breaks with the context window's
+#:                              refusal, an `invalid_request_error` in the
+#:                              API's own words "prompt is too long: 1344192
+#:                              tokens > 1000000 maximum", which is how a
+#:                              topic chat past the window was refused on
+#:                              27 November 2026, inside a stream of 200
 OVERLOAD_LINE = re.compile(r"OVERLOAD\s+(\d+)(?:\s+model=(\S+))?")
 BADREQUEST_LINE = re.compile(r"\bBADREQUEST\b")
 SPENTCAP_LINE = re.compile(r"\bSPENTCAP\b")
@@ -3440,9 +3447,13 @@ def build_app(record_dir: str) -> FastAPI:
                 # event is the shape the real API sends and the SDK turns it
                 # into an `APIStatusError` whose status_code is 200, because
                 # that is what this response's status is.
+                kind, words = drop, drop
+                if drop == "prompt_too_long_error":
+                    kind = "invalid_request_error"
+                    words = "prompt is too long: 1344192 tokens > 1000000 maximum"
                 yield _sse("error", {
                     "type": "error",
-                    "error": {"details": None, "type": drop, "message": drop},
+                    "error": {"details": None, "type": kind, "message": words},
                     "request_id": "req_fake_dropped"})
                 return
             # Thinking comes first in a real reply, before the words and
