@@ -8186,6 +8186,11 @@ async def startup() -> None:
     from . import run_access
 
     run_access.start()
+    # The newest errors of this process kept in memory, for the brief of a run of Rouh's own code
+    # (`rouh/build_flow.py`, errors_brief).
+    from . import build_flow
+
+    build_flow.listen()
     # And `_tasks.md` written out of the rows again whenever Rouh changes the
     # tree, on every machine, saved or not (`rouh/tasklist.py`).
     from . import objecttree, tasklist

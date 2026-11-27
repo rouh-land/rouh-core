@@ -4464,6 +4464,131 @@
     "rouh/web/first_week.py",
     "rouh/static/app/first_week.js"
    ]
+  },
+  "n56-errors-brief": {
+   "name": "A run's brief carries Rouh's latest errors",
+   "what": "The newest errors Rouh's own process logged in the last two hours, secrets taken out, are handed to every run of Rouh's own code at the end of its brief.",
+   "switch": "errors_brief",
+   "signals": {
+    "events": {
+     "briefed": "A run of Rouh's code you started was handed the errors Rouh had logged lately"
+    }
+   },
+   "files": [
+    "rouh/build_flow.py",
+    "rouh/web/build_flow.py",
+    "rouh/static/app/build_flow.js"
+   ]
+  },
+  "n56-page-broke": {
+   "name": "A broken screen says so",
+   "what": "A script error on Rouh's own page is said once as a notice, with Fix it, which opens Start a run on Rouh's code with the error written, or Copy the details where there is no code to change.",
+   "switch": "page_broke",
+   "signals": {
+    "events": {
+     "opened": "You pressed Fix it on a notice that said part of the screen stopped working",
+     "copied": "You pressed Copy the details on a notice that said part of the screen stopped working",
+     "started": "You started the run Fix it opened about a broken screen"
+    }
+   },
+   "files": [
+    "rouh/build_flow.py",
+    "rouh/web/build_flow.py",
+    "rouh/static/app/build_flow.js"
+   ]
+  },
+  "n56-phone-view": {
+   "name": "See it on a phone",
+   "what": "The menu's See it on a phone shows the screen you are on, live, in a phone-sized frame beside the desk.",
+   "switch": "phone_view",
+   "signals": {
+    "events": {
+     "opened": "You pressed See it on a phone in the menu and saw the screen at a phone's size"
+    }
+   },
+   "files": [
+    "rouh/build_flow.py",
+    "rouh/web/build_flow.py",
+    "rouh/static/app/build_flow.js",
+    "rouh/genes/manifests/n56-phone-view.json"
+   ]
+  },
+  "n56-run-later": {
+   "name": "Save it for the next run",
+   "what": "Start a run on Rouh's code has Save for later; the next time it opens on Rouh's code it says how many are saved, and Add them puts them all into the brief.",
+   "switch": "run_later",
+   "signals": {
+    "events": {
+     "saved": "You pressed Save for later in Start a run, and the brief was kept for the next run",
+     "added": "You pressed Add them in Start a run, and the briefs you saved went into one run"
+    }
+   },
+   "files": [
+    "rouh/build_flow.py",
+    "rouh/web/build_flow.py",
+    "rouh/static/app/build_flow.js"
+   ]
+  },
+  "n56-chat-ready": {
+   "name": "Chat works the moment a key is saved",
+   "what": "While Chat is not set up yet shows, the page asks whether chat can answer when the window comes back and every ten seconds, and takes the note away the moment it can, without a reload.",
+   "switch": "chat_ready",
+   "signals": {
+    "events": {
+     "readied": "You saved an AI key and the chat said it was set up, without a reload"
+    }
+   },
+   "files": [
+    "rouh/easy_start.py",
+    "rouh/web/easy_start.py",
+    "rouh/static/app/easy_start.js"
+   ]
+  },
+  "n56-home-screen": {
+   "name": "Rouh on your phone's home screen",
+   "what": "On a phone, in the browser, from the second visit, once: a notice offering to put Rouh on the home screen, with Install where the phone can do it and the steps on an iPhone.",
+   "switch": "home_screen",
+   "signals": {
+    "events": {
+     "installed": "You pressed Install on the notice and put Rouh on your phone's home screen",
+     "opened": "You opened Rouh from your phone's home screen after it offered to go there"
+    }
+   },
+   "files": [
+    "rouh/easy_start.py",
+    "rouh/web/easy_start.py",
+    "rouh/static/app/easy_start.js"
+   ]
+  },
+  "n56-chat-save": {
+   "name": "Save this chat as a file",
+   "what": "Save this chat as a file, at the foot of Chat Options, downloads the whole chat as plain text, every message with who said it and when.",
+   "switch": "chat_save",
+   "signals": {
+    "events": {
+     "saved": "You pressed Save this chat as a file and downloaded the chat"
+    }
+   },
+   "files": [
+    "rouh/easy_start.py",
+    "rouh/web/easy_start.py",
+    "rouh/static/app/easy_start.js"
+   ]
+  },
+  "n56-slash-menu": {
+   "name": "Type / for what you can do here",
+   "what": "A slash in the chat's empty box opens a short list, in words, of what can be done from the chat, narrowed as you type; Enter or a press does it.",
+   "switch": "slash_menu",
+   "signals": {
+    "events": {
+     "done": "You typed / in the chat's box and picked something to do from the list"
+    }
+   },
+   "files": [
+    "rouh/easy_start.py",
+    "rouh/web/easy_start.py",
+    "rouh/static/app/easy_start.js"
+   ]
   }
  }
 }

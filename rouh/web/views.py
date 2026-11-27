@@ -1059,6 +1059,28 @@ def _first_week(request: HttpRequest) -> dict:
         return {"on": []}
 
 
+def _build_flow(request: HttpRequest) -> dict:
+    """Which of night 56's four genes for building Rouh faster are on here (`rouh/build_flow.py`)."""
+    from rouh import build_flow
+
+    try:
+        return build_flow.for_page(who(request))
+    except Exception:
+        log.warning("build_flow: not read for the page", exc_info=True)
+        return {"on": []}
+
+
+def _easy_start(request: HttpRequest) -> dict:
+    """Which of night 56's four genes for somebody new are on here (`rouh/easy_start.py`)."""
+    from rouh import easy_start
+
+    try:
+        return easy_start.for_page(who(request))
+    except Exception:
+        log.warning("easy_start: not read for the page", exc_info=True)
+        return {"on": []}
+
+
 def _newcomer(request: HttpRequest) -> dict:
     """Which of night 51's four genes for a newcomer are on here, and what they need (`rouh/newcomer.py`)."""
     from rouh import newcomer
@@ -1160,6 +1182,11 @@ def _page_for(request: HttpRequest) -> HttpResponse:
         "BUILD_FASTER": _build_faster(request),
         # Unsent words kept, Ask it now, Chat text size, Up arrow for the last message (`rouh/first_week.py`).
         "FIRST_WEEK": _first_week(request),
+        # Latest errors in a run's brief, a broken screen, See it on a phone, Save it for the next run
+        # (`rouh/build_flow.py`).
+        "BUILD_FLOW": _build_flow(request),
+        # Chat ready once a key is saved, the home screen, Save this chat, Type / (`rouh/easy_start.py`).
+        "EASY_START": _easy_start(request),
         # Say it more simply, under an answer (`rouh/say_plainer.py`).
         "PLAINER": _plainer(request),
         # The open orb's music: Rouh's own, or the Cornfield Chase arrangement where its switch is on.

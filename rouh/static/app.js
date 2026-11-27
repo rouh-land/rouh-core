@@ -117,6 +117,8 @@ import 'app/new_owner.js';
 import 'app/build_proof.js';
 import 'app/build_faster.js';
 import 'app/first_week.js';
+import 'app/build_flow.js';
+import 'app/easy_start.js';
 import 'app/nightly_first.js';
 import { addrEarly } from 'app/address.js';
 

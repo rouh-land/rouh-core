@@ -558,6 +558,10 @@ def rouh_app(tmp_path_factory) -> App:
         # A keys folder of its own, as the core's keys volume, for what Keys writes there for the
         # key proxy (GitHub for your runs) and the Permissions page reads.
         ROUH_KEYS_DIR=str(folder / "keys"),
+        # And the key proxy at an address that answers nothing: in the containers' worker the real
+        # one is reachable as keyproxy:8080, and a world that read its tripwires showed the
+        # machine's own "Rouh switched back to Restricted" on every screen (night 56).
+        ROUH_KEYPROXY_URL="http://127.0.0.1:1/no-keyproxy",
         PYTHONUNBUFFERED="1",
     )
     (folder / "keys").mkdir()
@@ -1387,6 +1391,7 @@ def codex_signin_world(tmp_path_factory) -> CodexSignInWorld:
         # The sign-in pages, as the core's image turns them on, and a keys folder of its own.
         ROUH_CLAUDE_SIGNIN="1",
         ROUH_KEYS_DIR=str(keys),
+        ROUH_KEYPROXY_URL="http://127.0.0.1:1/no-keyproxy",
         ONE_SYSTEMCTL="/bin/true",
         ONE_HEALTH_URL="",
         PYTHONUNBUFFERED="1",

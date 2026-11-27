@@ -1,0 +1,39 @@
+{
+  "id": "n56-phone-view",
+  "name": "See it on a phone",
+  "title": "See it on a phone: the screen you are on, live, in a phone-sized frame beside the desk",
+  "aliases": [
+    "see it on a phone",
+    "phone view",
+    "how does it look on a phone",
+    "mobile view",
+    "phone size"
+  ],
+  "group": "evolution",
+  "route": "/metabolism",
+  "icon": "<rect x=\"7\" y=\"3\" width=\"10\" height=\"18\" rx=\"2\"/><path d=\"M11 18h2\"/>",
+  "attaches_to": [],
+  "maturity": "lab",
+  "switch": "phone_view",
+  "signals": {
+    "events": {
+      "opened": "You pressed See it on a phone in the menu and saw the screen at a phone's size"
+    }
+  },
+  "nav": {
+    "place": "list",
+    "opens": "press",
+    "press": "phoneViewBtn",
+    "order": 46
+  },
+  "touches": {
+    "permissions": [],
+    "accounts": [],
+    "tables": [],
+    "jobs": [],
+    "remove": "Turn the switch phone_view off on its row in Evolution, Mutations, and See it on a phone is gone from the menu; to remove it for good revert night 56's commit (rouh/build_flow.py, rouh/web/build_flow.py, rouh/static/app/build_flow.js, #phoneViewBtn in rouh/templates/rouh/index.html, the phone-view styles in rouh/static/app.css, this manifest)."
+  },
+  "uses": {
+    "tools": []
+  }
+}

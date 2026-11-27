@@ -12595,3 +12595,39 @@ html.fw-ts-biggest #transcript, html.fw-ts-biggest #input { zoom: 1.3; }
     margin-top: calc(var(--top-air) + var(--top-chip) - 2px + 44px + 4px);
   }
 }
+
+/* Save for later, and what is saved, in Start a run (`rouh/build_flow.py`, run_later). */
+.run-later { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin: 4px 0 0;
+  padding: 10px 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--panel-2); }
+.run-later[hidden] { display: none; }
+.run-later-say { margin: 0; flex: 1 1 200px; font-size: 14px; line-height: 1.45; }
+.run-later .ctl, #runLaterSave { min-height: 44px; }
+
+/* See it on a phone (`rouh/build_flow.py`, phone_view): the screen in a phone-sized frame. */
+.phone-view { padding: 16px; border: 1px solid var(--line); border-radius: 16px; background: var(--panel);
+  color: var(--text); max-width: none; max-height: none; }
+.phone-view::backdrop { background: rgba(0, 0, 0, .55); }
+.phone-view-head { display: flex; align-items: center; gap: 10px; margin: 0 0 12px; min-width: 380px; }
+.phone-view-head h2 { margin: 0; font-size: 16px; font-weight: 600; }
+.phone-view-size { flex: 1; font-size: 13px; color: var(--dim); }
+.phone-view-head .ctl { min-height: 44px; padding: 0 16px; }
+.phone-view-fit { position: relative; overflow: hidden; border-radius: 22px; outline: 8px solid var(--line);
+  margin: 8px auto 0; }
+.phone-view-frame { display: block; border: 0; transform-origin: 0 0; background: var(--bg); }
+
+/* Type / for what you can do here (`rouh/easy_start.py`, slash_menu): over the chat's box. */
+.slash-list { position: absolute; left: 8px; right: 8px; bottom: calc(100% + 6px); z-index: 60;
+  margin: 0; padding: 6px; list-style: none; max-height: 50vh; overflow: auto;
+  background: var(--panel); border: 1px solid var(--line); border-radius: 12px;
+  box-shadow: 0 8px 28px rgba(0, 0, 0, .35); }
+.slash-list[hidden] { display: none; }
+.slash-item { min-height: 44px; display: flex; align-items: center; padding: 0 12px; border-radius: 8px;
+  font-size: 14px; cursor: pointer; }
+.slash-item.on, .slash-item:hover { background: var(--accent-soft); color: var(--accent); }
+.slash-none { padding: 10px 12px; font-size: 13px; color: var(--dim); }
+.slash-head { padding: 6px 12px 4px; font-size: 12px; color: var(--dim); }
+/* Over the orb, which floats over the chat's lower corner (z-index 48), while the list is open. */
+#composer.slash-open { z-index: 49; }
+/* Save this chat as a file, at the foot of Chat Options (`rouh/easy_start.py`, chat_save). */
+.reading-sec.es-save { padding-top: 10px; border-top: 1px solid var(--line); }
+.es-save-btn { min-height: 44px; padding: 0 14px; }

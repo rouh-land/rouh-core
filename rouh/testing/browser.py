@@ -501,7 +501,8 @@ def start(root, with_voice: bool = False, luna: bool = False, anthropic: bool = 
         with open(code_file, "w") as fh:
             fh.write(secrets.token_urlsafe(18) + "\n")
         env.update(ANTHROPIC_API_KEY="", OPENAI_API_KEY="", ROUH_FIRST_RUN_CODE_FILE=code_file,
-                   ROUH_KEYS_DIR=str(keys), ROUH_CLAUDE_SIGNIN="1", ROUH_PUBLISHED_PORT=str(app_port))
+                   ROUH_KEYS_DIR=str(keys), ROUH_KEYPROXY_URL="http://127.0.0.1:1/no-keyproxy",
+                   ROUH_CLAUDE_SIGNIN="1", ROUH_PUBLISHED_PORT=str(app_port))
     env.update({k: str(v) for k, v in extra_env.items() if v is not None})
     for name, value in extra_env.items():
         if value is None:

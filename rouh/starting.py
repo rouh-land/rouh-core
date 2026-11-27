@@ -480,7 +480,14 @@ async def start(*, brief: str, title: str = "", preset: str = "",
     spec = PRESETS.get(preset)
     where = resolve(preset, workspace=workspace, policy=policy, repo=repo)
     said = (str(title or "").strip() or brief.splitlines()[0])[:80]
+    # A run of Rouh's own code is handed the errors Rouh logged lately (`rouh/build_flow.py`,
+    # errors_brief), after what it was asked, so its title and its record stay the person's words.
+    from . import build_flow
+
+    errors = await asyncio.to_thread(build_flow.for_code_run, where, preset, org_id or None)
     asked = brief
+    if errors:
+        brief = brief + "\n\n" + errors
     # The task this run is for, when it is one task's: its record follows the
     # agent instructions every run starts with (`rouh/agent_instructions.py`).
     in_play = await asyncio.to_thread(_task_in_play, chat, owner)

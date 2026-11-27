@@ -4094,3 +4094,49 @@ print(json.dumps({"page": sorted(page["on"]), "sizes": [z["id"] for z in page["s
     expect('"ask_again", "draft_kept", "last_again", "text_size"' in out
            and '"sizes": ["normal", "bigger", "biggest"]' in out and '"counted": true' in out and '"refused": false' in out,
            f"the first week genes were not told as they should be: {out[-500:]}")
+
+
+@check("gene.build-flow")
+def build_flow(s: Stack) -> None:
+    """An error the core logged reaches a run of Rouh's code, secrets out; a brief saved for later is handed over once."""
+    out = core_py(s, _owner_py("""
+import logging
+from rouh import build_flow
+build_flow.listen()
+logging.getLogger("rouh.stackcheck").error("stack check error with token=abc123secretvalue in it")
+section = build_flow.for_code_run({"space": "rouh"}, "")
+page = build_flow.for_page(who)
+saved = build_flow.save(who, "stack check: a fix saved for later")
+taken = [h["brief"] for h in build_flow.take(who)]
+print(json.dumps({"page": sorted(page["on"]), "code": page["code"], "error": "stack check error" in section,
+    "secret": "abc123secretvalue" in section, "other": build_flow.for_code_run({"space": "assistant"}, "") == "",
+    "saved": saved, "taken": taken, "again": build_flow.take(who),
+    "counted": build_flow.used(who, "phone_view", "opened", "stack"),
+    "refused": build_flow.used(who, "phone_view", "nonsense", "stack")}))
+"""))
+    expect('"errors_brief", "page_broke", "phone_view", "run_later"' in out and '"error": true' in out
+           and '"secret": false' in out and '"other": true' in out and '"saved": 1' in out
+           and '"taken": ["stack check: a fix saved for later"]' in out and '"again": []' in out
+           and '"counted": true' in out and '"refused": false' in out,
+           f"the build flow genes did not do what they should: {out[-600:]}")
+
+
+@check("gene.easy-start")
+def easy_start(s: Stack) -> None:
+    """The page is told which are on with the slash list; chat's state is said; a chat is saved as text."""
+    out = core_py(s, _owner_py("""
+from rouh import easy_start, runtime
+from rouh.config import config
+page = easy_start.for_page(who)
+state = easy_start.chat_state(who, config)
+chat = runtime.memory.ensure_session()
+got = easy_start.chat_file(who, runtime.memory, chat, "Stack check chat")
+print(json.dumps({"page": sorted(page["on"]), "slash": [x["id"] for x in page["slash"]], "state": sorted(state),
+    "file": bool(got and got[0] == "Stack-check-chat.txt" and got[1].startswith("Stack check chat")),
+    "counted": easy_start.used(who, "slash_menu", "done", "guide"),
+    "refused": easy_start.used(who, "chat_save", "saved", "x")}))
+"""))
+    expect('"chat_ready", "chat_save", "home_screen", "slash_menu"' in out and '"guide"' in out
+           and '"state": ["on", "ready"]' in out and '"file": true' in out
+           and '"counted": true' in out and '"refused": false' in out,
+           f"the easy start genes did not do what they should: {out[-600:]}")
