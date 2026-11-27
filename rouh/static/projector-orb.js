@@ -93,6 +93,16 @@
     return s.length > 28 ? s.slice(0, 27).replace(/\s+\S*$/, '') + '…' : s;
   }
 
+  // A job's name at its tip: more of it than short(), up to ten words, for two lines at most.
+  function tipName(label) {
+    var s = String(label || '').replace(/\s+/g, ' ').trim();
+    s = s.split(/\s*(?::|—|–| - |\|)\s*/)[0] || s;
+    s = s.replace(/^(task|step)\s+\d+(-\d+)?\s*/i, '');
+    var words = s.split(' ');
+    if (words.length > 10) s = words.slice(0, 10).join(' ') + '…';
+    return s.length > 64 ? s.slice(0, 63).replace(/\s+\S*$/, '') + '…' : s;
+  }
+
   function hexRgb(hex) { var n = parseInt(String(hex).slice(1), 16); return [n >> 16, (n >> 8) & 255, n & 255]; }
   function rgba(c, a) { return 'rgba(' + c[0] + ',' + c[1] + ',' + c[2] + ',' + Math.max(0, Math.min(1, a)).toFixed(3) + ')'; }
   function mix(c, d, t) { return [Math.round(c[0] + (d[0] - c[0]) * t), Math.round(c[1] + (d[1] - c[1]) * t), Math.round(c[2] + (d[2] - c[2]) * t)]; }
@@ -436,19 +446,45 @@
       haloSprite = c;
       return c;
     }
-    function labelImage(text, warn, fs) {
-      var k = fs + '|' + (warn ? 1 : 0) + '|' + text;
+    // Words wrapped to at most two lines of about maxW, the second cut with an ellipsis.
+    function wrapLines(x, text, maxW) {
+      var words = text.split(' '), lines = [''], i;
+      for (i = 0; i < words.length; i++) {
+        var cur = lines[lines.length - 1], next = cur ? cur + ' ' + words[i] : words[i];
+        if (!cur || x.measureText(next).width <= maxW) { lines[lines.length - 1] = next; continue; }
+        if (lines.length === 2) { lines[1] = cur + ' ' + words.slice(i).join(' '); break; }
+        lines.push(words[i]);
+      }
+      var last = lines[lines.length - 1];
+      if (x.measureText(last).width > maxW) {
+        while (last.length > 1 && x.measureText(last + '…').width > maxW) last = last.slice(0, -1);
+        lines[lines.length - 1] = last.replace(/[\s…]+$/, '') + '…';
+      }
+      return lines;
+    }
+    // A label is drawn once into its own small canvas, with its dark shadow, and only copied per frame.
+    function labelImage(text, warn, fs, alignRight) {
+      var k = fs + '|' + (warn ? 1 : 0) + '|' + (alignRight ? 1 : 0) + '|' + text;
       if (labelCache[k]) return labelCache[k];
       if (++labelCount > 200) { labelCache = Object.create(null); labelCount = 1; }
       var c = document.createElement('canvas'), x = c.getContext('2d');
       var font = '700 ' + fs + 'px "DejaVu Sans", system-ui, sans-serif';
       x.font = font;
-      var pad = Math.round(fs * 0.3), tw = Math.ceil(x.measureText(text).width);
-      c.width = tw + pad * 2; c.height = Math.round(fs * 1.4);
-      x.globalAlpha = 0.7; x.fillStyle = '#000'; x.fillRect(0, 0, c.width, c.height);
-      x.globalAlpha = 1; x.font = font; x.textBaseline = 'middle';
+      var lines = wrapLines(x, text, fs * 17), tw = 0, i;
+      for (i = 0; i < lines.length; i++) tw = Math.max(tw, Math.ceil(x.measureText(lines[i]).width));
+      var pad = Math.ceil(fs * 0.45), lh = Math.round(fs * 1.25);
+      c.width = tw + pad * 2; c.height = lh * lines.length + pad * 2;
+      x.font = font; x.textBaseline = 'middle'; x.textAlign = alignRight ? 'right' : 'left';
+      var tx = alignRight ? c.width - pad : pad;
+      // No box behind the words: a soft black shadow, twice for depth, then the words on top.
+      x.shadowColor = 'rgba(0,0,0,0.95)'; x.fillStyle = '#000';
+      [[fs * 0.35, 0], [fs * 0.12, 1]].forEach(function (sh) {
+        x.shadowBlur = sh[0]; x.shadowOffsetY = sh[1];
+        for (var j = 0; j < lines.length; j++) x.fillText(lines[j], tx, pad + lh * (j + 0.5));
+      });
+      x.shadowColor = 'transparent'; x.shadowBlur = 0; x.shadowOffsetY = 0;
       x.fillStyle = warn ? '#ff5c74' : '#e6f6f8';
-      x.fillText(text, pad, c.height / 2);
+      for (i = 0; i < lines.length; i++) x.fillText(lines[i], tx, pad + lh * (i + 0.5));
       return (labelCache[k] = c);
     }
     function poly(p) { g.beginPath(); g.moveTo(p[0][0], p[0][1]); for (var i = 1; i < p.length; i++) g.lineTo(p[i][0], p[i][1]); }
@@ -568,7 +604,7 @@
         var r = order[i];
         var tip = drawTube(r, t);
         if (tip && r.depth === 1 && r.role === 'branch' && r.kind !== 'self' && !(r.life && r.life.state === 'ghost') && e < 0.5) {
-          labels.push({ tip: tip, text: r.waiting ? 'NEEDS YOU · ' + short(r.node.label) : short(r.node.label),
+          labels.push({ tip: tip, text: r.waiting ? 'NEEDS YOU · ' + tipName(r.node.label) : tipName(r.node.label),
                         warn: r.waiting, alpha: r.life ? Math.max(0.4, r.life.alpha) : 1 });
         }
       }
@@ -578,18 +614,19 @@
       var hw = hs.width * pulse;
       g.globalAlpha = 1;
       g.drawImage(hs, cam.cx - hw / 2, cam.cy - hw / 2, hw, hw);
-      // The short names at the tips of the jobs, large, never on each other.
+      // The names at the tips of the jobs, on at most two lines, never on each other.
       if (labels.length) {
-        var fs = Math.max(14, Math.round(Math.min(W, H * 1.7778) / 100 * 1.5));   // half of 04:04's names (200-05)
+        var fs = Math.max(10, Math.round(Math.min(W, H * 1.7778) / 100 * 1.05));  // 30% under 200-05's names: 13 px on the 1280x800 wall
         [true, false].forEach(function (rightSide) {
           var mine = labels.filter(function (l) { return (l.tip[0] >= cam.cx) === rightSide; })
             .sort(function (a, b) { return a.tip[1] - b.tip[1]; });
-          var lastY = -1e9;
+          var lastBottom = -1e9, gap = Math.round(fs * 0.5), shade = Math.ceil(fs * 0.45);
           mine.forEach(function (l) {
-            var img = labelImage(l.text, l.warn, fs);
-            var y = Math.max(l.tip[1], lastY + img.height * 1.08);
-            lastY = y;
-            var x = l.tip[0] + (rightSide ? fs * 0.5 : -fs * 0.5 - img.width);
+            var img = labelImage(l.text, l.warn, fs, !rightSide);
+            var half = img.height / 2 - shade;   // the words' own half height, without the shadow's room
+            var y = Math.max(l.tip[1], lastBottom + gap + half);
+            lastBottom = y + half;
+            var x = l.tip[0] + (rightSide ? fs * 0.2 : -fs * 0.2 - img.width);
             // Clear of the wall's edges, which a projector may crop.
             var edge = Math.min(W, H * 1.7778) / 100 * 2;
             x = Math.max(edge, Math.min(W - img.width - edge, x));
