@@ -16,6 +16,9 @@
   --needs: #ff3655;      /* the orb's own red for work waiting on the person */
   --needs-ink: #ff5c74;
   --u: min(1vw, 1.7778vh);
+  /* Every letter on the wall, as one scale: .5 halves the big letters of 04:04 (Petar, 27 November 2026,
+     09:48: "Can you make the text 50% smaller", task 200, step 200-05). */
+  --tx: .5;
   --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "DejaVu Sans", Helvetica, Arial, sans-serif;
   --mono: ui-monospace, SFMono-Regular, Menlo, "DejaVu Sans Mono", Consolas, monospace;
 }
@@ -37,7 +40,7 @@ body {
 }
 
 /* The quiet top line: whose chat, the time, and a word only when the wall is not live. */
-.top { display: flex; align-items: baseline; gap: calc(1.6 * var(--u)); font-size: calc(1.5 * var(--u)); color: var(--dim); }
+.top { display: flex; align-items: baseline; gap: calc(1.6 * var(--u)); font-size: calc(var(--tx) * 1.5 * var(--u)); color: var(--dim); }
 .top .who { display: flex; align-items: center; gap: calc(.8 * var(--u)); font-weight: 600; color: var(--ink); }
 .top .dot { width: calc(1 * var(--u)); height: calc(1 * var(--u)); border-radius: 50%; background: var(--accent); }
 .top .status { margin-left: auto; display: flex; align-items: center; gap: calc(.7 * var(--u)); color: var(--warn); }
@@ -64,9 +67,9 @@ body:not(.up) .wall.lost > .top .who, body:not(.up) .wall.lost > .top .clock { d
 /* An answer with no new card: the words alone, large, low on the wall, the orb dim above them. */
 .wall:not(.with-card) .stage { visibility: hidden !important; }
 .wall:not(.with-card) .caption { max-height: none; align-self: end; grid-row: 2 / 4; }
-.wall:not(.with-card) .said { font-size: calc(4 * var(--u)); }
-.wall:not(.with-card) .said .words { max-height: calc(4 * var(--u) * 1.3 * 6); }
-.wall:not(.with-card) .heard { font-size: calc(2.4 * var(--u)); }
+.wall:not(.with-card) .said { font-size: calc(var(--tx) * 4 * var(--u)); }
+.wall:not(.with-card) .said .words { max-height: calc(var(--tx) * 4 * var(--u) * 1.3 * 6); }
+.wall:not(.with-card) .heard { font-size: calc(var(--tx) * 2.4 * var(--u)); }
 
 /* The stage: the newest card, fitted; too long and it moves slowly through. */
 .stage {
@@ -78,24 +81,24 @@ body:not(.up) .wall.lost > .top .who, body:not(.up) .wall.lost > .top .clock { d
   position: absolute; inset: 0 0 auto 0;
   padding: calc(2.6 * var(--u) * var(--s)) calc(3.2 * var(--u));
   display: grid; gap: calc(1.8 * var(--u) * var(--s)); align-content: start;
-  font-size: calc(2.2 * var(--u) * var(--s)); line-height: 1.38;
+  font-size: calc(var(--tx) * 2.2 * var(--u) * var(--s)); line-height: 1.38;
   will-change: transform;
 }
 /* A card that replaces another while the wall is up slides in; coming up over the orb, the wall's fade is enough. */
 .card.enter { animation: enter 420ms ease-out; }
 @keyframes enter { from { opacity: 0; transform: translateY(calc(1.2 * var(--u))); } to { opacity: 1; transform: none; } }
 .card h1 {
-  margin: 0; font-size: calc(3.6 * var(--u) * var(--s)); line-height: 1.12; font-weight: 700;
+  margin: 0; font-size: calc(var(--tx) * 3.6 * var(--u) * var(--s)); line-height: 1.12; font-weight: 700;
   letter-spacing: -.015em; text-wrap: balance;
 }
-.card .desc { margin: calc(-.8 * var(--u) * var(--s)) 0 0; color: var(--dim); font-size: calc(1.9 * var(--u) * var(--s)); }
+.card .desc { margin: calc(-.8 * var(--u) * var(--s)) 0 0; color: var(--dim); font-size: calc(var(--tx) * 1.9 * var(--u) * var(--s)); }
 .card p { margin: 0; text-wrap: pretty; }
-.card .label { color: var(--dim); font-size: calc(1.6 * var(--u) * var(--s)); font-weight: 600; margin: 0 0 calc(.5 * var(--u) * var(--s)); }
+.card .label { color: var(--dim); font-size: calc(var(--tx) * 1.6 * var(--u) * var(--s)); font-weight: 600; margin: 0 0 calc(.5 * var(--u) * var(--s)); }
 .b-text { display: grid; gap: calc(1 * var(--u) * var(--s)); max-width: 62em; }
 .b-text strong { font-weight: 700; }
 .b-text code, .b-code { font-family: var(--mono); }
 .b-code {
-  margin: 0; white-space: pre-wrap; font-size: calc(1.6 * var(--u) * var(--s));
+  margin: 0; white-space: pre-wrap; font-size: calc(var(--tx) * 1.6 * var(--u) * var(--s));
   background: var(--ground); border-radius: calc(.8 * var(--u)); padding: calc(1.2 * var(--u) * var(--s));
 }
 .b-list { margin: 0; padding: 0; list-style: none; display: grid; gap: calc(.9 * var(--u) * var(--s)); }
@@ -105,33 +108,33 @@ body:not(.up) .wall.lost > .top .who, body:not(.up) .wall.lost > .top .clock { d
   border-radius: 50%; background: var(--accent); transform: translateY(-.1em);
 }
 .b-stat { display: grid; gap: calc(.3 * var(--u) * var(--s)); }
-.b-stat .value { font-size: calc(8 * var(--u) * var(--s)); line-height: 1; font-weight: 700; letter-spacing: -.02em; font-variant-numeric: tabular-nums; }
+.b-stat .value { font-size: calc(var(--tx) * 8 * var(--u) * var(--s)); line-height: 1; font-weight: 700; letter-spacing: -.02em; font-variant-numeric: tabular-nums; }
 .b-stat .hint { color: var(--dim); }
 .stats { display: flex; flex-wrap: wrap; gap: calc(2 * var(--u) * var(--s)) calc(5 * var(--u) * var(--s)); }
-.b-table { border-collapse: collapse; width: 100%; font-size: calc(2.2 * var(--u) * var(--s)); font-variant-numeric: tabular-nums; }
+.b-table { border-collapse: collapse; width: 100%; font-size: calc(var(--tx) * 2.2 * var(--u) * var(--s)); font-variant-numeric: tabular-nums; }
 .b-table th, .b-table td { text-align: left; padding: calc(.7 * var(--u) * var(--s)) calc(1.4 * var(--u) * var(--s)) calc(.7 * var(--u) * var(--s)) 0; border-bottom: 1px solid var(--line); vertical-align: top; }
-.b-table th { color: var(--dim); font-weight: 600; font-size: calc(1.7 * var(--u) * var(--s)); }
+.b-table th { color: var(--dim); font-weight: 600; font-size: calc(var(--tx) * 1.7 * var(--u) * var(--s)); }
 .b-link { color: var(--accent); }
 .b-image { margin: 0; display: grid; gap: calc(.8 * var(--u) * var(--s)); justify-items: start; }
 .b-image img { max-width: 100%; max-height: calc(58 * var(--u)); border-radius: calc(.8 * var(--u)); object-fit: contain; }
-.b-image figcaption { color: var(--dim); font-size: calc(1.7 * var(--u) * var(--s)); }
+.b-image figcaption { color: var(--dim); font-size: calc(var(--tx) * 1.7 * var(--u) * var(--s)); }
 .img-gone {
   display: grid; place-items: center; width: min(100%, calc(48 * var(--u))); aspect-ratio: 16 / 10;
   border: 2px dashed var(--line); border-radius: calc(.8 * var(--u)); color: var(--faint);
-  font-size: calc(1.6 * var(--u) * var(--s)); padding: calc(2 * var(--u)); text-align: center;
+  font-size: calc(var(--tx) * 1.6 * var(--u) * var(--s)); padding: calc(2 * var(--u)); text-align: center;
 }
 .b-chart { width: 100%; height: auto; max-height: calc(40 * var(--u)); }
 .b-chart text { fill: var(--dim); font-family: var(--sans); }
 .b-chart .bar { fill: var(--accent); }
 .b-chart .line { fill: none; stroke: var(--accent); stroke-width: 4; stroke-linejoin: round; }
 .b-chart .axis { stroke: var(--line); stroke-width: 2; }
-.b-sources { margin: 0; padding: 0; list-style: none; display: grid; gap: calc(.5 * var(--u) * var(--s)); color: var(--dim); font-size: calc(1.6 * var(--u) * var(--s)); }
+.b-sources { margin: 0; padding: 0; list-style: none; display: grid; gap: calc(.5 * var(--u) * var(--s)); color: var(--dim); font-size: calc(var(--tx) * 1.6 * var(--u) * var(--s)); }
 .b-html { width: 100%; border: 0; background: transparent; display: block; }
 .b-email { display: grid; gap: calc(.6 * var(--u) * var(--s)); }
-.b-email .meta { color: var(--dim); font-size: calc(1.7 * var(--u) * var(--s)); }
+.b-email .meta { color: var(--dim); font-size: calc(var(--tx) * 1.7 * var(--u) * var(--s)); }
 .b-email .body { white-space: pre-wrap; }
 
-.unpaired .addr, .addr { font-family: var(--mono); color: var(--accent); font-size: calc(2.2 * var(--u)); word-break: break-all; }
+.unpaired .addr, .addr { font-family: var(--mono); color: var(--accent); font-size: calc(var(--tx) * 2.2 * var(--u)); word-break: break-all; }
 
 /* Where the stage is moving through a long card, a thin bar says how far. */
 .through { position: absolute; right: calc(.8 * var(--u)); top: calc(1.2 * var(--u)); bottom: calc(1.2 * var(--u)); width: calc(.4 * var(--u)); border-radius: 99px; background: var(--line); }
@@ -139,20 +142,20 @@ body:not(.up) .wall.lost > .top .who, body:not(.up) .wall.lost > .top .clock { d
 
 /* The caption band: what was heard, small, and Rouh's answer, large, showing its end when it is long. */
 .caption {
-  display: grid; gap: calc(.8 * var(--u)); max-height: calc(14.2 * var(--u)); overflow: hidden;
+  display: grid; gap: calc(.8 * var(--u)); max-height: calc(var(--tx) * 14.2 * var(--u)); overflow: hidden;
   align-content: end; padding: calc(1.2 * var(--u)) calc(1.6 * var(--u));
   background: color-mix(in srgb, var(--ground) 94%, transparent); border-radius: calc(1.2 * var(--u));
 }
 .caption:has(> [hidden] + [hidden]) { background: transparent; }
-.heard { display: flex; gap: calc(1 * var(--u)); align-items: baseline; font-size: calc(1.8 * var(--u)); color: var(--dim); }
+.heard { display: flex; gap: calc(1 * var(--u)); align-items: baseline; font-size: calc(var(--tx) * 1.8 * var(--u)); color: var(--dim); }
 .heard .who, .said .who { font-weight: 700; flex: none; }
 .heard .words { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
-.said { display: flex; gap: calc(1.2 * var(--u)); align-items: flex-start; font-size: calc(2.7 * var(--u)); line-height: 1.3; }
+.said { display: flex; gap: calc(1.2 * var(--u)); align-items: flex-start; font-size: calc(var(--tx) * 2.7 * var(--u)); line-height: 1.3; }
 .said .who { color: var(--accent); }
 .said .words {
-  max-height: calc(2.7 * var(--u) * 1.3 * 3); overflow: hidden; display: flex; flex-direction: column; justify-content: flex-end;
-  -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 calc(4 * var(--u)));
-          mask-image: linear-gradient(to bottom, transparent 0, #000 calc(4 * var(--u)));
+  max-height: calc(var(--tx) * 2.7 * var(--u) * 1.3 * 3); overflow: hidden; display: flex; flex-direction: column; justify-content: flex-end;
+  -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 calc(var(--tx) * 4 * var(--u)));
+          mask-image: linear-gradient(to bottom, transparent 0, #000 calc(var(--tx) * 4 * var(--u)));
 }
 .said .words.fits { -webkit-mask-image: none; mask-image: none; }
 .said .words span { text-wrap: pretty; }
@@ -167,12 +170,12 @@ body:not(.up) .wall.lost > .top .who, body:not(.up) .wall.lost > .top .clock { d
   padding: calc(3 * var(--u)) calc(6 * var(--u)) calc(4 * var(--u)); text-align: center; justify-items: center;
   background: linear-gradient(transparent, color-mix(in srgb, var(--ground) 92%, transparent) 40%);
 }
-.unpaired h1 { margin: 0; font-size: calc(2.8 * var(--u)); line-height: 1.15; max-width: 30em; text-wrap: balance; }
+.unpaired h1 { margin: 0; font-size: calc(var(--tx) * 2.8 * var(--u)); line-height: 1.15; max-width: 30em; text-wrap: balance; }
 .unpaired .code {
-  font-family: var(--mono); font-size: calc(6 * var(--u)); font-weight: 700; letter-spacing: .12em;
+  font-family: var(--mono); font-size: calc(var(--tx) * 6 * var(--u)); font-weight: 700; letter-spacing: .12em;
   color: var(--ink); line-height: 1.1; margin-top: calc(.6 * var(--u));
 }
-.unpaired p { margin: 0; font-size: calc(2.2 * var(--u)); color: var(--dim); max-width: 34em; }
+.unpaired p { margin: 0; font-size: calc(var(--tx) * 2.2 * var(--u)); color: var(--dim); max-width: 34em; }
 
 @media (prefers-reduced-motion: reduce) {
   .card.enter, .pulse i { animation: none; }
@@ -189,23 +192,23 @@ body:not(.up) .wall.lost > .top .who, body:not(.up) .wall.lost > .top .clock { d
 /* Not live: the dot beside the chat's name goes hollow and amber too, so one glance from the sofa tells. */
 .wall.lost .top .dot { background: transparent; border: 2px solid var(--warn); }
 
-/* Bigger letters, for a room (Petar, 27 November 2026). */
-.top { font-size: calc(2.2 * var(--u)); }
-.card { font-size: calc(3 * var(--u) * var(--s)); }
-.card h1 { font-size: calc(4.8 * var(--u) * var(--s)); }
-.card .desc { font-size: calc(2.6 * var(--u) * var(--s)); }
-.card .label { font-size: calc(2.2 * var(--u) * var(--s)); }
-.b-table { font-size: calc(2.8 * var(--u) * var(--s)); }
-.b-table th { font-size: calc(2.2 * var(--u) * var(--s)); }
-.b-code { font-size: calc(2.2 * var(--u) * var(--s)); }
-.b-image figcaption, .b-email .meta, .b-sources { font-size: calc(2.2 * var(--u) * var(--s)); }
-.caption { max-height: calc(22 * var(--u)); }
-.heard { font-size: calc(2.6 * var(--u)); }
-.said { font-size: calc(3.6 * var(--u)); }
-.said .words { max-height: calc(3.6 * var(--u) * 1.3 * 3); }
-.wall:not(.with-card) .said { font-size: calc(5 * var(--u)); }
-.wall:not(.with-card) .said .words { max-height: calc(5 * var(--u) * 1.3 * 6); }
-.wall:not(.with-card) .heard { font-size: calc(3 * var(--u)); }
+/* Bigger letters, for a room (Petar, 27 November 2026, 04:04), then all halved by --tx (09:48, step 200-05). */
+.top { font-size: calc(var(--tx) * 2.2 * var(--u)); }
+.card { font-size: calc(var(--tx) * 3 * var(--u) * var(--s)); }
+.card h1 { font-size: calc(var(--tx) * 4.8 * var(--u) * var(--s)); }
+.card .desc { font-size: calc(var(--tx) * 2.6 * var(--u) * var(--s)); }
+.card .label { font-size: calc(var(--tx) * 2.2 * var(--u) * var(--s)); }
+.b-table { font-size: calc(var(--tx) * 2.8 * var(--u) * var(--s)); }
+.b-table th { font-size: calc(var(--tx) * 2.2 * var(--u) * var(--s)); }
+.b-code { font-size: calc(var(--tx) * 2.2 * var(--u) * var(--s)); }
+.b-image figcaption, .b-email .meta, .b-sources { font-size: calc(var(--tx) * 2.2 * var(--u) * var(--s)); }
+.caption { max-height: calc(var(--tx) * 22 * var(--u)); }
+.heard { font-size: calc(var(--tx) * 2.6 * var(--u)); }
+.said { font-size: calc(var(--tx) * 3.6 * var(--u)); }
+.said .words { max-height: calc(var(--tx) * 3.6 * var(--u) * 1.3 * 3); }
+.wall:not(.with-card) .said { font-size: calc(var(--tx) * 5 * var(--u)); }
+.wall:not(.with-card) .said .words { max-height: calc(var(--tx) * 5 * var(--u) * 1.3 * 6); }
+.wall:not(.with-card) .heard { font-size: calc(var(--tx) * 3 * var(--u)); }
 
 /* While something is up, the orb sits in the bottom right corner. On a wide screen the words beside it keep
    clear of it; on a tall one (a phone, Preview) everything stays above it. */
@@ -216,10 +219,10 @@ body.up .wall:has(.caption > [hidden] + [hidden]) { padding-bottom: 28vh; }
   body.up .wall { padding-bottom: 42vw; }
 }
 /* With a card up, the card is what is read: the words under it stay smaller. */
-.wall.with-card .said { font-size: calc(3 * var(--u)); }
-.wall.with-card .said .words { max-height: calc(3 * var(--u) * 1.3 * 2); }
-.wall.with-card .heard { font-size: calc(2.2 * var(--u)); }
-body:not(.up) .wall.lost > .top { font-size: calc(2.8 * var(--u)); }
+.wall.with-card .said { font-size: calc(var(--tx) * 3 * var(--u)); }
+.wall.with-card .said .words { max-height: calc(var(--tx) * 3 * var(--u) * 1.3 * 2); }
+.wall.with-card .heard { font-size: calc(var(--tx) * 2.2 * var(--u)); }
+body:not(.up) .wall.lost > .top { font-size: calc(var(--tx) * 2.8 * var(--u)); }
 
 /* A job waiting for the person: red, its name and its question in big words, low on the wall. */
 .needs {
@@ -228,8 +231,8 @@ body:not(.up) .wall.lost > .top { font-size: calc(2.8 * var(--u)); }
   background: rgba(0, 0, 0, .82); border: 2px solid var(--needs); border-radius: calc(1.2 * var(--u));
 }
 body.up .needs, body.unpaired-on .needs { display: none; }
-.needs .head { display: flex; align-items: center; gap: calc(1.2 * var(--u)); color: var(--needs-ink); font-weight: 700; font-size: calc(3 * var(--u)); letter-spacing: .02em; }
+.needs .head { display: flex; align-items: center; gap: calc(1.2 * var(--u)); color: var(--needs-ink); font-weight: 700; font-size: calc(var(--tx) * 3 * var(--u)); letter-spacing: .02em; }
 .needs .mark { width: calc(1.6 * var(--u)); height: calc(1.6 * var(--u)); background: var(--needs); flex: none; }
-.needs .ask { margin: 0; font-size: calc(3.6 * var(--u)); line-height: 1.25; color: var(--ink); text-wrap: pretty;
+.needs .ask { margin: 0; font-size: calc(var(--tx) * 3.6 * var(--u)); line-height: 1.25; color: var(--ink); text-wrap: pretty;
   display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
-.needs .more { margin: 0; font-size: calc(2.2 * var(--u)); color: var(--dim); }
+.needs .more { margin: 0; font-size: calc(var(--tx) * 2.2 * var(--u)); color: var(--dim); }

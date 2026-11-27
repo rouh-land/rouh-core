@@ -40,7 +40,7 @@ def _display(request: HttpRequest) -> str | None:
 
     header = request.headers.get("authorization") or ""
     if header[:7].lower() == "bearer ":
-        rec = devices.who(header[7:].strip())
+        rec = devices.who(header[7:].strip(), strict=True)
         if rec is None or rec.get("kind") != "display":
             return None
         from rouh.models import User
@@ -70,9 +70,15 @@ async def wall(request: HttpRequest):
 async def feed(request: HttpRequest):
     from rouh import projector
 
-    user_id = await asyncio.to_thread(_display, request)
+    try:
+        user_id = await asyncio.to_thread(_display, request)
+    except Exception:  # noqa: BLE001 - the key could not be checked just now (Rouh starting, the database away)
+        log.warning("the projector's key could not be checked just now; the wall keeps it and asks again")
+        return refuse("Rouh is busy for a moment; asking again.", 503, retry=True)
     if user_id is None:
-        return refuse(NOT_SET_UP, 401, set_up=False)
+        # `forget`: only now, when Rouh has read the key and it is unknown or turned off, does the wall drop the
+        # key it keeps and show a pairing code. Anything else (a restart, a 502 on the way) keeps it (200-05).
+        return refuse(NOT_SET_UP, 401, set_up=False, forget=True)
     got = await asyncio.to_thread(projector.feed, user_id)
     return answer(got, headers=NO_STORE)
 
@@ -81,7 +87,10 @@ async def feed(request: HttpRequest):
 async def image(request: HttpRequest):
     from rouh import picture
 
-    user_id = await asyncio.to_thread(_display, request)
+    try:
+        user_id = await asyncio.to_thread(_display, request)
+    except Exception:  # noqa: BLE001 - the key could not be checked just now
+        return refuse("Rouh is busy for a moment.", 503, retry=True)
     if user_id is None:
         return refuse(NOT_SET_UP, 401, set_up=False)
     try:

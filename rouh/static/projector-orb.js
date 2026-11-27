@@ -519,7 +519,7 @@
       g.drawImage(hs, cam.cx - hw / 2, cam.cy - hw / 2, hw, hw);
       // The short names at the tips of the jobs, large, never on each other.
       if (labels.length) {
-        var fs = Math.max(14, Math.round(Math.min(W, H * 1.7778) / 100 * 3));
+        var fs = Math.max(14, Math.round(Math.min(W, H * 1.7778) / 100 * 1.5));   // half of 04:04's names (200-05)
         [true, false].forEach(function (rightSide) {
           var mine = labels.filter(function (l) { return (l.tip[0] >= cam.cx) === rightSide; })
             .sort(function (a, b) { return a.tip[1] - b.tip[1]; });

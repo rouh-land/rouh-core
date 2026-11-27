@@ -6,6 +6,9 @@
  * country and the time zone here, in this browser, so the Wi-Fi password never reaches Rouh. Then it is
  * saved as `user-data`, the name Raspberry Pi OS looks for.
  *
+ * The blank-card steps (the Wi-Fi fields and the file) are folded away under "Set up a new Pi" (task 200,
+ * 200-05): a projector is set up once, and paired with the code after that.
+ *
  * Pair this projector: a Pi already showing the wall with no key shows a six-letter code; typed here, Rouh
  * makes the key and hands it to that wall alone (`rouh/projector.py`, pairing).
  *
@@ -29,25 +32,40 @@
   function ago(seconds) {
     var s = Math.max(0, Date.now() / 1000 - seconds);
     if (s < 90) return 'just now';
-    if (s < 3600) return Math.round(s / 60) + ' minutes ago';
-    if (s < 86400 * 2) return Math.round(s / 3600) + ' hours ago';
+    var m = Math.round(s / 60), h = Math.round(s / 3600);
+    if (m < 60) return m + (m === 1 ? ' minute ago' : ' minutes ago');
+    if (s < 86400 * 2) return h + (h === 1 ? ' hour ago' : ' hours ago');
     return 'on ' + new Date(seconds * 1000).toLocaleDateString([], { day: 'numeric', month: 'long' });
   }
 
   function showState(st) {
     setUp = !!st.set_up;
     verdict.textContent = '';
+    var b = document.createElement('strong');
     if (!setUp) {
-      verdict.appendChild(document.createTextNode('No projector yet. Type the code your projector shows, or set up a new Pi in four steps, about 20 minutes.'));
+      b.textContent = 'No projector is paired.';
+      verdict.appendChild(b);
+      verdict.appendChild(document.createTextNode(' Type the code it shows, below.'));
     } else if (st.showing) {
-      var b = document.createElement('strong');
-      b.textContent = 'Your projector is showing your Robot Chat now.';
+      b.textContent = 'Paired. Your projector is showing your Robot Chat now.';
       verdict.appendChild(b);
     } else if (st.last_seen_at) {
-      verdict.appendChild(document.createTextNode('Your projector was last seen ' + ago(st.last_seen_at) + '. A new setup file replaces it.'));
+      b.textContent = 'Paired.';
+      verdict.appendChild(b);
+      verdict.appendChild(document.createTextNode(' Your projector last showed it ' + ago(st.last_seen_at) + '; it is probably switched off.'));
     } else {
       verdict.appendChild(document.createTextNode('A setup file was made ' + ago(st.created_at) + ', and no projector has used it yet.'));
     }
+    // Paired (a projector has used its key): the code box is the rare case, said so; a new card's file would
+    // end this projector's key. A file made and never used is not a pairing yet.
+    var paired = setUp && !!(st.showing || st.last_seen_at);
+    $('keeps').hidden = !paired;
+    $('pairTitle').textContent = paired ? 'Showing a code again?' : 'Is your projector showing a code?';
+    $('pairHelp').textContent = paired
+      ? 'Only if the wall shows a code. Pairing gives that projector a new key and ends the one before.'
+      : 'A projector that is not paired shows a six-letter code. Type it here and it shows your Robot Chat within a few seconds.';
+    $('freshWarn').hidden = !setUp;
+    $('offSaid').hidden = true;
     $('off').hidden = !setUp;
     $('offSure').hidden = true;
     $('offKeep').hidden = true;
@@ -162,7 +180,10 @@
     done.then(function () {
       showState({ set_up: false });
       verdict.textContent = 'Turned off. That projector no longer shows your Robot Chat.';
-    }).catch(function () { say('It was not turned off. Try again.', false); });
+    }).catch(function () {
+      var box = $('offSaid');
+      box.textContent = 'It was not turned off. Try again.'; box.className = 'said bad'; box.hidden = false;
+    });
   });
 
   var zone = '';
@@ -173,5 +194,6 @@
   try { region = (new Intl.Locale(navigator.language).maximize().region) || ''; } catch (e) { region = ''; }
   $('country').value = COUNTRY[city] || region || 'GB';
   $('origin').value = location.origin;
+  if (location.hash === '#new') $('fresh').open = true;
   load();
 })();

@@ -189,8 +189,10 @@ def revoke(user_id: str, org_id: str, name: str) -> int:
     return ended
 
 
-def who(key: str) -> dict | None:
-    """The live device this key is, or None. Never raises."""
+def who(key: str, strict: bool = False) -> dict | None:
+    """The live device this key is, or None. Never raises, unless ``strict``: then a key that could not be
+    checked (the database away for a moment, as while Rouh restarts) raises, so the caller can tell "not
+    now" from "no such key". The projector's wall forgets its key only on the second (task 200, 200-05)."""
     key = str(key or "").strip()
     if not key.startswith(TOKEN_PREFIX) or len(key) > 200:
         return None
@@ -210,6 +212,8 @@ def who(key: str) -> dict | None:
         return rec
     except Exception:  # noqa: BLE001 - an unreadable key is no key
         log.exception("a device key could not be read")
+        if strict:
+            raise
         return None
 
 

@@ -519,14 +519,16 @@
     statusEl.hidden = false;
     wall.classList.add('lost');
   }
-  function notSetUp() {
+  function notSetUp(forget) {
     unpaired.hidden = false;
     document.body.classList.add('unpaired-on');
     wall.hidden = true;
     $('setupAddr').textContent = location.host + '/projector/setup';
     live();
-    // A kept key that is refused was turned off: forget it, and ask to be paired again.
-    if (key && !hash) { key = kept(''); }
+    // A kept key is forgotten only when Rouh itself says it read it and it is unknown or turned off
+    // (`forget`). A refusal without that (Rouh restarting, a proxy on the way) keeps it: the wall stays
+    // paired and simply asks again (task 200, 200-05: "Why does it stop being paired?").
+    if (key && !hash && forget) { key = kept(''); }
     if (!key) pair();
   }
 
@@ -576,7 +578,7 @@
       if (i < steps.length) {
         draw(steps[i]);
         if (steps[i].lost) lost();
-        if (steps[i].unpaired) notSetUp();
+        if (steps[i].unpaired) notSetUp(true);
         setTimeout(ask, steps[i].after || EVERY);
       }
       return;
@@ -587,11 +589,15 @@
     fetch('/api/projector/feed', { headers: headers, credentials: key ? 'omit' : 'same-origin', cache: 'no-store' })
       .then(function (r) {
         if (r.status === 401 || r.status === 403) {
-          next = EVERY_UNPAIRED;
-          notSetUp();
-          // Pairing asks for the feed itself once the key comes.
-          if (pairing) next = 0;
-          return null;
+          return r.json().catch(function () { return {}; }).then(function (b) {
+            // A kept key refused without Rouh saying "forget it" is a hiccup, not an unpairing: keep it.
+            if (key && !(b && b.forget)) { lost(); return null; }
+            next = EVERY_UNPAIRED;
+            notSetUp(true);
+            // Pairing asks for the feed itself once the key comes.
+            if (pairing) next = 0;
+            return null;
+          });
         }
         if (!r.ok) throw new Error(String(r.status));
         return r.json();
