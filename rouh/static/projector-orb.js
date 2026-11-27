@@ -447,8 +447,17 @@
       return c;
     }
     // Words wrapped to at most two lines of about maxW, the second cut with an ellipsis.
+    // Two lines are evened out, so a name never leaves one short word alone under it.
     function wrapLines(x, text, maxW) {
       var words = text.split(' '), lines = [''], i;
+      if (x.measureText(text).width <= maxW) return [text];
+      var best = null;
+      for (i = 1; i < words.length; i++) {
+        var a = words.slice(0, i).join(' '), b = words.slice(i).join(' ');
+        var wide = Math.max(x.measureText(a).width, x.measureText(b).width);
+        if (wide <= maxW && (!best || wide < best[0])) best = [wide, a, b];
+      }
+      if (best) return [best[1], best[2]];
       for (i = 0; i < words.length; i++) {
         var cur = lines[lines.length - 1], next = cur ? cur + ' ' + words[i] : words[i];
         if (!cur || x.measureText(next).width <= maxW) { lines[lines.length - 1] = next; continue; }
