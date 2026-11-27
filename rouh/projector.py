@@ -8,9 +8,13 @@ a room, and signed in safely for one device without Petar typing a password on t
 
 So three things, and this module is the middle of all of them:
 
-* **The wall, `/projector`** (`rouh/templates/rouh/projector.html`, `projector.js`). The newest card the
-  Robot chat drew fills it, fitted and, when it is too long, moving slowly through; under it what was heard
-  and Rouh's answer. It asks `feed` every two seconds; nothing on it can be pressed.
+* **The wall, `/projector`** (`rouh/templates/rouh/projector.html`, `projector.js`). It rests on the orb,
+  full screen: the live picture of the work running now (`projector-orb.js`, a light flat drawing of the
+  glass orb on Rouh's own page, since a Raspberry Pi 3 has no WebGL 2). A new card the Robot chat draws,
+  or a new answer, comes up over it, with what was heard and said, stays long enough to be read, and
+  fades back to the orb by itself (Petar, 27 November 2026: "not seeing the desktop, seeing something
+  maybe orb tenticles by default unless I need to see a specific thing on screen"). It asks `feed` every
+  two seconds; nothing on it can be pressed.
 * **Its key.** The Pi signs in with a device key of the kind `display` (`rouh/devices.py`), made for that one
   Pi on the setup page and kept only as its hash. It reads this feed and nothing else, the WebSocket refuses
   it, and Turn off this projector ends it at once. The person's own signed-in browser reads the same feed
@@ -153,8 +157,46 @@ def feed(user_id: str) -> dict:
     out = {"chat": chat, "title": robotchat.CHAT_TITLE, "heard": heard, "said": said, "card": card,
            "answering": answering, "so_far": so_far, "last_id": last_id}
     out["version"] = hashlib.sha256(json.dumps(out, sort_keys=True, default=str).encode()).hexdigest()[:16]
+    # The work running now, for the orb the wall rests on (`projector-orb.js`). Outside the version, which
+    # says only whether the card or the words changed: the orb moves all the time and is drawn on its own.
+    out["tree"] = work_tree()
     out["now"] = time.time()
     return out
+
+
+#: The most nodes of the work tree the wall is sent: a Raspberry Pi 3 draws them thirty times a second.
+TREE_NODES = 400
+
+
+def _trimmed(node: dict, budget: list[int], depth: int = 0) -> dict | None:
+    """One node of the work tree as the wall's orb needs it: what it is, its state and when, nothing else."""
+    if budget[0] <= 0 or not isinstance(node, dict):
+        return None
+    budget[0] -= 1
+    out = {k: node[k] for k in ("id", "kind", "state", "opened_at", "closed_at") if node.get(k) is not None}
+    label = node.get("label")
+    if isinstance(label, str) and label:
+        out["label"] = label[:80]
+    kids = []
+    if depth < 8:
+        for kid in node.get("children") or []:
+            got = _trimmed(kid, budget, depth + 1)
+            if got is not None:
+                kids.append(got)
+    if kids:
+        out["children"] = kids
+    return out
+
+
+def work_tree() -> dict | None:
+    """Everything running now, as the orb on Rouh's own page draws it, trimmed for the wall; None if unreadable."""
+    from . import runtime
+
+    try:
+        return _trimmed(runtime.tree_snapshot(), [TREE_NODES])
+    except Exception:  # noqa: BLE001 - the orb going still must never blank the wall
+        log.warning("the work tree could not be read for the projector", exc_info=True)
+        return None
 
 
 # --- its key and its setup file -----------------------------------------------------------------------
@@ -205,3 +247,104 @@ def turn_off(user_id: str, org_id: str) -> int:
     with _seen_lock:
         _seen.pop(str(user_id), None)
     return devices.revoke(user_id, org_id, NAME)
+
+
+# --- pairing: a projector already running, given its key without a file -------------------------------
+#
+# Petar, 27 November 2026: his Pi was set up by hand with the desktop Raspberry Pi OS, not from the setup
+# file, so it had no way to receive its key. Now the wall with no key asks for a pairing (`pair_start`):
+# Rouh gives it a short code to show and a long secret ticket to keep. The person, signed in, types the
+# code on the setup page (`pair_claim`); that makes the display key, ending any before it, and holds it for
+# the ticket alone, which the wall collects once (`pair_take`) and keeps. The key never appears on any
+# screen or in any message. Codes last ten minutes and are kept in memory only, as `_seen` is.
+
+PAIR_FOR = 600
+PAIR_MOST = 24
+#: Letters and digits nobody misreads across a room: no 0/O, 1/I/L, 2/Z, 5/S, 8/B.
+PAIR_LETTERS = "ACDEFGHJKMNPQRTUVWXY34679"
+CLAIM_TRIES = 10
+
+_pairs: dict[str, dict] = {}          # sha256 of the ticket -> {code, at, key}
+_claims: dict[str, list[float]] = {}  # user id -> when their wrong codes were typed
+_pairs_lock = threading.Lock()
+
+
+def _ticket_id(ticket: str) -> str:
+    return hashlib.sha256(str(ticket or "").encode()).hexdigest()
+
+
+def _forget_old(now: float) -> None:
+    for tid in [t for t, p in _pairs.items() if now - p["at"] > PAIR_FOR]:
+        _pairs.pop(tid, None)
+
+
+def code_of(text: str) -> str:
+    """A code as typed, in its plain form: capitals, nothing but the code's own letters."""
+    return "".join(c for c in str(text or "").upper() if c in PAIR_LETTERS)
+
+
+def pair_start() -> dict:
+    """A new pairing for a wall with no key: the code it shows and the ticket it keeps secret."""
+    import secrets
+
+    now = time.time()
+    ticket = secrets.token_urlsafe(32)
+    with _pairs_lock:
+        _forget_old(now)
+        while len(_pairs) >= PAIR_MOST:
+            _pairs.pop(min(_pairs, key=lambda t: _pairs[t]["at"]))
+        taken = {p["code"] for p in _pairs.values()}
+        code = ""
+        while not code or code in taken:
+            code = "".join(secrets.choice(PAIR_LETTERS) for _ in range(6))
+        _pairs[_ticket_id(ticket)] = {"code": code, "at": now, "key": None}
+    return {"ticket": ticket, "code": code[:3] + "-" + code[3:], "expires_in": PAIR_FOR}
+
+
+def pair_claim(user_id: str, org_id: str, typed: str) -> bool:
+    """The person, signed in, typed the code their wall shows: make its key. False for a wrong or old code.
+
+    Raises PermissionError after CLAIM_TRIES wrong codes in ten minutes, so a code cannot be guessed.
+    """
+    from . import devices
+
+    code = code_of(typed)
+    now = time.time()
+    with _pairs_lock:
+        _forget_old(now)
+        tries = [t for t in _claims.get(str(user_id), []) if now - t < PAIR_FOR]
+        _claims[str(user_id)] = tries
+        if len(tries) >= CLAIM_TRIES:
+            raise PermissionError("Too many wrong codes. Wait ten minutes, then try the code on the wall again.")
+        tid = next((t for t, p in _pairs.items() if p["code"] == code and p["key"] is None), None)
+        if tid is None or len(code) != 6:
+            tries.append(now)
+            return False
+        _pairs[tid]["key"] = "making"
+    try:
+        key, _rec = devices.add(user_id, org_id, NAME, kind="display")
+    except Exception:
+        with _pairs_lock:
+            if tid in _pairs:
+                _pairs[tid]["key"] = None
+        raise
+    with _pairs_lock:
+        if tid in _pairs:
+            _pairs[tid]["key"] = key
+    log.info("a projector was paired for user %s", user_id)
+    return True
+
+
+def pair_take(ticket: str) -> dict:
+    """What the wall holding this ticket gets: its key once, then nothing; or that it must wait or start again."""
+    tid = _ticket_id(ticket)
+    with _pairs_lock:
+        _forget_old(time.time())
+        got = _pairs.get(tid)
+        if got is None:
+            return {"state": "gone"}
+        key = got["key"]
+        if key and key != "making":
+            _pairs.pop(tid, None)
+            return {"state": "paired", "key": key}
+    return {"state": "waiting"}

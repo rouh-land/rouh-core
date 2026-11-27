@@ -18,6 +18,20 @@
     <p class="verdict" id="verdict" aria-live="polite">Looking for your projector...</p>
   </header>
 
+  <section class="paircode" aria-labelledby="pairTitle">
+    <h2 id="pairTitle">Is your projector showing a code?</h2>
+    <p>A Pi that is already on the wall shows a six-letter code. Type it here and it shows your Robot Chat within a few seconds.</p>
+    <form id="pairForm" class="form pairform" autocomplete="off">
+      <div class="field">
+        <label for="code">Code on the wall</label>
+        <input id="code" placeholder=" " name="code" required maxlength="9" spellcheck="false" autocapitalize="characters" inputmode="text">
+      </div>
+      <button type="submit" class="primary" id="pairGo">Pair this projector</button>
+      <p class="said" id="pairSaid" role="status" hidden></p>
+    </form>
+    <p class="note">No code? Set up a new Pi with the four steps below.</p>
+  </section>
+
   <ol class="steps">
     <li class="step">
       <h2>Write Raspberry Pi OS to the SD card</h2>
@@ -55,7 +69,7 @@
             <input id="origin" placeholder=" " name="origin" type="url" required spellcheck="false">
           </div>
         </details>
-        <button type="submit" class="primary" id="go">Download the setup file</button>
+        <button type="submit" class="quiet strong" id="go">Download the setup file</button>
         <p class="said" id="said" role="status" hidden></p>
       </form>
     </li>

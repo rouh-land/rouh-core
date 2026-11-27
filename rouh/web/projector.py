@@ -9,6 +9,9 @@
     POST /api/projector/setup-file   {origin}: a new key for the projector, ending the old one, in its setup
                                      file, signed in
     POST /api/projector/off          end the projector's key, signed in
+    POST /api/projector/pair         a wall with no key: a code to show and a secret ticket to keep, no sign-in
+    POST /api/projector/pair/take    {ticket}: the key once the person has typed the code, no sign-in
+    POST /api/projector/pair/claim   {code}: the code the wall shows, signed in: makes the projector's key
 
 The feed and the picture answer to `Authorization: Bearer <display key>` (`rouh/web/gate.py`, TOKEN_PATHS),
 and to nothing else that is not a sign-in: a voice device's key, a revoked key or an account that is gone is
@@ -20,6 +23,7 @@ import asyncio
 import logging
 
 from django.http import HttpRequest, HttpResponse
+from django.views.decorators.csrf import csrf_exempt
 from django.middleware.csrf import get_token
 from django.shortcuts import render
 
@@ -148,3 +152,41 @@ async def off(request: HttpRequest):
         return refuse("Sign in first.", 401)
     ended = await asyncio.to_thread(projector.turn_off, str(me.user_id), str(me.org_id))
     return answer({"ok": True, "ended": ended}, headers=NO_STORE)
+
+
+# The wall itself, with no key and no sign-in, asks for a pairing and collects its key: nothing of anybody's
+# is in either answer but the key made for that ticket, and that only after the person typed the code.
+@csrf_exempt
+@only("POST")
+async def pair(request: HttpRequest):
+    from rouh import projector
+
+    return answer(await asyncio.to_thread(projector.pair_start), headers=NO_STORE)
+
+
+@csrf_exempt
+@only("POST")
+async def pair_take(request: HttpRequest):
+    from rouh import projector
+
+    ticket = str(body_of(request).get("ticket") or "")[:200]
+    if not ticket:
+        return refuse("No ticket.", 400)
+    return answer(await asyncio.to_thread(projector.pair_take, ticket), headers=NO_STORE)
+
+
+@only("POST")
+async def pair_claim(request: HttpRequest):
+    from rouh import projector
+
+    me = await asyncio.to_thread(_me, request)
+    if me is None:
+        return refuse("Sign in first.", 401)
+    code = str(body_of(request).get("code") or "")[:40]
+    try:
+        ok = await asyncio.to_thread(projector.pair_claim, str(me.user_id), str(me.org_id), code)
+    except PermissionError as exc:
+        return refuse(str(exc), 429)
+    if not ok:
+        return refuse("That code is not on any projector now. Check the wall and type it again.", 404)
+    return answer({"ok": True}, headers=NO_STORE)

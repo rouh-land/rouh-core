@@ -6,6 +6,9 @@
  * country and the time zone here, in this browser, so the Wi-Fi password never reaches Rouh. Then it is
  * saved as `user-data`, the name Raspberry Pi OS looks for.
  *
+ * Pair this projector: a Pi already showing the wall with no key shows a six-letter code; typed here, Rouh
+ * makes the key and hands it to that wall alone (`rouh/projector.py`, pairing).
+ *
  * window.PROJECTOR_SETUP_DEMO, when a design's page sets it, is the state to show instead of asking.
  */
 (function () {
@@ -35,7 +38,7 @@
     setUp = !!st.set_up;
     verdict.textContent = '';
     if (!setUp) {
-      verdict.appendChild(document.createTextNode('No projector yet. Four steps, about 20 minutes, most of it waiting.'));
+      verdict.appendChild(document.createTextNode('No projector yet. Type the code your projector shows, or set up a new Pi in four steps, about 20 minutes.'));
     } else if (st.showing) {
       var b = document.createElement('strong');
       b.textContent = 'Your projector is showing your Robot Chat now.';
@@ -117,6 +120,26 @@
     }).catch(function (err) {
       say('The setup file was not made: ' + err.message, false);
     }).then(done);
+  });
+
+  // A projector already on the wall, showing a code: typing it makes its key and hands it to that wall alone.
+  $('pairForm').addEventListener('submit', function (e) {
+    e.preventDefault();
+    var box = $('pairSaid'), btn = $('pairGo');
+    var tell = function (text, ok) { box.textContent = text; box.className = 'said ' + (ok ? 'good' : 'bad'); box.hidden = false; };
+    var code = $('code').value.toUpperCase().replace(/[^A-Z0-9]/g, '');
+    if (code.length !== 6) { tell('The code on the wall is six letters and digits, such as K7Q-4MX.', false); $('code').focus(); return; }
+    var replacing = setUp;
+    btn.disabled = true;
+    var got = DEMO ? Promise.resolve({ ok: true }) : fetch('/api/projector/pair/claim', {
+      method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ code: code })
+    }).then(function (r) { return r.json().then(function (d) { if (!r.ok) throw new Error(d.error || 'Rouh refused it.'); return d; }); });
+    got.then(function () {
+      tell('Paired. The wall shows your Robot Chat within a few seconds.' + (replacing ? ' The projector paired before stops showing it.' : ''), true);
+      $('code').value = '';
+      setTimeout(load, 4000);
+    }).catch(function (err) { tell(err.message, false); }).then(function () { btn.disabled = false; });
   });
 
   $('showPsk').addEventListener('click', function () {

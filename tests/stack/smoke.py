@@ -456,6 +456,9 @@ def projector_display(s: Stack) -> None:
             with urllib.request.urlopen(req, timeout=30) as r:
                 got = json.loads(r.read().decode())
                 expect(got.get("title") == "Robot Chat", f"the feed is not the Robot chat's: {got}")
+                tree = got.get("tree")
+                expect(isinstance(tree, dict) and tree.get("kind") == "root",
+                       f"the feed carries no work tree for the wall's orb: {str(tree)[:200]}")
                 return r.status
         except urllib.error.HTTPError as e:
             return e.code
@@ -467,7 +470,9 @@ def projector_display(s: Stack) -> None:
     expect(feed(key) == 200, "the display key does not read the feed")
     req = urllib.request.Request(s.url + "/projector")
     with urllib.request.urlopen(req, timeout=30) as r:
-        expect(r.status == 200 and b'id="stage"' in r.read(), "the wall does not open without a sign-in")
+        page = r.read()
+        expect(r.status == 200 and b'id="stage"' in page and b'id="orb"' in page,
+               "the wall, with its orb, does not open without a sign-in")
     post("/api/projector/off", {})
     expect(feed(key) == 401, "a turned-off projector still reads the feed")
 

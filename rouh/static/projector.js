@@ -1,6 +1,11 @@
 /* The projector's wall (`rouh/projector.py`): the Robot chat full screen, for a Raspberry Pi behind the
  * person's projector, read from a sofa and never touched.
  *
+ * It rests on the orb (projector-orb.js): the work running now, full screen. Something new to show - a card
+ * the Robot chat drew, or what was heard and Rouh's answer - comes up over the orb, stays as long as it takes
+ * to read (`readFor`), longer while Rouh is still answering, and fades back to the orb by itself. What was
+ * already there when the page opened is not shown again: the wall starts on the orb.
+ *
  * Every two seconds it asks /api/projector/feed for the newest card, what was heard and Rouh's answer,
  * with the Pi's display key from the address's #key= (the Pi opens it so) or, on the person's own
  * computer, with their sign-in. Nothing is sent but that question. A card too long for the wall is first
@@ -19,19 +24,36 @@
   var SPEED = 3.2;           // how fast a long card moves, in hundredths of the wall's width a second
   var HOLD = 4000;           // ms a long card stays still at its top and at its bottom
   var FRESH_EVERY = 6 * 3600 * 1000; // the page loads itself again, so a week on the wall stays light
+  var READ_WPM = 170;        // how fast the wall assumes words are read from across a room
+  var READ_LEAST = 10000, READ_MOST = 120000, READ_PICTURE = 8000, READ_SETTLE = 5000;
+  var AFTER_ANSWER = 4000;   // ms an answer still being written keeps the wall up after its last word
 
   var DEMO = window.PROJECTOR_DEMO || null;
+  // The key: from the address (a Pi set up from the setup file opens it so), or the one this browser was
+  // given by pairing and keeps (`pair`, below), or none, on the person's own signed-in computer.
+  var KEPT = 'rouh.projector.key';
   var key = '';
   var hash = /(?:^#|&)key=([^&]+)/.exec(location.hash || '');
   if (hash) key = decodeURIComponent(hash[1]);
+  function kept(value) {
+    try {
+      if (value === undefined) return localStorage.getItem(KEPT) || '';
+      if (value) localStorage.setItem(KEPT, value); else localStorage.removeItem(KEPT);
+    } catch (e) { /* a browser that keeps nothing pairs again after a restart */ }
+    return value || '';
+  }
+  if (!key) key = kept();
 
   var $ = function (id) { return document.getElementById(id); };
-  var stage = $('stage'), rest = $('rest'), clock = $('clock'), statusEl = $('status');
+  var stage = $('stage'), clock = $('clock'), statusEl = $('status');
   var heardEl = $('heard'), saidEl = $('said'), unpaired = $('unpaired'), wall = $('wall');
   var themeAsked = /(?:[?&])theme=(light|dark)/.exec(location.search || '');
   if (themeAsked) document.documentElement.setAttribute('data-theme', themeAsked[1]);
 
-  var shown = { version: null, card: null };
+  var shown = { version: null, card: null, heard: null, said: null, first: true };
+  var upUntil = 0, downTimer = 0, cycleMs = 0, cardWords = 0, cardPictures = 0;
+  var orb = window.ProjectorOrb ? window.ProjectorOrb.start($('orb')) : null;
+  window.projectorOrb = orb;
   var lostSince = null;
   var began = Date.now();
   var motion = null;
@@ -261,10 +283,10 @@
     if (old) old.remove();
     var bar = stage.querySelector('.through');
     if (bar) bar.remove();
-    wall.classList.toggle('resting', !card);
-    if (!card) { rest.hidden = false; drawRest(); return; }
-    rest.hidden = true;
-    var box = el('article', 'card enter');
+    cycleMs = 0;
+    if (!card) { cardWords = 0; cardPictures = 0; return; }
+    // Sliding in only when it replaces a card already up; over the orb, the wall's own fade brings it.
+    var box = el('article', document.body.classList.contains('up') ? 'card enter' : 'card');
     if (card.title) box.appendChild(el('h1', null, card.title));
     if (card.description) box.appendChild(el('p', 'desc', card.description));
     var stats = null;
@@ -289,6 +311,8 @@
       box.appendChild(wrap);
     });
     stage.appendChild(box);
+    cardWords = wordsIn(box.textContent);
+    cardPictures = box.querySelectorAll('img, svg, iframe').length;
     fit();
   }
 
@@ -341,6 +365,7 @@
       var pxs = SPEED * u();
       var down = over / pxs * 1000;
       var cycle = HOLD + down + HOLD + down / 3;
+      cycleMs = cycle;
       var start = performance.now();
       var step = function (now) {
         if (stopped) return;
@@ -385,26 +410,76 @@
     saidEl.hidden = !saidEl.childNodes.length;
   }
 
-  function drawRest() {
-    var now = new Date();
-    $('restTime').textContent = hhmm(now);
-    $('restDay').textContent = now.toLocaleDateString([], { weekday: 'long', day: 'numeric', month: 'long' });
+  // --- up over the orb, and back down to it ---------------------------------------------------------
+  function wordsIn(text) { return (String(text || '').match(/\S+/g) || []).length; }
+  // How long something stays up: its words at a slow reading pace, a little more for each picture, and at
+  // least once through a card that has to move to be seen whole.
+  function readFor(words, pictures) {
+    var ms = READ_SETTLE + words / READ_WPM * 60000 + pictures * READ_PICTURE;
+    if (cycleMs) ms = Math.max(ms, cycleMs + READ_SETTLE);
+    return Math.max(READ_LEAST, Math.min(READ_MOST, ms));
+  }
+  // Coming up, the orb darkens itself first (on its own canvas, smoothly even on a Pi 3), then the words
+  // and the card come in with a short fade; going down, they go with a short fade and the orb brightens
+  // again. A long fade of a whole-screen layer is what a Pi 3 without its graphics chip draws worst.
+  var upTimer = 0;
+  function up(ms) {
+    upUntil = Math.max(upUntil, Date.now() + ms);
+    if (orb) orb.dim(true);
+    if (!document.body.classList.contains('up') && !upTimer) {
+      upTimer = setTimeout(function () { upTimer = 0; document.body.classList.add('up'); }, orb ? 350 : 0);
+    }
+    clearTimeout(downTimer);
+    downTimer = setTimeout(maybeDown, Math.max(250, upUntil - Date.now()));
+  }
+  function maybeDown() {
+    var left = upUntil - Date.now();
+    if (left > 0) { downTimer = setTimeout(maybeDown, left); return; }
+    clearTimeout(upTimer); upTimer = 0;
+    document.body.classList.remove('up');
+    if (orb) orb.dim(false);
+    // Once it has faded, the long card stops moving: nothing is drawn that nobody can see.
+    downTimer = setTimeout(function () { if (!document.body.classList.contains('up')) stopMoving(); }, 1500);
   }
 
   function draw(d) {
     unpaired.hidden = true;
+    document.body.classList.remove('unpaired-on');
     wall.hidden = false;
+    if (orb && d.tree) orb.tree(d.tree, d.now);
     if (d.version && d.version === shown.version) return;
     shown.version = d.version || null;
+    var first = shown.first;
+    shown.first = false;
     var cardKey = d.card ? (d.card.card_id + ':' + (d.card.version || 1)) : '';
-    if (cardKey !== shown.card) {
+    var heardKey = d.heard ? String(d.heard.id || d.heard.text) : '';
+    var saidKey = d.said ? String(d.said.id || d.said.text) : '';
+    var newCard = cardKey !== shown.card;
+    var newWords = heardKey !== shown.heard || saidKey !== shown.said;
+    shown.heard = heardKey;
+    shown.said = saidKey;
+    if (newCard) {
       shown.card = cardKey;
       drawCard(d.card || null);
     }
+    // A card is on the stage only while it is the news; an answer alone comes up as words over the orb.
+    if (newCard && d.card && !first) wall.classList.add('with-card');
+    else if (newWords && !newCard) wall.classList.remove('with-card');
     var before = stage.clientHeight;
     drawCaption(d);
     // The caption band takes the room its words need, so the stage may have grown or shrunk: fit again.
     if (stage.clientHeight !== before) fit();
+    if (first && !d.answering) return;      // the wall starts on the orb, not on what was there before
+    if ((newCard && d.card) || newWords || d.answering) {
+      var said = d.answering ? d.so_far : (d.said && d.said.text);
+      var words = wordsIn(plain(said)) + wordsIn(d.heard && d.heard.text);
+      var withCard = wall.classList.contains('with-card');
+      // fitNow, 60 ms on, knows whether the card has to move; ask again once it has.
+      setTimeout(function () {
+        up(d.answering ? AFTER_ANSWER + READ_SETTLE : readFor(words + (withCard ? cardWords : 0), withCard ? cardPictures : 0));
+      }, 120);
+      if (d.answering) up(AFTER_ANSWER + READ_SETTLE);
+    }
   }
 
   // --- live or not ----------------------------------------------------------------------------------
@@ -421,19 +496,78 @@
   }
   function notSetUp() {
     unpaired.hidden = false;
+    document.body.classList.add('unpaired-on');
     wall.hidden = true;
     $('setupAddr').textContent = location.host + '/projector/setup';
     live();
+    // A kept key that is refused was turned off: forget it, and ask to be paired again.
+    if (key && !hash) { key = kept(''); }
+    if (!key) pair();
+  }
+
+  // --- pairing: the code on the wall, typed by the person on the setup page, and the key it brings -------
+  var pairing = null;
+  function post(path, body) {
+    return fetch(path, { method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'omit',
+      cache: 'no-store', body: JSON.stringify(body || {}) }).then(function (r) { if (!r.ok) throw new Error(r.status); return r.json(); });
+  }
+  function pair() {
+    if (DEMO || pairing) return;
+    pairing = { ticket: '' };
+    var codeEl = $('pairCode');
+    var start = function () {
+      post('/api/projector/pair').then(function (d) {
+        pairing.ticket = d.ticket;
+        codeEl.textContent = d.code;
+        codeEl.hidden = false;
+        $('pairHow').hidden = false;
+        setTimeout(wait, 3000);
+      }).catch(function () { setTimeout(start, 10000); });
+    };
+    var wait = function () {
+      post('/api/projector/pair/take', { ticket: pairing.ticket }).then(function (d) {
+        if (d.state === 'paired' && d.key) {
+          key = kept(d.key);
+          pairing = null;
+          codeEl.hidden = true;
+          shown.first = true;
+          ask();
+        } else if (d.state === 'gone') {
+          start();
+        } else {
+          setTimeout(wait, 3000);
+        }
+      }).catch(function () { setTimeout(wait, 6000); });
+    };
+    start();
   }
 
   function ask() {
-    if (DEMO) { draw(DEMO.feed || DEMO); if (DEMO.lost) lost(); if (DEMO.unpaired) notSetUp(); return; }
+    if (DEMO) {
+      // A design's page: its feeds in turn, each after the one before it has had its time.
+      var steps = DEMO.steps || [DEMO.feed || DEMO];
+      var i = DEMO.at || 0;
+      DEMO.at = i + 1;
+      if (i < steps.length) {
+        draw(steps[i]);
+        if (steps[i].lost) lost();
+        if (steps[i].unpaired) notSetUp();
+        setTimeout(ask, steps[i].after || EVERY);
+      }
+      return;
+    }
     var headers = { Accept: 'application/json' };
     if (key) headers.Authorization = 'Bearer ' + key;
     var next = EVERY;
     fetch('/api/projector/feed', { headers: headers, credentials: key ? 'omit' : 'same-origin', cache: 'no-store' })
       .then(function (r) {
-        if (r.status === 401 || r.status === 403) { next = EVERY_UNPAIRED; notSetUp(); return null; }
+        if (r.status === 401 || r.status === 403) {
+          next = EVERY_UNPAIRED;
+          notSetUp();
+          // Pairing asks for the feed itself once the key comes.
+          if (pairing) next = 0;
+          return null;
+        }
         if (!r.ok) throw new Error(String(r.status));
         return r.json();
       })
@@ -441,16 +575,16 @@
         if (!d) return;
         live();
         draw(d);
-        // A fresh page now and then, only while Rouh answers, so a reload never lands on an error page.
-        if (Date.now() - began > FRESH_EVERY) location.reload();
+        // A fresh page now and then, only while Rouh answers (so a reload never lands on an error page) and only
+        // while the wall rests on the orb (so nothing being read goes away).
+        if (Date.now() - began > FRESH_EVERY && !document.body.classList.contains('up') && !d.answering) location.reload();
       })
       .catch(lost)
-      .then(function () { setTimeout(ask, next); });
+      .then(function () { if (next) setTimeout(ask, next); });
   }
 
   function tickClock() {
     clock.textContent = hhmm(new Date());
-    if (!rest.hidden) drawRest();
   }
   tickClock();
   setInterval(tickClock, 10000);

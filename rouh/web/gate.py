@@ -124,6 +124,9 @@ OPEN_PATHS = frozenset({"/shared/in", "/shared/in/back", "/login", "/setup", "/s
                         # The projector's wall (`rouh/web/projector.py`): the page alone, the same for
                         # everybody and holding nothing; what it shows comes from its feed, on a key.
                         "/projector",
+                        # Its pairing (`rouh/projector.py`, pair_start and pair_take): a code to show and a
+                        # secret ticket, and the key for that ticket once the signed-in person typed the code.
+                        "/api/projector/pair", "/api/projector/pair/take",
                         # The service worker: the same script for everybody, holding nothing of
                         # anybody's, checked by the browser for an update signed in or not.
                         "/sw.js",
