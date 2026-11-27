@@ -68,9 +68,11 @@ fi
 # 0. The workflows on GitHub's main must already push to main with the deploy key; before they do,
 #    the review rule would refuse base.yml's and code-release.yml's pushes.
 for wf in base.yml code-release.yml; do
-  gh api "repos/$REPO/contents/.github/workflows/$wf?ref=main" --jq .content | base64 -d | grep -q main-push-remote.sh || {
+  text="$(gh api "repos/$REPO/contents/.github/workflows/$wf?ref=main" --jq .content | base64 -d)"
+  case "$text" in *main-push-remote.sh*) ;; *)
     echo "GitHub's main still has the $wf that pushes to main as GitHub Actions; this waits until the change that moves it to the deploy key is on main." >&2
-    exit 3; }
+    exit 3 ;;
+  esac
 done
 
 # 1. The workflows' deploy key, before the rule that needs it.
