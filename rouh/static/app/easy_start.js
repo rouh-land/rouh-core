@@ -8,7 +8,8 @@
  * - home_screen: on a phone, in the browser, from the second visit, once: a notice offering to put
  *   Rouh on the home screen, with Install where the phone can do it and the steps on an iPhone.
  * - chat_save: Save this chat as a file, at the foot of Chat Options (`#saveChatBtn`), as a text file.
- * - slash_menu: a slash in the chat's empty box opens what can be done from the chat, in words.
+ * - slash_menu: a slash in the chat's empty box opens what can be done from the chat, in words,
+ *   leaving out what a button under the box already does (`SLASH` in rouh/easy_start.py).
  */
 import { $, el } from 'app/helpers.js';
 import { CHATS } from 'app/chats.js';
@@ -213,10 +214,6 @@ var SL = { list: /** @type {HTMLElement | null} */ (null), shown: /** @type {{id
 function slashCan(id) {
   if (id === 'save') return easyOn('chat_save');
   if (id === 'setup') { var box = $('chatSetup'); return !!box && !box.hidden; }
-  if (id === 'attach') return !!$('attachBtn');
-  if (id === 'incognito') return !!$('incogBtn');
-  if (id === 'model') return !!$('modelBtn') || !!document.querySelector('[aria-controls="modelPop"]');
-  if (id === 'options') return !!$('readingBtn');
   return true;
 }
 
@@ -275,16 +272,7 @@ function slashDo(s) {
     input.dispatchEvent(new Event('input', { bubbles: true }));
   }
   easyUsed('slash_menu', 'done', s.id);
-  /** @param {string} id */
-  function press(id) { var b = $(id); if (b) b.click(); }
-  if (s.id === 'attach') press('attachBtn');
-  else if (s.id === 'incognito') press('incogBtn');
-  else if (s.id === 'model') {
-    var m = $('modelBtn') || document.querySelector('[aria-controls="modelPop"]');
-    if (m) /** @type {HTMLElement} */ (m).click();
-  }
-  else if (s.id === 'options') press('readingBtn');
-  else if (s.id === 'save') chatSave();
+  if (s.id === 'save') chatSave();
   else if (s.id === 'setup') {
     var go = /** @type {HTMLAnchorElement | null} */ ($('chatSetupGo'));
     goInApp(go && go.getAttribute('href') && go.getAttribute('href') !== '#' ? String(go.getAttribute('href')) : '/anatomy/behaviour/models');

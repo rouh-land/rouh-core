@@ -15,7 +15,8 @@ makes Rouh easier for a first-time user, technical or not. Each has its own swit
 - **Save this chat as a file** (`chat_save`, you ask for it). Chat Options has it at its foot: a
   plain text file of the whole chat, every message with who said it and when (`chat_file`).
 - **Type / for what you can do here** (`slash_menu`, changes how you work). A slash in the chat's
-  empty box opens a short list, in words, of what can be done from the chat, narrowed as you type.
+  empty box opens a short list, in words, of what can be done from the chat, narrowed as you type;
+  what a button under the box already does is left out of it.
 
 The page is told which are on in `#rouhEasyStart` (`for_page`); each reports its use through
 ``POST /api/easy-start`` (`rouh/web/easy_start.py`). No model is asked.
@@ -36,12 +37,10 @@ GENES: dict[str, tuple[str, tuple[str, ...]]] = {
 }
 
 #: What the slash list offers, in the order it is shown: an id the page acts on, the words, and
-#: the words it is also found by.
+#: the words it is also found by. Nothing the buttons under the chat's box already do is here
+#: (Attach, Which AI answers, Chat Options, Incognito): Petar, 27 November 2026, "in the list of
+#: slash commands don't include the items that are available by buttons underneath".
 SLASH: list[dict] = [
-    {"id": "attach", "name": "Attach a file", "also": "upload picture photo document pdf"},
-    {"id": "incognito", "name": "Incognito: a chat Rouh forgets", "also": "private secret forget"},
-    {"id": "model", "name": "Pick the model for this chat", "also": "ai claude gpt smarter cheaper"},
-    {"id": "options", "name": "Chat Options: what this chat uses", "also": "memory rules tools settings"},
     {"id": "save", "name": "Save this chat as a file", "also": "download export keep text"},
     {"id": "setup", "name": "Set up chat", "also": "key connect ai service models"},
     {"id": "guide", "name": "Open the Guide", "also": "help learn tips how"},
