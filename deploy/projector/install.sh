@@ -69,7 +69,8 @@ cat > /usr/local/bin/rouh-projector-browser <<'SH'
 # Waits until Rouh answers, then opens its projector view full screen. Run by cage, as kiosk.
 URL=$(cat /etc/rouh-projector/url)
 KEY=$(cat /etc/rouh-projector/key)
-until curl -s -o /dev/null -m 10 "$URL/healthz"; do sleep 5; done
+# -f: a gateway error while Rouh restarts (a 502 from the proxy) is not an answer; the wall would sit on that page.
+until curl -fs -o /dev/null -m 10 "$URL/healthz"; do sleep 5; done
 BROWSER=$(command -v chromium || command -v chromium-browser)
 exec "$BROWSER" --kiosk --incognito --ozone-platform=wayland --force-dark-mode \
   --noerrdialogs --disable-infobars --no-first-run --password-store=basic \
