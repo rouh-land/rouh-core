@@ -19,7 +19,7 @@ import { CARDS, cardsAdriftSay, cardWaysSay, frameLoad, projectSaidIt, resetCanv
   resetStreamCards, taskSaidIt, WORKSPACE_ROUTE } from 'app/cards.js';
 import { detachAsk, FIND, findAsk, findShow } from 'app/search.js';
 import { ADDR, addrIsTasksOwn, addrOf, addrTouch, FRESH, freshChatOpened } from 'app/address.js';
-import { CANVAS_MIN, CHAT_W, chatIsWanted, chatRoom, panelsForChat, panelsHold, drawTyped, growInput, input, narrow,
+import { boxBack, CANVAS_MIN, CHAT_W, chatIsWanted, chatRoom, panelsForChat, panelsHold, drawTyped, growInput, input, narrow,
   sendTyped, setPane, sidebarDone } from 'app/controls.js';
 import { attUploading, drawAttachments } from 'app/attachments.js';
 
@@ -2709,6 +2709,7 @@ function forkRefused(m) {
   } else if (input && !input.value.trim() && m.text) {
     input.value = m.text;
     growInput();
+    boxBack(m.text);
   }
   forkBtnPaint();
   // A desk's strip put up for it on the press (`forkStripComing`) goes.

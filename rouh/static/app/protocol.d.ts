@@ -19,7 +19,7 @@
 export interface ServerMessages {
   ready: { /** The chat's newest row, which the page is up to (`catchUp`). */ last_id?: number | null; session_id: any; voice: any; ears: any; state: any; running: any; tools: any; transcript: any; active_chat: any; answering: any; conflicts: any; one_deploying: any; assets: string;
     /** When this Rouh started (ms), and whether the one before it stopped on purpose (`rouh/restarts.py`). */
-    started?: number; planned?: boolean; orb: any; orb3d?: any; browser: any; now: any;
+    started?: number; planned?: boolean; orb: any; /** The glass orb's own settings, as `orb` (app/orb3d.js). */ orb3d?: any; browser: any; now: any;
     /** Not in PROTOCOL.md's row until 5 October 2026, sent all along. */
     voice_reply: boolean; pictures: any;
     /** The chat this tab is in, as its own row, until the list comes in `chats` (23 October 2026). */
@@ -198,6 +198,7 @@ export interface ClientMessages {
   set_mode: { voice_reply?: boolean; };
   ping: {};
   set_orb: { cfg: any; };
+  /** The glass orb's own settings, as `set_orb` (app/orb3d.js). */
   set_orb3d: { cfg: any; };
   /** Read one chat's model choice, or set it with `choice` ("cheap", "smart", "auto", or "" for the Models page's). */
   chat_model: { chat: string; choice?: string; };

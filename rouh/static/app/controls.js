@@ -2005,6 +2005,11 @@ queueFold();
 function boxSent(text) {
   document.dispatchEvent(new CustomEvent('rouh:box-sent', { detail: { text: text } }));
 }
+/* The box's words are back in it because they did not go after all (a fork refused, a held send
+   that could not go): unsent words again, kept as such (`rouh:box-back`). @param {string} text */
+function boxBack(text) {
+  document.dispatchEvent(new CustomEvent('rouh:box-back', { detail: { text: text } }));
+}
 
 function sendTyped(asFork) {
   asFork = asFork === true;
@@ -2184,6 +2189,7 @@ function earlyFlush() {
   if (moved || S.busy || !send({ type: 'text', text: text, attachments: [] })) {
     input.value = text + (input.value.trim() ? '\n\n' + input.value : '');
     growInput();
+    boxBack(text);
     notify(moved ? 'Not sent: the page went to another conversation before it was ready. Your words are back in the box.'
       : 'Not sent yet: your words are back in the box.', { tone: 'warning' });
     return;
@@ -2291,7 +2297,7 @@ if (window.ResizeObserver) {
   }).observe(transcriptEl(), { childList: true });
 }
 
-export { boxSent, voiceKeyed, accountMenu, ownName, CANVAS_MIN, canvasAwayIfBare, canvasIsWanted, canvasShown, CHAT_W, chatIsWanted, chatOnScreen, chatPutAway, chatRoom,
+export { boxBack, boxSent, voiceKeyed, accountMenu, ownName, CANVAS_MIN, canvasAwayIfBare, canvasIsWanted, canvasShown, CHAT_W, chatIsWanted, chatOnScreen, chatPutAway, chatRoom,
   cols, drawerEntryTaken, drawerPopped, drawerUnwinding, drawTyped, earlyFlush, earlyLift, growInput, input, micSays, narrow, paintPaneButton, pane, queueFold, SB, screenHeight,
   panelsChoseCanvas, panelsForChat, panelsHold, panelsShown, sbSet, sendTyped, setMic, setPane, setVoice, showDictation, sidebarDone, TASKS_FULL,
   tasksHold, tasksTakeChat };

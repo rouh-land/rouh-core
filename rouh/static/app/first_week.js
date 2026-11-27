@@ -115,9 +115,77 @@ function keptKeys(start) {
   return out;
 }
 
+/* Petar again, the same afternoon: words he had sent into a fork on the right were back in the
+   box of the chat it came off. Three more ways, each closed here.
+   - A tab opened before the morning's change runs the old code until it is reloaded, which kept
+     words under `rouh.fw.draft.<chat>`, never let a fork's words go, and put them back on the way
+     back to that chat. Those keys are now taken away the moment any tab of the new code sees one
+     (`draftSweep`, every tick and on `storage`), so an old tab finds nothing to put back.
+   - Up in an empty box (last_again) put the last message sent back in the box, and that was then
+     kept as if it had been typed and not sent, so it came back after every reload and in every new
+     tab. Words put back by Up are never kept.
+   - Nothing remembered what had been said, so any copy left anywhere came back as unsent. This
+     browser now keeps the last words said (`rouh.fw.said`, every way the box sends them,
+     `rouh:box-sent`); kept words that are among them, or that the conversation on the screen
+     shows as the person's own or as what a fork of it asked, are never put back, and are dropped.
+     And words that are among them and appear in the box without the person typing them there -
+     put back by any code, an old copy, a parked chat - are taken out again (`draftGuard`). Words
+     handed back because they did not go (a fork refused, a held send that could not go) are
+     taken off that list and kept as unsent (`rouh:box-back`). */
+
+var SAID_MOST = 60;
+
+/** Words as compared: spaces folded, ends trimmed. @param {string} text */
+function norm(text) { return String(text || '').replace(/\s+/g, ' ').trim(); }
+
+/** @returns {string[]} */
+function saidList() {
+  try {
+    var got = JSON.parse(kept('said') || '[]');
+    return Array.isArray(got) ? got.filter(function (t) { return typeof t === 'string' && !!t; }) : [];
+  } catch (err) { return []; }
+}
+/** @param {string} text */
+function saidHas(text) { var n = norm(text); return !!n && saidList().indexOf(n) >= 0; }
+/** @param {string} text */
+function saidAdd(text) {
+  var n = norm(text);
+  if (!n) return;
+  var list = saidList().filter(function (t) { return t !== n; });
+  list.push(n);
+  keep('said', JSON.stringify(list.slice(-SAID_MOST)));
+}
+/** @param {string} text */
+function saidDrop(text) {
+  var n = norm(text);
+  var list = saidList();
+  if (list.indexOf(n) < 0) return;
+  keep('said', JSON.stringify(list.filter(function (t) { return t !== n; })));
+}
+
+/* Whether the conversation on the screen shows these words as said: one of the person's own
+   messages, or the question a fork of it was asked with. @param {string} text */
+function shownSaid(text) {
+  var n = norm(text);
+  if (!n) return false;
+  var t = $('transcript');
+  var nodes = t ? Array.prototype.slice.call(t.querySelectorAll('.turn.user .turn-body, .fork-mark-asked')) : [];
+  for (var i = 0; i < nodes.length; i++) {
+    var shown = norm(nodes[i].textContent || '');
+    if (shown && (shown === n || (n.length >= 40 && shown.indexOf(n) === 0))) return true;
+  }
+  return false;
+}
+
+/* What the person last put in the box with their own hands (typing, pasting, dictating into it),
+   and the words last put back from what was kept. */
+var BOX = { typed: '', restored: '', restoredChat: '' };
+
 /* Kept as the box holds it now, only into the chat it was typed in, while that is on the screen. */
 function draftSave() {
   if (!input) return;
+  // Up's copy of the last message sent is not words left unsent.
+  if (RECALLED.text && input.value === RECALLED.text) return;
   var chat = draftChat();
   if (!chat || chat !== DRAFT.chat) { DRAFT.typed = !!input.value.trim(); return; }
   DRAFT.typed = false;
@@ -138,6 +206,10 @@ function draftPut() {
   if (input.value.trim()) return;
   var words = kept(DRAFT_PRE + chat);
   if (!words) return;
+  // Already said, here or anywhere: not unsent, and not kept any longer.
+  if (saidHas(words) || shownSaid(words)) { keep(DRAFT_PRE + chat, null); return; }
+  BOX.restored = words;
+  BOX.restoredChat = chat;
   fillBox(words);
   weekUsed('draft_kept', 'restored', words.length + ' characters');
 }
@@ -145,27 +217,69 @@ function draftPut() {
 /** @param {string} text */
 function draftSent(text) {
   DRAFT.typed = false;
+  BOX.typed = '';
+  BOX.restored = '';
   var chat = draftChat() || DRAFT.chat;
   if (chat) keep(DRAFT_PRE + chat, null);
-  var said = String(text || '').trim();
+  var said = norm(text);
   if (!said) return;
+  saidAdd(said);
   // And the same words kept under any other chat: they have been said.
   keptKeys(DRAFT_PRE).forEach(function (k) {
     var v = kept(k);
-    if (v != null && v.trim() === said) keep(k, null);
+    if (v != null && norm(v) === said) keep(k, null);
   });
 }
 
-// Once: the drafts kept before 27 November 2026, under keys that could be any chat's.
-keptKeys('draft.').forEach(function (k) { keep(k, null); });
+/* Words handed back to the box because they did not go: unsent after all, and this chat's. */
+/** @param {string} text */
+function draftBack(text) {
+  saidDrop(text);
+  if (!input) return;
+  BOX.typed = input.value;
+  var chat = draftChat();
+  if (chat && chat === DRAFT.chat && input.value.trim()) keep(DRAFT_PRE + chat, input.value);
+}
+
+/* The old code's keys, wherever an old tab has just written one. */
+function draftSweep() { keptKeys('draft.').forEach(function (k) { keep(k, null); }); }
+
+/* Said words in the box that the person did not put there go again, whatever put them back. */
+function draftGuard() {
+  if (!input) return;
+  var v = input.value;
+  if (!v.trim() || v === BOX.typed || (RECALLED.text && v === RECALLED.text)) return;
+  var restored = BOX.restored && v === BOX.restored;
+  if (!saidHas(v) && !(restored && shownSaid(v))) return;
+  input.value = '';
+  input.dispatchEvent(new Event('input', { bubbles: true }));
+  var chat = draftChat();
+  if (chat) keep(DRAFT_PRE + chat, null);
+  if (restored && BOX.restoredChat) keep(DRAFT_PRE + BOX.restoredChat, null);
+  BOX.restored = '';
+  saidAdd(v);
+}
+
+draftSweep();
 if (input && weekOn('draft_kept')) {
-  input.addEventListener('input', draftSave);
+  input.addEventListener('input', function (e) {
+    // Only what a person does: words put in by the page come as an event of its own.
+    if (e.isTrusted && input) { BOX.typed = input.value; BOX.restored = ''; }
+    draftSave();
+  });
   document.addEventListener('rouh:box-sent', function (e) {
     var d = /** @type {CustomEvent} */ (e).detail || {};
     draftSent(String(d.text || ''));
   });
+  document.addEventListener('rouh:box-back', function (e) {
+    var d = /** @type {CustomEvent} */ (e).detail || {};
+    draftBack(String(d.text || ''));
+  });
+  window.addEventListener('storage', function (e) {
+    if (e.key && e.key.indexOf(PREFIX + 'draft.') === 0) draftSweep();
+  });
   // The chat is known a moment after the page opens, and changes when another is opened.
-  window.setInterval(draftPut, 500);
+  window.setInterval(function () { draftSweep(); draftPut(); draftGuard(); }, 500);
   draftPut();
 }
 
