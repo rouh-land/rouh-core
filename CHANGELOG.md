@@ -6,6 +6,24 @@ release, the middle one for a release that changes the database or an installati
 Each release is also a GitHub Release, tagged `v<number>`, carrying `code-release.json`: the signed
 file rouh.land serves at /mac/code/release.json, which a Rouh checks before it takes it.
 
+## Rouh 1.2.0 - 27 November 2026
+
+Commit `1a0f986aff5d`. Changes an installation's settings.
+
+- Projector: a name on two lines at the branch tips is evened out, never one short word alone on the second
+- Projector: the names at the branch tips 30% smaller, more of each name on up to two lines, a dark shadow instead of the black box
+- Projector: no switching between the card and the words, the corner orb kept off the words, web pictures loaded as the canvas does
+- Projector: what Rouh heard and its answer stay in a strip under the card, readable from the sofa
+- Projector: the launcher waits for Rouh to really answer before opening the wall, never on a proxy's 502 page
+- Projector: the wall draws cards with the canvas's own blocks, and shows the pictures Rouh draws in the Robot chat
+- Projector: the wall's orb follows the person's orb settings, Rouh's own calls hang off its own line, nerve off
+- Projector: pairing stays through hiccups, setup page leads with it, wall letters halved
+- Rouh: a chat past the model's window is said as too long when the refusal comes inside the stream
+- Rouh: the chat box's grey words are "/ for more", with Shift+Enter at a desk only
+- Rouh: Return is always a new line on phones and iPads, Enter sends on computers
+- Rouh: the chat box's grey words are only its own, with no "/ for more" or Shift+Enter hint
+- And 5 smaller changes
+
 ## Rouh 1.1.4 - 27 November 2026
 
 Commit `cb7b99ea179a`.

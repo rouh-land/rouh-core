@@ -16,7 +16,7 @@
 
 [project]
 name = "rouh"
-version = "1.1.4"
+version = "1.2.0"
 description = "Rouh, the voice assistant: a Django project on PostgreSQL."
 license = "Apache-2.0"
 license-files = ["LICENSE", "NOTICE"]
