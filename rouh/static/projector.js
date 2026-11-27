@@ -3,7 +3,7 @@
  *
  * It rests on the orb (projector-orb.js): the work running now, full screen. Something new to show - a card
  * the Robot chat drew, or what was heard and Rouh's answer - comes up while the orb moves to the corner,
- * stays about 30 seconds or as long as it takes to read (`readFor`), longer while Rouh is still answering,
+ * stays five minutes after Rouh has answered (`readFor`), and as long as Rouh is still answering,
  * and goes, the orb coming back. A job waiting for the person shows its question in big words (`drawNeeds`). What was
  * already there when the page opened is not shown again: the wall starts on the orb.
  *
@@ -29,10 +29,11 @@
   var SPEED = 3.2;           // how fast a long card moves, in hundredths of the wall's width a second
   var HOLD = 4000;           // ms a long card stays still at its top and at its bottom
   var FRESH_EVERY = 6 * 3600 * 1000; // the page loads itself again, so a week on the wall stays light
-  var READ_WPM = 170;        // how fast the wall assumes words are read from across a room
-  // Up for about 30 seconds, longer for more to read (Petar, 27 November 2026: the orb "grows back when the
-  // card fades after about 30 s").
-  var READ_LEAST = 30000, READ_MOST = 120000, READ_PICTURE = 8000, READ_SETTLE = 5000;
+  // Up for five minutes once Rouh has answered, so it can be read in full (Petar, 27 November 2026, 20:02: "whatever
+  // content you show on the screen, including what you heard and what you were answering me, please keep it on the
+  // screen for about five minutes. Don't switch immediately to the orb."). A new question or a new card in that time
+  // replaces it and starts the five minutes again. Was about 30 s, up to 2 minutes for a long read.
+  var KEEP_UP = 5 * 60 * 1000, READ_SETTLE = 5000;
   var AFTER_ANSWER = 4000;   // ms an answer still being written keeps the wall up after its last word
 
   var DEMO = window.PROJECTOR_DEMO || null;
@@ -58,7 +59,7 @@
   document.documentElement.setAttribute('data-theme', 'dark');
 
   var shown = { version: null, card: null, heard: null, said: null, first: true };
-  var upUntil = 0, downTimer = 0, cycleMs = 0, cardWords = 0, cardPictures = 0;
+  var upUntil = 0, downTimer = 0, cycleMs = 0;
   var orb = window.ProjectorOrb ? window.ProjectorOrb.start($('orb'), { rules: $('orb').getAttribute('data-rules') }) : null;
   window.projectorOrb = orb;
   var lostSince = null;
@@ -204,7 +205,7 @@
     var bar = stage.querySelector('.through');
     if (bar) bar.remove();
     cycleMs = 0;
-    if (!card) { cardWords = 0; cardPictures = 0; return; }
+    if (!card) return;
     // Sliding in only when it replaces a card already up; over the orb, the wall's own fade brings it.
     var cls = (document.body.classList.contains('up') ? 'card enter' : 'card') + (card.picture ? ' picture' : '');
     var box = el('article', cls);
@@ -231,8 +232,6 @@
       img.addEventListener('load', fit);
       img.addEventListener('error', fit);
     });
-    cardWords = wordsIn(box.textContent);
-    cardPictures = box.querySelectorAll('img, svg, iframe').length;
     fit();
   }
 
@@ -351,13 +350,9 @@
   }
 
   // --- up over the orb, and back down to it ---------------------------------------------------------
-  function wordsIn(text) { return (String(text || '').match(/\S+/g) || []).length; }
-  // How long something stays up: its words at a slow reading pace, a little more for each picture, and at
-  // least once through a card that has to move to be seen whole.
-  function readFor(words, pictures) {
-    var ms = READ_SETTLE + words / READ_WPM * 60000 + pictures * READ_PICTURE;
-    if (cycleMs) ms = Math.max(ms, cycleMs + READ_SETTLE);
-    return Math.max(READ_LEAST, Math.min(READ_MOST, ms));
+  // How long something stays up: five minutes, and at least once through a card that has to move to be seen whole.
+  function readFor() {
+    return Math.max(KEEP_UP, cycleMs ? cycleMs + READ_SETTLE : 0);
   }
   // Coming up, the orb glides into the corner first (on its own canvas, smoothly even on a Pi 3), then the
   // words and the card come in with a short fade; going down, they go with a short fade and the orb comes
@@ -416,12 +411,10 @@
     if (stage.clientHeight !== before) fit();
     if (first && !d.answering) return;      // the wall starts on the orb, not on what was there before
     if ((newCard && d.card) || newWords || d.answering) {
-      var said = d.answering ? d.so_far : (d.said && d.said.text);
-      var words = wordsIn(plain(said)) + wordsIn(d.heard && d.heard.text);
-      var withCard = wall.classList.contains('with-card');
+      // Five minutes from now is always later than what was left, so something new starts the five minutes again.
       // fitNow, 60 ms on, knows whether the card has to move; ask again once it has.
       setTimeout(function () {
-        up(d.answering ? AFTER_ANSWER + READ_SETTLE : readFor(words + (withCard ? cardWords : 0), withCard ? cardPictures : 0));
+        up(d.answering ? AFTER_ANSWER + READ_SETTLE : readFor());
       }, 120);
       if (d.answering) up(AFTER_ANSWER + READ_SETTLE);
     }
