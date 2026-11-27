@@ -1,25 +1,14 @@
 {
- "level": "1.0.22",
+ "level": "1.0.23",
  "line": "1.0",
- "from_level": "1.0.21",
+ "from_level": "1.0.22",
  "changed": true,
- "changes": [
-  {
-   "what": "charset-normalizer",
-   "from": "3.5.2",
-   "to": "3.5.3"
-  },
-  {
-   "what": "pyyaml",
-   "from": "6.0.3",
-   "to": "6.0.4"
-  }
- ],
+ "changes": [],
  "security": [
   {
    "package": "chromium",
    "from": "156.0.8078.79-1~deb13u1",
-   "to": "156.0.8078.108-1~deb13u1",
+   "to": "156.0.8078.114-1~deb13u1",
    "arches": [
     "amd64",
     "arm64"
@@ -28,7 +17,7 @@
   {
    "package": "chromium-common",
    "from": "156.0.8078.79-1~deb13u1",
-   "to": "156.0.8078.108-1~deb13u1",
+   "to": "156.0.8078.114-1~deb13u1",
    "arches": [
     "amd64",
     "arm64"
@@ -144,13 +133,13 @@
   {
    "what": "boto3",
    "from": "1.43.127",
-   "to": "1.44.12",
+   "to": "1.44.13",
    "kind": "minor"
   },
   {
    "what": "botocore",
    "from": "1.43.127",
-   "to": "1.44.12",
+   "to": "1.44.13",
    "kind": "minor"
   },
   {
@@ -184,6 +173,12 @@
    "kind": "minor"
   },
   {
+   "what": "httpx",
+   "from": "0.28.1",
+   "to": "0.29.0",
+   "kind": "minor"
+  },
+  {
    "what": "httpx2",
    "from": "2.13.1",
    "to": "2.16.2",
@@ -204,7 +199,7 @@
   {
    "what": "openai",
    "from": "3.19.2",
-   "to": "3.59.0",
+   "to": "3.60.0",
    "kind": "minor"
   },
   {
@@ -222,7 +217,7 @@
   {
    "what": "platformdirs",
    "from": "4.13.7",
-   "to": "4.14.8",
+   "to": "4.14.9",
    "kind": "minor"
   },
   {
@@ -258,7 +253,7 @@
   {
    "what": "pypdf",
    "from": "6.19.0",
-   "to": "7.1.1",
+   "to": "7.2.0",
    "kind": "major"
   },
   {
@@ -322,5 +317,5 @@
    "kind": "minor"
   }
  ],
- "looked_at": "2026-11-25T22:40:25Z"
+ "looked_at": "2026-11-27T22:40:31Z"
 }
