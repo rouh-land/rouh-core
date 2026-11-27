@@ -172,6 +172,13 @@ function phoneOpen() {
   }
   scale();
   window.addEventListener('resize', scale);
+  // The page in the frame takes the keyboard when it loads (its chat box), so Escape there closes it too.
+  frame.addEventListener('load', function () {
+    try {
+      var inner = frame.contentWindow;
+      if (inner) inner.addEventListener('keydown', function (e) { if (e.key === 'Escape') dlg.close(); });
+    } catch (err) { /* another origin: Close still works */ }
+  });
   again.addEventListener('click', function () { frame.src = location.pathname + location.search; });
   shut.addEventListener('click', function () { dlg.close(); });
   dlg.addEventListener('click', function (e) { if (e.target === dlg) dlg.close(); });
