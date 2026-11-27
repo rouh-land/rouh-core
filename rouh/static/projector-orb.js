@@ -547,6 +547,17 @@
       g.globalAlpha = 1;
       g.fillStyle = '#000';
       g.fillRect(0, 0, W, H);
+      // In the corner the orb keeps to its own box, so its branches and glow never reach the words beside it
+      // (Petar, 27 November 2026, 14:44: "the minimized orb covers the text of the Heard/Rouh lines"). The box
+      // opens out as it moves there; the wall's band ends left of it (projector.css, body.up .caption).
+      var clipped = e > 0.001;
+      if (clipped) {
+        var box = Math.min(H * 0.32, W * 0.4);
+        g.save();
+        g.beginPath();
+        g.rect((W - box) * e, 0, W, H);
+        g.clip();
+      }
       g.lineCap = 'round'; g.lineJoin = 'round';
       var labels = [];
       var order = Array.from(REC.values()).sort(function (a, b) {
@@ -589,6 +600,7 @@
         });
       }
       g.globalAlpha = 1;
+      if (clipped) g.restore();
       stats.records = REC.size;
       stats.waiting = said.waiting.length;
     }

@@ -107,11 +107,21 @@
     var same = false;
     try { same = new URL(src, location.href).origin === location.origin; } catch (e) { gone(); return; }
     if (!key) { img.src = src; return; }   // the person's own browser: its sign-in, and the canvas's proxy after
-    var at = same ? src : '/api/projector/image?src=' + encodeURIComponent(src);
-    fetch(at, { headers: { Authorization: 'Bearer ' + key }, credentials: 'omit' })
-      .then(function (r) { if (!r.ok) throw new Error(r.status); return r.blob(); })
-      .then(function (b) { var url = URL.createObjectURL(b); blobs.push(url); img.src = url; })
-      .catch(gone);
+    var viaRouh = function () {
+      var at = same ? src : '/api/projector/image?src=' + encodeURIComponent(src);
+      fetch(at, { headers: { Authorization: 'Bearer ' + key }, credentials: 'omit' })
+        .then(function (r) { if (!r.ok) throw new Error(r.status); return r.blob(); })
+        .then(function (b) { var url = URL.createObjectURL(b); blobs.push(url); img.src = url; })
+        .catch(gone);
+    };
+    if (same) { viaRouh(); return; }
+    // A picture on the web is loaded straight from where it is first, as the canvas does, and through Rouh
+    // (on the Pi's key) only if that fails: tried on a picture of its own, so the card's picture never errors.
+    var probe = new Image();
+    probe.referrerPolicy = 'no-referrer';
+    probe.onload = function () { img.src = src; };
+    probe.onerror = viaRouh;
+    probe.src = src;
   }
   if (CB) {
     CB.blocksUse({
