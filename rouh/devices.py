@@ -32,6 +32,14 @@ coming out of the Echo now" came back as "Great. So my voice is coming out of th
 canceller and its wake word guard are the first line; this is the last: `own_echo` says whether heard words are
 mostly a repeat of what Rouh said aloud on that device in the last `ECHO_S` seconds, and such a turn is dropped
 before it reaches the model (`Session.ask` in `rouh/runtime.py`).
+
+**An Echo hears for Rouh through Alexa.** Petar, 27 November 2026 (task 122, step 122-30): "Rouh, is it possible
+to use the microphone of Alexa? ... Yes, please, build that." His Echo cannot lend its microphone, so a private
+Alexa skill of his own does the hearing: Amazon turns what he said into words and sends them to the skill's small
+server (on contabo-50), which checks Amazon's signature, the skill and his Amazon account, and passes the words here
+on a device key of the kind `echo`. Such a device sends words, not sound: one more message, ``heard`` with its
+``text``, which only an `echo` may send. It is answered in the same Robot chat, marked `HEARD` like the robot's, and
+never with Rouh's voice (`voice_replies` is held off): Alexa says the answer in its own voice.
 """
 from __future__ import annotations
 
@@ -54,7 +62,8 @@ TOKEN_PREFIX = "rouhdev_"
 #: A device's name: a short word the person can say.
 NAME = re.compile(r"^[a-z][a-z0-9-]{0,31}$")
 #: What a device is: a voice (the robot: talks in its chat) or a display (a projector: only reads it).
-KINDS = ("voice", "display")
+#: Or an echo: an Amazon Echo through Petar's Alexa skill, sending the words Alexa heard (`heard`).
+KINDS = ("voice", "display", "echo")
 #: Seconds between two writes of when a key was last used: a display asks every two seconds.
 USED_EVERY = 60
 
@@ -66,11 +75,15 @@ HEARD = "[Heard by the robot]"
 
 #: What a device may send: the voice and nothing else. Binary frames are its microphone.
 ALLOWED_IN = frozenset({"hello", "ping", "set_mode", "speech_start", "speech_end", "interrupt",
-                        "dictation", "get_state"})
+                        "dictation", "get_state", "heard"})
+#: What only an `echo` may send of those: what Alexa heard, already words.
+ECHO_ONLY_IN = frozenset({"heard"})
+#: The longest heard question an Echo may send: Alexa's own limit on one utterance is far below it.
+HEARD_MAX = 2000
 #: What a device is sent: what the voice needs. Everything else a browser tab is sent is dropped.
 ALLOWED_OUT = frozenset({"ready", "mode", "state", "turn_end", "stt", "assistant_delta", "assistant_done",
                          "assistant_retract", "audio_start", "audio_end", "dictation", "stopped", "error",
-                         "pong"})
+                         "pong", "heard"})
 #: How long after Rouh said something on a device its own words coming back are taken for an echo.
 ECHO_S = 45.0
 #: Of the heard words, how many must be Rouh's own, and how long a run of them in Rouh's order.

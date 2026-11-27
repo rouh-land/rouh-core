@@ -6097,6 +6097,9 @@ class Session:
         if self.device is not None and kind not in devices.ALLOWED_IN:
             # A device has its voice and nothing else (`rouh/devices.py`).
             return
+        if kind in devices.ECHO_ONLY_IN and (self.device or {}).get("kind") != "echo":
+            # Words already heard come only from an Echo's key (`rouh/devices.py`), never a tab or the robot.
+            return
         ask = msg.get("ask")
         if isinstance(ask, int) and not isinstance(ask, bool) and ask > self.asked:
             self.asked = ask
@@ -7041,6 +7044,19 @@ class Session:
 
         elif kind == "interrupt":
             await self.cancel_turn()
+
+        elif kind == "heard":
+            # What Alexa heard on Petar's Echo, already words (`rouh/devices.py`). Answered at once, in the
+            # device's chat, marked heard, and in words only: Alexa says it in its own voice.
+            self.voice_replies = False
+            words = str(msg.get("text") or "").strip()[:devices.HEARD_MAX]
+            if words:
+                # On every screen in the chat, as the robot's heard words are (`Hub.mirror` on `stt`).
+                await self.emit({"type": "stt", "text": words, "final": True})
+                await self.ask(words, now=True)
+                # And to the Echo, which turn is its answer: the robot's turns are in the same chat.
+                turn = self.turn
+                await self.emit({"type": "heard", "turn_id": getattr(turn, "turn_id", None)})
 
         elif kind == "dictation":
             # Press to start, press to finish. The browser holds the utterance

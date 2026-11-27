@@ -4,6 +4,7 @@
     python manage.py device list --user alex
     python manage.py device revoke --user alex --name beast
     python manage.py device add --user alex --name projector --kind display   # a display: only reads
+    python manage.py device add --user alex --name echo --kind echo      # an Echo: Alexa's heard words
 
 The device shows the key on Rouh's WebSocket as ``Authorization: Bearer <key>`` and reaches its own chat
 and nothing else. Only the key's sha256 is kept. Adding a name that has a live key revokes that one first.
@@ -25,7 +26,8 @@ class Command(BaseCommand):
         parser.add_argument("--user", default="", help="whose device it is, by username; the owner if left out")
         parser.add_argument("--name", default="", help="the device's name, such as beast")
         parser.add_argument("--kind", default="voice", choices=devices.KINDS,
-                            help="voice talks in its chat (the robot); display only reads it (a projector)")
+                            help="voice talks in its chat (the robot); display only reads it (a projector); "
+                                 "echo sends the words Alexa heard (an Echo, through Petar's skill)")
 
     def handle(self, *args, action="list", user="", name="", kind="voice", **options):
         from rouh.models import User
