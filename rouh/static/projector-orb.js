@@ -4,8 +4,8 @@
  * Petar, 27 November 2026: "can we make the tentacles the same shape as the normal 3d orb? basically get the
  * same look + the names you have added". The orb on Rouh's page (app/orb3d.js) is three.js glass, which needs
  * WebGL 2. Measured on the Pi 3 that day: its VC4 chip gives WebGL 1 only, and Chromium's software WebGL 2
- * (SwiftShader) spent four minutes compiling without drawing a first frame. So this draws the very same tree
- * on one 2D canvas, from the same code paths, ported line for line:
+ * (SwiftShader) drew the real orb at one frame in about 54 seconds, using half the Pi's memory. So this draws
+ * the very same tree on one 2D canvas, from the same code paths, ported line for line:
  *
  *   the same      branching rules (rouh/static/orb-branching.json, read from Rouh), the same seeded numbers
  *                 from each job's id (so a job has the shape here it has on Rouh's page), the same paths
