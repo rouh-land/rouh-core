@@ -3,7 +3,7 @@
  * Imports app/controls.js first so that it runs after it, exactly where its
  * code ran in the one file: app.js says why that matters.
  */
-import { growInput, input, micSays, narrow, sendTyped, setMic } from 'app/controls.js';
+import { boxSent, growInput, input, micSays, narrow, sendTyped, setMic } from 'app/controls.js';
 import { shared } from 'app/shared.js';
 import { $, el, now, safeParse } from 'app/helpers.js';
 import { cfg } from 'app/settings.js';
@@ -937,6 +937,7 @@ function sendPicture() {
   }
   input.value = '';
   growInput();
+  boxSent(text);
   var drawn = files.map(function (a) {
     return { id: a.id, name: a.name, size: a.size, media_type: a.media_type || '',
              kind: a.kind || 'file' };

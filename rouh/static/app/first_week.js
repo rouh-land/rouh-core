@@ -3,8 +3,8 @@
  * Outside the chain, like app/new_owner.js, and imported by app.js after it. The page is told which
  * are on, and the text sizes, in `#rouhFirstWeek`. Everything they keep is in this browser.
  *
- * - draft_kept: what is typed in the chat's box and not sent is kept per chat, and put back in an
- *   empty box when the page, or that chat, comes back. Sending clears it.
+ * - draft_kept: what is typed in the chat's box and not sent is kept under that chat's own id, and
+ *   put back in an empty box when the page, or that chat, comes back. Every way of sending clears it.
  * - ask_again: a message turned away because chat was not set up (`rouh:chat-setup`, sent by
  *   `chatSetupShow` in app/socket.js) is kept; once chat is set up, a card over the box offers
  *   Ask it now and Never mind.
@@ -15,6 +15,8 @@
  */
 import { $, el } from 'app/helpers.js';
 import { CHATS } from 'app/chats.js';
+import { S } from 'app/socket.js';
+import { ADDR } from 'app/address.js';
 
 /** @type {{on: string[], sizes: {id: string, name: string, scale: number}[]}} */
 var WEEK = (function () {
@@ -62,7 +64,7 @@ function fillBox(text) {
   input.selectionStart = input.selectionEnd = input.value.length;
 }
 
-/* What was just sent, for ask_again's moment; and what each send means for the other three. */
+/* What was just sent, for ask_again's moment; and what each send means for last_again. */
 var LAST = { text: '', chat: '', at: 0 };
 if (form && input) {
   form.addEventListener('submit', function () {
@@ -70,39 +72,100 @@ if (form && input) {
     if (!text) return;
     var chat = chatNow();
     LAST = { text: text, chat: chat, at: Date.now() };
-    if (weekOn('draft_kept')) keep('draft.' + chat, null);
     if (weekOn('last_again')) keep('last.' + chat, text);
     RECALLED.text = '';
   }, true);
 }
 
-/* ---------- draft_kept ---------- */
+/* ---------- draft_kept ----------
 
-var DRAFT = { chat: '', timer: 0 };
+   Petar, 27 November 2026: words he had already sent came back in the box after a reload and in
+   new tabs, and in other chats than the one they were typed in. Three causes, each closed here.
+   - The draft was kept under `chatNow()`, which before the page knew its chat was General's id,
+     so what was typed in that first moment was General's, and General's came back in whatever
+     chat a new tab opened. A draft is now kept and put back only under the real id of the chat
+     on the screen (`draftChat`), never a fallback, and never at the front door or mid-switch.
+   - Only a submit of the form cleared it, so a fork (Cmd+Enter), a held send and a picture left
+     the words kept. Every way the box's words go now says so (`rouh:box-sent`, `boxSent` in
+     app/controls.js), and that clears this chat's draft and any draft holding those very words.
+   - A save that waited 300 ms could land after the chat changed, under the old chat with the new
+     box. Each keystroke is now kept at once, and only while its chat is the one on the screen.
+   The old keys (`rouh.fw.draft.*`) were filed under that fallback and are mostly words already
+   sent, so they are dropped once, and drafts live under `rouh.fw.unsent.<chat id>`. */
 
+var DRAFT = { chat: '', typed: false };
+var DRAFT_PRE = 'unsent.';
+
+/* The chat whose box this is, or '' while that is not certain. */
+function draftChat() {
+  if (!CHATS.active || S.switching || ADDR.front || ADDR.wanted) return '';
+  return String(CHATS.active);
+}
+
+/** Every kept key that starts so, without the prefix. @param {string} start */
+function keptKeys(start) {
+  /** @type {string[]} */
+  var out = [];
+  try {
+    for (var i = 0; i < window.localStorage.length; i++) {
+      var k = window.localStorage.key(i) || '';
+      if (k.indexOf(PREFIX + start) === 0) out.push(k.slice(PREFIX.length));
+    }
+  } catch (err) { /* nothing to list */ }
+  return out;
+}
+
+/* Kept as the box holds it now, only into the chat it was typed in, while that is on the screen. */
+function draftSave() {
+  if (!input) return;
+  var chat = draftChat();
+  if (!chat || chat !== DRAFT.chat) { DRAFT.typed = !!input.value.trim(); return; }
+  DRAFT.typed = false;
+  keep(DRAFT_PRE + chat, input.value.trim() ? input.value : null);
+}
+
+/* The chat on the screen changed, or became certain: put its own words back in an empty box. */
 function draftPut() {
   if (!input || !weekOn('draft_kept')) return;
-  var chat = chatNow();
+  var chat = draftChat();
   if (chat === DRAFT.chat) return;
+  var was = DRAFT.chat;
   DRAFT.chat = chat;
+  if (!chat) return;
+  // Typed while the page was still finding its chat: they are this chat's, the one now open.
+  if (!was && DRAFT.typed && input.value.trim()) { draftSave(); return; }
+  DRAFT.typed = false;
   if (input.value.trim()) return;
-  var words = kept('draft.' + chat);
+  var words = kept(DRAFT_PRE + chat);
   if (!words) return;
   fillBox(words);
   weekUsed('draft_kept', 'restored', words.length + ' characters');
 }
 
+/** @param {string} text */
+function draftSent(text) {
+  DRAFT.typed = false;
+  var chat = draftChat() || DRAFT.chat;
+  if (chat) keep(DRAFT_PRE + chat, null);
+  var said = String(text || '').trim();
+  if (!said) return;
+  // And the same words kept under any other chat: they have been said.
+  keptKeys(DRAFT_PRE).forEach(function (k) {
+    var v = kept(k);
+    if (v != null && v.trim() === said) keep(k, null);
+  });
+}
+
+// Once: the drafts kept before 27 November 2026, under keys that could be any chat's.
+keptKeys('draft.').forEach(function (k) { keep(k, null); });
 if (input && weekOn('draft_kept')) {
-  input.addEventListener('input', function () {
-    clearTimeout(DRAFT.timer);
-    var chat = chatNow();
-    DRAFT.chat = chat;
-    DRAFT.timer = window.setTimeout(function () {
-      if (input) keep('draft.' + chat, input.value.trim() ? input.value : null);
-    }, 300);
+  input.addEventListener('input', draftSave);
+  document.addEventListener('rouh:box-sent', function (e) {
+    var d = /** @type {CustomEvent} */ (e).detail || {};
+    draftSent(String(d.text || ''));
   });
   // The chat is known a moment after the page opens, and changes when another is opened.
-  window.setInterval(draftPut, 700);
+  window.setInterval(draftPut, 500);
   draftPut();
 }
 

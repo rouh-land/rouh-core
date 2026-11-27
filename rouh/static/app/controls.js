@@ -2000,6 +2000,12 @@ queueFold();
    in a new fork of this chat instead of in it (`rouh/forks.py`). The fork
    opens in every tab, and this one draws the words there once it has
    (`forkTypedArrived`), the way it draws them here for Send. */
+/* The box's words have gone: sent, held to send, or asked of the picture model. Whatever kept
+   them as unsent words lets them go (`rouh:box-sent`, app/first_week.js). @param {string} text */
+function boxSent(text) {
+  document.dispatchEvent(new CustomEvent('rouh:box-sent', { detail: { text: text } }));
+}
+
 function sendTyped(asFork) {
   asFork = asFork === true;
   // The box is asking for a picture rather than a reply.
@@ -2070,6 +2076,8 @@ function sendTyped(asFork) {
   }
   input.value = '';
   growInput();
+  // Sent, so whatever was kept of it as unsent is not (app/first_week.js, draft_kept).
+  boxSent(text);
   endUtterance('typed', true);
   // One more of the person's own messages, for whoever counts them (app/mode_intro.js).
   document.dispatchEvent(new CustomEvent('rouh:said'));
@@ -2130,6 +2138,7 @@ function earlyHold(text) {
   EARLY.list.push({ text: text, chat: tabChatWanted(), path: location.pathname, turn: earlyDraw(text) });
   input.value = '';
   growInput();
+  boxSent(text);
   // Asked again every moment while anything is held, besides the handshake
   // and the switch that usually let it go.
   if (!EARLY.timer) {
@@ -2282,7 +2291,7 @@ if (window.ResizeObserver) {
   }).observe(transcriptEl(), { childList: true });
 }
 
-export { voiceKeyed, accountMenu, ownName, CANVAS_MIN, canvasAwayIfBare, canvasIsWanted, canvasShown, CHAT_W, chatIsWanted, chatOnScreen, chatPutAway, chatRoom,
+export { boxSent, voiceKeyed, accountMenu, ownName, CANVAS_MIN, canvasAwayIfBare, canvasIsWanted, canvasShown, CHAT_W, chatIsWanted, chatOnScreen, chatPutAway, chatRoom,
   cols, drawerEntryTaken, drawerPopped, drawerUnwinding, drawTyped, earlyFlush, earlyLift, growInput, input, micSays, narrow, paintPaneButton, pane, queueFold, SB, screenHeight,
   panelsChoseCanvas, panelsForChat, panelsHold, panelsShown, sbSet, sendTyped, setMic, setPane, setVoice, showDictation, sidebarDone, TASKS_FULL,
   tasksHold, tasksTakeChat };
