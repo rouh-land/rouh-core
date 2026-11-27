@@ -627,6 +627,9 @@ function handleMessage(m) {
       // is still moved after this browser has dropped its site data, which
       // is what it never was while local storage was the only place it went.
       orbFromServer(m.orb);
+      // The glass orb's own settings (its cog), kept the same way; the module may load after this.
+      window.rouhOrb3dServer = m.orb3d === undefined ? null : m.orb3d;
+      if (typeof window.orb3dFromServer === 'function') window.orb3dFromServer(window.rouhOrb3dServer);
       // The machine's own setting, for a browser nobody has chosen on. It
       // arrives here rather than being asked for, so there is no moment when
       // the page is showing one thing and the server believes another.

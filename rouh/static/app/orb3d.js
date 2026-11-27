@@ -33,6 +33,8 @@
  * app/orb.js draws the old flat orb instead (its `orb2d` path).
  */
 
+import { send } from 'app/socket.js';
+
 var RULES = null;            // rouh/static/orb-branching.json, once read
 var T = null;                // three.js, once loaded
 var O3 = { on: false, failed: '', frames: 0, renders: 0 };
@@ -54,14 +56,96 @@ function validPrefs(v) {
   return out;
 }
 
+/* Kept as the person's, in Rouh's database (`settings.ORB3D`), not only in this browser: since 27 November
+   2026 the projector's wall draws with them too (task 200, 200-05, Petar: "Whatever I see on the settings should
+   be valid for the projector too"). The same three answers as the flat orb's `orbFromServer`: the server's copy
+   wins; none there yet, this browser's goes up; one saved here that never got out goes first. On the wire only
+   numbers are kept (`settings.shaped`): the nerve as 0 or 1, the blink's direction as blinkDown 0 or 1, and only
+   what differs from the design. */
+var NERVE_OFF_ONCE = 'rouh.orb3d.nerve-off-200-05';
+var serverPrefs, unsent = null, pushAt = 0, nerveOffPending = false;
+
+function toWire(p) {
+  var out = {}, k;
+  for (k in DEFAULTS) {
+    if (p[k] === DEFAULTS[k]) continue;
+    if (k === 'nerve') out.nerve = p.nerve ? 1 : 0;
+    else if (k === 'blinkDirection') out.blinkDown = p.blinkDirection === 'down' ? 1 : 0;
+    else if (typeof p[k] === 'number') out[k] = p[k];
+  }
+  return out;
+}
+
+function fromWire(w) {
+  var out = {}, k;
+  for (k in w) out[k] = w[k];
+  if (typeof w.nerve === 'number') out.nerve = w.nerve !== 0;
+  if (typeof w.blinkDown === 'number') out.blinkDirection = w.blinkDown ? 'down' : 'up';
+  return out;
+}
+
+function push(wire) {
+  unsent = wire;
+  if (send({ type: 'set_orb3d', cfg: wire })) unsent = null;
+}
+
+function pushSoon() {
+  if (pushAt) clearTimeout(pushAt);
+  pushAt = setTimeout(function () { pushAt = 0; push(toWire(prefs)); }, 300);
+}
+
 function loadPrefs() {
   var saved = null;
   try { saved = JSON.parse(localStorage.getItem(KEY_3D) || 'null'); } catch (e) { saved = null; }
   prefs = validPrefs(saved);
+  // Petar, 27 November 2026: "Remove the nerve, I don't want it." Off once in every browser of his, as if he
+  // had turned it off in the cog himself; the toggle still brings it back.
+  var once = null;
+  try { once = localStorage.getItem(NERVE_OFF_ONCE); } catch (e) { once = '1'; }
+  if (!once) {
+    // Applied on top of whatever Rouh has kept (`orb3dFromServer`), so another browser's settings are not
+    // overwritten with this one's; drawn without the nerve from the first frame meanwhile.
+    prefs.nerve = false;
+    nerveOffPending = true;
+  }
+  if (serverPrefs !== undefined) orb3dFromServer(serverPrefs);
 }
 
 function savePrefs() {
   try { localStorage.setItem(KEY_3D, JSON.stringify(prefs)); } catch (e) {}
+  pushSoon();
+}
+
+// The saved settings, from the socket's `ready` (socket.js), before or after this module has loaded.
+function orb3dFromServer(saved) {
+  serverPrefs = saved === undefined ? null : saved;
+  if (!prefs || !DEFAULTS) return;
+  if (unsent) { push(unsent); return; }
+  if (!saved || typeof saved !== 'object') {
+    var mine = toWire(prefs);
+    for (var k in mine) { push(mine); break; }
+    nerveDone();
+    return;
+  }
+  prefs = validPrefs(fromWire(saved));
+  if (nerveOffPending) { prefs.nerve = false; push(toWire(prefs)); }
+  nerveDone();
+  try { localStorage.setItem(KEY_3D, JSON.stringify(prefs)); } catch (e) {}
+  if (typeof applyPrefs === 'function' && T) applyPrefs();
+  // The cog's panel, if it is open while this lands, is redrawn rather than left saying the old values.
+  var group = typeof document !== 'undefined' && document.querySelector('[data-orb-group]');
+  if (group && group.parentNode) orb3dPanelPaint(group.parentNode);
+}
+function nerveDone() {
+  if (!nerveOffPending) return;
+  nerveOffPending = false;
+  if (prefs.nerve) { prefs.nerve = false; }
+  try { localStorage.setItem(NERVE_OFF_ONCE, '1'); } catch (e) {}
+  try { localStorage.setItem(KEY_3D, JSON.stringify(prefs)); } catch (e) {}
+}
+if (typeof window !== 'undefined') {
+  window.orb3dFromServer = orb3dFromServer;
+  if (window.rouhOrb3dServer !== undefined) serverPrefs = window.rouhOrb3dServer;
 }
 
 function blinkConfig() {

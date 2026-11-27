@@ -470,6 +470,7 @@
     unpaired.hidden = true;
     document.body.classList.remove('unpaired-on');
     wall.hidden = false;
+    if (orb && orb.settings) orb.settings(d.orb3d || null);
     if (orb && d.tree) orb.tree(d.tree, d.now);
     drawNeeds(d.tree);
     if (d.version && d.version === shown.version) return;

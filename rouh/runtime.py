@@ -6228,6 +6228,9 @@ class Session:
                     # an empty object is the opposite and means they put
                     # everything back to the design (`settings.py`).
                     "orb": user_settings.get(self.me, settings_mod.ORB),
+                    # The glass orb's own settings (its cog), kept the same way, and read by the
+                    # projector's wall too (`settings.ORB3D`, step 200-05).
+                    "orb3d": user_settings.get(self.me, settings_mod.ORB3D),
                     # Whether this person's Live browser is open, and who has
                     # it, so a page opened in the middle of an errand shows
                     # the row that opens it (`browsing.py`).
@@ -6277,6 +6280,10 @@ class Session:
         elif kind == "set_orb":
             await asyncio.to_thread(
                 user_settings.put, self.me, settings_mod.ORB, msg.get("cfg"))
+        elif kind == "set_orb3d":
+            # The glass orb's settings, as `set_orb` (`app/orb3d.js`, `settings.ORB3D`).
+            await asyncio.to_thread(
+                user_settings.put, self.me, settings_mod.ORB3D, msg.get("cfg"))
 
         # --- the chats ------------------------------------------------------
         #

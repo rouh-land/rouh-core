@@ -119,9 +119,32 @@
     }
 
     // --- the rules, read from Rouh: the same file the orb on Rouh's page reads ---------------------------
+    // The person's own settings from the orb's cog on their screen (`settings.ORB3D`, in the feed as `orb3d`),
+    // over the design's (task 200, 200-05: "Whatever I see on the settings should be valid for the projector
+    // too"). Drawn here: glow, core glow, edge glow, thickness, the nerve, growth speed and the whole fade.
+    // Not drawn: reflections and light, which light the glass's surface and need a 3D renderer.
+    var SAVED = null;
+    function settle() {
+      if (!RULES) return;
+      var out = {}, k, lim = RULES.limits || {};
+      for (k in RULES.defaults) out[k] = RULES.defaults[k];
+      if (SAVED) {
+        for (k in lim) if (typeof SAVED[k] === 'number' && isFinite(SAVED[k])) out[k] = Math.max(lim[k][0], Math.min(lim[k][1], SAVED[k]));
+        if (typeof SAVED.nerve === 'number') out.nerve = SAVED.nerve !== 0;
+        if (typeof SAVED.blinkDown === 'number') out.blinkDirection = SAVED.blinkDown ? 'down' : 'up';
+      }
+      D = out;
+      haloKey = '';
+    }
+    function settings(saved) {
+      var next = saved && typeof saved === 'object' ? saved : null;
+      if (JSON.stringify(next) === JSON.stringify(SAVED)) return;
+      SAVED = next;
+      settle();
+    }
     function useRules(r) {
       RULES = r;
-      D = r.defaults;
+      settle();
       for (var k in r.palette) PAL[k] = hexRgb(r.palette[k]);
       stats.rules = true;
     }
@@ -266,6 +289,7 @@
     // The feed's tree, as app/orb.js hands it on: nodes with their calls and their helpers, times in ms,
     // `fade` set from when this page saw a node finish (or go from the tree).
     var NODES = Object.create(null);
+    var SELF_ID = 'rouh-self';
     function setTree(root, serverNow) {
       if (!root || typeof root !== 'object') return;
       skew = serverNow ? serverNow * 1000 - Date.now() : 0;
@@ -294,15 +318,40 @@
         });
         return n;
       }
-      var jobs = [];
-      (root.children || []).forEach(function (k) { var j = take(k, null); if (j) jobs.push(j); });
+      var jobs = [], own = [];
+      // Rouh's own calls (kind tool, straight under the root) hang off Rouh's own line, as on Rouh's page,
+      // not off the core: drawn from the core they stood round it as a star of spikes (Petar's photo, 200-05).
+      (root.children || []).forEach(function (k) {
+        var j = take(k, null);
+        if (j) (j.kind === 'tool' ? own : jobs).push(j);
+      });
       // What the feed no longer sends has finished: it fades like anything else that ended.
       for (var id in NODES) {
         var o = NODES[id];
-        if (o.seen !== stamp) {
+        if (o.seen !== stamp && o.id !== SELF_ID) {
           if (!o.fade) o.fade = now;
-          if (!o.parent) jobs.push(o);
+          if (!o.parent) (o.kind === 'tool' ? own : jobs).push(o);
         }
+      }
+      // Rouh's own line: drawn while Rouh answers in any chat (the feed's `self`) or a call of its own is open,
+      // then fading like finished work, from whichever ended last, so its calls never outlive it.
+      var open = !!(root.self && typeof root.self === 'object' && Object.keys(root.self).length);
+      var last = 0;
+      own.forEach(function (c) { if (!c.fade) open = true; else last = Math.max(last, c.fade); });
+      var me = NODES[SELF_ID];
+      if (open || own.length) {
+        if (!me) me = NODES[SELF_ID] = { id: SELF_ID, fade: 0, opened: now, kind: 'self', label: 'Rouh', state: 'running' };
+        me.seen = stamp; me.parent = null; me.subs = []; me.calls = own;
+        me.fade = open ? 0 : Math.max(me.fade || 0, last || now);
+        me.state = open ? 'running' : 'done';
+        jobs.unshift(me);
+      } else if (me) {
+        me.seen = stamp; me.calls = [];
+        if (!me.fade) me.fade = now;
+        // Gone for good once its fade, hold and grey trace are over; drawn afresh at the next answer.
+        var life = D ? (D.fadeSeconds + D.holdMinutes * 60 + D.ghostSeconds) * 1000 : 0;
+        if (D && now - me.fade > life) delete NODES[SELF_ID];
+        else jobs.unshift(me);
       }
       tree = jobs;
     }
@@ -327,7 +376,7 @@
         r.age = growth - r.born;
         r.reveal = r.age < 0 ? -1 : Math.min(lenU, r.age / RULES.growth.tipSeconds);
         r.waiting = !n.fade && n.state === 'waiting';
-        r.kind = r.role === 'twig' ? kindOf(n.label) : 'agent';
+        r.kind = r.role === 'twig' ? kindOf(n.label) : n.kind === 'self' ? 'self' : 'agent';
         if (r.waiting) waiting.push(r);
         else if (!n.fade && r.role !== 'twig') live++;
         var calls = n.calls || [];
@@ -366,7 +415,7 @@
       // The core never larger than a bright point, and its halo never a lit disc on the wall: a projector
       // shows every grey as light.
       var core = Math.max(3, Math.min(H * 0.014, cam.f * RULES.core.radius / cam.d));
-      var key = (waiting ? 'w' : live ? 'l' : 'i') + Math.round(core);
+      var key = (waiting ? 'w' : live ? 'l' : 'i') + Math.round(core) + '|' + D.coreGlow;
       if (key === haloKey && haloSprite) return haloSprite;
       haloKey = key;
       var rad = Math.ceil(Math.min(H * 0.16, core * (5 + 5 * Math.sqrt(D.coreGlow / 80)) * 1.2));
@@ -441,7 +490,7 @@
       var breath = r.waiting && !reduced ? 0.75 + 0.25 * Math.sin(t * 2.3) : 1;
       if (!twig) {
         // The glow: the bloom on Rouh's page, as a soft wide line.
-        g.globalAlpha = (0.08 + D.glow * 0.3) * alpha * breath;
+        g.globalAlpha = Math.min(0.6, D.glow * 0.65) * alpha * breath;
         g.strokeStyle = rgba(col, 1);
         g.lineWidth = Math.max(4, rads[0] * 4.5);
         poly(pts); g.stroke();
@@ -454,10 +503,11 @@
         for (var k3 = right.length - 1; k3 >= 0; k3--) g.lineTo(right[k3][0], right[k3][1]);
         g.closePath(); g.fill();
       }
-      // The edges: where the glass is nearly solid and its coloured light runs.
-      g.globalAlpha = Math.min(1, 0.95 * alpha * breath);
-      g.strokeStyle = rgba(mix(col, [255, 255, 255], 0.25), 1);
-      g.lineWidth = Math.max(1, rads[0] * 0.3);
+      // The edges: where the glass is nearly solid and its coloured light runs; Edge glow sets how bright.
+      var edgeK = Math.min(1.6, Math.sqrt(Math.max(0, D.edge)));
+      g.globalAlpha = Math.min(1, 0.95 * edgeK * alpha * breath);
+      g.strokeStyle = rgba(mix(col, [255, 255, 255], Math.min(0.6, 0.25 * edgeK)), 1);
+      g.lineWidth = Math.max(1, rads[0] * 0.3 * (0.7 + 0.3 * edgeK));
       if (dash) g.setLineDash(dash);
       poly(left); g.stroke();
       poly(right); g.stroke();
@@ -506,7 +556,7 @@
       for (var i = 0; i < order.length; i++) {
         var r = order[i];
         var tip = drawTube(r, t);
-        if (tip && r.depth === 1 && r.role === 'branch' && !(r.life && r.life.state === 'ghost') && e < 0.5) {
+        if (tip && r.depth === 1 && r.role === 'branch' && r.kind !== 'self' && !(r.life && r.life.state === 'ghost') && e < 0.5) {
           labels.push({ tip: tip, text: r.waiting ? 'NEEDS YOU · ' + short(r.node.label) : short(r.node.label),
                         warn: r.waiting, alpha: r.life ? Math.max(0.4, r.life.alpha) : 1 });
         }
@@ -582,6 +632,7 @@
     return {
       tree: setTree,
       rules: useRules,
+      settings: settings,
       corner: function (on) { cornerOn = !!on; },
       reserve: function (px) { reserve = Math.max(0, +px || 0); },
       waiting: function () {

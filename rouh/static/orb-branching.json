@@ -88,7 +88,7 @@
     "seedRadius": 0.12
   },
   "defaults": {
-    "nerve": true,
+    "nerve": false,
     "glow": 0.23,
     "coreGlow": 80,
     "thickness": 1,

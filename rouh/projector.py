@@ -161,8 +161,28 @@ def feed(user_id: str) -> dict:
     # The work running now, for the orb the wall rests on (`projector-orb.js`). Outside the version, which
     # says only whether the card or the words changed: the orb moves all the time and is drawn on its own.
     out["tree"] = work_tree()
+    # The person's own glass-orb settings, from the orb's cog on their screen, so the wall's orb draws with them
+    # (task 200, 200-05). None when they never saved any: the wall uses the design's.
+    out["orb3d"] = orb_settings(user_id)
     out["now"] = time.time()
     return out
+
+
+def orb_settings(user_id: str) -> dict | None:
+    """This person's glass-orb settings as saved from the orb's cog (`settings.ORB3D`), or None."""
+    from types import SimpleNamespace
+
+    from . import runtime, settings
+    from .models import User
+
+    try:
+        org_id = User.objects.filter(pk=user_id).values_list("org_id", flat=True).first()
+        if org_id is None:
+            return None
+        return runtime.user_settings.get(SimpleNamespace(user_id=user_id, org_id=org_id), settings.ORB3D)
+    except Exception:  # noqa: BLE001 - the orb drawn with the design's settings beats a blank wall
+        log.warning("the orb settings for the projector could not be read", exc_info=True)
+        return None
 
 
 #: The most nodes of the work tree the wall is sent: a Raspberry Pi 3 draws them thirty times a second.

@@ -48,6 +48,11 @@ import time
 #: table of its own, so the next thing the person tunes is one string and no
 #: migration.
 ORB = "orb"
+#: The glass orb's own settings, behind the cog of the open orb (`app/orb3d.js`): glow, core glow, edge glow,
+#: reflections, light, thickness, the nerve as 0 or 1, growth speed and the fade. Kept here since 27 November 2026
+#: so the projector's wall draws with them too (task 200, step 200-05: "Whatever I see on the settings should be
+#: valid for the projector too"); before that they were only this browser's.
+ORB3D = "orb3d"
 
 #: The most numbers one setting may carry, and what a key inside it may be
 #: called. The orb has seventeen; the ceiling is here so that nothing a browser
