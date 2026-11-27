@@ -140,6 +140,31 @@ def _chain(job_id: str) -> list[str]:
     return out
 
 
+#: What a run a Clockwork item's turn started is marked made by (`timekeeper`, `task_origin`).
+CLOCKWORK_MADE = "process:clockwork"
+
+
+def _his_own_clockwork(chain: list[str]) -> bool:
+    """Whether every process mark on these runs is Clockwork's, and every run so marked keeps the
+    owner's own words stored with the item that started it (`his_word.SCHEDULED`, not carried
+    from another run). Those words are only ever his: what he said in a turn of his own in his
+    own chat, or typed on the Clockwork page (`reminders.asked_of`). A trusted contact's item
+    keeps none (`timekeeper`, `Handling(asked=[])`), and neither does one a job, a goal or a
+    process made, so their runs stay a process's. Sync: it reads the database."""
+    from . import his_word
+    from .models import Run, RunWords
+
+    marked = dict(Run.objects.filter(id__in=chain).exclude(made_by="")
+                  .values_list("id", "made_by"))
+    if not marked or set(marked.values()) != {CLOCKWORK_MADE}:
+        return False
+    for run in marked:
+        if not RunWords.objects.filter(run_id=run, how=his_word.SCHEDULED, from_run="") \
+                .exclude(words="").exists():
+            return False
+    return True
+
+
 def _title(job_id: str) -> str:
     from .models import Crewmate, Run
 
@@ -206,6 +231,12 @@ def scope_of(job_id: str):
             beat.work_id, beat.id), ""
     made_by = set(Run.objects.filter(id__in=chain).exclude(made_by="")
                   .values_list("made_by", flat=True))
+    if made_by and _his_own_clockwork(chain):
+        # Started by a Clockwork item of the owner's own, on his own words stored with it: his
+        # own run, for the key proxy and the tripwire as for everything else (Petar, 27 November
+        # 2026). A contact's item, or one with no words of his, stays a process's below.
+        return Scope(policy.OWNER, who, job_id, title, (inboxes.ROUH, inboxes.PERSON),
+                     frozenset(), "", chain, _quest_of(who, chain)), ""
     if made_by:
         return Scope(policy.PROCESS, who, job_id, title, (inboxes.ROUH,), frozenset(), (
             "This job was started by one of Rouh's own processes ("

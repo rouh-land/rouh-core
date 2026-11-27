@@ -641,3 +641,133 @@ def another_runs_token() -> None:
         run_access.verify = real
     expect(not got.get("ok") and "not this job's own" in str(got.get("text")),
            f"a call with another run's token was not refused: {got}")
+
+
+@check("unrestricted", "the owner's own Clockwork item's run is his, and nobody else's is",
+       "a run a Clockwork item started on the owner's own words stored with it, and a run it started "
+       "in turn, are the owner's and free while Unrestricted; one with no words of his stored, one "
+       "with only words carried from another run, one a trusted contact's mail started and one "
+       "another process also marked stay strangers, and the key proxy still trips on them at the "
+       "owner's server (Petar, 27 November 2026)", needs_db=True)
+def his_clockwork_is_his() -> None:
+    import hashlib
+
+    from rouh import job_gateway, job_policy as policy, run_access
+    from rouh.models import MailAsk, MailCase, Run, RunWords
+
+    who = _owner()
+    _set_mode(who, "unrestricted")
+    whose = {"user_id": str(who.user_id), "org_id": str(who.org_id or "")}
+    words = "Every evening at seven, check rouh-check.example's release and publish it"
+
+    def stored(run, from_run=""):
+        RunWords.objects.get_or_create(run_id=run, words=words, defaults={
+            **whose, "how": "scheduled", "from_run": from_run, "at": time.time()})
+
+    _run("check-cw-his", who, made_by="process:clockwork", words="")
+    stored("check-cw-his")
+    _run("check-cw-child", who, words="")
+    Run.objects.filter(id="check-cw-child").update(parent_run_id="check-cw-his")
+    _run("check-cw-nowords", who, made_by="process:clockwork", words="")
+    _run("check-cw-carried", who, made_by="process:clockwork", words="")
+    stored("check-cw-carried", from_run="check-elsewhere")
+    _run("check-cw-mixed", who, made_by="process:clockwork", words="")
+    stored("check-cw-mixed")
+    _run("check-cw-mixedtop", who, made_by="process:heartbeat", words="")
+    Run.objects.filter(id="check-cw-mixed").update(parent_run_id="check-cw-mixedtop")
+    _run("check-cw-mail", who, made_by="process:clockwork", words="")
+    stored("check-cw-mail")
+    case, _ = MailCase.objects.get_or_create(key="rouh-check-cw", defaults={
+        **whose, "message_id": "<cw@rouh-check.example>", "thread_id": "cw-thread",
+        "sender": "someone@outside.example", "sender_name": "Someone"})
+    MailAsk.objects.get_or_create(case=case, ident="cw", defaults={
+        **whose, "work": [{"kind": "job", "ref": "check-cw-mail"}]})
+
+    kinds = {r: (job_gateway.scope_of(r)[0].kind if job_gateway.scope_of(r)[0] else None)
+             for r in ("check-cw-his", "check-cw-child", "check-cw-nowords", "check-cw-carried",
+                       "check-cw-mixed", "check-cw-mail")}
+    expect(kinds["check-cw-his"] == policy.OWNER and kinds["check-cw-child"] == policy.OWNER,
+           f"the owner's own Clockwork item's runs are not his: {kinds}")
+    for r in ("check-cw-nowords", "check-cw-carried", "check-cw-mixed"):
+        expect(kinds[r] == policy.PROCESS, f"{r} was taken for the owner's own: {kinds}")
+    expect(kinds["check-cw-mail"] == policy.CONTACT, f"a contact's Clockwork run is not a contact's: {kinds}")
+    doors = [{"run": r, "who": "run", "hash": hashlib.sha256(r.encode()).hexdigest()}
+             for r in kinds]
+    by_run = {e["run"]: e for e in asyncio.run(run_access.entries(doors)).values()}
+    expect(by_run["check-cw-his"]["free"] and by_run["check-cw-child"]["free"],
+           f"the owner's own Clockwork runs are not free while Unrestricted: {by_run}")
+    for r in ("check-cw-nowords", "check-cw-carried", "check-cw-mixed", "check-cw-mail"):
+        expect(not by_run[r]["free"], f"{r} was made free: {by_run[r]}")
+
+
+@check("unrestricted", "a trip already handled does not trip again after a restart",
+       "the core reads back what it had handled from the runs file after a restart, so the key "
+       "proxy's old trip leaves Unrestricted on, while a new trip, one made while the core was down, "
+       "and a new attempt at the program's control still switch it to Restricted", needs_db=True)
+def handled_trip_stays_handled() -> None:
+    import json
+    import os
+    import tempfile
+
+    from rouh import run_access, unrestricted
+
+    who = _owner()
+    keys = tempfile.mkdtemp(prefix="rouh-check-trips-")
+    saved = {k: os.environ.get(k) for k in ("ROUH_KEYS_DIR", "ROUH_CANARY_DIR")}
+    os.environ.update(ROUH_KEYS_DIR=keys, ROUH_CANARY_DIR=keys)
+    state = dict(run_access._state)
+    proxy = run_access._proxy_trips
+    trips: list[dict] = []
+    run_access._proxy_trips = lambda: list(trips)
+
+    def restart():
+        run_access._state.update(ack=0.0, seen_trip=0.0, seen_attempt=0.0, canary="",
+                                 remembered=False, last={})
+
+    try:
+        old = time.time() - 3600
+        trips.append({"at": old, "what": "a run that is not the owner's tried check-host's login",
+                      "run": "check-stranger", "kind": "process", "target": "192.0.2.10:22"})
+        # The first time it is seen it trips, and is written down as handled.
+        _set_mode(who, "unrestricted")
+        restart()
+        asyncio.run(run_access.sync_once())
+        expect(not unrestricted.current(who).unrestricted, "a stranger's trip did not switch to Restricted")
+        with open(os.path.join(keys, run_access.RUNS_FILE)) as fh:
+            expect(float(json.load(fh)["ack"]) >= old, "the trip was not written down as handled")
+        # The owner switches back on; the core restarts three times; the old trip stays handled.
+        _set_mode(who, "unrestricted")
+        for _ in range(3):
+            restart()
+            asyncio.run(run_access.sync_once())
+            expect(unrestricted.current(who).unrestricted,
+                   "the old, handled trip switched Unrestricted off again after a restart")
+        # A trip made while the core was down still trips once it is back.
+        trips.append({"at": time.time(), "what": "a planted credential was used", "run": "",
+                      "kind": "unknown", "target": ""})
+        restart()
+        asyncio.run(run_access.sync_once())
+        expect(not unrestricted.current(who).unrestricted, "a new trip after a restart did not trip")
+        _set_mode(who, "unrestricted")
+        restart()
+        asyncio.run(run_access.sync_once())
+        expect(unrestricted.current(who).unrestricted, "the second trip, once handled, tripped again")
+        # The program's own attempts are remembered the same way.
+        with open(os.path.join(keys, run_access.RUNS_FILE)) as fh:
+            data = json.load(fh)
+        data["seen_attempt"] = 1234.5
+        with open(os.path.join(keys, run_access.RUNS_FILE), "w") as fh:
+            json.dump(data, fh)
+        restart()
+        run_access._remember_handled()
+        expect(run_access._state["seen_attempt"] == 1234.5,
+               "the program's attempts already handled are not read back after a restart")
+    finally:
+        run_access._proxy_trips = proxy
+        run_access._state.clear()
+        run_access._state.update(state)
+        for k, v in saved.items():
+            if v is None:
+                os.environ.pop(k, None)
+            else:
+                os.environ[k] = v

@@ -41,7 +41,12 @@ nothing else's.
 - the run door saw a run try the program's own control (a device's token from a file).
 
 A trip only ever goes to Restricted, and is written as a flip "by the tripwire" with the reason.
-It never turns anything on.
+It never turns anything on. A trip is handled once: what was handled is kept in the runs file and
+read back after a restart (`_remember_handled`), so the proxy's old trip never fires again.
+
+A run a Clockwork item started is the owner's own when the item keeps his own words, from his own
+chat or the Clockwork page (`job_gateway._his_own_clockwork`); a contact's item, or one a job or a
+process made with no words of his, stays a process's, and trips like any stranger.
 """
 from __future__ import annotations
 
@@ -427,7 +432,33 @@ async def verify(job: str, token: str) -> str:
 # --- the runs file ----------------------------------------------------------------------------
 
 _state = {"ack": 0.0, "seen_trip": 0.0, "seen_attempt": 0.0, "canary": "", "task": None,
-          "last": {}}
+          "last": {}, "remembered": False}
+
+
+def _remember_handled() -> None:
+    """What the last writer of the runs file had already handled, read back once after a start.
+
+    The key proxy keeps every trip since it started, and the one program every run door attempt
+    since it started, while the core is restarted on every deploy. Until 27 November 2026 the core
+    held what it had seen only in memory, so after each restart it took the same old trip for a
+    new one and switched the owner back to Restricted: 19 times for one blocked ssh of 26 November,
+    three of them within an hour of Petar switching Unrestricted on again. The runs file in the
+    keys volume, which only the core writes, already carries `ack` (the newest trip handled) for
+    the proxy; it now carries `seen_attempt` too, and both are read back here. A trip or an attempt
+    newer than them, including one made while the core was down, still trips."""
+    if _state["remembered"]:
+        return
+    _state["remembered"] = True
+    try:
+        with open(os.path.join(_keys_dir(), RUNS_FILE), encoding="utf-8") as fh:
+            data = json.load(fh)
+        ack = float(data.get("ack") or 0)
+        seen_attempt = float(data.get("seen_attempt") or 0)
+    except (OSError, ValueError, TypeError, AttributeError):
+        return
+    _state["ack"] = max(_state["ack"], ack)
+    _state["seen_trip"] = max(_state["seen_trip"], ack)
+    _state["seen_attempt"] = max(_state["seen_attempt"], seen_attempt)
 
 
 def _canary() -> str:
@@ -506,11 +537,13 @@ async def entries(doors: list[dict]) -> dict:
     return out
 
 
-def write_runs(runs: dict, *, ack: float, canaries: list[str], now: float | None = None) -> str:
-    """keyproxy_runs.json, whole or not at all, readable by the key proxy's group only."""
+def write_runs(runs: dict, *, ack: float, canaries: list[str], now: float | None = None,
+               seen_attempt: float = 0.0) -> str:
+    """keyproxy_runs.json, whole or not at all, readable by the key proxy's group only. `ack` and
+    `seen_attempt` are also what the core reads back after a restart (`_remember_handled`)."""
     moment = time.time() if now is None else now
     data = {"format": 1, "written": moment, "until": moment + TTL, "ack": ack,
-            "canaries": canaries, "runs": runs}
+            "seen_attempt": seen_attempt, "canaries": canaries, "runs": runs}
     path = os.path.join(_keys_dir(), RUNS_FILE)
     tmp = f"{path}.{os.getpid()}.new"
     with open(tmp, "w", encoding="utf-8") as fh:
@@ -530,6 +563,7 @@ async def sync_once() -> dict:
 
     said = {"runs": 0, "free": 0, "trips": 0}
     try:
+        _remember_handled()
         client = OneClient()
         doors = []
         attempts = []
@@ -569,7 +603,8 @@ async def sync_once() -> dict:
             runs = await entries(doors)
         canary = _canary()
         await asyncio.to_thread(write_runs, runs, ack=_state["ack"],
-                                canaries=[_hash(canary)] if canary else [])
+                                canaries=[_hash(canary)] if canary else [],
+                                seen_attempt=_state["seen_attempt"])
         said["runs"] = len(runs)
         said["free"] = sum(1 for e in runs.values() if e.get("free"))
         _state["last"] = {"at": time.time(), **said}
