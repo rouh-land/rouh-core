@@ -2,8 +2,9 @@
  * person's projector, read from a sofa and never touched.
  *
  * It rests on the orb (projector-orb.js): the work running now, full screen. Something new to show - a card
- * the Robot chat drew, or what was heard and Rouh's answer - comes up over the orb, stays as long as it takes
- * to read (`readFor`), longer while Rouh is still answering, and fades back to the orb by itself. What was
+ * the Robot chat drew, or what was heard and Rouh's answer - comes up while the orb moves to the corner,
+ * stays about 30 seconds or as long as it takes to read (`readFor`), longer while Rouh is still answering,
+ * and goes, the orb coming back. A job waiting for the person shows its question in big words (`drawNeeds`). What was
  * already there when the page opened is not shown again: the wall starts on the orb.
  *
  * Every two seconds it asks /api/projector/feed for the newest card, what was heard and Rouh's answer,
@@ -25,7 +26,9 @@
   var HOLD = 4000;           // ms a long card stays still at its top and at its bottom
   var FRESH_EVERY = 6 * 3600 * 1000; // the page loads itself again, so a week on the wall stays light
   var READ_WPM = 170;        // how fast the wall assumes words are read from across a room
-  var READ_LEAST = 10000, READ_MOST = 120000, READ_PICTURE = 8000, READ_SETTLE = 5000;
+  // Up for about 30 seconds, longer for more to read (Petar, 27 November 2026: the orb "grows back when the
+  // card fades after about 30 s").
+  var READ_LEAST = 30000, READ_MOST = 120000, READ_PICTURE = 8000, READ_SETTLE = 5000;
   var AFTER_ANSWER = 4000;   // ms an answer still being written keeps the wall up after its last word
 
   var DEMO = window.PROJECTOR_DEMO || null;
@@ -47,12 +50,12 @@
   var $ = function (id) { return document.getElementById(id); };
   var stage = $('stage'), clock = $('clock'), statusEl = $('status');
   var heardEl = $('heard'), saidEl = $('said'), unpaired = $('unpaired'), wall = $('wall');
-  var themeAsked = /(?:[?&])theme=(light|dark)/.exec(location.search || '');
-  if (themeAsked) document.documentElement.setAttribute('data-theme', themeAsked[1]);
+  // Always dark: on a projector black is no light at all, and the orb floats on the wall (Petar, 27 November).
+  document.documentElement.setAttribute('data-theme', 'dark');
 
   var shown = { version: null, card: null, heard: null, said: null, first: true };
   var upUntil = 0, downTimer = 0, cycleMs = 0, cardWords = 0, cardPictures = 0;
-  var orb = window.ProjectorOrb ? window.ProjectorOrb.start($('orb')) : null;
+  var orb = window.ProjectorOrb ? window.ProjectorOrb.start($('orb'), { rules: $('orb').getAttribute('data-rules') }) : null;
   window.projectorOrb = orb;
   var lostSince = null;
   var began = Date.now();
@@ -67,7 +70,8 @@
     if (text != null) e.textContent = String(text);
     return e;
   }
-  function hhmm(d) { return d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }); }
+  // The 24-hour clock, as the household reads it.
+  function hhmm(d) { return d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', hour12: false }); }
 
   // --- words: the little markdown a card's text or an answer may carry, drawn plain and safe -----------
   function inline(parent, text) {
@@ -410,6 +414,26 @@
     saidEl.hidden = !saidEl.childNodes.length;
   }
 
+  // --- a job waiting for the person: its question, in big words, low on the wall -------------------------
+  var needsEl = $('needs');
+  function drawNeeds(tree) {
+    var found = [];
+    ((tree && tree.children) || []).forEach(function (j) {
+      if (j && j.state === 'waiting') found.push(j);
+    });
+    needsEl.textContent = '';
+    if (!found.length) { needsEl.hidden = true; if (orb) orb.reserve(0); return; }
+    var j = found[0];
+    var head = el('div', 'head');
+    head.appendChild(el('span', 'mark'));
+    head.appendChild(el('span', null, 'NEEDS YOU · ' + (window.ProjectorOrb ? window.ProjectorOrb.short(j.label) : j.label)));
+    needsEl.appendChild(head);
+    if (j.asking) needsEl.appendChild(el('p', 'ask', plain(j.asking)));
+    if (found.length > 1) needsEl.appendChild(el('p', 'more', 'And ' + (found.length - 1) + ' more waiting'));
+    needsEl.hidden = false;
+    if (orb) orb.reserve(needsEl.offsetHeight + 24);
+  }
+
   // --- up over the orb, and back down to it ---------------------------------------------------------
   function wordsIn(text) { return (String(text || '').match(/\S+/g) || []).length; }
   // How long something stays up: its words at a slow reading pace, a little more for each picture, and at
@@ -419,13 +443,13 @@
     if (cycleMs) ms = Math.max(ms, cycleMs + READ_SETTLE);
     return Math.max(READ_LEAST, Math.min(READ_MOST, ms));
   }
-  // Coming up, the orb darkens itself first (on its own canvas, smoothly even on a Pi 3), then the words
-  // and the card come in with a short fade; going down, they go with a short fade and the orb brightens
-  // again. A long fade of a whole-screen layer is what a Pi 3 without its graphics chip draws worst.
+  // Coming up, the orb glides into the corner first (on its own canvas, smoothly even on a Pi 3), then the
+  // words and the card come in with a short fade; going down, they go with a short fade and the orb comes
+  // back to the middle. A long fade of a whole-screen layer is what a Pi 3 without its graphics chip draws worst.
   var upTimer = 0;
   function up(ms) {
     upUntil = Math.max(upUntil, Date.now() + ms);
-    if (orb) orb.dim(true);
+    if (orb) orb.corner(true);
     if (!document.body.classList.contains('up') && !upTimer) {
       upTimer = setTimeout(function () { upTimer = 0; document.body.classList.add('up'); }, orb ? 350 : 0);
     }
@@ -437,7 +461,7 @@
     if (left > 0) { downTimer = setTimeout(maybeDown, left); return; }
     clearTimeout(upTimer); upTimer = 0;
     document.body.classList.remove('up');
-    if (orb) orb.dim(false);
+    if (orb) orb.corner(false);
     // Once it has faded, the long card stops moving: nothing is drawn that nobody can see.
     downTimer = setTimeout(function () { if (!document.body.classList.contains('up')) stopMoving(); }, 1500);
   }
@@ -447,6 +471,7 @@
     document.body.classList.remove('unpaired-on');
     wall.hidden = false;
     if (orb && d.tree) orb.tree(d.tree, d.now);
+    drawNeeds(d.tree);
     if (d.version && d.version === shown.version) return;
     shown.version = d.version || null;
     var first = shown.first;

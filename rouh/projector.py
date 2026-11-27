@@ -9,10 +9,11 @@ a room, and signed in safely for one device without Petar typing a password on t
 So three things, and this module is the middle of all of them:
 
 * **The wall, `/projector`** (`rouh/templates/rouh/projector.html`, `projector.js`). It rests on the orb,
-  full screen: the live picture of the work running now (`projector-orb.js`, a light flat drawing of the
-  glass orb on Rouh's own page, since a Raspberry Pi 3 has no WebGL 2). A new card the Robot chat draws,
-  or a new answer, comes up over it, with what was heard and said, stays long enough to be read, and
-  fades back to the orb by itself (Petar, 27 November 2026: "not seeing the desktop, seeing something
+  full screen, on black: the live picture of the work running now (`projector-orb.js`: the shapes, growth,
+  fading and colours of the glass orb on Rouh's own page, ported to a 2D canvas, since a Raspberry Pi 3 has
+  no WebGL 2), with each job's short name at its tip. A new card the Robot chat draws, or a new answer,
+  comes up while the orb moves to the corner, stays about 30 seconds or as long as it takes to read, and
+  goes, the orb coming back; a job waiting for the person shows its question in big words (Petar, 27 November 2026: "not seeing the desktop, seeing something
   maybe orb tenticles by default unless I need to see a specific thing on screen"). It asks `feed` every
   two seconds; nothing on it can be pressed.
 * **Its key.** The Pi signs in with a device key of the kind `display` (`rouh/devices.py`), made for that one
@@ -169,14 +170,19 @@ TREE_NODES = 400
 
 
 def _trimmed(node: dict, budget: list[int], depth: int = 0) -> dict | None:
-    """One node of the work tree as the wall's orb needs it: what it is, its state and when, nothing else."""
+    """One node of the work tree as the wall's orb needs it: what it is, its state and when, and a waiting
+    job's question."""
     if budget[0] <= 0 or not isinstance(node, dict):
         return None
     budget[0] -= 1
-    out = {k: node[k] for k in ("id", "kind", "state", "opened_at", "closed_at") if node.get(k) is not None}
+    out = {k: node[k] for k in ("id", "kind", "state", "opened_at", "closed_at", "ms") if node.get(k) is not None}
     label = node.get("label")
     if isinstance(label, str) and label:
         out["label"] = label[:80]
+    # A job waiting for the person: its question, which the wall shows in big words.
+    asking = node.get("asking")
+    if isinstance(asking, str) and asking and node.get("state") == "waiting":
+        out["asking"] = asking[:400]
     kids = []
     if depth < 8:
         for kid in node.get("children") or []:

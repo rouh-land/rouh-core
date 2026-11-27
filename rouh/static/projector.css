@@ -1,10 +1,11 @@
 /* The projector's wall (`rouh/projector.py`, projector.js): the Robot chat full screen, read from a sofa.
    Everything is sized in --u, a hundredth of a 16:9 frame's width, so a 720p and a 1080p projector show
-   the same wall. Dark first: a projector draws black as no light at all. */
+   the same wall. Always dark, on pure black: a projector draws black as no light at all, and the orb floats
+   on the wall (Petar, 27 November 2026: "can we make it dark mode and with bigger letters?"). */
 :root {
   color-scheme: dark;
-  --ground: #05070a;
-  --stage: #0d1117;
+  --ground: #000;
+  --stage: #0b0f14;
   --line: #1f2731;
   --ink: #eef2f7;
   --dim: #a3aebb;
@@ -12,21 +13,11 @@
   --accent: #5ec2ff;
   --accent-ink: #04121c;
   --warn: #f2b45e;
+  --needs: #ff3655;      /* the orb's own red for work waiting on the person */
+  --needs-ink: #ff5c74;
   --u: min(1vw, 1.7778vh);
   --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "DejaVu Sans", Helvetica, Arial, sans-serif;
   --mono: ui-monospace, SFMono-Regular, Menlo, "DejaVu Sans Mono", Consolas, monospace;
-}
-@media (prefers-color-scheme: light) {
-  :root:not([data-theme="dark"]) {
-    color-scheme: light;
-    --ground: #eef1f5; --stage: #ffffff; --line: #d3dae3; --ink: #0c1117; --dim: #46515f; --faint: #5d6876;
-    --accent: #0a6aa8; --accent-ink: #ffffff; --warn: #8a5300;
-  }
-}
-:root[data-theme="light"] {
-  color-scheme: light;
-  --ground: #eef1f5; --stage: #ffffff; --line: #d3dae3; --ink: #0c1117; --dim: #46515f; --faint: #5d6876;
-  --accent: #0a6aa8; --accent-ink: #ffffff; --warn: #8a5300;
 }
 :root[data-theme="dark"] { color-scheme: dark; }
 
@@ -70,7 +61,6 @@ body:not(.up) .wall > * { opacity: 0; visibility: hidden; transition: opacity .2
 /* Not live is said even over the orb: the reconnecting line alone, top right. */
 body:not(.up) .wall.lost > .top { opacity: 1; visibility: visible; }
 body:not(.up) .wall.lost > .top .who, body:not(.up) .wall.lost > .top .clock { display: none; }
-body:not(.up) .wall.lost > .top { font-size: calc(2.2 * var(--u)); }
 /* An answer with no new card: the words alone, large, low on the wall, the orb dim above them. */
 .wall:not(.with-card) .stage { visibility: hidden !important; }
 .wall:not(.with-card) .caption { max-height: none; align-self: end; grid-row: 2 / 4; }
@@ -198,3 +188,48 @@ body:not(.up) .wall.lost > .top { font-size: calc(2.2 * var(--u)); }
 .stage.moving::after { bottom: 0; height: calc(4 * var(--u)); background: linear-gradient(transparent, var(--stage)); }
 /* Not live: the dot beside the chat's name goes hollow and amber too, so one glance from the sofa tells. */
 .wall.lost .top .dot { background: transparent; border: 2px solid var(--warn); }
+
+/* Bigger letters, for a room (Petar, 27 November 2026). */
+.top { font-size: calc(2.2 * var(--u)); }
+.card { font-size: calc(3 * var(--u) * var(--s)); }
+.card h1 { font-size: calc(4.8 * var(--u) * var(--s)); }
+.card .desc { font-size: calc(2.6 * var(--u) * var(--s)); }
+.card .label { font-size: calc(2.2 * var(--u) * var(--s)); }
+.b-table { font-size: calc(2.8 * var(--u) * var(--s)); }
+.b-table th { font-size: calc(2.2 * var(--u) * var(--s)); }
+.b-code { font-size: calc(2.2 * var(--u) * var(--s)); }
+.b-image figcaption, .b-email .meta, .b-sources { font-size: calc(2.2 * var(--u) * var(--s)); }
+.caption { max-height: calc(22 * var(--u)); }
+.heard { font-size: calc(2.6 * var(--u)); }
+.said { font-size: calc(3.6 * var(--u)); }
+.said .words { max-height: calc(3.6 * var(--u) * 1.3 * 3); }
+.wall:not(.with-card) .said { font-size: calc(5 * var(--u)); }
+.wall:not(.with-card) .said .words { max-height: calc(5 * var(--u) * 1.3 * 6); }
+.wall:not(.with-card) .heard { font-size: calc(3 * var(--u)); }
+
+/* While something is up, the orb sits in the bottom right corner. On a wide screen the words beside it keep
+   clear of it; on a tall one (a phone, Preview) everything stays above it. */
+body.up .caption { margin-right: 28vh; }
+body.up .wall:has(.caption > [hidden] + [hidden]) { padding-bottom: 28vh; }
+@media (max-aspect-ratio: 1/1) {
+  body.up .caption { margin-right: 0; }
+  body.up .wall { padding-bottom: 42vw; }
+}
+/* With a card up, the card is what is read: the words under it stay smaller. */
+.wall.with-card .said { font-size: calc(3 * var(--u)); }
+.wall.with-card .said .words { max-height: calc(3 * var(--u) * 1.3 * 2); }
+.wall.with-card .heard { font-size: calc(2.2 * var(--u)); }
+body:not(.up) .wall.lost > .top { font-size: calc(2.8 * var(--u)); }
+
+/* A job waiting for the person: red, its name and its question in big words, low on the wall. */
+.needs {
+  position: absolute; left: calc(4 * var(--u)); right: calc(4 * var(--u)); bottom: calc(3 * var(--u)); z-index: 1; pointer-events: none;
+  display: grid; gap: calc(1 * var(--u)); padding: calc(2 * var(--u)) calc(2.6 * var(--u));
+  background: rgba(0, 0, 0, .82); border: 2px solid var(--needs); border-radius: calc(1.2 * var(--u));
+}
+body.up .needs, body.unpaired-on .needs { display: none; }
+.needs .head { display: flex; align-items: center; gap: calc(1.2 * var(--u)); color: var(--needs-ink); font-weight: 700; font-size: calc(3 * var(--u)); letter-spacing: .02em; }
+.needs .mark { width: calc(1.6 * var(--u)); height: calc(1.6 * var(--u)); background: var(--needs); flex: none; }
+.needs .ask { margin: 0; font-size: calc(3.6 * var(--u)); line-height: 1.25; color: var(--ink); text-wrap: pretty;
+  display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+.needs .more { margin: 0; font-size: calc(2.2 * var(--u)); color: var(--dim); }

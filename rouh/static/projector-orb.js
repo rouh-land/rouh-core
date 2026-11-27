@@ -1,397 +1,561 @@
-/* The orb the projector's wall rests on (`rouh/projector.py`, projector.js): the work running now, drawn light.
+/* The orb on the projector's wall (`rouh/projector.py`, projector.js): Rouh's own orb, in the shapes and the
+ * colours of the one on Rouh's page, drawn by what a Raspberry Pi 3 can draw.
  *
- * Rouh's own page draws the orb as glass tubes in three.js (app/orb3d.js). A Raspberry Pi 3 has no WebGL 2,
- * which three.js needs, and its four small cores cannot draw that glass smoothly anyway, so the wall draws
- * the same tree flat, on one 2D canvas, in the same colours (rouh/static/orb-branching.json's palette):
+ * Petar, 27 November 2026: "can we make the tentacles the same shape as the normal 3d orb? basically get the
+ * same look + the names you have added". The orb on Rouh's page (app/orb3d.js) is three.js glass, which needs
+ * WebGL 2. Measured on the Pi 3 that day: its VC4 chip gives WebGL 1 only, and Chromium's software WebGL 2
+ * (SwiftShader) spent four minutes compiling without drawing a first frame. So this draws the very same tree
+ * on one 2D canvas, from the same code paths, ported line for line:
  *
- *   the machine   a white core with a halo, breathing, and three thin rings turning round it
- *   a job         a turquoise branch out of the core: a soft wide stroke for the glass and a bright thin
- *                 nerve down its middle, tapering to its tip, its name beside the tip
- *   a helper      a thinner branch off its job
- *   a tool call   a short coloured twig off the line that made it; its colour is its kind
- *   running       a ring breathing at the tip
- *   waiting       red and dashed, a square at its tip, the words NEEDS YOU
- *   finished      fades to a faint trace, holds ten seconds, and is gone
+ *   the same      branching rules (rouh/static/orb-branching.json, read from Rouh), the same seeded numbers
+ *                 from each job's id (so a job has the shape here it has on Rouh's page), the same paths
+ *                 (bend, wander, wobble, taper), forks, twig lengths by how long a call ran, growth (the tip
+ *                 travels out in a second, then the branch thickens), fading (30 s down to half with brief
+ *                 flashes, 3 minutes held, 3 minutes as a grey trace), palette, camera (38 degree view,
+ *                 framed on what is drawn), and the slow turn of the whole tree.
+ *   drawn as      the glass's look: a faint body, bright coloured edges (the glass is nearly see-through in
+ *                 the middle and nearly solid at its edges), a white-hot nerve down the middle, and a soft
+ *                 glow round each branch; the white core with its halo, red while anything waits.
+ *   left out      what needs a 3D renderer: the studio reflections and clear coat, the lighting of the
+ *                 tube's surface, and the bloom pass (a glow drawn round each line stands in for it).
+ *   added         each job's short name at its tip, large, for a room (`short`); NEEDS YOU at a waiting one.
  *
- * The tree turns slowly about one upright axis. It is drawn at most 30 times a second, 10 while a card is
- * over it; when it cannot keep up it draws less often, so it slows down evenly instead of stuttering.
- * `ProjectorOrb.stats()` says how it is doing. On the Pi, Chromium runs with --disable-gpu: measured on
- * 27 November 2026, its VC4 chip drew this canvas at 11 frames a second, its CPU alone at 30.
+ * While a card is up over it, the orb moves to the corner and draws a third as often; it comes back when the
+ * card goes. `ProjectorOrb.stats()` says how fast it draws.
  *
- *   var orb = ProjectorOrb.start(canvas);  orb.tree(feed.tree);  orb.dim(true);
+ *   var orb = ProjectorOrb.start(canvas, { rules: '/a/<hash>/orb-branching.json' });
+ *   orb.tree(feed.tree, feed.now);  orb.corner(true);
  */
 (function () {
   'use strict';
 
-  var PAL = {
-    agent: '#36dce5', search: '#ffd064', page: '#ff994d', code: '#69dfa1', shell: '#aa8aff', edit: '#f875d5',
-    read: '#bac5d8', api: '#729dff', other: '#8993a7', wait: '#ff3655', ghost: '#596170', self: '#cfd9ee'
-  };
-  var KINDS = {
-    search: /^(web_?search|websearch|search_web|google_search|brave_web_search|tavily_search|youtube_search|linkedin_search)/i,
-    page: /^(web_?fetch|fetch|open_url|read_url|read_rouh_link|browser|youtube_transcript|linkedin_profile)/i,
-    code: /(code_execution|^python|^js_repl|^run_code|^execute_code)/i,
-    shell: /^(bash|bashoutput|killshell|run_command|exec_command|shell|local_shell|write_stdin|unified_exec)/i,
-    edit: /^(edit|write|multiedit|notebookedit|apply_patch|edit_page|edit_doc|edit_sheet|edit_slides)/i,
-    read: /^(read|glob|grep|ls|list_|read_workspace|recall|thoughts|list_memory)/i,
-    api: /^(mail_|read_mail|send_|draft_mail|slack_|calendar|list_calendar|create_calendar|drive|search_drive|doc|contact|meeting_|hue|notify_|request_from_rouh|assistant_job|stripe|cloudflare)/i
-  };
-  var FPS = 30, FPS_DIM = 10;
-  var DIM = 0.8;                         // how much of the orb a card over it hides
-  var SPIN = 0.07;                       // radians a second about the upright axis
-  var TILT = 0.38;                       // the axis leans towards the viewer this much
-  var GHOST_IN = 1.5, GHOST_HOLD = 10, GHOST_OUT = 1.8, GHOST_LEVEL = 0.16;
-  var GROW = 1.2;                        // seconds a new line takes to reach its tip
-  var MAX_TWIGS = 12;
+  var FPS = 30, FPS_CORNER = 10;
+  var SEGMENTS = 32;
+  var SPIN = 0.07;                 // radians a second, the group's turn on Rouh's page
+  var PITCH = 0.18;                // the camera a little above the tree
+  var MAX_TWIGS = 24;
 
-  // A number in [0, 1) from an id, a different one for each salt, well mixed: ids such as "run-4" and
-  // "run-5" must not point the same way.
-  function hash(s, salt) {
-    var h = 2166136261;
-    s = String(salt || 0) + ':' + String(s);
-    for (var i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); }
-    h ^= h >>> 16; h = Math.imul(h, 0x85ebca6b); h ^= h >>> 13; h = Math.imul(h, 0xc2b2ae35); h ^= h >>> 16;
-    return (h >>> 0) / 4294967296;
+  // --- vectors ---------------------------------------------------------------------------------------
+  function v(x, y, z) { return [x, y, z]; }
+  function add(a, b, k) { if (k == null) k = 1; return [a[0] + b[0] * k, a[1] + b[1] * k, a[2] + b[2] * k]; }
+  function scale(a, k) { return [a[0] * k, a[1] * k, a[2] * k]; }
+  function len(a) { return Math.hypot(a[0], a[1], a[2]); }
+  function norm(a) { var l = len(a) || 1; return [a[0] / l, a[1] / l, a[2] / l]; }
+  function cross(a, b) { return [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]]; }
+  function dist(a, b) { return Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2]); }
+  function smoothstep(e0, e1, x) { var t = Math.max(0, Math.min(1, (x - e0) / (e1 - e0))); return t * t * (3 - 2 * t); }
+
+  // --- the same seeded numbers as app/orb3d.js -------------------------------------------------------
+  function hashId(s) {
+    var h = 2166136261, i;
+    s = String(s);
+    for (i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); }
+    return h >>> 0;
   }
-  function toolKind(label) {
-    var name = String(label || '').replace(/^mcp__[^_]+(?:_[^_]+)*?__/, '').trim().split(/[\s:(]/)[0];
+  function seeded(id) {
+    var a = hashId(id) || 1;
+    function next() {
+      a |= 0; a = a + 0x6D2B79F5 | 0;
+      var t = Math.imul(a ^ a >>> 15, 1 | a);
+      t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+      return ((t ^ t >>> 14) >>> 0) / 4294967296;
+    }
+    return { next: next, R: function (lo, hi) { return lo + (hi - lo) * next(); } };
+  }
+
+  // The kind of a tool call, by its name: the colour of its twig (app/orb.js's kindOf, its main names).
+  var KINDS = {
+    search: /^(web_?search|websearch|web_search_call|search_web|google_search|brave_web_search|tavily_search|youtube_search|linkedin_search)$/i,
+    page: /^(web_?fetch|fetch|fetch_url|open_url|read_url|read_rouh_link|browser\w*|youtube_transcript|linkedin_profile)$/i,
+    code: /(code_execution$|^python$|^js_repl$|^run_code$|^execute_code$)/i,
+    shell: /^(bash|bashoutput|killshell|run_command|exec_command|shell|local_shell|local_shell_call|write_stdin|unified_exec|container_exec)$/i,
+    edit: /^(edit|write|multiedit|notebookedit|apply_patch|str_replace\w*|edit_page)$/i,
+    read: /^(read|glob|grep|ls|notebookread|view|read_workspace|recall_result|thoughts|list_memory|todowrite|toolsearch)$/i,
+    api: /^(mail_|read_mail|read_recent_mail|draft_mail|send_|forward_|modify_mail|slack_|stripe|cloudflare|payments|shipping|calendar|list_calendar|read_calendar|create_calendar|update_calendar|when_free|upcoming|drive|search_drive|list_drive|doc|read_doc|create_doc|edit_doc|edit_sheet|edit_slides|contact|search_contacts|meeting_|hue|notify_|request_from_rouh|one_|assistant_job|delegate_task)/i
+  };
+  function kindOf(label) {
+    var name = String(label || '').trim().split(/[\s:(]/)[0];
+    var mcp = /^mcp__(.+?)__(.+)$/.exec(name);
+    if (mcp) name = mcp[2];
+    if (/^browser_(evaluate|run_code_unsafe)$/i.test(name)) return 'code';
     for (var k in KINDS) if (KINDS[k].test(name)) return k;
+    if (mcp && mcp[1] !== 'rouh') return 'api';
     return 'other';
   }
-  function rgba(hex, a) {
-    var n = parseInt(hex.slice(1), 16);
-    return 'rgba(' + (n >> 16) + ',' + ((n >> 8) & 255) + ',' + (n & 255) + ',' + a.toFixed(3) + ')';
+
+  // A job's short name for the wall: the part before a colon or a dash, at most four words.
+  function short(label) {
+    var s = String(label || '').replace(/\s+/g, ' ').trim();
+    s = s.split(/\s*(?::|—|–| - |\|)\s*/)[0] || s;
+    s = s.replace(/^(task|step)\s+\d+(-\d+)?\s*/i, '');
+    var words = s.split(' ');
+    if (words.length > 4) s = words.slice(0, 4).join(' ') + '…';
+    return s.length > 28 ? s.slice(0, 27).replace(/\s+\S*$/, '') + '…' : s;
   }
-  function norm(v) { var l = Math.hypot(v[0], v[1], v[2]) || 1; return [v[0] / l, v[1] / l, v[2] / l]; }
-  function cross(a, b) { return [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]]; }
-  function add(a, b, k) { return [a[0] + b[0] * k, a[1] + b[1] * k, a[2] + b[2] * k]; }
+
+  function hexRgb(hex) { var n = parseInt(String(hex).slice(1), 16); return [n >> 16, (n >> 8) & 255, n & 255]; }
+  function rgba(c, a) { return 'rgba(' + c[0] + ',' + c[1] + ',' + c[2] + ',' + Math.max(0, Math.min(1, a)).toFixed(3) + ')'; }
+  function mix(c, d, t) { return [Math.round(c[0] + (d[0] - c[0]) * t), Math.round(c[1] + (d[1] - c[1]) * t), Math.round(c[2] + (d[2] - c[2]) * t)]; }
 
   function start(canvas, opts) {
     opts = opts || {};
     var g = canvas.getContext('2d', { alpha: false });
     var reduced = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    var scene = Object.create(null);      // id -> node
-    var order = [];                       // ids, parents before children
-    var scale = 1, W = 0, H = 0, R = 0, cx = 0, cy = 0;
-    var dimmed = false, dimLevel = 0, lastDraw = 0, frame = 0, stamp = 0;
-    var costs = [], fpsCap = FPS, checkedAt = 0, bad = 0, good = 0;
-    var stats = { drawMs: 0, fps: 0, scale: 1, nodes: 0, frames: 0 };
-    var sprite = null, bg = '#05070a', ink = '#a3aebb';
+    var RULES = null, PAL = {}, D = null;
+    var REC = new Map();
+    var tree = null, skew = 0, stamp = 0, frameNo = 0;
+    var W = 0, H = 0, cornerT = 0, cornerOn = false, reserve = 0, reserveNow = 0;
+    var growth = 0, lastT = 0, spin = 0.6, lastDraw = 0, frame = 0, checkedAt = 0, costs = [];
+    var fpsCap = FPS, bad = 0, good = 0;
+    var stats = { drawMs: 0, fps: 0, records: 0, frames: 0, cap: FPS, rules: false, waiting: 0 };
+    var labelCache = Object.create(null), labelCount = 0;
+    var haloSprite = null, haloKey = '';
     var t0 = performance.now();
 
-    function colours() {
-      var cs = getComputedStyle(document.documentElement);
-      bg = (cs.getPropertyValue('--ground') || '#05070a').trim() || '#05070a';
-      ink = (cs.getPropertyValue('--dim') || '#a3aebb').trim() || '#a3aebb';
-    }
-    function makeSprite() {
-      // The core and its halo, drawn once: a radial gradient is the dearest thing a 2D canvas draws.
-      var s = Math.max(16, Math.round(R * 0.5));
-      var c = document.createElement('canvas');
-      c.width = c.height = s * 2;
-      var x = c.getContext('2d');
-      var gr = x.createRadialGradient(s, s, 0, s, s, s);
-      gr.addColorStop(0, 'rgba(255,255,255,1)');
-      gr.addColorStop(0.07, 'rgba(255,255,255,1)');
-      gr.addColorStop(0.1, 'rgba(225,250,255,0.55)');
-      gr.addColorStop(0.3, 'rgba(120,225,240,0.16)');
-      gr.addColorStop(1, 'rgba(54,220,229,0)');
-      x.fillStyle = gr;
-      x.fillRect(0, 0, s * 2, s * 2);
-      sprite = c;
-    }
     function size() {
-      var w = window.innerWidth, h = window.innerHeight;
-      canvas.width = Math.max(1, Math.round(w * scale));
-      canvas.height = Math.max(1, Math.round(h * scale));
-      W = canvas.width; H = canvas.height;
-      R = Math.min(W * 0.36, H * 0.56);
-      cx = W / 2; cy = H / 2;
-      colours();
-      makeSprite();
+      W = canvas.width = Math.max(1, Math.round(window.innerWidth));
+      H = canvas.height = Math.max(1, Math.round(window.innerHeight));
+      haloKey = '';
     }
 
-    // --- the tree: what the feed sent, as lasting nodes that grow, wait and fade ------------------------
-    function place(n, parent) {
-      var j = hash(n.id, 1), k = hash(n.id, 2), m = hash(n.id, 3);
-      if (n.kind === 'tool') {
-        n.len = 0.13 + 0.09 * j;
-        n.at = 0.35 + 0.6 * k;
-        n.splay = (m - 0.5) * 2;
-        return;
-      }
-      if (!parent || parent.kind === 'root') {
-        // A job: its own direction round the core, flattened front to back so the tree reads wide.
-        var th = j * Math.PI * 2, ph = Math.acos(1 - 2 * (0.15 + 0.7 * k));
-        n.dir = norm([Math.sin(ph) * Math.cos(th), Math.cos(ph) * 0.85, Math.sin(ph) * Math.sin(th) * 0.6]);
-        n.from = [0, 0, 0];
-        n.len = 0.62 + 0.14 * m;
-        n.w = 1;
-      } else {
-        // A helper: forks off its job part of the way out, leaning away from it.
-        var side = norm(cross(parent.dir, [0, 1, 0.3]));
-        var up = norm(cross(side, parent.dir));
-        var a = j * Math.PI * 2;
-        n.fork = 0.52 + 0.3 * k;
-        n.dir = norm(add(add(parent.dir, side, Math.cos(a) * 0.75), up, Math.sin(a) * 0.75));
-        n.len = parent.len * (0.5 + 0.2 * m);
-        n.w = parent.w * 0.62;
-      }
-      var s2 = norm(cross(n.dir, [0.3, 1, 0]));
-      n.bend = add([0, 0, 0], s2, 0.19 * (hash(n.id, 4) - 0.5) * 2);
+    // --- the rules, read from Rouh: the same file the orb on Rouh's page reads ---------------------------
+    function useRules(r) {
+      RULES = r;
+      D = r.defaults;
+      for (var k in r.palette) PAL[k] = hexRgb(r.palette[k]);
+      stats.rules = true;
     }
+    function fetchRules() {
+      if (!opts.rules) return;
+      fetch(opts.rules, { credentials: 'omit' })
+        .then(function (r) { if (!r.ok) throw new Error(r.status); return r.json(); })
+        .then(useRules)
+        .catch(function () { setTimeout(fetchRules, 10000); });
+    }
+    fetchRules();
+
+    // --- shapes: app/orb3d.js's branchPath, tubeGeometry's centre line, jobDirection, makeRecord -------------
+    function branchPath(rng, origin, d, length, radius) {
+      var P = RULES.path, R = rng.R;
+      var Z = v(0, 0, 1), Y = v(0, 1, 0);
+      var side = norm(cross(d, Math.abs(d[2]) < 0.9 ? Z : Y));
+      var up = norm(cross(d, side));
+      var phase = R(0, Math.PI * 2), phase2 = R(0, Math.PI * 2);
+      var bend = add(scale(side, R(-P.bendSide, P.bendSide)), up, R(-P.bendUp, P.bendUp));
+      var pts = [origin.slice()];
+      for (var i = 1; i <= P.samples; i++) {
+        var t = i / P.samples;
+        var wander = scale(add(scale(side, Math.sin(t * P.wanderFreqSide + phase) - Math.sin(phase)), up,
+          Math.sin(t * P.wanderFreqUp + phase2) - Math.sin(phase2)), length * P.wander * t);
+        pts.push(add(add(add(origin, d, length * t), bend, length * t * t), wander));
+      }
+      return { pts: pts, radius: Math.max(radius, P.minRadius),
+               wob: function (u) { return 1 + P.wobble * Math.sin(u * P.wobbleFreq + phase); } };
+    }
+    // The centre line, smoothed through the path's points (centripetal Catmull-Rom, as three.js's
+    // CatmullRomCurve3), then taken at SEGMENTS + 1 even steps along its length.
+    function centreLine(P) {
+      var fine = [], n = P.length;
+      function pt(i) {
+        if (i < 0) return add(P[0], add(P[0], P[1], -1), 1);
+        if (i >= n) return add(P[n - 1], add(P[n - 1], P[n - 2], -1), 1);
+        return P[i];
+      }
+      for (var i = 0; i < n - 1; i++) {
+        var p0 = pt(i - 1), p1 = pt(i), p2 = pt(i + 1), p3 = pt(i + 2);
+        var t01 = Math.pow(dist(p0, p1), 0.5) || 1e-4, t12 = Math.pow(dist(p1, p2), 0.5) || 1e-4, t23 = Math.pow(dist(p2, p3), 0.5) || 1e-4;
+        for (var s = 0; s < 12; s++) {
+          var u = s / 12, c = [];
+          for (var k = 0; k < 3; k++) {
+            var m1 = (p2[k] - p1[k] + t12 * ((p1[k] - p0[k]) / t01 - (p2[k] - p0[k]) / (t01 + t12)));
+            var m2 = (p2[k] - p1[k] + t12 * ((p3[k] - p2[k]) / t23 - (p3[k] - p1[k]) / (t12 + t23)));
+            var a = 2 * p1[k] - 2 * p2[k] + m1 + m2, b = -3 * p1[k] + 3 * p2[k] - 2 * m1 - m2;
+            c.push(a * u * u * u + b * u * u + m1 * u + p1[k]);
+          }
+          fine.push(c);
+        }
+      }
+      fine.push(P[n - 1].slice());
+      var acc = [0];
+      for (var j = 1; j < fine.length; j++) acc.push(acc[j - 1] + dist(fine[j - 1], fine[j]));
+      var total = acc[acc.length - 1] || 1, out = [], at = 0;
+      for (var q = 0; q <= SEGMENTS; q++) {
+        var want = total * q / SEGMENTS;
+        while (at < acc.length - 2 && acc[at + 1] < want) at++;
+        var span = acc[at + 1] - acc[at] || 1, f = Math.max(0, Math.min(1, (want - acc[at]) / span));
+        out.push(add(fine[at], add(fine[at + 1], fine[at], -1), f));
+      }
+      var tans = out.map(function (p, i2) { return norm(add(out[Math.min(SEGMENTS, i2 + 1)], out[Math.max(0, i2 - 1)], -1)); });
+      return { centres: out, tangents: tans, length: total };
+    }
+    function jobDirection(rng) {
+      var A = RULES.agent, best = null, bestScore = -1, taken = [];
+      REC.forEach(function (r) { if (r.depth === 1 && !r.removed) taken.push(r.dir); });
+      for (var c = 0; c < 8; c++) {
+        var z = rng.R(-1, 1), a = rng.R(0, Math.PI * 2), s = Math.sqrt(1 - z * z);
+        var d = norm(v(Math.cos(a) * s, Math.sin(a) * s, z * A.zSquash));
+        var score = 4;
+        for (var i = 0; i < taken.length; i++) score = Math.min(score, dist(d, taken[i]));
+        if (score > bestScore) { bestScore = score; best = d; }
+        if (!taken.length) break;
+      }
+      return best;
+    }
+    function makeRecord(n, parent, tnow) {
+      var A = RULES.agent, Pr = RULES.process, rng = seeded(n.id), role = n.kind === 'tool' ? 'twig' : 'branch';
+      var depth = parent ? parent.depth + 1 : 1, origin, dir, length, radius, fork = 0;
+      if (!parent) {
+        origin = v(0, 0, 0);
+        dir = jobDirection(rng);
+        if (role === 'twig') {
+          length = rng.R(A.length[0], A.length[1]) * rng.R(Pr.length[0], Pr.length[1]) * Pr.longest;
+          radius = Pr.radius;
+        } else {
+          length = rng.R(A.length[0], A.length[1]);
+          radius = A.radius;
+        }
+      } else {
+        var lo = role === 'twig' ? Pr.fork[0] : A.childFork[0], hi = role === 'twig' ? Pr.fork[1] : A.childFork[1];
+        fork = rng.R(lo, hi);
+        var at = Math.round(fork * SEGMENTS);
+        origin = parent.centres[at].slice();
+        var tan = norm(parent.tangents[at]);
+        var side = norm(v(-tan[1], tan[0], rng.R(-0.4, 0.4)));
+        if (role === 'twig') {
+          var sign = rng.next() < 0.5 ? -1 : 1;
+          var angle = sign * (Pr.minAngle + rng.R(0, Pr.spread)) + rng.R(-Pr.spreadJitter, Pr.spreadJitter);
+          dir = norm(add(scale(tan, Math.cos(angle)), side, Math.sin(angle)));
+          length = parent.length * rng.R(Pr.length[0], Pr.length[1]) * Math.pow(Pr.lengthFalloff, depth - 2) * Pr.longest;
+          radius = Math.max(Pr.minRadius, Pr.radius * Math.pow(Pr.radiusFalloff, depth - 2));
+        } else {
+          dir = norm(add(scale(tan, A.childLean), side, (rng.next() < 0.5 ? 1 : -1) * rng.R(A.childSpread[0], A.childSpread[1])));
+          length = parent.length * rng.R(A.childLength[0], A.childLength[1]);
+          radius = Math.min(A.radius * Math.pow(A.radiusFalloff, depth - 1), parent.radius * A.childRadiusOfParent);
+        }
+      }
+      var path = branchPath(rng, origin, dir, length, radius);
+      var line = centreLine(path.pts);
+      var seenLate = n.opened && tnow - n.opened > 2500;
+      var born = seenLate ? growth - 60 : growth;
+      if (parent && !seenLate) born = Math.max(born, parent.born + RULES.growth.tipSeconds * fork);
+      var wob = [];
+      for (var i = 0; i <= SEGMENTS; i++) wob.push(path.wob(i / SEGMENTS));
+      var r = { id: n.id, node: n, role: role, depth: depth, dir: dir,
+                centres: line.centres, tangents: line.tangents, length: length, radius: path.radius, wob: wob,
+                fork: fork, born: born, finished: 0, life: null, seen: 0, removed: false, reveal: -1 };
+      REC.set(n.id, r);
+      return r;
+    }
+
+    // --- a frame's state: app/orb3d.js's lifecycle and updateRecord ------------------------------------------
+    function lifecycle(age) {
+      var c = { end: D.endLevel / 100, seconds: D.fadeSeconds, rate: D.blinkRate, length: D.blinkLength / 1000,
+                hold: D.holdMinutes * 60, ghost: D.ghostSeconds, direction: D.blinkDirection };
+      var level = 1 + (c.end - 1) * Math.min(1, Math.max(0, age) / c.seconds);
+      if (age >= c.seconds + c.hold + c.ghost) return { state: 'removed', alpha: 0 };
+      if (age >= c.seconds + c.hold) return { state: 'ghost', alpha: 0 };
+      if (age >= c.seconds) return { state: 'holding', alpha: c.end };
+      var flashing = !reduced && age >= 1 / c.rate && (age % (1 / c.rate)) < c.length;
+      return { state: 'fading', alpha: flashing ? (c.direction === 'down' ? 0 : 1) : level };
+    }
+    function costOf(n, tnow) {
+      var secs = n.ms != null && n.closed ? n.ms / 1000 : Math.max(0, ((n.closed || tnow) - n.opened) / 1000);
+      return Math.max(0, Math.min(1, Math.log(1 + secs) / Math.log(1 + RULES.process.fullAfterSeconds)));
+    }
+
+    // The feed's tree, as app/orb.js hands it on: nodes with their calls and their helpers, times in ms,
+    // `fade` set from when this page saw a node finish (or go from the tree).
+    var NODES = Object.create(null);
     function setTree(root, serverNow) {
       if (!root || typeof root !== 'object') return;
-      var now = performance.now() / 1000;
-      var skew = serverNow ? serverNow - Date.now() / 1000 : 0;
+      skew = serverNow ? serverNow * 1000 - Date.now() : 0;
       stamp++;
-      order = [];
-      var stack = [[root, null]], guard = 0;
-      while (stack.length && guard++ < 1200) {
-        var top = stack.pop(), raw = top[0], parent = top[1];
-        if (!raw || typeof raw !== 'object') continue;
-        var id = String(raw.id == null ? (parent ? parent.id : '') + '#' + order.length : raw.id);
-        var n = scene[id];
-        if (!n) {
-          var age = raw.opened_at ? Date.now() / 1000 + skew - raw.opened_at : 99;
-          n = scene[id] = { id: id, kind: raw.kind || 'tool', born: now - Math.max(0, Math.min(age, 99)), twig: 0 };
-          if (n.kind !== 'root') place(n, parent);
-          if (n.kind === 'tool') n.ink = PAL[toolKind(raw.label)];
-        }
-        n.parent = parent ? parent.id : null;
-        n.label = String(raw.label || '').replace(/\s+/g, ' ').slice(0, 48);
+      var now = Date.now();
+      function take(raw, parentId) {
+        if (!raw || typeof raw !== 'object' || raw.id == null) return null;
+        var id = String(raw.id), n = NODES[id];
+        if (!n) n = NODES[id] = { id: id, fade: 0 };
+        n.kind = raw.kind === 'tool' ? 'tool' : raw.kind || 'worker';
+        n.label = String(raw.label || '');
         n.state = raw.state || 'running';
+        n.asking = raw.asking || '';
+        n.opened = raw.opened_at ? raw.opened_at * 1000 - skew : (n.opened || now);
+        n.closed = raw.closed_at ? raw.closed_at * 1000 - skew : 0;
+        n.ms = raw.ms;
+        n.parent = parentId;
         n.seen = stamp;
-        if (n.state === 'done' || n.state === 'failed' || n.state === 'lost') { if (!n.ended) n.ended = now; }
-        else n.ended = 0;
-        if (n.kind === 'tool' && raw.opened_at) {
-          var end = raw.closed_at || (Date.now() / 1000 + skew);
-          n.ran = Math.max(0, end - raw.opened_at);
-        }
-        order.push(id);
-        var kids = raw.children || [];
-        for (var i = kids.length - 1; i >= 0; i--) stack.push([kids[i], n]);
+        var done = n.state === 'done' || n.state === 'failed' || n.state === 'lost';
+        if (done && !n.fade) n.fade = now;
+        if (!done) n.fade = 0;
+        n.calls = []; n.subs = [];
+        (raw.children || []).forEach(function (k) {
+          var c = take(k, id);
+          if (c) (c.kind === 'tool' ? n.calls : n.subs).push(c);
+        });
+        return n;
       }
+      var jobs = [];
+      (root.children || []).forEach(function (k) { var j = take(k, null); if (j) jobs.push(j); });
       // What the feed no longer sends has finished: it fades like anything else that ended.
-      for (var key in scene) {
-        var o = scene[key];
-        if (o.seen !== stamp && !o.ended) o.ended = now;
-        if (o.seen !== stamp) order.push(key);
+      for (var id in NODES) {
+        var o = NODES[id];
+        if (o.seen !== stamp) {
+          if (!o.fade) o.fade = now;
+          if (!o.parent) jobs.push(o);
+        }
       }
+      tree = jobs;
     }
 
-    // A name drawn once, with its dark backing, and kept: text is dear to draw thirty times a second.
-    var labelCache = Object.create(null), labelCount = 0;
+    function sync(tnow) {
+      var live = 0, waiting = [];
+      frameNo++;
+      function visit(n, parent) {
+        var r = REC.get(n.id);
+        if (!r) r = makeRecord(n, parent, tnow);
+        r.node = n; r.seen = frameNo;
+        if (n.fade && r.finished !== n.fade) r.finished = n.fade;
+        if (!n.fade) r.finished = 0;
+        r.life = r.finished ? lifecycle((tnow - r.finished) / 1000) : null;
+        if (r.life && r.life.state === 'removed') {
+          REC.delete(r.id); r.removed = true;
+          if (NODES[n.id] && NODES[n.id].seen !== stamp) delete NODES[n.id];
+          return;
+        }
+        var lenU = r.role === 'twig' ? (RULES.process.shortest + (RULES.process.longest - RULES.process.shortest) * costOf(n, tnow)) / RULES.process.longest : 1;
+        r.lenU = lenU;
+        r.age = growth - r.born;
+        r.reveal = r.age < 0 ? -1 : Math.min(lenU, r.age / RULES.growth.tipSeconds);
+        r.waiting = !n.fade && n.state === 'waiting';
+        r.kind = r.role === 'twig' ? kindOf(n.label) : 'agent';
+        if (r.waiting) waiting.push(r);
+        else if (!n.fade && r.role !== 'twig') live++;
+        var calls = n.calls || [];
+        if (calls.length > MAX_TWIGS) calls = calls.slice().sort(function (a, b) { return a.opened - b.opened; }).slice(-MAX_TWIGS);
+        for (var i = 0; i < calls.length; i++) visit(calls[i], r);
+        var subs = n.subs || [];
+        for (var j = 0; j < subs.length; j++) visit(subs[j], r);
+      }
+      (tree || []).forEach(function (j) { visit(j, null); });
+      REC.forEach(function (r) { if (r.seen !== frameNo) REC.delete(r.id); });
+      return { live: live, waiting: waiting };
+    }
+
+    // --- the camera: app/orb3d.js's framing of what is drawn, the group's turn, a little from above ---------
+    var cam = { d: 2.2, cx: 0, cy: 0, f: 1, ry: 0 };
+    function reach() {
+      var far = 0.45;
+      REC.forEach(function (r) {
+        if (r.reveal <= 0) return;
+        var at = r.centres[Math.min(SEGMENTS, Math.round(r.reveal * SEGMENTS))];
+        far = Math.max(far, len(at) + 0.04);
+      });
+      return far;
+    }
+    function project(p) {
+      var c = Math.cos(cam.ry), s = Math.sin(cam.ry);
+      var x = p[0] * c + p[2] * s, z = -p[0] * s + p[2] * c, y = p[1];
+      var cp = Math.cos(PITCH), sp = Math.sin(PITCH);
+      var y2 = y * cp - z * sp, z2 = y * sp + z * cp;
+      var k = cam.f / Math.max(0.05, cam.d - z2);
+      return [cam.cx + x * k, cam.cy - y2 * k, k];
+    }
+
+    // --- drawing ----------------------------------------------------------------------------------------
+    function halo(waiting, live) {
+      // The core never larger than a bright point, and its halo never a lit disc on the wall: a projector
+      // shows every grey as light.
+      var core = Math.max(3, Math.min(H * 0.014, cam.f * RULES.core.radius / cam.d));
+      var key = (waiting ? 'w' : live ? 'l' : 'i') + Math.round(core);
+      if (key === haloKey && haloSprite) return haloSprite;
+      haloKey = key;
+      var rad = Math.ceil(Math.min(H * 0.16, core * (5 + 5 * Math.sqrt(D.coreGlow / 80)) * 1.2));
+      var c = document.createElement('canvas');
+      c.width = c.height = rad * 2;
+      var x = c.getContext('2d');
+      var tint = waiting ? PAL.wait : live ? PAL.agent : [255, 255, 255];
+      var soft = mix(tint, [255, 255, 255], waiting ? 0.3 : 0.15);
+      var gr = x.createRadialGradient(rad, rad, 0, rad, rad, rad);
+      gr.addColorStop(0, 'rgba(255,255,255,1)');
+      gr.addColorStop(Math.min(0.5, core / rad * 0.9), 'rgba(255,255,255,1)');
+      gr.addColorStop(Math.min(0.6, core / rad * 1.6), rgba(soft, waiting || live ? 0.5 : 0.35));
+      gr.addColorStop(0.3, rgba(tint, waiting || live ? 0.16 : 0.05));
+      gr.addColorStop(0.7, rgba(tint, waiting || live ? 0.05 : 0.01));
+      gr.addColorStop(1, rgba(tint, 0));
+      x.fillStyle = gr;
+      x.fillRect(0, 0, rad * 2, rad * 2);
+      haloSprite = c;
+      return c;
+    }
     function labelImage(text, warn, fs) {
-      var k = fs + '|' + (warn ? 1 : 0) + '|' + bg + '|' + text;
+      var k = fs + '|' + (warn ? 1 : 0) + '|' + text;
       if (labelCache[k]) return labelCache[k];
       if (++labelCount > 200) { labelCache = Object.create(null); labelCount = 1; }
       var c = document.createElement('canvas'), x = c.getContext('2d');
-      var font = '600 ' + fs + 'px "DejaVu Sans", system-ui, sans-serif';
+      var font = '700 ' + fs + 'px "DejaVu Sans", system-ui, sans-serif';
       x.font = font;
-      var pad = Math.round(fs * 0.35), tw = Math.ceil(x.measureText(text).width);
-      c.width = tw + pad * 2; c.height = Math.round(fs * 1.44);
-      x.globalAlpha = 0.78; x.fillStyle = bg; x.fillRect(0, 0, c.width, c.height);
-      x.globalAlpha = warn ? 1 : 0.9; x.font = font; x.textBaseline = 'middle';
-      x.fillStyle = warn ? PAL.wait : ink;
+      var pad = Math.round(fs * 0.3), tw = Math.ceil(x.measureText(text).width);
+      c.width = tw + pad * 2; c.height = Math.round(fs * 1.4);
+      x.globalAlpha = 0.7; x.fillStyle = '#000'; x.fillRect(0, 0, c.width, c.height);
+      x.globalAlpha = 1; x.font = font; x.textBaseline = 'middle';
+      x.fillStyle = warn ? '#ff5c74' : '#e6f6f8';
       x.fillText(text, pad, c.height / 2);
       return (labelCache[k] = c);
     }
+    function poly(p) { g.beginPath(); g.moveTo(p[0][0], p[0][1]); for (var i = 1; i < p.length; i++) g.lineTo(p[i][0], p[i][1]); }
 
-    // --- drawing ---------------------------------------------------------------------------------------
-    function alphaOf(n, now) {
-      var grow = Math.min(1, (now - n.born) / GROW);
-      if (!n.ended || n.state === 'waiting') return { a: 1, grow: grow };
-      var d = now - n.ended;
-      if (d < GHOST_IN) return { a: 1 - (1 - GHOST_LEVEL) * d / GHOST_IN, grow: grow };
-      if (d < GHOST_IN + GHOST_HOLD) return { a: GHOST_LEVEL, grow: grow };
-      var out = (d - GHOST_IN - GHOST_HOLD) / GHOST_OUT;
-      return out >= 1 ? null : { a: GHOST_LEVEL * (1 - out), grow: grow };
-    }
-    var rot = { s: 0, c: 1 };
-    var TS = Math.sin(TILT), TC = Math.cos(TILT);
-    function project(p) {
-      var x = p[0] * rot.c + p[2] * rot.s, z = -p[0] * rot.s + p[2] * rot.c, y = p[1];
-      var y2 = y * TC - z * TS, z2 = y * TS + z * TC;
-      var k = 1 / (1 + z2 * 0.32);
-      return [cx + x * R * k, cy - y2 * R * k, k];
-    }
-    function pathOf(n, parentNode, grow) {
-      var from = n.from;
-      if (!from) {
-        var pp = parentNode && parentNode.pts3 ? parentNode.pts3 : null;
-        from = pp ? pp[Math.round(n.fork * (pp.length - 1))] : [0, 0, 0];
+    // One branch or twig: the glow round it, the faint body, the bright edges, and the nerve.
+    function drawTube(r, t) {
+      if (r.reveal <= 0) return null;
+      var G = RULES.glass, P = RULES.path;
+      var ghost = r.life && r.life.state === 'ghost';
+      var col = PAL[ghost ? 'ghost' : r.waiting ? 'wait' : r.kind] || PAL.other;
+      var alpha = r.life ? (ghost ? 1 : r.life.alpha) : 1;
+      var last = Math.max(1, Math.min(SEGMENTS, Math.round(r.reveal * SEGMENTS)));
+      var pts = [], rads = [], twig = r.role === 'twig';
+      // A twig is thin: half the points draw it as smoothly, and it is most of what is drawn on a busy night.
+      for (var i = 0; i <= last; i += (twig && i + 2 <= last ? 2 : 1)) {
+        var u = i / SEGMENTS;
+        var taper = Math.pow(1 - Math.min(1, u / Math.max(r.lenU, 0.0001)), P.taperPower) * P.taperScale + P.taperFloor;
+        var mature = smoothstep(0, RULES.growth.thickenSeconds, r.age - u * RULES.growth.tipSeconds);
+        var rad = r.radius * r.wob[i] * taper * D.thickness * (RULES.growth.seedRadius + (1 - RULES.growth.seedRadius) * mature);
+        var p = project(r.centres[i]);
+        pts.push(p);
+        rads.push(Math.max(0.6, rad * p[2]));
       }
-      var len = n.len * grow;
-      var pts = [];
-      for (var i = 0; i <= 6; i++) {
-        var t = i / 6, b = Math.sin(t * Math.PI) * len;
-        pts.push(add(add(from, n.dir, len * t), n.bend, b));
+      if (ghost) {
+        g.globalAlpha = 0.22; g.strokeStyle = rgba(col, 1); g.lineWidth = Math.max(1, rads[0] * 0.6);
+        poly(pts); g.stroke();
+        return pts[pts.length - 1];
       }
-      return pts;
-    }
-    function stroke(pts2, w0, w1, colour, alpha, dash) {
-      // A tapering line: one short stroke per stretch, each a little thinner than the one before.
-      g.strokeStyle = colour;
-      g.globalAlpha = alpha;
-      if (dash) g.setLineDash(dash);
-      for (var i = 1; i < pts2.length; i++) {
-        var t = (i - 0.5) / (pts2.length - 1);
-        g.lineWidth = Math.max(0.6, (w0 + (w1 - w0) * t) * pts2[i][2]);
+      // The two edges: the centre line moved out by the tube's radius, across the screen.
+      var left = [], right = [];
+      for (var j = 0; j < pts.length; j++) {
+        var a = pts[Math.max(0, j - 1)], b = pts[Math.min(pts.length - 1, j + 1)];
+        var dx = b[0] - a[0], dy = b[1] - a[1], l = Math.hypot(dx, dy) || 1;
+        var nx = -dy / l, ny = dx / l;
+        left.push([pts[j][0] + nx * rads[j], pts[j][1] + ny * rads[j]]);
+        right.push([pts[j][0] - nx * rads[j], pts[j][1] - ny * rads[j]]);
+      }
+      var dash = r.waiting ? [Math.max(6, rads[0] * 3), Math.max(4, rads[0] * 2.2)] : null;
+      var breath = r.waiting && !reduced ? 0.75 + 0.25 * Math.sin(t * 2.3) : 1;
+      if (!twig) {
+        // The glow: the bloom on Rouh's page, as a soft wide line.
+        g.globalAlpha = (0.08 + D.glow * 0.3) * alpha * breath;
+        g.strokeStyle = rgba(col, 1);
+        g.lineWidth = Math.max(4, rads[0] * 4.5);
+        poly(pts); g.stroke();
+        // The body: mostly see-through.
+        g.globalAlpha = 0.18 * alpha;
+        g.fillStyle = rgba(col, 1);
         g.beginPath();
-        g.moveTo(pts2[i - 1][0], pts2[i - 1][1]);
-        g.lineTo(pts2[i][0], pts2[i][1]);
-        g.stroke();
+        g.moveTo(left[0][0], left[0][1]);
+        for (var k2 = 1; k2 < left.length; k2++) g.lineTo(left[k2][0], left[k2][1]);
+        for (var k3 = right.length - 1; k3 >= 0; k3--) g.lineTo(right[k3][0], right[k3][1]);
+        g.closePath(); g.fill();
+      }
+      // The edges: where the glass is nearly solid and its coloured light runs.
+      g.globalAlpha = Math.min(1, 0.95 * alpha * breath);
+      g.strokeStyle = rgba(mix(col, [255, 255, 255], 0.25), 1);
+      g.lineWidth = Math.max(1, rads[0] * 0.3);
+      if (dash) g.setLineDash(dash);
+      poly(left); g.stroke();
+      poly(right); g.stroke();
+      // The nerve: a bright line down the middle.
+      if (D.nerve) {
+        g.globalAlpha = G.nerve.alpha * alpha;
+        g.strokeStyle = rgba(mix(col, [255, 255, 255], 0.7), 1);
+        g.lineWidth = Math.max(1, rads[0] * G.nerve.radius * 1.4);
+        poly(pts); g.stroke();
       }
       if (dash) g.setLineDash([]);
+      return pts[pts.length - 1];
     }
+
     function draw(nowMs) {
-      var now = nowMs / 1000, el = (nowMs - t0) / 1000;
-      var ang = reduced ? 0.6 : el * SPIN + 0.6;
-      rot.s = Math.sin(ang); rot.c = Math.cos(ang);
+      var tnow = Date.now(), t = nowMs / 1000;
+      var dt = lastT ? Math.min(0.2, t - lastT) : 0;
+      lastT = t;
+      growth += dt * D.speed;
+      if (!reduced) spin += dt * SPIN;
+      cam.ry = spin;
+      var said = sync(tnow);
+      // Into the corner while a card is up (bottom right, about a quarter of the height), back when it goes.
+      cornerT += ((cornerOn ? 1 : 0) - cornerT) * Math.min(1, dt * 3.2);
+      var e = cornerT * cornerT * (3 - 2 * cornerT);
+      // Above a question shown low on the wall (`reserve`), the orb fits in the room left.
+      reserveNow += (reserve - reserveNow) * Math.min(1, dt * 3.2);
+      var room = Math.max(H * 0.3, H - reserveNow);
+      var corner = Math.min(H * 0.26, W * 0.34);   // the corner's size: smaller on a tall, narrow screen
+      var span = Math.min(W * 0.62, room) * (1 - e) + corner * e;
+      cam.cx = W / 2 * (1 - e) + (W - corner * 0.62) * e;
+      cam.cy = room / 2 * (1 - e) + (H - corner * 0.62) * e;
+      var half = 19 * Math.PI / 180;
+      var want = Math.min(3.1, Math.max(0.9, reach() / Math.tan(half) * 1.12));
+      cam.d += (want - cam.d) * Math.min(1, dt * 2);
+      cam.f = span / 2 / Math.tan(half);
       g.globalAlpha = 1;
-      g.fillStyle = bg;
+      g.fillStyle = '#000';
       g.fillRect(0, 0, W, H);
-      g.lineCap = 'round';
-      var breath = reduced ? 0.5 : 0.5 + 0.5 * Math.sin(el * Math.PI * 2 / 4.2);
-      var u = R / 100;
-
-      // The rings round the core: the one thing that moves when nothing is running.
-      g.lineWidth = Math.max(1, 0.35 * u);
-      for (var r = 0; r < 3; r++) {
-        var ra = ang * (r === 1 ? -1.3 : 1) + r * 1.05;
-        g.globalAlpha = 0.22 + 0.1 * breath;
-        g.strokeStyle = r === 1 ? PAL.self : PAL.agent;
-        g.beginPath();
-        g.ellipse(cx, cy, R * 0.2, R * 0.2 * Math.abs(Math.cos(ra)) + 1, r * Math.PI / 3 + ang * 0.2, 0, Math.PI * 2);
-        g.stroke();
-      }
-      g.globalAlpha = 0.12 + 0.12 * breath;
-      g.lineWidth = Math.max(1, 0.25 * u);
-      g.beginPath();
-      g.arc(cx, cy, R * (0.27 + 0.015 * breath), 0, Math.PI * 2);
-      g.stroke();
-
-      // The branches, parents first so a helper can start where its job is.
-      var drawn = 0, twigsOf = Object.create(null), labels = [];
+      g.lineCap = 'round'; g.lineJoin = 'round';
+      var labels = [];
+      var order = Array.from(REC.values()).sort(function (a, b) {
+        var ga = a.life && a.life.state === 'ghost' ? -1 : a.depth, gb = b.life && b.life.state === 'ghost' ? -1 : b.depth;
+        return ga - gb;
+      });
       for (var i = 0; i < order.length; i++) {
-        var n = scene[order[i]];
-        if (!n || n.kind === 'root') continue;
-        var vis = alphaOf(n, now);
-        if (!vis) { delete scene[n.id]; continue; }
-        var parentNode = n.parent ? scene[n.parent] : null;
-        if (n.kind === 'tool') {
-          if (!parentNode || !parentNode.pts3) continue;
-          var c = (twigsOf[n.parent] = (twigsOf[n.parent] || 0) + 1);
-          if (c > MAX_TWIGS) continue;
-          var base = parentNode.pts3[Math.max(1, Math.round(n.at * (parentNode.pts3.length - 1)))];
-          var pd = parentNode.dir || [0, 1, 0];
-          var side = norm(cross(pd, [0, 1, 0.2]));
-          var grown = Math.min(1, 0.45 + (n.ran || 0) / 30) * vis.grow;
-          var tip = add(add(base, side, n.splay * n.len * grown), pd, n.len * 0.6 * grown);
-          var a2 = project(base), b2 = project(tip);
-          var live = !n.ended;
-          var colour = live ? n.ink : PAL.ghost;
-          g.globalAlpha = vis.a * (live ? 0.95 : 1) * (parentNode.dim || 1);
-          g.strokeStyle = colour;
-          g.lineWidth = Math.max(1, 0.45 * u * b2[2]);
-          g.beginPath(); g.moveTo(a2[0], a2[1]); g.lineTo(b2[0], b2[1]); g.stroke();
-          g.fillStyle = colour;
-          g.beginPath(); g.arc(b2[0], b2[1], Math.max(1.5, 0.75 * u * b2[2]), 0, Math.PI * 2); g.fill();
-          drawn++;
-          continue;
+        var r = order[i];
+        var tip = drawTube(r, t);
+        if (tip && r.depth === 1 && r.role === 'branch' && !(r.life && r.life.state === 'ghost') && e < 0.5) {
+          labels.push({ tip: tip, text: r.waiting ? 'NEEDS YOU · ' + short(r.node.label) : short(r.node.label),
+                        warn: r.waiting, alpha: r.life ? Math.max(0.4, r.life.alpha) : 1 });
         }
-        n.pts3 = pathOf(n, parentNode, vis.grow);
-        n.dim = vis.a;
-        var pts2 = n.pts3.map(project);
-        var waiting = n.state === 'waiting';
-        var ended = !!n.ended && !waiting;
-        var col = waiting ? PAL.wait : ended ? PAL.ghost : (n.kind === 'self' ? PAL.self : PAL.agent);
-        var w0 = 3.2 * u * n.w, w1 = w0 * 0.14;
-        if (waiting) {
-          stroke(pts2, w0 * 0.5, w1, col, 0.55 + 0.4 * breath, [1.6 * u, 1.1 * u]);
-        } else {
-          stroke(pts2, w0, w1 * 1.6, col, 0.2 * vis.a);              // the glass
-          stroke(pts2, w0 * 0.55, w1, col, 0.3 * vis.a);              // its edge, brighter
-          if (!ended) stroke(pts2, Math.max(1.2, w0 * 0.18), 0.8, '#d9fdff', 0.85 * vis.a); // the nerve
-        }
-        var tipP = pts2[pts2.length - 1];
-        if (waiting) {
-          var sq = (1.3 + 0.5 * breath) * u;
-          g.globalAlpha = 1;
-          g.fillStyle = PAL.wait;
-          g.fillRect(tipP[0] - sq / 2, tipP[1] - sq / 2, sq, sq);
-          g.strokeStyle = PAL.wait;
-          g.lineWidth = Math.max(1, 0.3 * u);
-          g.strokeRect(tipP[0] - sq * 1.4, tipP[1] - sq * 1.4, sq * 2.8, sq * 2.8);
-        } else if (!ended && vis.grow >= 1) {
-          g.globalAlpha = 0.25 + 0.55 * (1 - breath);
-          g.strokeStyle = col;
-          g.lineWidth = Math.max(1, 0.3 * u);
-          g.beginPath(); g.arc(tipP[0], tipP[1], (0.8 + 1.4 * breath) * u * tipP[2], 0, Math.PI * 2); g.stroke();
-        }
-        if (n.parent && scene[n.parent] && scene[n.parent].kind === 'root' && n.label && vis.a > 0.3) {
-          var short = n.label.length > 30 ? n.label.slice(0, 29).replace(/\s+\S*$/, '') + '…' : n.label;
-          labels.push([tipP, waiting ? 'NEEDS YOU · ' + short : short, waiting, vis.a]);
-        }
-        drawn++;
       }
-
-      // The core, over the roots of the branches.
-      var cs = sprite.width * (0.92 + 0.08 * breath);
+      // The core and its halo: red while anything waits, turquoise-white while work runs.
+      var hs = halo(said.waiting.length > 0, said.live > 0);
+      var pulse = reduced ? 1 : 0.95 + 0.05 * Math.sin(t * 1.5);
+      var hw = hs.width * pulse;
       g.globalAlpha = 1;
-      g.drawImage(sprite, cx - cs / 2, cy - cs / 2, cs, cs);
-
-      // The names of the jobs, beside their tips, on the side away from the core: large enough to read from
-      // a sofa (2 hundredths of a 16:9 wall's width, the page's own unit), on a dark backing so no twig
-      // crosses them, and stacked so that two on the same side never touch.
+      g.drawImage(hs, cam.cx - hw / 2, cam.cy - hw / 2, hw, hw);
+      // The short names at the tips of the jobs, large, never on each other.
       if (labels.length) {
-        var pu = Math.min(W, H * 1.7778) / 100;
-        var fs = Math.max(11, Math.round(2 * pu));
-        var gapY = fs * 1.5;
-        [true, false].forEach(function (side) {
-          var mine = labels.filter(function (l) { return (l[0][0] >= cx) === side; })
-            .sort(function (p, q) { return p[0][1] - q[0][1]; });
+        var fs = Math.max(14, Math.round(Math.min(W, H * 1.7778) / 100 * 3));
+        [true, false].forEach(function (rightSide) {
+          var mine = labels.filter(function (l) { return (l.tip[0] >= cam.cx) === rightSide; })
+            .sort(function (a, b) { return a.tip[1] - b.tip[1]; });
           var lastY = -1e9;
-          for (var L = 0; L < mine.length; L++) {
-            var lb = mine[L], y = Math.max(lb[0][1], lastY + gapY);
+          mine.forEach(function (l) {
+            var img = labelImage(l.text, l.warn, fs);
+            var y = Math.max(l.tip[1], lastY + img.height * 1.08);
             lastY = y;
-            var img = labelImage(lb[1], lb[2], fs);
-            var x = lb[0][0] + (side ? 1 : -1) * fs * 0.55;
-            x = side ? Math.min(x, W - img.width) : Math.max(x - img.width, 0);
-            g.globalAlpha = Math.min(1, lb[3]);
+            var x = l.tip[0] + (rightSide ? fs * 0.5 : -fs * 0.5 - img.width);
+            // Clear of the wall's edges, which a projector may crop.
+            var edge = Math.min(W, H * 1.7778) / 100 * 2;
+            x = Math.max(edge, Math.min(W - img.width - edge, x));
+            y = Math.max(img.height / 2 + edge, Math.min(H - img.height / 2 - edge, y));
+            g.globalAlpha = l.alpha * (1 - e * 2);
             g.drawImage(img, Math.round(x), Math.round(y - img.height / 2));
-          }
+          });
         });
       }
-      // Dimmed under a card: a veil of the ground drawn over it, eased in and out here rather than by the
-      // page, since fading a whole-screen layer is what a Raspberry Pi 3 draws slowest.
-      var want = dimmed ? DIM : 0;
-      dimLevel += (want - dimLevel) * Math.min(1, (nowMs - (draw.last || nowMs)) / 450);
-      draw.last = nowMs;
-      if (dimLevel > 0.01) {
-        g.globalAlpha = dimLevel;
-        g.fillStyle = bg;
-        g.fillRect(0, 0, W, H);
-      }
       g.globalAlpha = 1;
-      stats.nodes = drawn;
+      stats.records = REC.size;
+      stats.waiting = said.waiting.length;
     }
 
     function loop(nowMs) {
       frame = requestAnimationFrame(loop);
-      // Dimmed, and done fading: drawn a third as often, leaving the Pi to the card.
-      var cap = dimmed && dimLevel > DIM - 0.02 ? FPS_DIM : fpsCap;
+      if (!RULES) return;
+      var cap = cornerOn && cornerT > 0.98 ? FPS_CORNER : fpsCap;
       if (nowMs - lastDraw < 1000 / cap - 2) return;
       var gap = nowMs - lastDraw;
       lastDraw = nowMs;
       var a = performance.now();
       draw(nowMs);
       var cost = performance.now() - a;
-      // Judged only on frames drawn at full brightness: dimmed, it draws slower on purpose.
-      if (dimmed || dimLevel > 0.02) { costs = []; checkedAt = nowMs; return; }
-      costs.push([cost, gap]);
       stats.frames++;
+      if (cornerOn || cornerT > 0.02) { costs = []; checkedAt = nowMs; return; }
+      costs.push([cost, gap]);
       if (nowMs - checkedAt > 3000 && costs.length > 10) {
         checkedAt = nowMs;
         var sum = 0, gaps = 0;
@@ -399,34 +563,36 @@
         stats.drawMs = +(sum / costs.length).toFixed(1);
         stats.fps = +(1000 / (gaps / costs.length)).toFixed(1);
         costs = [];
-        // Too slow for its frame rate: draw less often, evenly, rather than at an uneven pace. (Drawing
-        // smaller does not help on a Pi 3 without its graphics chip: stretching the picture costs more.)
-        // Not in the first seconds, while the page itself is still settling; slower only after two slow
-        // spells in a row, and back up after three easy ones.
+        // Not in the first seconds, while the page settles; slower only after two slow spells in a row,
+        // and back up after three easy ones: an even pace rather than an uneven one.
         if (nowMs - t0 > 6000) {
           var slow = stats.fps < fpsCap * 0.8;
           bad = slow ? bad + 1 : 0;
-          good = !slow && stats.drawMs < 10 ? good + 1 : 0;
+          good = !slow && stats.drawMs < 1000 / fpsCap * 0.5 ? good + 1 : 0;
           if (bad >= 2 && fpsCap > 15) { fpsCap = fpsCap > 20 ? 20 : 15; bad = 0; }
           if (good >= 3 && fpsCap < FPS) { fpsCap = Math.min(FPS, fpsCap + 5); good = 0; }
         }
-        stats.scale = scale; stats.cap = fpsCap;
+        stats.cap = fpsCap;
       }
     }
 
     size();
     window.addEventListener('resize', size);
-    if (opts.scale) { scale = opts.scale; size(); }
     frame = requestAnimationFrame(loop);
-    var api = {
+    return {
       tree: setTree,
-      dim: function (on) { dimmed = !!on; },
+      rules: useRules,
+      corner: function (on) { cornerOn = !!on; },
+      reserve: function (px) { reserve = Math.max(0, +px || 0); },
+      waiting: function () {
+        var out = [];
+        REC.forEach(function (r) { if (r.waiting && r.depth === 1) out.push({ title: short(r.node.label), asking: r.node.asking || '' }); });
+        return out;
+      },
       stats: function () { return JSON.parse(JSON.stringify(stats)); },
-      recolour: colours,
       stop: function () { cancelAnimationFrame(frame); }
     };
-    return api;
   }
 
-  window.ProjectorOrb = { start: start };
+  window.ProjectorOrb = { start: start, short: short };
 })();

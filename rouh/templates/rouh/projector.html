@@ -1,5 +1,5 @@
 {% load rouh_assets %}<!doctype html>
-<html lang="en">
+<html lang="en" data-theme="dark">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
@@ -12,7 +12,8 @@
 <link rel="stylesheet" href="{% asset "projector.css" %}">
 </head>
 <body>
-<canvas class="orb" id="orb" aria-hidden="true"></canvas>
+<canvas class="orb" id="orb" aria-hidden="true" data-rules="{% asset "orb-branching.json" %}"></canvas>
+<section class="needs" id="needs" hidden aria-live="polite"></section>
 <main class="wall" id="wall" aria-live="polite">
   <header class="top">
     <span class="who"><span class="dot" aria-hidden="true"></span>Robot Chat</span>
