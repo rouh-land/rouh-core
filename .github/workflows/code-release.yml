@@ -35,4 +35,9 @@ jobs:
       - name: Mirror it
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: python3 deploy/container/code_release_mirror.py
+          # The CHANGELOG commit goes to main with the deploy key: main's rule set takes no GitHub
+          # Actions exception (tools/github/main-push-remote.sh).
+          MAIN_PUSH_KEY: ${{ secrets.MAIN_PUSH_KEY }}
+        run: |
+          tools/github/main-push-remote.sh
+          python3 deploy/container/code_release_mirror.py

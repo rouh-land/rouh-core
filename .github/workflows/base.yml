@@ -62,7 +62,9 @@
 #               ref refs/base-failed/<level> (an annotated tag object: which job and step) tells
 #               the Creator Rouh's patch job, which reads git only, so that it tells Petar once.
 #
-# Signed in with the workflow's own GITHUB_TOKEN; no personal token anywhere. A push made with
+# Signed in with the workflow's own GITHUB_TOKEN; no personal token anywhere, except that main
+# itself is moved with the deploy key MAIN_PUSH_KEY (tools/github/main-push-remote.sh), because
+# main's rule set takes no GitHub Actions exception. A push made with
 # GITHUB_TOKEN starts no workflow, so nothing this writes starts it again by itself; where it
 # must, it says so with a workflow_dispatch, which GitHub does allow.
 
@@ -388,10 +390,14 @@ jobs:
         id: ff
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # main's rule set lets only admins and deploy keys push to it, never GitHub Actions
+          # (tools/github/main-push-remote.sh); every other push here stays on GITHUB_TOKEN.
+          MAIN_PUSH_KEY: ${{ secrets.MAIN_PUSH_KEY }}
         run: |
           set -euo pipefail
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          tools/github/main-push-remote.sh
           git fetch -q origin main "+refs/heads/$BRANCH:refs/remotes/origin/$BRANCH"
           # A newer try of this level was pushed while this one was checked: that one goes on.
           if [ "$(git rev-parse "origin/$BRANCH")" != "$COMMIT" ]; then
@@ -399,7 +405,7 @@ jobs:
             echo "merged=false" >> "$GITHUB_OUTPUT"; exit 0
           fi
           # Never forced: this only works while main is still where the tested commit was made on top of.
-          if git push -q origin "$COMMIT:refs/heads/main"; then
+          if git push -q main-push "$COMMIT:refs/heads/main"; then
             echo "merged=true" >> "$GITHUB_OUTPUT"
             echo "main is now ${COMMIT:0:12}, base $LEVEL, the commit that was tested${PR:+; pull request #$PR is merged}"
             git push -q origin ":refs/heads/$BRANCH" || true

@@ -185,11 +185,16 @@ def main() -> int:
         CHANGELOG.write_text(text)
         bump_version(newest["number"])
         sh("git", "add", "CHANGELOG.md", "pyproject.toml", "uv.lock")
-        msg = (f"Changelog: Rouh {newest['number']}\n\nWritten by .github/workflows/code-release.yml from the signed "
+        # [skip ci]: pushed with the deploy key it would start "Tests on main", which a commit of
+        # CHANGELOG.md and the version alone never needed (pushed with GITHUB_TOKEN it started none).
+        msg = (f"Changelog: Rouh {newest['number']} [skip ci]\n\nWritten by .github/workflows/code-release.yml from the signed "
                f"release rouh.land serves ({', '.join('Rouh ' + n for n in added)}); pyproject.toml's version is the "
                f"newest release's number.\n\nGene: {GENE}\n")
         sh("git", "-c", "user.name=Rouh releases", "-c", "user.email=releases@rouh.land", "commit", "-q", "-s", "-m", msg)
-        if sh("git", "push", "-q", "origin", "HEAD:refs/heads/main", check=False).returncode == 0:
+        # "main-push" is tools/github/main-push-remote.sh's (the deploy key main's rule set lets
+        # through); "origin" where that was not run, such as by hand.
+        remote = "main-push" if sh("git", "remote", "get-url", "main-push", check=False).returncode == 0 else "origin"
+        if sh("git", "push", "-q", remote, "HEAD:refs/heads/main", check=False).returncode == 0:
             print(f"CHANGELOG.md: added Rouh {', '.join(added)} on main")
             return 0
         sh("git", "fetch", "-q", "origin", "main")
