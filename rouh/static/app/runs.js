@@ -6564,8 +6564,9 @@ var ASK = {
 var ASK_PLACEHOLDER = withSendKeys('Ask about this page, or say what to change',
                                    'Ask, or say what to change');
 var ASK_CHANGE_HERE = withSendKeys('What should change here?');
-//: The one box's own words while a page is open beside the chat, and what it said before.
-var PAGE_PLACEHOLDER = withSendKeys('Ask about this page, or say what to change', 'Ask, or say what to change');
+//: The one box's own words while a page is open beside the chat, and what it said before: none since
+//: 27 November 2026, so the box says only "/ for more" and, at a desk, Shift+Enter (`hintPut` in app/chats.js).
+var PAGE_PLACEHOLDER = '';
 /** @type {string | null} */
 var ROUH_PLACEHOLDER = null;
 

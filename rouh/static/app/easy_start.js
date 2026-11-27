@@ -319,7 +319,10 @@ if (easyOn('slash_menu') && input && EASY.slash.length && !FRAMED) {
       }
     }, true);
     box.addEventListener('blur', function () { window.setTimeout(slashClose, 150); });
-    // Not said in the box's grey words any more (Petar, 27 November 2026, `hintPut` in app/chats.js).
+    // Said where it is found, in the box's grey words: "/ for more" (`hintPut` in app/chats.js puts
+    // it on whenever the words are set; setting them again here tells it this box has the list).
+    box.dataset.slash = '1';
+    box.setAttribute('placeholder', box.getAttribute('placeholder') || '');
   }());
 }
 

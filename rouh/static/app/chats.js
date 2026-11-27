@@ -2556,7 +2556,7 @@ function withSendKeys(words, shorter) {
    Return is the new line already, and they say nothing more. Whoever sets a
    box's placeholder sets its own words; the hint is put on, or taken off, as
    it is set and whenever the keyboard changes (`keysHintPaint`).
-   Replaced 27 November 2026: the grey words say nothing more (`hintPut`). */
+   The words before the slash went on 27 November 2026 (`hintPut`). */
 // Kept on the functions themselves, which are there before this module has
 // run: app/controls.js and app/runs.js, which ask for it, can run first.
 function newLineSaid() { return ' \u00b7 Shift+Enter for a new line'; }
@@ -2572,17 +2572,22 @@ function hinted() {
   return h.kept;
 }
 
-/* Petar, 27 November 2026: "Remove the helper text in the input before the slash." The chat's
-   grey words are only its own again ("Type to Rouh"); on a phone the hints wrapped them onto a second
-   line. Shift+Enter is still said in Send's tooltip (`sendTip`), and "/" opens its list as before.
-   A hint left on by an older page is taken off as the words are set. */
+/* Petar, 27 November 2026, from his iPhone: "the helper text before the slash. Meaning leave everything
+   after the slash. So I want people to know slash brings in commands ... Remove the 'type to Rouh' or
+   'ask about this page'. ... keep the shift enter on Desktop only, mobile does a new line by default."
+   So the chat's empty box says "/ for more" (where "/" opens its list, `data-slash` from
+   app/easy_start.js), and at a desk " · Shift+Enter for a new line" after it; its own words, which
+   are now empty for the chat (rouh/templates/rouh/index.html, `PAGE_PLACEHOLDER` in app/runs.js),
+   come first when a mode gives some ("Describe the picture"). The hints are taken off before they are
+   put on, so setting the words again, or reading them back, never doubles them. */
+var SLASH_SAID = '/ for more';
 /** @param {HTMLTextAreaElement} box */
 function hintPut(box) {
   var was = box.getAttribute('placeholder') || '';
-  var want = was;
-  [newLineSaid(), ' \u00b7 / for more'].forEach(function (said) {
-    want = want.split(said).join('');
-  });
+  var keys = newLineSaid().slice(3);
+  var words = was.split(' \u00b7 ').filter(function (p) { return p !== SLASH_SAID && p !== keys; }).join(' \u00b7 ');
+  var want = [words, box.dataset.slash ? SLASH_SAID : '', touchTyping() ? '' : keys]
+    .filter(Boolean).join(' \u00b7 ');
   if (want !== was) box.setAttribute('placeholder', want);
 }
 
