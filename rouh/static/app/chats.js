@@ -2557,8 +2557,7 @@ function sendKeys() {
 }
 
 // An empty box used to say how to send what is written in it. Enter sends
-// now, as everywhere else, so the words stay as they are; what the empty box
-// says about Shift+Enter is added to them as they are set (`keysPlaceholder`).
+// now, as everywhere else, so the words stay as they are.
 function withSendKeys(words, shorter) {
   return words;
 }
@@ -2569,7 +2568,8 @@ function withSendKeys(words, shorter) {
    keyboard of its own is seen, they end with this. On a phone's own keyboard
    Return is the new line already, and they say nothing more. Whoever sets a
    box's placeholder sets its own words; the hint is put on, or taken off, as
-   it is set and whenever the keyboard changes (`keysHintPaint`). */
+   it is set and whenever the keyboard changes (`keysHintPaint`).
+   Replaced 27 November 2026: the grey words say nothing more (`hintPut`). */
 // Kept on the functions themselves, which are there before this module has
 // run: app/controls.js and app/runs.js, which ask for it, can run first.
 function newLineSaid() { return ' \u00b7 Shift+Enter for a new line'; }
@@ -2585,12 +2585,17 @@ function hinted() {
   return h.kept;
 }
 
+/* Petar, 27 November 2026: "Remove the helper text in the input before the slash." The chat's
+   grey words are only its own again ("Type to Rouh"); on a phone the hints wrapped them onto a second
+   line. Shift+Enter is still said in Send's tooltip (`sendTip`), and "/" opens its list as before.
+   A hint left on by an older page is taken off as the words are set. */
 /** @param {HTMLTextAreaElement} box */
 function hintPut(box) {
-  var said = newLineSaid();
   var was = box.getAttribute('placeholder') || '';
-  var words = was.slice(-said.length) === said ? was.slice(0, -said.length) : was;
-  var want = words && !touchTyping() ? words + said : words;
+  var want = was;
+  [newLineSaid(), ' \u00b7 / for more'].forEach(function (said) {
+    want = want.split(said).join('');
+  });
   if (want !== was) box.setAttribute('placeholder', want);
 }
 

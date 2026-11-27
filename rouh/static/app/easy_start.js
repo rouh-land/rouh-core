@@ -319,18 +319,7 @@ if (easyOn('slash_menu') && input && EASY.slash.length && !FRAMED) {
       }
     }, true);
     box.addEventListener('blur', function () { window.setTimeout(slashClose, 150); });
-    // Said where it is found: in the box's own grey words, before what they say about Shift+Enter
-    // (`hintPut` in app/chats.js), and again whenever whoever sets them sets them anew.
-    var KEYS = ' · Shift+Enter for a new line';
-    var MORE = ' · / for more';
-    function slashHint() {
-      var p = box.getAttribute('placeholder') || '';
-      if (!p || p.indexOf(MORE) >= 0) return;
-      var keys = p.slice(-KEYS.length) === KEYS;
-      box.setAttribute('placeholder', (keys ? p.slice(0, -KEYS.length) : p) + MORE + (keys ? KEYS : ''));
-    }
-    new MutationObserver(slashHint).observe(box, { attributes: true, attributeFilter: ['placeholder'] });
-    slashHint();
+    // Not said in the box's grey words any more (Petar, 27 November 2026, `hintPut` in app/chats.js).
   }());
 }
 
