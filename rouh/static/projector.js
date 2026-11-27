@@ -388,15 +388,18 @@
     var saidKey = d.said ? String(d.said.id || d.said.text) : '';
     var newCard = cardKey !== shown.card;
     var newWords = heardKey !== shown.heard || saidKey !== shown.said;
+    var newQuestion = heardKey !== shown.heard;
     shown.heard = heardKey;
     shown.said = saidKey;
     if (newCard) {
       shown.card = cardKey;
       drawCard(d.card || null);
     }
-    // A card is on the stage only while it is the news; an answer alone comes up as words over the orb.
+    // A card is on the stage while it is the news: with what Rouh heard and its answer in the strip under it,
+    // as the answer comes (Petar, 27 November 2026, 14:06: "keep that in addition to the overall canvas"). A new
+    // question with no card of its own comes up as words over the orb.
     if (newCard && d.card && !first) wall.classList.add('with-card');
-    else if (newWords && !newCard) wall.classList.remove('with-card');
+    else if (newQuestion && !newCard) wall.classList.remove('with-card');
     var before = stage.clientHeight;
     drawCaption(d);
     // The caption band takes the room its words need, so the stage may have grown or shrunk: fit again.
