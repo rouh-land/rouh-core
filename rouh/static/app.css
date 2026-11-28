@@ -12571,7 +12571,7 @@ html.pointing, html.pointing * { cursor: crosshair !important; }
 .run-heading.has-help-spot { display: flex; flex-wrap: wrap; align-items: center; }
 .run-heading.has-help-spot > h3 { flex: 0 1 auto; min-width: 0; }
 .run-heading.has-help-spot > :not(h3):not(.help-spot) { flex: 1 0 100%; }
-.nt-title h2 .help-spot { margin-left: 6px; }
+.nt-head-title h2 .help-spot { margin-left: 6px; }
 
 .help-card { position: fixed; z-index: 420; width: min(320px, calc(100vw - 24px)); padding: 14px 16px 10px;
   background: var(--panel-2); border: 1px solid var(--line); border-radius: var(--radius); box-shadow: var(--shadow);

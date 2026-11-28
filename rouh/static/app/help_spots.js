@@ -49,7 +49,7 @@ var PLACES = [
   { spot: 'chat', at: '#transcriptEmpty', how: 'end', use: '#sendBtn' },
   { spot: 'canvas', at: '#cardsEmpty .at-desk', how: 'end', use: '#cards .card, #canvasBar' },
   { spot: 'canvas', at: '#canvasCrumb', how: 'after', use: '#cards .card, #canvasBar' },
-  { spot: 'notices', at: '#ntHead .nt-title h2', how: 'end', use: '#noticeBell', layer: true },
+  { spot: 'notices', at: '#ntHead .nt-head-title h2', how: 'end', use: '#noticeBell', layer: true },
   { spot: 'run', at: '#oneTitle', how: 'after', layer: true },
   { spot: 'run', at: '#jobTitle', how: 'after', layer: true }
 ];

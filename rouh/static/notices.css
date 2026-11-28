@@ -54,6 +54,14 @@
   border-radius: 20px;
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.55);
 }
+/* On a computer the opened column is about twice a phone's: "notifications on larger screens
+   don't need to be as narrow as on mobile ... at least 2x big. maybe 3x. you decide" (Petar,
+   28 November 2026). 720 px, as wide as a line stays easy to read (3x would not be), and in
+   between, from a small tablet up, the window less 24 px a side, so it never overflows. A phone,
+   and the notice that drops in on its own, keep the narrow width above. */
+@media (min-width: 640px) {
+  .notices[data-mode="list"] .nt-panel { width: min(720px, calc(100vw - 48px)); }
+}
 .notices.listing[data-mode="list"] .nt-panel { animation: nt-open 220ms ease-out; }
 @keyframes nt-open {
   from { opacity: 0; transform: translateY(-14px) scale(0.98); }
@@ -65,7 +73,7 @@
   padding: 0 4px 8px 8px;
 }
 .nt-head[hidden] { display: none; }
-.nt-title { flex: 1 1 auto; min-width: 0; }
+.nt-head-title { flex: 1 1 auto; min-width: 0; }
 .nt-head h2 { margin: 0; font-size: 17px; font-weight: 700; letter-spacing: -0.01em; }
 .nt-tally { margin: 1px 0 0; color: var(--dim); font-size: 12.5px; font-variant-numeric: tabular-nums;
   white-space: normal; overflow: visible; text-overflow: clip; }
