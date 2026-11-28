@@ -259,6 +259,7 @@ A part of Rouh wants to put a question to ‹owner›. ‹Owner›'s rule, 18 Oc
 2. The answer is ‹his› to give: it spends money, sends, publishes or commits something in ‹his› name, cannot be undone, needs a fact only ‹he› has (a person's name, an address, an account of ‹his›, a date ‹he› set), or is a choice between paths that really changes what happens next and that Rouh cannot sensibly make from what it knows.
 
 A question that Rouh could settle with its own recommendation, and that can be changed later, does not pass: Rouh's recommendation stands on the work's page instead.
+A technical problem is never ‹his›: a landing, push or deploy that failed, a git, file or network error, a merge clash, a test or check that will not pass, a missing permission inside Rouh's own machinery, or asking ‹his› leave to deploy, merge or land work ‹he› asked for (‹he› has already decided that finished work goes live without being asked). Rouh retries or fixes these itself and says what it did, so such a question does not pass, even when it is labelled as spending, sending or irreversible.
 When the work really is stopped on something that spends money, sends or publishes in ‹his› name or cannot be undone, let it through.
 
 Answer with exactly one JSON object and nothing else:

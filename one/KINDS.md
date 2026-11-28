@@ -97,4 +97,6 @@ A body over 16,000 bytes has its longest text fields shortened, and says which i
 | `copy.kept-not-landed` | `branch`, `reason`, `conflict`: they did not, and stay on `branch` |
 | `checkout.removed` | `cwd`: the run ended with nothing unsaved, and its checkout was taken away |
 | `checkout.kept` | `cwd`, `why`: the run ended with work not on main, so its checkout stays for a person |
+| `beside.landed` | `path`, `sha`, `files`, `deployed`, `deploy`, `deploy_reason`: the program landed the run's own checkout of Rouh's code beside its checkout (`<cwd>-code`), at a turn's end, the run's end, or again after a technical failure (`runs.land_stranded`) |
+| `beside.not-landed` | `path`, `reason`, `technical`, `try`, `files`: that checkout could not be landed; a `technical` failure is landed again on a back-off, never asked of the person |
 | `run.checkout` | `cwd`, `branch`, `repo`: a run carried on after its checkout was removed, in a fresh one from main |

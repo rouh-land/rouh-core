@@ -2266,8 +2266,26 @@ PYEOF
 
   WROTE=$(conflicts write <"$PARTS")
   if [ -z "$WROTE" ]; then
-    finish 11 state=needs-person landed=false "pre_branch=$PRE" \
-      "reason=the replay collides and the record could not be written"
+    # No record (fitting in the containers keeps none, or Rouh's Python would not
+    # answer): that is a missing piece of bookkeeping, never a question for the
+    # person. The collision goes back to the worker that wrote the code, as any
+    # collision does, with the files and where its work is kept. Until 28
+    # November 2026 this answered needs-person, so a run that could have fixed its
+    # own collision was told the person had to, and its work sat on a branch
+    # (31c4430f).
+    HB=$(tmpfile handback.txt)
+    {
+      printf 'Your work collides with what reached %s while you worked, and Rouh could not merge it itself%s.\n' \
+        "$TARGET" "${MERGE_WHY:+ ($MERGE_WHY)}"
+      printf 'Your commits are kept, exactly as you wrote them, on %s.\n' "$PRE"
+      printf 'The files that collide:\n'
+      sed 's/^/- /' "$CONF_FILE" 2>/dev/null
+      printf '\nRebase your branch onto %s yourself (git fetch, then git rebase), keeping what both sides meant, prove it again, commit, and end your turn: it is landed again then.\n' "$TARGET"
+    } >"$HB"
+    say "the collision has no record here; handing it back to the worker that wrote it"
+    finish 10 state=handback landed=false "pre_branch=$PRE" "attempt=$ATTEMPT" "handback=@$HB" \
+      "files=lines@$CONF_FILE" "merge_failed=$MERGE_WHY" \
+      "reason=it collides with $TARGET, so it is back with the worker that wrote it${MERGE_WHY:+, because Rouh could not merge it itself: $MERGE_WHY}. Its work is kept on $PRE"
   fi
   QUESTION=$(WROTE_JSON="$WROTE" "$PY" -c 'import json,os;print(json.loads(os.environ["WROTE_JSON"]).get("question") or "")')
   RID=$(WROTE_JSON="$WROTE" "$PY" -c 'import json,os;print(json.loads(os.environ["WROTE_JSON"]).get("id") or "")')

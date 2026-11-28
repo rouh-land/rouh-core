@@ -48,6 +48,14 @@ _LL_RULE_PATH_BENEATH = 1
 _PR_SET_NO_NEW_PRIVS = 38
 _FS_READ_FILE = 1 << 2
 _FS_WRITE_FILE = 1 << 1
+#: Since ABI 2: moving or linking a file into another folder. It is the one right every ruleset
+#: handles even when it is not asked to, so a lock that leaves it out refuses every rename and
+#: hard link between two folders with "Invalid cross-device link" (EXDEV), everywhere. From 25 to
+#: 28 November 2026 that made every git push into a local repository fail in every run locked out
+#: of the card ("unable to migrate objects to permanent storage"), and with it every landing such
+#: a run tried (`bin/rouh-land`, ``fit``). So it is handled, and allowed beneath every folder the
+#: lock allows: the kernel still refuses a move that would give a file rights it did not have.
+_FS_REFER = 1 << 13
 #: Since ABI 5: an ioctl on a device file opened before the lock.
 _FS_IOCTL_DEV = 1 << 15
 #: What a run that is refused the card exits with when the lock could not be made. It never
@@ -187,7 +195,8 @@ def lock_out(refused: list[str]) -> int:
     if abi < 1:
         raise OSError("this kernel has no Landlock")
     libc = _libc()
-    handled = _FS_READ_FILE | _FS_WRITE_FILE | (_FS_IOCTL_DEV if abi >= 5 else 0)
+    file_rights = _FS_READ_FILE | _FS_WRITE_FILE | (_FS_IOCTL_DEV if abi >= 5 else 0)
+    handled = file_rights | (_FS_REFER if abi >= 2 else 0)
     attr = (ctypes.c_uint64 * 1)(handled)
 
     def call(*args):
@@ -205,8 +214,10 @@ def lock_out(refused: list[str]) -> int:
             except OSError:
                 continue            # gone, or a link to nowhere: nothing to allow
             try:
-                # A file takes only the file rights; a directory takes them for all beneath it.
-                rule = (ctypes.c_uint64(handled).value.to_bytes(8, sys.byteorder)
+                # A file takes only the file rights; a directory takes them for all beneath it,
+                # and the right to move and link files within it.
+                rights = handled if os.path.isdir(path) else file_rights
+                rule = (ctypes.c_uint64(rights).value.to_bytes(8, sys.byteorder)
                         + fd.to_bytes(4, sys.byteorder, signed=True))
                 buf = ctypes.create_string_buffer(rule, len(rule))
                 try:

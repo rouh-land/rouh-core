@@ -39,8 +39,20 @@ WAIT = float(os.environ.get("ROUH_LAND_WAIT", "3600"))
 FIT_WAIT = float(os.environ.get("ROUH_LAND_FIT_WAIT", "900"))
 
 
+#: Said after a landing that failed for a technical reason, so a run never makes it a question for
+#: the person (Petar, 28 November 2026): the program lands the work again by itself
+#: (one/runs.py, ``land_stranded``).
+TECHNICAL = (" This is a technical failure, not a question for the person: leave the work committed "
+             "and end your turn; the program lands it again by itself.")
+
+
 def say(**answer) -> int:
     answer.setdefault("landed", False)
+    reason = str(answer.get("reason") or "")
+    if (answer.get("state") == "error" and not answer.get("design") and "did not take it" not in reason
+            and TECHNICAL.strip() not in reason):
+        answer["technical"] = True
+        answer["reason"] = reason + TECHNICAL
     # The sentence a run reads, as land.sh ends with one, and the JSON the one program reads.
     print(f"rouh-land: {answer.get('reason') or answer.get('state')}", file=sys.stderr)
     print(json.dumps(answer))

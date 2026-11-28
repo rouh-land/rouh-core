@@ -583,6 +583,11 @@ class Runs(_RunInteraction):
         #: Claude Code says it took it (its UserPromptSubmit hook).
         self._typing: dict[str, asyncio.Event] = {}
         self.fix_tries: dict[str, int] = {}
+        # Landing again what a technical failure left (``land_stranded``): per checkout, how
+        # many times it was tried and when it may be tried next.
+        self.stranded_tries: dict[str, tuple[int, float]] = {}
+        # The head of each code checkout beside a run already landed, so it is not asked twice.
+        self.beside_done: dict[str, str] = {}
         #: Runs already asked once to finish what they left uncommitted, so a
         #: run that means it when it says the tests will not pass is asked once
         #: and then believed.
@@ -1306,7 +1311,9 @@ class Runs(_RunInteraction):
         """Save a turn that is really over: land its work, or say what it left."""
         if not (self.s.space(run["space"]).repo and run.get("repo") and run.get("cwd")):
             return None
-        return await self._land(run, driving=driving, at_turn_end=at_turn_end)
+        follow_up = await self._land(run, driving=driving, at_turn_end=at_turn_end)
+        beside = await self._land_beside(run, at_turn_end=at_turn_end and not driving)
+        return follow_up or beside
 
     async def end_stale_pause(self, run_id: str, *, silent_for: float) -> None:
         """A paused run that nothing has woken for too long: its turn is over after all.
@@ -1463,6 +1470,135 @@ class Runs(_RunInteraction):
             self.p.tell(run_id, f"{run['title']}: its work could not be saved to main. {reason}",
                         reason="not-landed")
         return None
+
+    # -- work a technical failure left on a branch ----------------------------------------
+    #
+    # Petar, 28 November 2026: finished work kept failing to go live - a lock that made every
+    # git push inside a run fail ("Invalid cross-device link", `one/hardware.py`), a run's own
+    # checkout of Rouh's code that nothing but the run itself ever landed, a landing cut short -
+    # and each time the work sat on a branch with a decision sent to him. A technical failure is
+    # never his to answer. So the program lands the code checkout beside a workspace run itself,
+    # at the end of each turn and of the run, from its own process, and lands again, on a back-off,
+    # any finished work whose landing failed for a reason that is not the work's own: not a
+    # collision only the code's writer can reconcile, not checks the change failed, not a design
+    # record it lacks.
+
+    #: The space whose checkout a workspace run makes beside its own (`briefs.CODE_ELSEWHERE`).
+    BESIDE_SPACE = "rouh"
+    #: How many times stranded work is landed again, and the wait before each try, doubled.
+    STRANDED_TRIES = 6
+    STRANDED_WAIT = 600.0
+    #: Only runs that ended within this long are looked at.
+    STRANDED_WITHIN = 3 * 24 * 3600.0
+
+    def _beside(self, run: dict[str, Any]) -> str:
+        """The checkout of Rouh's code a run made beside its own (``<cwd>-code``), or ""."""
+        cwd = (run.get("cwd") or "").rstrip("/")
+        if not cwd or run.get("space") == self.BESIDE_SPACE:
+            return ""
+        path = f"{cwd}-code"
+        if not os.path.exists(os.path.join(path, ".git")):
+            return ""
+        if not self.s.space(self.BESIDE_SPACE).repo:
+            return ""
+        return path
+
+    @staticmethod
+    def _head(path: str) -> str:
+        try:
+            import subprocess
+            got = subprocess.run(["git", "-c", "safe.directory=*", "rev-parse", "HEAD"], cwd=path,
+                                 capture_output=True, text=True, timeout=20)
+            return got.stdout.strip() if got.returncode == 0 else ""
+        except Exception:
+            return ""
+
+    @staticmethod
+    def technical(result: dict[str, Any]) -> bool:
+        """Whether a landing that did not land failed for a reason that is not the work's own."""
+        reason = str(result.get("reason") or "")
+        if result.get("landed") or reason == "nothing new to land":
+            return False
+        if result.get("needs_person") or result.get("conflict") or result.get("parked"):
+            return False
+        if "collides" in reason or "did not take it" in reason or "Nothing was handed on" in reason:
+            # A collision is the writer's to reconcile; checks the change failed and a missing
+            # design record are the change's own. Landing it again would change nothing.
+            return False
+        if "half done" in reason or "shares no history" in reason:
+            return False
+        return True
+
+    async def _land_beside(self, run: dict[str, Any], *, at_turn_end: bool = False) -> str | None:
+        """Land the run's own checkout of Rouh's code, beside its checkout. A follow-up for the run
+        when its work collides and it can still be sent back; else None."""
+        path = self._beside(run)
+        if not path:
+            return None
+        run_id = run["id"]
+        head = await asyncio.to_thread(self._head, path)
+        if not head or self.beside_done.get(path) == head:
+            return None
+        try:
+            result = await self.docs.land(path, run_id=run_id, space=self.BESIDE_SPACE,
+                                          title=run.get("title") or "")
+        except Exception as exc:
+            result = {"landed": False, "reason": f"{type(exc).__name__}: {exc}"}
+        reason = str(result.get("reason") or "it did not say why")
+        if result.get("landed") or reason == "nothing new to land":
+            self.beside_done[path] = head
+            self.stranded_tries.pop(path, None)
+            if result.get("landed") and not result.get("already") and not result.get("pushed_itself"):
+                self.list.append("beside.landed", run=run_id, body={
+                    "path": path, "sha": result.get("sha"), "files": (result.get("files") or [])[:200],
+                    "deployed": bool(result.get("deployed")), "deploy": result.get("deploy") or "",
+                    "deploy_reason": result.get("deploy_reason") or ""})
+            return None
+        tries, _ = self.stranded_tries.get(path, (0, 0.0))
+        tries += 1
+        technical = self.technical(result)
+        self.stranded_tries[path] = (tries, time.monotonic() + self.STRANDED_WAIT * (2 ** (tries - 1)))
+        self.list.append("beside.not-landed", run=run_id, body={
+            "path": path, "reason": reason[:600], "technical": technical, "try": tries,
+            "files": (result.get("files") or [])[:200]})
+        handback = str(result.get("handback") or "")
+        if (at_turn_end and result.get("clash") and handback and not result.get("needs_person")
+                and self.fix_tries.get(run_id, 0) < 1):
+            self.fix_tries[run_id] = self.fix_tries.get(run_id, 0) + 1
+            return f"Your checkout of Rouh's code at {path} could not be landed. " + handback
+        if not technical:
+            self.p.tell(run_id, f"{run['title']}: its change to Rouh's code could not be landed. {reason}",
+                        reason="beside-not-landed")
+        return None
+
+    async def land_stranded(self) -> None:
+        """Land again the finished work of ended runs that a technical failure kept off main."""
+        now_wall, now = time.time(), time.monotonic()
+        for run in list(self.views.runs.values()):
+            if run["state"] not in ENDED or run.get("kind") != "agent":
+                continue
+            if now_wall - float(run.get("ended_at") or 0) > self.STRANDED_WITHIN:
+                continue
+            beside = self._beside(run)
+            if beside:
+                tries, after = self.stranded_tries.get(beside, (0, 0.0))
+                # Never tried since this program started (tries 0) is tried too: a run that
+                # ended before it lands what it left the first time it is looked at.
+                if tries < self.STRANDED_TRIES and now >= after:
+                    await self._land_beside(run)
+            # Its own checkout, kept with commits not on main, after a landing that failed for a
+            # technical reason (`technical`): landed again the same way its turn's end lands it.
+            cwd = run.get("cwd") or ""
+            if (run.get("checkout") == "kept" and cwd and os.path.isdir(cwd) and run.get("land_reason")
+                    and run.get("repo") and self.s.space(run["space"]).repo
+                    and self.technical({"reason": run.get("land_reason"),
+                                        "conflict": run.get("conflict"),
+                                        "needs_person": run.get("conflict_needs_person")})):
+                tries, after = self.stranded_tries.get(cwd, (0, 0.0))
+                if tries >= self.STRANDED_TRIES or now < after:
+                    continue
+                self.stranded_tries[cwd] = (tries + 1, now + self.STRANDED_WAIT * (2 ** tries))
+                await self._land(run, driving=False)
 
     async def what_is_left(self, run: dict[str, Any]) -> dict[str, Any]:
         """What this run's checkout still holds that has not reached its branch.
@@ -2205,6 +2341,9 @@ class Runs(_RunInteraction):
                 "dirty": bool(leaves.get("dirty")), "unsaved": leaves.get("unsaved")})
             await self._land(run, driving=False)
             leaves = await self.what_is_left(run)
+        if self._sweeps(run, died_badly):
+            # Its own checkout of Rouh's code, beside it, is landed by the same rule.
+            await self._land_beside(run)
         left = work_left({**leaves, "target": run.get("target")})
         state = ended_state(run, how or "exited", code, sig, left)
         self.list.append("run.ended", run=run_id, body={
@@ -2362,6 +2501,10 @@ class Runs(_RunInteraction):
     async def tidy_sweep(self) -> None:
         """Every ended run whose checkout is still there. The scheduler calls this now and then."""
         await self.boxes_sweep()
+        try:
+            await self.land_stranded()
+        except Exception:
+            log.exception("landing stranded work again failed; carrying on")
         for run in list(self.views.runs.values()):
             if (run["state"] in ENDED and run.get("left") and run.get("checkout") == "kept"
                     and run.get("cwd")):

@@ -202,8 +202,12 @@ CODE_ELSEWHERE = ("Rouh's and the one program's own code is a separate repositor
                   "beside this one - `git -C {code_repo} fetch origin main && git -C {code_repo} "
                   "worktree add -b one/<what-it-is>-{run_id} {cwd}-code origin/main` - work and "
                   "prove the change there the way that repository's AGENTS.md says, and land it "
-                  "from there with its `./land.sh`, which deploys it; say what it said. Commit "
-                  "only the workspace's own files here.")
+                  "from there with its `./land.sh`, which deploys it; say what it said. The "
+                  "program also lands that checkout when your turn ends, and lands it again by "
+                  "itself if a landing fails for a technical reason (a git or file error, a "
+                  "time-out, the protected core not answering), so such a failure is never a "
+                  "question or a decision for the person: commit, say it is landing, and end "
+                  "your turn. Commit only the workspace's own files here.")
 CODE_HERE = ("Everything outside `workspace/` in this checkout is Rouh's and the one program's "
              "own code, under the repository's own AGENTS.md, and a change there is proved the "
              "way that file says.")

@@ -291,12 +291,30 @@ if pid == 0:
         except OSError as e:
             said.append(path + " refused")
     print("LOCK", ", ".join(said), flush=True)
+    # Moving a file into another folder, and so every git push into a local repository, must
+    # still work under the lock: from 25 to 28 November 2026 it refused them all with "Invalid
+    # cross-device link", and every landing a locked run tried failed.
+    import subprocess, tempfile
+    d = tempfile.mkdtemp()
+    os.makedirs(d + "/a"); os.makedirs(d + "/b"); open(d + "/a/f", "w").close()
+    try:
+        os.rename(d + "/a/f", d + "/b/f"); print("MOVE ok", flush=True)
+    except OSError as e:
+        print("MOVE refused", e, flush=True)
+    g = lambda *a: subprocess.run(["git", "-c", "safe.directory=*", *a], capture_output=True, text=True)
+    g("init", "-q", d + "/seed"); g("-C", d + "/seed", "-c", "user.name=t", "-c", "user.email=t@t.test",
+                                    "commit", "-q", "--allow-empty", "-m", "x")
+    g("init", "-q", "--bare", d + "/main.git")
+    pushed = g("-C", d + "/seed", "push", "-q", d + "/main.git", "HEAD:refs/heads/main")
+    print("PUSH", "ok" if pushed.returncode == 0 else "refused " + pushed.stderr.strip()[-120:], flush=True)
     os._exit(0)
 os.waitpid(pid, 0)
 """)
     out = r.stdout + r.stderr
     expect("LOCK /dev/full refused, /dev/null open, /etc/hostname open" in out,
            f"the worker's lock did not refuse just the device file: {out[-400:]}")
+    expect("MOVE ok" in out and "PUSH ok" in out,
+           f"the worker's lock refused a move between folders or a git push into a local repository: {out[-400:]}")
     fake = ('{"gpu": {"cards": [{"name": "Stack graphics card", "vendor": "AMD"}], "nodes": ["/dev/kfd", "/dev/dri"], '
             '"compute": true, "usable": true, "openable": ["/dev/kfd"]}, "at": 0}')
     s.run("worker", "cp /run/one/hardware.json /run/one/hardware.json.kept 2>/dev/null; "
