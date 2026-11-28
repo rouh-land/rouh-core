@@ -2356,22 +2356,34 @@ class ToolRegistry:
             "they mention their watch list, a film or show to watch, what they are watching or have watched: "
             "add (\"add Severance to my watch list\": its details, poster, seasons and where it streams are "
             "looked up by themselves; say who recommended it when they do), mark (status to_watch, watching or "
-            "watched), progress (the season and episode they have seen up to), rate (1 to 5) and note, edit (any "
+            "watched), progress (the season and episode they have seen up to), rate (1 to 10; stars out of 5 "
+            "said by them are doubled) and note, again (watch again: a title they watched goes back to the top "
+            "of Up next, its history of watches kept; they rewatch things, so never refuse a watched title), "
+            "tag (free tags such as \"cosy\" or \"with the kids\", which cut across lists: `tags` to add, "
+            "`untag` to take off; list takes `tag` to show only those), edit (any "
             "detail by hand, such as where it streams), next (to the top of Up next), remove, list, read (one "
             "title whole), tonight (\"what should I watch tonight\": the show they are in the middle of first, "
             "then Up next, within minutes when they say how long they have), and show (open the page, at one "
-            "title when named). A title is named by its words or its number (#3). Shared lists (kept with "
-            "another person): lists (which there are, and who is on each); `list` names one for add (\"add Dune "
-            "to our list with Maria\"), list and tonight (\"what should Maria and I watch\"); move puts a title "
-            "on a list (\"my list\" for their own). Inviting someone is done on the page (Share a list), where "
-            "they type the email; open it with show.",
+            "title when named). A title is named by its words or its number (#3). Lists: besides My list they "
+            "can keep lists of their own (new_list, with `name`: \"make a list called With the kids\") and "
+            "lists shared with another person; lists says which there are, who is on each, and the tags in use; "
+            "`list` names one for add (\"add Dune to our list with Maria\"), list and tonight (\"what should "
+            "Maria and I watch\"); move puts a title on a list (\"my list\" for their own). A title is on one "
+            "list. Inviting someone is done on the page (People and invites on a list), where they type the "
+            "email; open it with show.",
             {"type": "object",
              "properties": {
                  "action": {"type": "string", "enum": ["add", "mark", "progress", "rate", "note", "edit", "next",
                                                        "remove", "list", "read", "tonight", "show", "lists",
-                                                       "move"]},
-                 "list": {"type": "string", "description": "A shared list by its name or a person on it, or "
+                                                       "move", "again", "tag", "new_list"]},
+                 "list": {"type": "string", "description": "A list by its name or a person on it, or "
                                                            "\"my list\"; for add, list, tonight and move."},
+                 "name": {"type": "string", "description": "For new_list: the new list's name."},
+                 "tags": {"type": "array", "items": {"type": "string"},
+                          "description": "For tag and add: tags to put on the title."},
+                 "untag": {"type": "array", "items": {"type": "string"},
+                           "description": "For tag: tags to take off the title."},
+                 "tag": {"type": "string", "description": "For list: only the titles with this tag."},
                  "title": {"type": "string", "description": "The title as the person said it, or its number."},
                  "year": {"type": "integer", "description": "For add: the year, when they said which one."},
                  "kind": {"type": "string", "enum": ["film", "show", "miniseries", "documentary"],
@@ -2379,7 +2391,8 @@ class ToolRegistry:
                  "status": {"type": "string", "enum": ["to_watch", "watching", "watched"]},
                  "season": {"type": "integer"}, "episode": {"type": "integer",
                                                             "description": "For progress: seen up to this one."},
-                 "my_rating": {"type": "integer", "minimum": 1, "maximum": 5},
+                 "my_rating": {"type": "integer", "minimum": 1, "maximum": 10,
+                               "description": "Out of 10. Stars out of 5 they say are doubled."},
                  "notes": {"type": "string"},
                  "recommended_by": {"type": "string", "description": "Who told them about it."},
                  "where": {"type": "string", "description": "Where it streams, such as Netflix."},
@@ -2389,7 +2402,7 @@ class ToolRegistry:
                             "description": "For list: only these."}},
              "required": ["action"]},
             self._watch_list,
-            brief="Watch list of films and shows: add, mark, episodes, rate, tonight's pick",
+            brief="Watch list of films and shows: add, mark, episodes, rate 1-10, watch again, lists, tags, tonight",
         )
         # A page as a printable PDF (night 11, gene page_pdf, `rouh/page_pdf.py`).
         self._own(
@@ -13330,8 +13343,15 @@ class ToolRegistry:
             on = await asyncio.to_thread(watchlist.list_named, who, args.get("list"))
             if action == "lists":
                 return await asyncio.to_thread(watchlist.lists_for_model, who)
+            if action == "new_list":
+                name = str(args.get("name") or args.get("list") or "").strip()
+                made = await asyncio.to_thread(watchlist.new_list, who, name)
+                await watchlist.tell(who)
+                return (f"Made the list {made['name']}, theirs alone. Add titles to it with add and list, or move "
+                        "titles onto it. Say so in a few words.")
             if action == "list":
-                listed = await asyncio.to_thread(watchlist.for_model, who, str(args.get("filter") or ""), on)
+                listed = await asyncio.to_thread(watchlist.for_model, who, str(args.get("filter") or ""), on,
+                                                 str(args.get("tag") or ""))
                 c = await asyncio.to_thread(watchlist.counts, who)
                 head = (f"{c['to_watch']} to watch, {c['watching']} watching, {c['watched']} watched, in Up next's "
                         "order:")
@@ -13354,13 +13374,17 @@ class ToolRegistry:
             if not title:
                 return "Which title? Give its name or its number."
             if action == "add":
-                fields = {k: args.get(k) for k in ("year", "kind", "notes", "recommended_by", "where", "my_rating")
-                          if args.get(k) not in (None, "")}
+                fields = {k: args.get(k) for k in ("year", "kind", "notes", "recommended_by", "where", "my_rating",
+                                                    "tags")
+                          if args.get(k) not in (None, "", [])}
                 if on:
                     fields["list"] = on
                 try:
                     there = await asyncio.to_thread(_one)
                     if watchlist._norm(there.title) == watchlist._norm(title):
+                        if there.status == "watched":
+                            return (f"{watchlist.line(watchlist.view(there))} is already on the watch list, watched. "
+                                    "If they want to see it again, use again (watch again) rather than adding it.")
                         return (f"{watchlist.line(watchlist.view(there))} is already on the watch list. Say so; "
                                 "change it only if they asked for something else.")
                 except watchlist.NotFound:
@@ -13406,7 +13430,7 @@ class ToolRegistry:
                                                       else ""))
             if action in ("rate", "note", "edit"):
                 fields = {k: args.get(k) for k in ("my_rating", "notes", "recommended_by", "where", "kind", "year",
-                                                    "status") if args.get(k) not in (None, "")}
+                                                    "status", "tags") if args.get(k) not in (None, "", [])}
                 if not fields:
                     return "Nothing to change was given."
                 got = await asyncio.to_thread(lambda: watchlist.change(who, n, **fields))
@@ -13417,11 +13441,28 @@ class ToolRegistry:
                     return "Which list? Name a shared list, or say my list."
                 got = await asyncio.to_thread(lambda: watchlist.change(who, n, list=on))
                 await watchlist.tell(who, n)
-                return f"{got['title']} is on {'My list' if not on else 'the shared list'} now. Say so in a few words."
+                return f"{got['title']} is on {'My list' if not on else 'that list'} now. Say so in a few words."
             if action == "next":
                 got = await asyncio.to_thread(watchlist.to_front, who, n)
                 await watchlist.tell(who, n)
                 return f"{got['title']} is first in Up next now."
+            if action == "again":
+                got = await asyncio.to_thread(watchlist.again, who, n)
+                await watchlist.tell(who, n)
+                times = got["times_watched"]
+                return (f"{got['title']} is back in Up next, first, to watch again"
+                        + (f" (watched {'once' if times == 1 else f'{times} times'} before)" if times else "")
+                        + ". Say so in a few words.")
+            if action == "tag":
+                add_ = watchlist.clean_tags(args.get("tags") or [])
+                off = {t.lower() for t in watchlist.clean_tags(args.get("untag") or [])}
+                if not add_ and not off:
+                    return "Which tags? Give tags to put on, or untag to take off."
+                now_tags = [t for t in (item.tags or []) if t.lower() not in off] + add_
+                got = await asyncio.to_thread(lambda: watchlist.change(who, n, tags=now_tags))
+                await watchlist.tell(who, n)
+                return (f"{got['title']} is tagged " + (", ".join(got["tags"]) or "with nothing now") +
+                        ". Say so in a few words.")
         except watchlist.NotFound as exc:
             return str(exc) + " Say so, and offer to add it."
         except ValueError as exc:

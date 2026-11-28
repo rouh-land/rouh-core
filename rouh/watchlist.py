@@ -18,8 +18,13 @@ could have." So it is a screen of its own, at `/watch` (`watchlistpage.js`), one
 - **The poster is kept here**, in the data directory, and served from Rouh's own address, so the
   page asks nothing of another site and a poster never breaks when its source moves.
 - **Three statuses**: to watch, watching, watched. Ticking an episode starts a show; ticking its last
-  episode marks it watched. Each title keeps the person's own rating (1 to 5), notes and who
-  recommended it, and its place in Up next.
+  episode marks it watched. Each title keeps the person's own rating (1 to 10, step 202-04), notes,
+  free tags and who recommended it, and its place in Up next.
+- **Rewatching** (step 202-04, the owner: "I rewatch stuff. so a movie that I have watched shouldn't be
+  automatically ruled out of watching in the future"): every time a title is marked watched is kept
+  (`watches`), and Watch again (`again`) puts it back in Up next, first, with its episodes unticked,
+  so Tonight offers it like any other. A watch taken back within `UNDO_WINDOW` (Undo, or a
+  mis-press) is not counted.
 - **Tonight** is worked out in code, never by a model: the show they are in the middle of, with its
   next episode, first, then Up next in their order, each within the time they have (`tonight`).
 
@@ -53,6 +58,11 @@ TEXT_MOST = 4000
 SEASONS_MOST = 60
 EPISODES_MOST = 400
 POSTER_MOST = 4_000_000
+RATING_MOST = 10
+TAGS_MOST = 12
+TAG_MOST = 30
+#: A watch taken back this soon after it was marked (Undo, a mis-press) leaves the history as it was.
+UNDO_WINDOW = 15 * 60
 
 #: Where the lookups go. One stand-in takes all of them in a test world.
 _BASE = os.environ.get("ROUH_WATCH_LOOKUP", "").rstrip("/")
@@ -246,6 +256,8 @@ def view(item) -> dict:
         "rank": item.rank, "added_via": item.added_via, "added_at": item.added_at, "updated_at": item.updated_at,
         "started_at": item.started_at, "watched_at": item.watched_at, "looked_up": bool(item.looked_up_at),
         "links": links(item), "list": int(item.list_id or 0), "added_by": item.added_by or "",
+        "watches": [float(w) for w in (item.watches or [])], "times_watched": len(item.watches or []),
+        "tags": list(item.tags or []),
     }
 
 
@@ -587,7 +599,9 @@ def _apply(item, fields: dict) -> None:
         item.seasons = _clean_seasons(fields["seasons"])
         item.seen = _clean_seen(item.seen, item.seasons)
     if "my_rating" in fields:
-        item.my_rating = _int(fields["my_rating"], 1, 5)
+        item.my_rating = _rating(fields["my_rating"])
+    if "tags" in fields and fields["tags"] is not None:
+        item.tags = clean_tags(fields["tags"])
     if "imdb_id" in fields and fields["imdb_id"] is not None:
         v = str(fields["imdb_id"]).strip()
         item.imdb_id = v if re.fullmatch(r"tt\d{5,12}", v) else ""
@@ -604,20 +618,65 @@ def _apply(item, fields: dict) -> None:
         _set_status(item, fields["status"])
 
 
+def _rating(value) -> int | None:
+    """A person's own rating, 1 to 10, or None to clear it; anything else is refused, never cleared."""
+    if value in (None, "", 0, "0"):
+        return None
+    n = _int(value, 1, RATING_MOST)
+    if n is None:
+        raise ValueError(f"A rating is a whole number from 1 to {RATING_MOST}.")
+    return n
+
+
+def clean_tags(value) -> list[str]:
+    """Free tags, as typed, without repeats whatever their case: "cosy, With the kids" or a list."""
+    if isinstance(value, str):
+        value = re.split(r"\s*[,;\n]\s*", value)
+    out: list[str] = []
+    seen = set()
+    for t in value or []:
+        t = " ".join(str(t or "").lstrip("#").split())[:TAG_MOST]
+        if t and t.lower() not in seen:
+            seen.add(t.lower())
+            out.append(t)
+        if len(out) >= TAGS_MOST:
+            break
+    return out
+
+
 def _set_status(item, status: str) -> None:
     if status not in STATUSES:
         raise ValueError(f"A title is one of: {', '.join(STATUSES.values()).lower()}.")
     now = time.time()
     if status == item.status:
         return
+    was = item.status
     item.status = status
     if status == "watching" and not item.started_at:
         item.started_at = now
     if status == "watched":
         item.watched_at = now
         item.started_at = item.started_at or now
-    elif item.watched_at:
-        item.watched_at = None
+        item.watches = [*(item.watches or []), now]
+    else:
+        if was == "watched" and item.watches and now - float(item.watches[-1]) < UNDO_WINDOW:
+            # Taken back straight away: that watch did not happen.
+            item.watches = list(item.watches[:-1])
+        if item.watched_at:
+            item.watched_at = None
+
+
+def again(who, number) -> dict:
+    """Watch again: a watched title goes back to the top of Up next, its episodes unticked, its history kept."""
+    item = _get(who, number)
+    item.status = "to_watch"
+    item.seen = {}
+    item.started_at = None
+    item.watched_at = None
+    item.rank = _first_rank(who)
+    item.updated_at = time.time()
+    item.save()
+    return view(item)
 
 
 def _next_number(who) -> int:
@@ -818,7 +877,7 @@ def refresh(who, number, pick: dict | None = None) -> tuple[dict, str]:
     found = details(pick)
     # A film's poster comes from its IMDb match, not from the sources asked again here: keep the one it was added with.
     poster_from = found.pop("poster_from", "") or item.poster_from or ""
-    keep = {"status", "seen", "my_rating", "notes", "recommended_by", "where", "where_url", "rank"}
+    keep = {"status", "seen", "my_rating", "notes", "recommended_by", "where", "where_url", "rank", "tags"}
     if item.where:
         found.pop("where", None)
         found.pop("where_url", None)
@@ -871,6 +930,8 @@ def restore(who, was: dict) -> dict:
     item.status = was.get("status") if was.get("status") in STATUSES else "to_watch"
     item.started_at, item.watched_at = was.get("started_at"), was.get("watched_at")
     item.looked_up_at = was.get("_looked_up_at")
+    item.watches = [float(w) for w in (was.get("watches") or []) if isinstance(w, (int, float))]
+    item.tags = clean_tags(was.get("tags") or [])
     name = Path(str(was.get("_poster_file") or "")).name
     if name and (_poster_dir(who) / name).is_file():
         item.poster = name
@@ -920,6 +981,8 @@ def tonight(who, minutes=None, kind: str = "", skip=None, most: int = 5, list_id
         why = "First in Up next." if place == 1 else f"Number {place} in Up next."
         if i.recommended_by:
             why += f" {i.recommended_by} recommended it."
+        if i.watches:
+            why += " A rewatch: seen " + ("once" if len(i.watches) == 1 else f"{len(i.watches)} times") + " before."
         out.append({"item": view(i), "why": why})
     return out[:most]
 
@@ -941,18 +1004,27 @@ def line(v: dict) -> str:
     if v.get("runtime"):
         bits.append(f"{v['runtime']} min" + (" an episode" if v["kind"] in SERIAL else ""))
     if v.get("my_rating"):
-        bits.append(f"rated {v['my_rating']}/5")
+        bits.append(f"rated {v['my_rating']}/10")
+    if v.get("times_watched"):
+        n = v["times_watched"]
+        bits.append("watched once" if n == 1 else f"watched {n} times")
+        if v["status"] != "watched":
+            bits.append("(back in Up next to watch again)")
+    if v.get("tags"):
+        bits.append("tags: " + ", ".join(v["tags"]))
     if v.get("recommended_by"):
         bits.append(f"recommended by {v['recommended_by']}")
     return " ".join(bits)
 
 
-def for_model(who, status: str = "", list_id=None) -> str:
+def for_model(who, status: str = "", list_id=None, tag: str = "") -> str:
     rows = _in_list(_mine(who), list_id).order_by("rank", "number")
     if status in STATUSES:
         rows = rows.filter(status=status)
     names = {l.id: l.name for l in _lists(who)} if not isinstance(who, Member) else {}
-    return "\n".join(line(view(i)) + (f" [on the shared list {names[i.list_id]}]" if i.list_id in names else "")
+    want = _norm(tag)
+    rows = [i for i in rows[:400] if not want or any(_norm(t) == want for t in (i.tags or []))]
+    return "\n".join(line(view(i)) + (f" [on the list {names[i.list_id]}]" if i.list_id in names else "")
                      for i in rows[:200])
 
 
@@ -978,22 +1050,38 @@ def list_named(who, words) -> int | None:
             any(words in _norm(n) for n in (l.names or {}).values()) or any(words in e for e in (l.names or {}))]
     if len(hits) == 1:
         return hits[0].id
-    raise NotFound(f"There is no shared list called \"{words}\". The lists: My list"
+    raise NotFound(f"There is no list called \"{words}\". The lists: My list"
                    + "".join(f", {l.name}" for l in rows) + ".")
 
 
 def lists_for_model(who) -> str:
     rows = lists_of(who)
+    mine = _owners(who).filter(list_id__isnull=True).exclude(status="watched").count()
+    head = f"My list: just them; {mine} left to watch"
     if not rows:
-        return ("Nothing is shared: every title is on My list. A list is shared on the Watch list page, with Share "
-                "a list, where they type the person's email.")
-    out = []
+        return (head + ". There are no other lists: make one with new_list (\"a list called With the kids\"). A "
+                "list is shared on the Watch list page, where they type the person's email.")
+    out = [head]
     for l in rows:
         ppl = ", ".join((p["name"] or p["email"]) + ("" if p["joined"] else " (invited, not opened yet)")
-                        for p in l["people"]) or "nobody now"
+                        for p in l["people"])
         n = _owners(who).filter(list_id=l["id"]).exclude(status="watched").count()
-        out.append(f"{l['name']}: with {ppl}; {n} left to watch")
-    return "Shared lists:\n" + "\n".join(out)
+        out.append(f"{l['name']}: " + (f"shared with {ppl}" if ppl else "just them, not shared") +
+                   f"; {n} left to watch")
+    tags = all_tags(who)
+    return "Lists:\n" + "\n".join(out) + (f"\nTags in use: {', '.join(tags)}." if tags else "")
+
+
+def all_tags(who) -> list[str]:
+    """Every tag on their titles, most used first."""
+    count: dict = {}
+    shown: dict = {}
+    for tags in _mine(who).values_list("tags", flat=True):
+        for t in tags or []:
+            k = t.lower()
+            count[k] = count.get(k, 0) + 1
+            shown.setdefault(k, t)
+    return [shown[k] for k in sorted(count, key=lambda k: (-count[k], k))]
 
 
 async def tell(who, number: int | None = None, opened: bool = False, chat: str = "") -> None:
@@ -1031,6 +1119,11 @@ def dump(who) -> str:
 # one list: My list (`list_id` None) or one shared list. On a shared list its status and episodes are
 # the list's, watched together; each person keeps their own rating, notes and whether they had seen
 # it before (`WatchMark`).
+#
+# Step 202-04 (the owner: "shall we have multiple lists?"): a list need not be shared. New list makes
+# one that is the owner's alone ("With the kids"); inviting someone shares it, and Stop sharing takes
+# everybody off and keeps the list. A title is still on one list, because a list is who it is watched
+# with and carries that order and that progress; tags (`clean_tags`) are what cut across lists.
 
 PREFIX = "_watch/"
 NAME_MOST = 80
@@ -1067,7 +1160,7 @@ def _list_for(who, value, moving: bool = False) -> int | None:
     if not lid:
         return None
     if not _lists(who).filter(id=lid).exists():
-        raise ValueError("There is no such shared list.")
+        raise ValueError("There is no such list.")
     return lid
 
 
@@ -1076,7 +1169,7 @@ def _mark(item, person: str, own: dict) -> None:
 
     row, _ = WatchMark.objects.get_or_create(item=item, person=person, defaults={"updated_at": time.time()})
     if "my_rating" in own:
-        row.my_rating = _int(own["my_rating"], 1, 5)
+        row.my_rating = _rating(own["my_rating"])
     if "notes" in own and own["notes"] is not None:
         row.notes = str(own["notes"]).strip()[:TEXT_MOST]
     if "seen_before" in own:
@@ -1225,7 +1318,8 @@ def dressed(who, item_view: dict) -> dict:
 
 
 def new_list(who, name: str, titles=()) -> dict:
-    """A new shared list of the owner's, with these titles of My list moved onto it."""
+    """A new list of the owner's, with these titles of My list moved onto it. It is theirs alone until
+    they share it (step 202-04: "shall we have multiple lists?"); sharing it is inviting someone."""
     from .models import WatchList
 
     name = " ".join(str(name or "").split())[:NAME_MOST]
@@ -1235,7 +1329,7 @@ def new_list(who, name: str, titles=()) -> dict:
         raise ValueError(f"You have a list called {name} already: give this one another name, or invite them "
                          "to that one with People and invites.")
     if _lists(who).count() >= LISTS_MOST:
-        raise ValueError(f"You have {LISTS_MOST} shared lists already.")
+        raise ValueError(f"You have {LISTS_MOST} lists already.")
     now = time.time()
     row = WatchList.objects.create(org_id=str(who.org_id), user_id=str(who.user_id), name=name,
                                    created_at=now, updated_at=now)
@@ -1251,7 +1345,7 @@ def rename_list(who, list_id, name: str) -> dict:
         raise ValueError("Give the list a name.")
     row = _lists(who).filter(id=_int(list_id, 1) or 0).first()
     if row is None:
-        raise NotFound("There is no such shared list.")
+        raise NotFound("There is no such list.")
     row.name, row.updated_at = name, time.time()
     row.save(update_fields=["name", "updated_at"])
     return {"id": row.id, "name": row.name}
@@ -1261,7 +1355,7 @@ def name_person(who, list_id, email: str, name: str) -> None:
     """What the owner calls the person a list is shared with."""
     row = _lists(who).filter(id=_int(list_id, 1) or 0).first()
     if row is None:
-        raise NotFound("There is no such shared list.")
+        raise NotFound("There is no such list.")
     names = dict(row.names or {})
     name = " ".join(str(name or "").split())[:80]
     if name:
@@ -1275,12 +1369,25 @@ def name_person(who, list_id, email: str, name: str) -> None:
 def find_list(who, list_id):
     row = _lists(who).filter(id=_int(list_id, 1) or 0).first()
     if row is None:
-        raise NotFound("There is no such shared list.")
+        raise NotFound("There is no such list.")
     return row
 
 
+def unshare_list(who, list_id) -> int:
+    """Stop sharing a list: everybody's access goes at once, and the list stays, the owner's alone
+    (step 202-04: a list need not be shared). The others' own marks stay on the titles' rows. Returns
+    how many people lost it."""
+    from .models import PageGuest
+
+    row = find_list(who, list_id)
+    gone, _ = PageGuest.objects.filter(user_id=str(who.user_id), org_id=str(who.org_id), rel=rel_of(row.id)).delete()
+    row.updated_at = time.time()
+    row.save(update_fields=["updated_at"])
+    return gone
+
+
 def stop_list(who, list_id) -> int:
-    """Stop sharing a list: everybody's access goes at once, its titles go back to My list with the
+    """Delete a list: everybody's access goes at once, its titles go back to My list with the
     owner's ratings and notes, and the list is gone. The others' own marks stay on the titles' rows
     until a title is removed. Returns how many titles came back."""
     from django.db import transaction

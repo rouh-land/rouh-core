@@ -136,7 +136,8 @@ def tool_box(s: Stack) -> None:
 @check("tool.watch-list")
 def tool_watch_list(s: Stack) -> None:
     """A title put on the watch list from its page by its name alone, then Tonight picks it and
-    watch_list marks it watched, as the person would ask by voice."""
+    watch_list marks it watched, rates it out of 10 and puts it back to watch again, as the person
+    would ask by voice."""
     code, made = post(s, "/api/watch/new", {"title": "Stack Test Film", "lookup": False, "kind": "film"})
     expect(code == 200 and made.get("ok"), f"the Watch list page could not add a title: {code} {made}")
     got = fine("watch_list", s.tool("watch_list", {"action": "tonight"}))
@@ -145,6 +146,11 @@ def tool_watch_list(s: Stack) -> None:
     expect("watched" in got.lower(), f"watch_list mark: {got[:400]}")
     code, body, _ = s.get("/api/watch")
     expect(code == 200 and '"watched":1' in body.replace(" ", ""), f"/api/watch after marking: {code} {body[:300]}")
+    # Rated out of 10, then put back to watch again with its watch kept (step 202-04).
+    got = fine("watch_list", s.tool("watch_list", {"action": "rate", "title": "stack test film", "my_rating": 8}))
+    expect("8/10" in got, f"watch_list rate out of 10: {got[:400]}")
+    got = fine("watch_list", s.tool("watch_list", {"action": "again", "title": "stack test film"}))
+    expect("back in Up next" in got and "once" in got, f"watch_list again: {got[:400]}")
 
 
 @check("tool.payments")

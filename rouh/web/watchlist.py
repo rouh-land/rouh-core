@@ -9,16 +9,19 @@
     POST /api/watch/<n>                  {fields}: change one
     POST /api/watch/<n>/tick             {"season", "episode"}, or {"step": true} for the next one
     POST /api/watch/<n>/front            Watch next: to the top of Up next
+    POST /api/watch/<n>/again            Watch again: a watched title back to the top of Up next, its history kept
     POST /api/watch/<n>/move             {"before"}: just before another, or last
     POST /api/watch/<n>/refresh          {"pick"?}: its details looked up again
     POST /api/watch/<n>/delete           take it off; answers what it was, for Undo
     GET  /api/watch/<n>/poster           its poster, kept here
 
-    POST /api/watch/lists/new            {"list_name", "email", "name"?, "role", "notify", "titles"?}: share a list
+    POST /api/watch/lists/new            {"list_name", "email"?, "name"?, "role", "notify", "titles"?}: a new list,
+                                         shared with that person when an email is given, else the owner's alone
     POST /api/watch/lists/<id>           {"name"}: rename it
     POST /api/watch/lists/<id>/invite    {"email", "name"?, "role", "notify"}: one more person
     POST /api/watch/lists/<id>/uninvite  {"token"}: take one person off; their link stops at once
-    POST /api/watch/lists/<id>/stop      stop sharing: everybody off, its titles back on My list
+    POST /api/watch/lists/<id>/stop      stop sharing: everybody off; the list stays, the owner's alone
+    POST /api/watch/lists/<id>/delete    delete the list: everybody off, its titles back on My list
 
 Only the signed-in person's own titles, always asked for by their organisation and account
 together (`Tenancy.current`, via `who`).
@@ -87,7 +90,7 @@ def _data(me) -> dict:
 def _fields(body: dict) -> dict:
     keep = ("title", "kind", "year", "end_year", "runtime", "genres", "rating", "rating_from", "overview", "cast",
             "where", "where_url", "seasons", "seen", "status", "my_rating", "notes", "recommended_by", "list",
-            "seen_before")
+            "seen_before", "tags")
     return {k: body[k] for k in keep if k in body}
 
 
@@ -237,6 +240,11 @@ async def front(request: HttpRequest, number: int):
 
 
 @only("POST")
+async def again(request: HttpRequest, number: int):
+    return await _act(request, number, lambda w, me, n, body: {"item": w.again(me, n)})
+
+
+@only("POST")
 async def move(request: HttpRequest, number: int):
     return await _act(request, number, lambda w, me, n, body: {"item": w.move(me, n, body.get("before"))})
 
@@ -318,14 +326,20 @@ async def list_new(request: HttpRequest):
     me = await _owner(request)
     if me is None:
         return refuse("Sign in first.", 401)
-    why = await asyncio.to_thread(landshare.refusal, me.org_id)
-    if why:
-        return refuse(why, 409)
     body = body_of(request)
+    sharing_it = bool(str(body.get("email") or "").strip())
+    if sharing_it:
+        why = await asyncio.to_thread(landshare.refusal, me.org_id)
+        if why:
+            return refuse(why, 409)
     try:
         made = await asyncio.to_thread(watchlist.new_list, me, body.get("list_name"), body.get("titles") or [])
     except ValueError as exc:
         return refuse(str(exc), 400)
+    if not sharing_it:
+        # A list of the owner's alone (step 202-04): nobody is asked, nothing is sent.
+        await _told(me)
+        return answer({"ok": True, "list": made, "data": await asyncio.to_thread(_data, me)}, headers=NO_STORE)
     try:
         got = await _share_with(request, me, made["id"], body)
     except (ValueError, watchlist.NotFound) as exc:
@@ -371,6 +385,8 @@ async def list_one(request: HttpRequest, list_id: int, act: str = ""):
         elif act == "putback":
             got = {"back": await asyncio.to_thread(_put_back, me, int(list_id), body.get("was"))}
         elif act == "stop":
+            got = {"gone": await asyncio.to_thread(watchlist.unshare_list, me, list_id)}
+        elif act == "delete":
             got = {"moved": await asyncio.to_thread(watchlist.stop_list, me, list_id)}
         else:
             return refuse("Not found.", 404)
@@ -423,7 +439,7 @@ async def member_of(request, token: str):
     return await asyncio.to_thread(find)
 
 
-_ITEM = re.compile(r"^(\d+)(?:/(tick|front|move|refresh|delete|poster))?$")
+_ITEM = re.compile(r"^(\d+)(?:/(tick|front|again|move|refresh|delete|poster))?$")
 
 
 async def shared(request: HttpRequest, token: str, rest: str = ""):
@@ -453,7 +469,7 @@ async def shared(request: HttpRequest, token: str, rest: str = ""):
     number, act = int(found.group(1)), found.group(2) or ""
     if act == "move":
         return refuse("Not found.", 404)
-    handler = {"": one, "tick": tick, "front": front, "refresh": refresh, "delete": delete, "poster": poster}[act]
+    handler = {"": one, "tick": tick, "front": front, "again": again, "refresh": refresh, "delete": delete, "poster": poster}[act]
     return await handler(request, number)
 
 

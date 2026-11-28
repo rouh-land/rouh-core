@@ -140,7 +140,7 @@ READS = frozenset({
 READ_ACTIONS = {
     "agent_instructions": frozenset({"list"}),
     "thoughts": frozenset({"list", "read"}),
-    "watch_list": frozenset({"list", "read", "tonight"}),
+    "watch_list": frozenset({"list", "read", "tonight", "lists"}),
     "shipping": frozenset({"list"}),
     "link_person": frozenset({"show"}),
     # check writes back only the value it just read (`cloudflare._settings_edit`);
@@ -213,7 +213,7 @@ OWN_ACTIONS = {
     "page_comments": frozenset({"add", "reply", "edit", "resolve", "reopen"}),
     # The owner's own watch list (`rouh/watchlist.py`): a title added, marked or noted, and nothing
     # sent anywhere. Taking one off, or opening the owner's screen, is risky.
-    "watch_list": frozenset({"add", "mark", "progress", "rate", "note", "edit", "next"}),
+    "watch_list": frozenset({"add", "mark", "progress", "rate", "note", "edit", "next", "again", "tag", "new_list"}),
     # The owner's own apps on the owner's own apps servers: listed, and set up, deployed, updated, restarted,
     # rolled back (one step, undone by deploying again) and backed up there. Taking one off the list, and a
     # new server's join line, which gives a machine a way in, are not here: they are risky.

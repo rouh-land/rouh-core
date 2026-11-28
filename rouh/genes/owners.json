@@ -1135,6 +1135,7 @@
     "rouh/models/watchlist.py",
     "rouh/migrations/0283_watch_items.py",
     "rouh/migrations/0286_watch_lists.py",
+    "rouh/migrations/0287_watch_again_tags.py",
     "rouh/static/watchshared.js",
     "rouh/templates/rouh/watch_shared.html",
     "rouh/management/commands/watchlist.py",

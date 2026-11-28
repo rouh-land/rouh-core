@@ -30,11 +30,12 @@
   },
   "touches": {
     "permissions": [
-      "keeps the person's watch list of films and shows: each title's details, their progress through a show's seasons and episodes, their own rating, notes and who recommended it",
+      "keeps the person's watch list of films and shows: each title's details, their progress through a show's seasons and episodes, every date they watched it (Watch again puts it back in Up next), their own rating out of 10, free tags, notes and who recommended it",
       "looks a title up by its words or its IMDb number in public sources with no account: IMDb's search suggestions, TVmaze, Wikidata and Wikipedia; nothing about the person is sent",
       "downloads each title's poster once into the data directory and serves it from Rouh's own address",
-      "adds, marks, ticks, rates, notes and moves titles when the person asks in a chat or by voice (watch_list), and takes one off only on their own words",
-      "shares a list with a person by email through Rouh's own sharing (the same permission record as a shared page, opened with a rouh.land sign-in): they see and keep that one list at /shared/<token>, never anything else; the invite letter goes only when the owner ticks it"
+      "adds, marks, ticks, rates (1 to 10), tags, puts back to watch again, makes lists and moves titles when the person asks in a chat or by voice (watch_list), and takes one off only on their own words",
+      "shares a list with a person by email through Rouh's own sharing (the same permission record as a shared page, opened with a rouh.land sign-in): they see and keep that one list at /shared/<token>, never anything else; the invite letter goes only when the owner ticks it",
+      "keeps lists of the person's own besides My list (New list), which nobody else sees until they invite someone; stopping sharing keeps the list theirs"
     ],
     "accounts": [
       "IMDb search suggestions, TVmaze, Wikidata and Wikipedia (public, no account)"

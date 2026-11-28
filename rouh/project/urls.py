@@ -789,6 +789,7 @@ urlpatterns = [
     path("api/watch/<int:number>", watchlist_web.one),
     path("api/watch/<int:number>/tick", watchlist_web.tick),
     path("api/watch/<int:number>/front", watchlist_web.front),
+    path("api/watch/<int:number>/again", watchlist_web.again),
     path("api/watch/<int:number>/move", watchlist_web.move),
     path("api/watch/<int:number>/refresh", watchlist_web.refresh),
     path("api/watch/<int:number>/delete", watchlist_web.delete),

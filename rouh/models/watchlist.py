@@ -44,7 +44,7 @@ class WatchItem(models.Model):
     status = models.TextField(default="to_watch")
     #: For a show, how many episodes of each season are seen, from the first: {"1": 8, "2": 3}.
     seen = models.JSONField(default=dict, blank=True)
-    #: The person's own rating, 1 to 5, and their notes.
+    #: The person's own rating, 1 to 10 (1 to 5 until step 202-04, doubled then), and their notes.
     my_rating = models.IntegerField(null=True, blank=True)
     notes = models.TextField(blank=True, default="")
     recommended_by = models.TextField(blank=True, default="")
@@ -61,6 +61,11 @@ class WatchItem(models.Model):
     list_id = models.BigIntegerField(null=True, blank=True, db_index=True)
     #: Who added it: "" for the owner, else the email of the person the list is shared with.
     added_by = models.TextField(blank=True, default="")
+    #: Every time it was watched, oldest first, as times (step 202-04: "I rewatch stuff"). Watch again
+    #: puts a watched title back in Up next and keeps these.
+    watches = models.JSONField(default=list, blank=True)
+    #: The person's own free tags ("cosy", "with the kids"), which cut across lists (step 202-04).
+    tags = models.JSONField(default=list, blank=True)
 
     class Meta:
         db_table = "watch_items"
@@ -97,6 +102,7 @@ class WatchMark(models.Model):
     item = models.ForeignKey(WatchItem, on_delete=models.CASCADE, related_name="marks", db_column="item_id")
     #: "owner", or the email of the person the list is shared with.
     person = models.TextField()
+    #: 1 to 10, as on the title (step 202-04).
     my_rating = models.IntegerField(null=True, blank=True)
     notes = models.TextField(blank=True, default="")
     seen_before = models.BooleanField(default=False)
