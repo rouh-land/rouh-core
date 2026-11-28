@@ -75,6 +75,11 @@ NOT_DEPLOYED = "nothing here could deploy it, so it is on main and not live yet"
 #: ``agent.pause-ended`` is a paused turn the program called over because
 #: nothing woke it (`one/runs.py`, ``Runs.end_stale_pause``): reported itself
 #: for a run with nothing to save, and through its saving for any other.
+#: The ``how`` of a run the program stopped because API errors kept cutting
+#: its turns off (``one/views.py``, ``API_ERROR``), said here because Rouh
+#: holds none of the program's code.
+API_ERROR = "api-error"
+
 DONE_KINDS = ("work.landed", "work.nothing-new", "work.not-landed", "agent.stopped",
               "agent.pause-ended", "run.ended")
 
@@ -297,7 +302,7 @@ class OneLander(Lander):
             # commit what it left, or to wait for a command it started - so the
             # turn is not over and its next one is what there is to report.
             return None
-        if kind == "run.ended" and not _left_behind(body):
+        if kind == "run.ended" and not _left_behind(body) and body.get("how") != API_ERROR:
             return None  # the run ended with its work saved; its turn was reported when it landed
         if _saving(entry) or _paused(entry):
             return None
@@ -399,10 +404,12 @@ class OneLander(Lander):
             return result
         if kind in ("run.ended", "work.not-landed") and await self._goal_step_done(
                 run_id, final, [], ok=False,
-                why=_left_behind(body) or str(result.get("reason") or "")):
+                why=_left_behind(body) or str(body.get("why") or result.get("reason") or "")):
             # Its step says it is stuck and why; the report below still goes on.
             pass
-        if kind == "run.ended":
+        if kind == "run.ended" and body.get("how") == API_ERROR:
+            await self._show_api_failed(run_id, title, final, result, run, body)
+        elif kind == "run.ended":
             await self._show_left_behind(run_id, title, final, result, run, body)
         elif run.get("stalled") and (kind in ("agent.pause-ended", "work.landed") or (
                 kind == "work.nothing-new" and not _left_behind(body))):
@@ -698,6 +705,37 @@ class OneLander(Lander):
             f"{cwd or 'nowhere it can be found'}, and card {card_id} says so. Tell the person "
             "plainly, in one or two short sentences, that it did not finish and that its work "
             "is not on main. Do not say it is done. Do not start anything.]"
+        )
+
+    async def _show_api_failed(self, run_id, title, final, result, run, body) -> None:
+        """The program stopped the run because API errors kept cutting its turns off.
+
+        Never a Done: its work stopped part way, and the person is told so, with
+        the error, what of it is on main and where the rest is kept
+        (`one/runs.py`, ``Runs.api_error``; run 67bb6fe8, 28 November 2026).
+        """
+        why = " ".join(str(body.get("why") or run.get("ended_why")
+                           or "API errors kept cutting its turns off").split())
+        if why.startswith("stopped: "):
+            why = why[len("stopped: "):]
+        left = _left_behind(body)
+        saved = bool(body.get("saved"))
+        where = ("Some of its work is on main" + (f"; {left}." if left else ".") if saved
+                 else (f"None of its work reached main: {left}." if left
+                       else "None of its work reached main."))
+        cwd = str(run.get("cwd") or "")
+        blocks = [{"block": "text", "text": f"It was stopped because {why}."},
+                  {"block": "text", "text": where}]
+        if cwd and left:
+            blocks.append({"block": "text", "text": f"Its checkout is kept at {cwd}."})
+        card_id = await self._card(f"Failed: {title}", blocks,
+                                   foot={"ended": run_report.FAILED, "why": why})
+        result.update(kind="failed", card_id=card_id, reason=why, saved=saved)
+        log.warning("one run %s was stopped for API errors: %s", run_id, why)
+        await self._say(
+            f'[The job "{title}" did not finish: the program stopped it because {why}. {where} '
+            f"Card {card_id} says so. Tell the person plainly, in one or two short sentences, "
+            "that it failed and why. Do not say it is done. Do not start anything.]"
         )
 
     async def _show_stalled(self, run_id, title, final, result, run, *,

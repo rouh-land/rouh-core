@@ -351,6 +351,7 @@ class Scheduler:
                 await self.close_overdue()
                 await self.costcap.check()
                 await self.end_stale_pauses()
+                await self.p.runs.carry_on_api_errors()
                 if time.monotonic() - tidied > self.TIDY_EVERY or not tidied:
                     tidied = time.monotonic()
                     await self.p.runs.tidy_sweep()
@@ -616,7 +617,8 @@ class Scheduler:
         if run["state"] == "done":
             return True
         if (run["state"] != "idle" or run["kind"] != "agent" or run.get("interactive")
-                or not run.get("succeeded_at")):
+                or not run.get("succeeded_at") or run.get("api_error")):
+            # A turn an API error cut off is never a success to put away.
             return False
         if batch and now - epoch(run["succeeded_at"]) < self.s.archive_after:
             return False

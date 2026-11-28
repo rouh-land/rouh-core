@@ -94,8 +94,70 @@ HOOKS: dict[str, tuple[str, str]] = {
     "SubagentStop": ("subagent_stop", "short"),
     "Notification": ("notification", "short"),
     "Stop": ("stop", "long"),
+    # Claude Code sends this *instead of* Stop when an API error ended the
+    # turn: a connection lost mid-response, an overloaded or failing server,
+    # a rate limit. Until 28 November 2026 it was not asked for, so such a
+    # turn ended with no hook at all: run 67bb6fe8 lost its connection at
+    # 08:00:16, its end was only caught a minute later from the idle
+    # Notification, as if it had finished, and it was archived as succeeded
+    # with its page never made (`Runs.api_error`). Fire and forget: Claude
+    # Code ignores the answer, so the program carries it on by typing.
+    "StopFailure": ("stop_failure", "short"),
     "SessionEnd": ("session_end", "end"),
 }
+
+#: The errors of a StopFailure (its ``error``) after which the turn is simply
+#: tried again: the model's side failed, not the run's set-up. The others -
+#: a sign-in, billing, an unknown model, a request refused as invalid - would
+#: only fail the same way, so the run is stopped at once and called failed.
+API_ERRORS_RETRIED = frozenset({"server_error", "overloaded", "rate_limit", "unknown",
+                                "max_output_tokens", "connection_failed"})
+
+
+def api_error_words(error: str, message: str) -> str:
+    """An API error that ended a turn, in one plain line: what it was and what it said."""
+    said = " ".join(str(message or "").split())
+    if said.startswith("API Error:"):
+        said = said[len("API Error:"):].strip()
+    kind = str(error or "unknown").replace("_", " ")
+    return f"{kind}: {said[:300]}" if said else kind
+
+
+def api_carry_on(words: str, tries: int, of: int) -> str:
+    """What is typed at a run's prompt to carry on a turn an API error cut off."""
+    return (f"Your last turn was cut off by an API error ({words}) before you had finished, "
+            f"so nothing of it after that point was done. Carry on with the work from where you "
+            f"stopped: look at what is already in your checkout before you write anything "
+            f"again, and finish the job as it was asked. (The program sent this by itself, "
+            f"try {tries} of {of}.)")
+
+
+def api_error_of(records: list[dict[str, Any]]) -> dict[str, str] | None:
+    """The API error a transcript's last turn ended on, or None.
+
+    Claude Code writes the error as an assistant message of its own, marked
+    ``isApiErrorMessage``, with the kind in ``error`` (and, from 2.1.316,
+    ``apiError``). The records after it that are not part of the
+    conversation - the turn's duration, the cost, the last prompt - are
+    passed over; a prompt or an answer after it means the turn carried on.
+    """
+    for record in reversed(records):
+        if not isinstance(record, dict) or record.get("type") not in ("assistant", "user"):
+            continue
+        if record.get("isMeta") or record.get("isSidechain"):
+            continue
+        if record.get("type") == "assistant" and record.get("isApiErrorMessage"):
+            content = (record.get("message") or {}).get("content")
+            text = ""
+            if isinstance(content, list):
+                text = " ".join(str(c.get("text") or "") for c in content
+                                if isinstance(c, dict) and c.get("type") == "text")
+            elif isinstance(content, str):
+                text = content
+            return {"error": str(record.get("error") or record.get("apiError") or "unknown"),
+                    "message": text.strip()}
+        return None
+    return None
 
 #: The deny rules written into a run's settings as well. They are the third
 #: line, behind the program's two chances to answer: Claude Code enforces

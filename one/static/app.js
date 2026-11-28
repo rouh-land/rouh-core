@@ -219,7 +219,7 @@
     li.tabIndex = 0;
     li.dataset.id = run.id;
     if (run.id === state.selected) li.setAttribute("aria-current", "true");
-    const dot = el("span", `dot ${run.state}`);
+    const dot = el("span", `dot ${dotClass(run)}`);
     dot.title = stateWords(run);
     // The age is the run's own age, because that is what the list is ordered
     // by: a row saying "just now" sitting under one saying "5 min ago" would
@@ -321,13 +321,29 @@
   // The scheduler works the reason out (one/scheduler.py why_wait) and puts it
   // on the run; a run queued for the instant before the scheduler has looked
   // at it has none yet, and "Queued" alone is the truth about it.
+  // A run at its prompt because an API error cut its turn off (one/runs.py
+  // api_error) has not finished anything: the program carries it on by
+  // itself, or stops it as failed. Until 28 November 2026 it read "Finished
+  // its turn" with the green ring, which is how run 67bb6fe8 looked done.
+  function cutOff(run) { return !ENDED.has(run.state) && !!run.api_error; }
+
+  function dotClass(run) { return cutOff(run) ? "unfinished" : run.state; }
+
   function stateWords(run) {
+    if (cutOff(run)) {
+      const api = run.api_error;
+      if (api.gave_up) return "Cut off by an API error - stopping it as failed";
+      if (api.retry_at) return `Cut off by an API error - carrying it on, try ${api.tries}`;
+      return "Cut off by an API error";
+    }
     const word = STATE_WORDS[run.state] || run.state;
     // An unfinished run always says what is unfinished about it. "Unfinished"
     // on its own would only move the question along.
     if (run.state === "unfinished" && run.left) return `${word} - ${run.left}`;
     // A lost run says what took it (one/runs.py adopt_all), never only "Lost".
     if (run.state === "lost" && run.ended_why) return `${word} - ${run.ended_why}`;
+    // So does a run the program stopped as failed (an API error, its cost cap).
+    if (run.state === "failed" && run.ended_why) return `${word} - ${run.ended_why}`;
     // Stopped by the program's own clock (one/scheduler.py close_overdue),
     // which is neither a finish nor a crash, and says so.
     if (run.state === "reaped") {
@@ -373,6 +389,9 @@
     // Queued says what it waits for; cleaned up says why it ended, which its
     // last message, written before the program stopped it, never says.
     if (run.state === "queued" || run.state === "reaped") return stateWords(run);
+    if (cutOff(run) && run.state === "idle") {
+      return run.api_error.words ? `${stateWords(run)}: ${run.api_error.words}` : stateWords(run);
+    }
     if (run.state === "working" && run.doing) return run.doing;
     if (run.driver) return driverNote(run.driver);
     if (run.last_message) return run.last_message;
@@ -394,11 +413,13 @@
   function renderSummary() {
     const open = [...state.runs.values()].filter((r) => !ENDED.has(r.state) && !r.archived);
     const asking = open.filter((r) => r.state === "asking").length;
-    const resting = open.filter((r) => r.state === "idle").length;
-    const busy = open.length - resting - asking;
+    const cut = open.filter((r) => r.state === "idle" && cutOff(r)).length;
+    const resting = open.filter((r) => r.state === "idle").length - cut;
+    const busy = open.length - resting - asking - cut;
     const parts = [];
     if (busy) parts.push(`${busy} working`);
     if (resting) parts.push(`${resting} finished ${resting === 1 ? "its" : "their"} turn`);
+    if (cut) parts.push(`${cut} cut off by an API error`);
     if (asking) parts.push(`${asking} waiting for you`);
     const text = open.length === 0 ? "Nothing running" : `${open.length} open: ${parts.join(", ")}`;
     $("summary").textContent = text;
@@ -920,7 +941,7 @@
     $("run-title").textContent = run.title;
     const meta = $("run-meta");
     const st = el("span", `state ${run.state}`);
-    st.append(el("span", `dot ${run.state}`), document.createTextNode(stateWords(run)));
+    st.append(el("span", `dot ${dotClass(run)}`), document.createTextNode(stateWords(run)));
     const bits = [st, el("span", "", `Run ${run.id}`), el("span", "", engineWords(run))];
     if (run.engine === "codex") {
       bits.push(el("span", billedToKey(run) ? "billing-api" : "", billingWords(run)));
@@ -1009,6 +1030,10 @@
         ? ["Waiting", `${b.message ? b.message + " " : ""}It carries on when this reports: ${(b.background || []).join(", ")}`]
         : ["Finished a turn", b.message || ""];
       case "agent.pause-ended": return ["Stopped waiting", `${b.why}, so its turn was called over`, "bad"];
+      case "agent.api-error": return ["Cut off", `An API error ended its turn (${b.words || b.error})`
+        + (b.gave_up ? "; it is being stopped as failed"
+          : b.retry_in != null ? `; carrying it on in ${Math.round(b.retry_in)} s, try ${b.tries} of ${b.of}` : ""), "bad"];
+      case "agent.api-retry": return b.skipped ? null : ["Carried on", "Told to carry on after the API error", ""];
       case "agent.notified": return b.type === "idle_prompt" ? null : ["Needs you", b.message || b.type, "bad"];
       case "work.landed": return ["Saved to main", `${b.commits || 0} commit${b.commits === 1 ? "" : "s"}, ${(b.files || []).length} file${(b.files || []).length === 1 ? "" : "s"}${b.sha ? `, ${b.sha.slice(0, 7)}` : ""}`, "good"];
       case "work.not-landed": return [b.sent_back ? "Sent back" : "Not saved", b.sent_back ? "Its work clashed with main; it was sent back to fix it" : b.reason, b.sent_back ? "" : "bad"];
@@ -1061,6 +1086,9 @@
     if (b.how === "closed-for-room") return "closed to make room: the program was near its memory limit" + pushed;
     if (b.how === "lost") return b.why || "its terminal was gone";
     if (b.how === "failed-to-start") return `could not start: ${b.why || ""}`;
+    // Stopped by the program itself, which says why (one/runs.py): an API
+    // error that kept cutting its turns off, its cost cap, its memory.
+    if (b.why && ["api-error", "over-cost", "over-memory"].includes(b.how)) return b.why + pushed;
     if (b.signal) return `terminated by signal ${b.signal}`;
     if (b.code === TERM_EXIT && !endedBadly(b)) return "terminated after its work was done";
     return b.code ? `exited with code ${b.code}` : "exited";

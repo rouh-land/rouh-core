@@ -220,6 +220,9 @@ def cmd_screens(a) -> int:
             for size, w, h in SIZES:
                 ctx = browser.new_context(viewport={"width": w, "height": h}, color_scheme=scheme,
                                           device_scale_factor=2 if size == "phone" else 1)
+                if a.cookie:
+                    ctx.add_cookies([{"name": c.partition("=")[0], "value": c.partition("=")[2],
+                                      "url": base} for c in a.cookie])
                 page = ctx.new_page()
                 if a.user:
                     _sign_in(page, base, a.user, a.password)
@@ -368,6 +371,9 @@ def main(argv=None) -> int:
     s.add_argument("--user", default="")
     s.add_argument("--password", default="")
     s.add_argument("--settle", type=int, default=1500, help="milliseconds to wait after a page loads")
+    s.add_argument("--cookie", action="append", default=[], metavar="NAME=VALUE",
+                   help="a cookie for the address, such as the one program's paired browser's "
+                        "(its page has no password to sign in with); may be given more than once")
     s.add_argument("--since", default="origin/main", help="what the screen files are compared with")
     s.add_argument("paths", nargs="+")
     s.set_defaults(fn=cmd_screens)

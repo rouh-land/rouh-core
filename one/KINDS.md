@@ -67,6 +67,8 @@ A body over 16,000 bytes has its longest text fields shortened, and says which i
 | `agent.notified` | `type`, `message`: Claude Code wants a person, on its own screen |
 | `agent.stopped` | `message` (its closing words), `again` (a follow-up had been given), `saving` (its work is being saved), `background` (commands it started and had not waited for, named by Claude Code in the Stop hook), `paused` (the turn ended and the work did not: `background` names the sub-agents, background commands, monitors and scheduled wake-ups that will wake it, from the Stop hook's `background_tasks` and `session_crons`; nothing is saved or reported, and the run stays working) |
 | `agent.pause-ended` | `why`, `background`, `saving`: a paused turn nothing woke for `pause_silence`, called over by the program, and saved the ordinary way when `saving` |
+| `agent.api-error` | `error` (Claude Code's StopFailure kind, such as `server_error`), `words` (it in one line), `details`, `tries` (turns cut off in a row), `of` (how many carry-ons are allowed), `retry_in` (seconds until the program types a carry-on, or null), `gave_up` and `why` (it is being stopped as failed): a turn an API error ended, sent in place of Stop. Never a finished turn, and never a success |
+| `agent.api-retry` | `tries`, `skipped` (why no carry-on was typed): the program told a run an API error cut off to carry on |
 | `agent.ended` | `reason` |
 | `message.sent` | `text`, `via` (typed, end of turn, handed back, carried on); `taken` when Claude Code's UserPromptSubmit hook said it took a typed one (since 30 September 2026) |
 | `message.queued` | `text`: it gets this when its turn ends |

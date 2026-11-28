@@ -46,6 +46,10 @@ OVER_MEMORY = "over-memory"
 #: The ``how`` of a run the program stopped for spending more than one run may
 #: (``costcap.CostCap``). It ends ``failed``, with the reason on it.
 OVER_COST = "over-cost"
+#: The ``how`` of a run the program stopped because its turns kept ending on
+#: an API error, or on one that trying again cannot mend (``Runs.api_error``).
+#: It ends ``failed``, with the error on it.
+API_ERROR = "api-error"
 
 #: **The signals that mean something stopped this run**, as against the run
 #: breaking. A hangup is what a machine going down sends to whatever is in a
@@ -168,7 +172,7 @@ def ended_state(run: dict[str, Any], how: str, code: int | None, signal: int | N
         # finishing nor the run breaking. What it left behind is still on the
         # run (``left``), and every screen says it beside the word.
         return "reaped"
-    if how in ("failed-to-start", OVER_MEMORY, OVER_COST):
+    if how in ("failed-to-start", OVER_MEMORY, OVER_COST, API_ERROR):
         return "failed"
     state = "failed"
     if how not in BY_ITSELF:
@@ -215,7 +219,9 @@ TREE_KINDS = {
 #: 10: a run started again because its process went down with the program
 #: (``with_program``, a deploy restarting the worker container) counts in
 #: ``carried``, not in the ``restarts`` a crash gets.
-LOGIC = 10
+#: 11: a turn an API error cut off (``agent.api-error``) is never a success,
+#: and a run that ends with one standing is failed, with the error on it.
+LOGIC = 11
 
 #: What the person's own session is called until its first prompt names it.
 SESSION_TITLE = "Your own session"
@@ -260,10 +266,12 @@ class Views:
         if handler is not None:
             handler(entry, body)
             run = self.runs.get(entry.get("run") or "")
-            if run and run.get("succeeded_at") and run["state"] not in ("idle", "done"):
+            if run and run.get("succeeded_at") and (
+                    run["state"] not in ("idle", "done") or run.get("api_error")):
                 # A turn that ended well is only the run's last word while
                 # nothing has happened since: working again, asking, saving
-                # another turn or ending any other way, and it is not.
+                # another turn or ending any other way, and it is not. Nor is
+                # a turn an API error cut off, whatever said it ended well.
                 run["succeeded_at"] = None
         if kind in TREE_KINDS and entry.get("run") in self.runs:
             self._keep_for_tree(entry)
@@ -386,6 +394,11 @@ class Views:
             # a stop the program's own restart cut short is finished by the
             # program that comes back (Runs.adopt_all).
             "close_wanted": None,
+            # The API error its last turn ended on, while it stands: the kind,
+            # in words, how many turns in a row it has cut off, when the
+            # program will tell it to carry on, and whether it has given up.
+            # Cleared by a turn that ends properly (``_on_agent_stopped``).
+            "api_error": None,
         }
 
     def _on_run_queued(self, e, b) -> None:
@@ -573,11 +586,48 @@ class Views:
             if not b.get("caught"):
                 run["unchecked"] = int(run.get("unchecked") or 0) + 1
 
+    def _on_agent_api_error(self, e, b) -> None:
+        """A turn ended on an API error, not on the run finishing (``Runs.api_error``).
+
+        The run is at its prompt with its work cut off part way: never a
+        success, and never a turn to save or report as done. The program tells
+        it to carry on at ``retry_at``, or, ``gave_up``, stops it as failed.
+        """
+        run = self._run(e)
+        if not run or run["state"] in ENDED:
+            return
+        self._moved_on(run)
+        retry_in = b.get("retry_in")
+        run["api_error"] = {
+            "error": str(b.get("error") or "unknown"), "words": str(b.get("words") or ""),
+            "tries": int(b.get("tries") or 1), "at": e["at"],
+            "retry_at": (epoch(e["at"]) + float(retry_in)) if retry_in is not None else None,
+            "gave_up": bool(b.get("gave_up")), "retried_at": None}
+        run["waiting_on"], run["paused_at"] = [], None
+        run["last_message"] = "Stopped by an API error: " + str(b.get("words") or "")
+        if not run.get("question") and run["state"] in ("working", "starting", "saving"):
+            run["state"] = "idle"
+        run["doing"] = ("Cut off by an API error; carrying on shortly"
+                        if retry_in is not None else "Cut off by an API error")
+        run["succeeded_at"] = None
+        run["last_at"] = e["at"]
+
+    def _on_agent_api_retry(self, e, b) -> None:
+        """The program told a run an API error cut off to carry on."""
+        run = self._run(e)
+        if run and run.get("api_error"):
+            run["api_error"] = {**run["api_error"], "retry_at": None, "retried_at": e["at"]}
+            run["doing"] = "Carrying on after an API error"
+            run["last_at"] = e["at"]
+
     def _on_agent_stopped(self, e, b) -> None:
         run = self._run(e)
         if not run or run["state"] in ENDED:
             return
         self._moved_on(run)
+        # A turn that really ended: whatever API error cut off a turn before
+        # it, the run got past it.
+        run["api_error"] = None
         # A turn ended well, so a conversation carried over to the key was taken.
         run["billing_resuming"] = False
         run["turns"] = int(run.get("turns") or 0) + 1
@@ -721,6 +771,15 @@ class Views:
         code, signal = b.get("code"), b.get("signal")
         left = work_left({**b, "target": b.get("target") or run.get("target")})
         state = "failed" if how == "codex-error" else ended_state(run, how, code, signal, left)
+        why = b.get("why")
+        api = run.get("api_error")
+        if api and state in ("done", "unfinished", "reaped"):
+            # Its last turn was cut off by an API error and never carried on
+            # to a proper end, so however it was closed - archived, stopped,
+            # cleaned up on the clock - it did not finish: run 67bb6fe8, 28
+            # November 2026, was archived "succeeded" with its page unmade.
+            state = "failed"
+            why = why or f"its last turn was cut off by an API error ({api.get('words') or api.get('error')})"
         run.update(state=state, how=how, exit_code=code, signal=signal,
                    ended_at=e["at"], driver=None, watchers=[], question=None,
                    waiting_on_terminal=None, doing="", last_at=e["at"],
@@ -730,7 +789,7 @@ class Views:
                    left=left, saved=bool(b.get("saved")),
                    # Why it ended, when something ended it that the person
                    # would not guess from the state alone (OVER_MEMORY).
-                   ended_why=b.get("why"))
+                   ended_why=why)
 
     def _on_run_settled(self, e, b) -> None:
         """An ended run found to have nothing left after all (``Runs._settle``)."""

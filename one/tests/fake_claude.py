@@ -42,6 +42,15 @@ What it "does" is written in its prompts, one instruction per line:
                             not count towards the two presses that make it leave
     DEAF                    stop listening for Ctrl-C from now on, so only
                             SIGTERM can end it
+    APIERROR: <error> [n] [nohook]
+                            lose the connection mid-response here, as Claude
+                            Code 2.1.316 did on 28 November 2026: the turn ends
+                            with its "API Error: Connection lost mid-response"
+                            message in the transcript, StopFailure is sent in
+                            place of Stop (not at all with nohook), and the
+                            idle Notification follows. The next n turns
+                            (1 if not given) end that way; the lines after
+                            this one are what the first turn after them does
 
 Anything else is answered "I read: ...". Between turns it sits at a prompt
 reading the keyboard the way Claude Code does: letters, a paste in bracketed
@@ -272,6 +281,30 @@ def prompted(text, meta=False):
 #: "all" skips both, as a read-only command Claude Code allows by itself does.
 SKIP = {"next": None}
 
+#: The connection losses still to come (APIERROR), and what the turn after
+#: them carries on with: the lines the lost turn never reached.
+API_FAIL = {"left": 0, "error": "server_error", "hook": True}
+RESUME = []
+LOST = "API Error: Connection lost mid-response. The response above may be incomplete."
+
+
+def lose_connection(said):
+    """End the turn as Claude Code does when the model's connection drops."""
+    API_FAIL["left"] -= 1
+    if said:
+        transcript(said)
+        out(f"\n{said}\n")
+    record("assistant", [{"type": "text", "text": LOST}], isApiErrorMessage=True,
+           error=API_FAIL["error"], apiError="connection_failed", model="<synthetic>")
+    record("system", None, subtype="turn_duration")
+    out(f"\n  {LOST}\n")
+    if API_FAIL["hook"]:
+        hook("StopFailure", error=API_FAIL["error"], error_details=None,
+             last_assistant_message=LOST)
+    time.sleep(0.5)
+    hook("Notification", notification_type="idle_prompt",
+         message="Claude is waiting for your input")
+
 
 def tool(name, tool_input, act):
     call = "toolu_01" + uuid.uuid4().hex[:22]
@@ -396,8 +429,22 @@ def work(prompt):
     tidying = 0.0
     while True:
         prompted(prompt, meta=again)
-        for line in prompt.splitlines():
+        if API_FAIL["left"] > 0:
+            # Still losing its connection: the turn ends before anything is done.
+            lose_connection(None)
+            return
+        lines = list(RESUME) + prompt.splitlines()
+        RESUME.clear()
+        for i, line in enumerate(lines):
             line = line.strip()
+            if line.startswith("APIERROR: "):
+                words = line[10:].split()
+                API_FAIL["error"] = words[0] if words else "server_error"
+                API_FAIL["left"] = int(words[1]) if len(words) > 1 and words[1].isdigit() else 1
+                API_FAIL["hook"] = "nohook" not in words
+                RESUME.extend(lines[i + 1:])
+                lose_connection(said)
+                return
             if line.startswith("RUN: "):
                 bash(line[5:])
             elif line.startswith("BACKGROUND: "):

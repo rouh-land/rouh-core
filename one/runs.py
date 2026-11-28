@@ -47,7 +47,7 @@ from . import agents, billing, codex_signin, codexhome, drops, rules, sealed, su
 from .documents import DocumentsError
 from .hookbodies import CLOSING_TEXT
 from .terminals import read_exit, session_alive
-from .views import ENDED, OVER_COST, OVER_MEMORY, delivered, ended_state, work_left
+from .views import API_ERROR, ENDED, OVER_COST, OVER_MEMORY, delivered, ended_state, work_left
 
 if TYPE_CHECKING:  # pragma: no cover
     from .program import Program
@@ -1099,6 +1099,10 @@ class Runs(_RunInteraction):
             return await self._permission_request(run, payload)
         if kind == "stop":
             return await self._turn_ended(run, payload)
+        if kind == "stop_failure":
+            # Claude Code's turn ended on an API error instead of a Stop.
+            await self.api_error(run, payload)
+            return {}
         if kind == "post_tool_use":
             given = self._note_if_missed(run_id, payload)
             if given:
@@ -1112,6 +1116,21 @@ class Runs(_RunInteraction):
             # heard its turn end: the Stop hook was lost, as one was on 14
             # September to a connection being closed. The turn is ended here
             # instead, a minute late, so its work still lands.
+            #
+            # Unless the turn did not end at all, but was cut off by an API
+            # error, whose StopFailure hook was lost too (or came from a
+            # Claude Code that does not send it): the transcript says so, and
+            # then the turn is carried on rather than saved as finished. Run
+            # 67bb6fe8, 28 November 2026, was caught here as a finished turn
+            # and archived as succeeded with its work not done.
+            cut = await self._cut_off(run)
+            if cut is not None:
+                self.list.append("hook.missed", run=run_id, body={
+                    "hook": "StopFailure", "tool": "", "what": "an API error that ended a turn",
+                    "caught": "Notification"})
+                await self.api_error(run, {"error": cut["error"],
+                                           "last_assistant_message": cut["message"]})
+                return {}
             self.list.append("hook.missed", run=run_id, body={
                 "hook": "Stop", "tool": "", "what": "the end of a turn", "caught": "Notification"})
             follow_up = await self._turn_ended(run, {"last_assistant_message": "",
@@ -1252,6 +1271,12 @@ class Runs(_RunInteraction):
 
     async def _turn_ended(self, run: dict[str, Any], payload: dict[str, Any]) -> dict:
         run_id = run["id"]
+        closing = str(payload.get("last_assistant_message") or "").strip()
+        if closing.startswith("API Error:") and not agents.paused_on(payload):
+            # A Claude Code that ends an errored turn with Stop rather than
+            # StopFailure: its last words are the error, not an answer.
+            await self.api_error(run, {"error": "unknown", "last_assistant_message": closing})
+            return {}
         # A run in a repository, the workspace or Rouh's own code, saves its
         # work to main at the end of every turn.
         saving = bool(self.s.space(run["space"]).repo and run.get("repo") and run.get("cwd"))
@@ -1305,6 +1330,131 @@ class Runs(_RunInteraction):
                     return {}
             return {"decision": "block", "reason": follow_up}
         return {}
+
+    # -- a turn an API error cut off ----------------------------------------------------
+
+    async def _cut_off(self, run: dict[str, Any]) -> dict[str, str] | None:
+        """The API error the run's transcript says its last turn ended on, or None."""
+        if not run.get("transcript") or agents.engine_of(run.get("engine")) != "claude":
+            return None
+        try:
+            records, why = await self.p.transcripts.whole_records(run)
+        except Exception:  # noqa: BLE001 - a transcript that cannot be read is no error found
+            log.exception("could not read run %s's transcript", run["id"])
+            return None
+        return agents.api_error_of(records) if not why else None
+
+    async def api_error(self, run: dict[str, Any], payload: dict[str, Any]) -> None:
+        """A turn ended on an API error rather than on the run being done with it.
+
+        Claude Code sends StopFailure in place of Stop when the model call
+        failed: a connection lost mid-response, an overloaded or failing
+        server, a rate limit. The turn did not finish; what the run meant to
+        do next was never done. So nothing is landed or reported as finished
+        here. The run is written down as cut off (``agent.api-error``) and,
+        when trying again can mend it, told to carry on after a wait that
+        grows with each failure in a row (``Settings.api_retry_after``,
+        ``carry_on_api_errors``). When the waits are used up, or the error is
+        one a second try only repeats (a sign-in, billing, an unknown model),
+        what it committed is landed and it is stopped as **failed**, with the
+        error on it, so neither the person nor Rouh ever reads it as a success.
+
+        Until 28 November 2026 this hook was not asked for at all. Run
+        67bb6fe8 lost its connection at 08:00:16 in the middle of writing a
+        page, nothing heard it, and half an hour later it was archived as
+        succeeded with only its plan written.
+        """
+        run_id = run["id"]
+        run = self.views.runs.get(run_id) or run
+        if run["state"] in ENDED:
+            return
+        error = str(payload.get("error") or "unknown")
+        words = agents.api_error_words(error, str(payload.get("last_assistant_message") or ""))
+        details = payload.get("error_details")
+        before = run.get("api_error") or {}
+        tries = int(before.get("tries") or 0) + 1
+        waits = tuple(self.s.api_retry_after)
+        body: dict[str, Any] = {"error": error, "words": words[:400], "tries": tries,
+                                "of": len(waits)}
+        if details:
+            body["details"] = agents.plain(json.dumps(details) if not isinstance(details, str)
+                                           else details, 600)
+        retryable = error in agents.API_ERRORS_RETRIED
+        if run.get("interactive"):
+            # The person's own session: they are at it, and decide.
+            body["retry_in"] = None
+        elif retryable and tries <= len(waits):
+            wait = float(waits[tries - 1])
+            if error == "rate_limit":
+                wait *= max(1.0, float(self.s.api_rate_factor))
+            body["retry_in"] = wait
+        else:
+            body["retry_in"] = None
+            body["gave_up"] = True
+            body["why"] = (f"its turns were cut off by an API error {tries} times in a row "
+                           f"({words})" if retryable
+                           else f"its turn was cut off by an API error that trying again "
+                                f"would not mend ({words})")[:400]
+        self.list.append("agent.api-error", run=run_id, by="run", body=body)
+        if body.get("gave_up"):
+            self._spawn(self._api_give_up(run_id, body["why"]))
+        self.p.scheduler.wake()
+
+    async def carry_on_api_errors(self) -> None:
+        """Tell every run an API error cut off, whose wait is over, to carry on.
+
+        Driven by the scheduler, so a wait outlives a restart of the program:
+        the wait is on the run (``api_error.retry_at``), not in a timer here.
+        """
+        now = time.time()
+        for run in list(self.views.runs.values()):
+            api = run.get("api_error")
+            if (not api or api.get("gave_up") or api.get("retry_at") is None
+                    or run["state"] in ENDED or now < float(api["retry_at"])):
+                continue
+            run_id = run["id"]
+            if (run_id in self.stopping or run_id in self.takeovers or run.get("question")
+                    or run_id in self._typing or self.launching(run_id)):
+                continue
+            terminal = self.p.terminals.get(run_id)
+            if terminal is None:
+                continue
+            if run["state"] not in ("idle",):
+                # Something else moved it on already - a message the person
+                # typed, a helper reporting: no carry-on is needed on top.
+                self.list.append("agent.api-retry", run=run_id, body={
+                    "tries": api.get("tries"), "skipped": f"it was {run['state']} already"})
+                continue
+            of = len(tuple(self.s.api_retry_after))
+            text = agents.api_carry_on(api.get("words") or api.get("error") or "unknown",
+                                       int(api.get("tries") or 1), of)
+            self.list.append("agent.api-retry", run=run_id, body={"tries": api.get("tries")})
+            self._spawn(self._type_message(run_id, terminal, text, by="program",
+                                           via="after an API error"))
+
+    async def _api_give_up(self, run_id: str, why: str) -> None:
+        """Stop a run whose turns an API error keeps cutting off, as failed, saying why.
+
+        What it committed is landed first, as a run's commits always are; what
+        it left uncommitted stays in its checkout, which is kept, and its end
+        says so. Half a turn is never committed for it.
+        """
+        run = self.views.runs.get(run_id)
+        if run is None or run["state"] in ENDED:
+            return
+        if self.s.space(run["space"]).repo and run.get("repo") and run.get("cwd"):
+            with contextlib.suppress(Exception):
+                leaves = await self.what_is_left(run)
+                if leaves.get("unsaved"):
+                    await self._land(run, driving=False)
+        run = self.views.runs.get(run_id)
+        if run is None or run["state"] in ENDED:
+            return
+        self.stopped_why[run_id] = f"stopped: {why}"
+        try:
+            await self.stop(run_id, by="program", how=API_ERROR)
+        except RunError:
+            pass
 
     async def _end_turn(self, run: dict[str, Any], *, driving: bool,
                         at_turn_end: bool = True) -> str | None:
@@ -2267,7 +2417,7 @@ class Runs(_RunInteraction):
             # Never started again: it would only grow to the same place.
             await self._end(run, how=OVER_MEMORY, code=code, sig=sig, forced=forced, why=over)
             return
-        if how == OVER_COST:
+        if how in (OVER_COST, API_ERROR):
             # Stopped at its cost cap (`costcap.CostCap`): never started again either.
             await self._end(run, how=how, code=code, sig=sig, forced=forced,
                             why=self.stopped_why.pop(run_id, None))

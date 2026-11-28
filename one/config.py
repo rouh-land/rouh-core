@@ -50,6 +50,16 @@ def _num(name: str, default: float) -> float:
         return default
 
 
+def _waits(name: str, default: tuple[float, ...]) -> tuple[float, ...]:
+    """A list of seconds, such as ``20,60,180``; an empty or broken value is the default."""
+    raw = _env(name)
+    try:
+        waits = tuple(max(0.0, float(x)) for x in raw.split(",") if x.strip())
+    except ValueError:
+        return default
+    return waits or default
+
+
 def _size(name: str, default: int) -> int:
     """A number of bytes, written plainly or with K, M or G after it: 4294967296 or 4G."""
     raw = _env(name).strip().upper().removesuffix("B")
@@ -311,6 +321,15 @@ class Settings:
     #: enough for a sub-agent, whose own tool calls count as something. 0 is
     #: never, which leaves only ``run_lifetime``.
     pause_silence: float = field(default_factory=lambda: _num("ONE_PAUSE_SILENCE", 75 * 60))
+    #: How long the program waits before it tells a run whose turn an API
+    #: error cut off (a lost connection, an overloaded or failing server) to
+    #: carry on, one wait for each try in a row, in seconds
+    #: (`Runs.api_error`). When every wait has been used and the turn still
+    #: fails, the run is stopped and called failed, with the error on it.
+    #: A rate limit waits longer, by ``api_rate_factor``.
+    api_retry_after: tuple[float, ...] = field(default_factory=lambda: _waits(
+        "ONE_API_RETRY_AFTER", (20.0, 60.0, 180.0, 600.0)))
+    api_rate_factor: float = field(default_factory=lambda: _num("ONE_API_RATE_FACTOR", 3.0))
     #: How long a run that has finished its turn well stays open at its prompt
     #: before it is closed and archived, in seconds, so a follow-up said right
     #: after its report still reaches the live session. A run that has ended

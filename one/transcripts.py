@@ -904,6 +904,16 @@ class Transcripts:
                                 for r in inner if isinstance(r, dict)], agent)
         return {"found": True, "calls": calls, "agents": agents, "unread": unread}
 
+    async def whole_records(self, run: dict[str, Any]) -> tuple[list[dict[str, Any]], str]:
+        """A run's own transcript as it is now, read once, or why it could not be read.
+
+        For the program's own questions of it, such as whether the turn the
+        run is idle after was cut off by an API error (`Runs._cut_off`).
+        """
+        if not run.get("transcript"):
+            return [], "it has no transcript yet"
+        return await self._whole(str(run["transcript"]), self._user_for(run), sealed_args(run))
+
     async def _whole(self, path: str, user: str,
                      sealed: list[str] = ()) -> tuple[list[dict[str, Any]], str]:
         """A transcript's records as they are now, read once, or why it could not be read."""
