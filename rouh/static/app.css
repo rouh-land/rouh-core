@@ -303,7 +303,7 @@ button { font: inherit; color: inherit; }
    name, which brings it back (`.panel-rail`). The one panel left open has
    no Hide. Petar's mockups of 24 October 2026 (fr_5b66b98dfb63); until then
    it was a notch of two glyphs on the line between the panels. */
-:root { --rail-w: 40px; --chat-tabs-h: 41px; }
+:root { --rail-w: 40px; --chat-tabs-h: 41px; --head-air: calc(var(--top-air) + 1px); }
 .panel-rail, .crumb-act.panel-hide { display: none; }
 @media (min-width: 900px) {
   .app.no-canvas .col-chat { margin-right: var(--gutter); }
@@ -370,8 +370,31 @@ button { font: inherit; color: inherit; }
   /* Level with the start of the first card's head, which is at the top of
      the canvas (`.card.on-canvas > .card-head`). */
   .canvas:has(> .cards > .card) > #canvasHide { top: calc(var(--top-air) + 1px); left: calc(var(--canvas-inset) + 9px); }
-  .canvas:has(> .canvas-layer:not([hidden]):not(.under)) > #canvasHide { top: 11px; left: 12px; }
-  .canvas:not(.covered):has(> .canvas-bar:not([hidden])) > #canvasHide { top: 4px; left: 4px; }
+  .canvas:has(> .canvas-layer:not([hidden]):not(.under)) > #canvasHide { top: var(--head-air); left: 12px; }
+  .canvas:not(.covered):has(> .canvas-bar:not([hidden])) > #canvasHide { top: var(--head-air); left: 4px; }
+  /* One head line across the panels. Petar, 28 November 2026: "all of these
+     icons and titles and subtitles should be aligned on both content and
+     chats." The conversation's head (`.crumb`) is a line of `--top-chip`
+     pixels starting `--head-air` below the top of its panel (its padding and
+     its frame's one pixel), so every head the canvas has starts its first
+     line there too, the same height: the title centred on it, every control
+     in it `--top-chip` tall and on its middle, the canvas's Hide on it, and
+     the subtitle straight under it. A long title that wraps grows downwards
+     and leaves the first line where it is. */
+  .canvas-layer > .run-head { margin-top: calc(var(--head-air) - 12px); align-items: flex-start; }
+  #memoryView > .run-head { margin-top: 0; padding-top: var(--head-air); }
+  .canvas-layer > .run-head .run-heading > h3 {
+    line-height: 1.3; padding-block: calc((var(--top-chip) - 1.3em) / 2);
+  }
+  .canvas-layer > .run-head .run-heading.has-page-what > h3,
+  .canvas-layer > .run-head .run-heading.has-help-spot > h3 { align-self: flex-start; }
+  .canvas-layer > .run-head .run-heading > h3 + .run-meta { margin-top: 0; }
+  .canvas-layer > .run-head > :not(.run-heading) {
+    height: var(--top-chip); min-height: 0; box-sizing: border-box; flex-shrink: 0;
+  }
+  .canvas-layer > .run-head > .layer-x { width: var(--top-chip); }
+  .canvas > .canvas-bar { padding: var(--head-air) 8px 6px; min-height: calc(var(--head-air) + var(--top-chip) + 6px); }
+  .canvas:not(.covered) > .canvas-bar:not([hidden]) ~ .canvas-layer { top: calc(var(--head-air) + var(--top-chip) + 6px); }
   /* A bare canvas's one line starts after the Hide and on its middle. */
   .app:not(.no-chat) .canvas #cardsEmpty { padding: 16px 0 0 calc(var(--canvas-corner) + 8px); }
 }
