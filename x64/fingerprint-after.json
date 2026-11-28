@@ -1,0 +1,11 @@
+{
+ "code": "fee469dff91f40e7b61a000041991feff409727c6f475420655e97044862245b",
+ "core-data": "39eedffedffcb2a610fa41de2d3b929f4c03511e0b75ad8bc49a68fe47a36c24",
+ "database_rows": "6ebcfbf25f37eb65c0139ebfd67f9e2bae3b3b37e8477a1ebc3a69ce4ec0d55d",
+ "database_tables": 278,
+ "extra": "674f910ba782d0479667abf82b4cca9baefb232e16c19e248fccd953fb3adaa9",
+ "guard-state": "30dd6c9e3849684b12281fdf23d5c583d14babe7cecf374d1a08a49cda80bb13",
+ "keys": "aba0e9d82f88cd31ea71b4ed1c0fa4e1a5fb09791420e20a4841c183aa170935",
+ "worker-home": "ea2b57db2fdcdf3da9deffa3ca339e86bf9e57c88873bcaa1b320396aec3533f",
+ "workspace": "6308db11fe48b4ad5cff72f5dd93cf3b568f5ca1af70da8622a169dc042babe2"
+}
