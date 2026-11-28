@@ -61,6 +61,9 @@
 #               failed, and is labelled "base: failed"; the run keeps it as an artifact; and the
 #               ref refs/base-failed/<level> (an annotated tag object: which job and step) tells
 #               the Creator Rouh's patch job, which reads git only, so that it tells Petar once.
+#               Between merge and publish the tag base-waiting-<level> names the run whose
+#               publish waits for the release-signing reviewer, so the patch job says it waits
+#               for approval, with that run's link, rather than that it failed.
 #
 # Signed in with the workflow's own GITHUB_TOKEN; no personal token anywhere, except that main
 # itself is moved with the deploy key MAIN_PUSH_KEY (tools/github/main-push-remote.sh), because
@@ -409,6 +412,12 @@ jobs:
             echo "merged=true" >> "$GITHUB_OUTPUT"
             echo "main is now ${COMMIT:0:12}, base $LEVEL, the commit that was tested${PR:+; pull request #$PR is merged}"
             git push -q origin ":refs/heads/$BRANCH" || true
+            # For the Creator Rouh, which reads git only: this level passed and its publish now waits
+            # for the release-signing reviewer, in this run. Taken away once it is published or failed.
+            git tag -f -a "base-waiting-$LEVEL" "$COMMIT" -m "base $LEVEL passed and is merged; its publish waits for approval" \
+              -m "The run: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID" \
+              -m "The pull request: ${PR:+$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/pull/$PR}"
+            git push -q -f origin "refs/tags/base-waiting-$LEVEL" || true
             exit 0
           fi
           # Main moved on while this was checked. The level again on top of it, checked again.
@@ -613,6 +622,7 @@ jobs:
             records/check-amd64.log records/check-arm64.log
           echo "the release page: $SOURCE/releases/tag/$TAG" | tee -a "$GITHUB_STEP_SUMMARY"
           git -C src push -q origin ":refs/base-failed/$LEVEL" 2>/dev/null || true
+          git -C src push -q origin ":refs/tags/base-waiting-$LEVEL" 2>/dev/null || true
 
   failed:
     name: Say what failed
@@ -654,6 +664,7 @@ jobs:
             git fetch -q origin "$COMMIT" || true
             git tag -a "failed-$LEVEL" "$COMMIT" -m "base $LEVEL failed, nothing published" -m "What failed: $words" -m "The run: $run" -m "The pull request: ${PR:+$SOURCE/pull/$PR}${PR:-$SOURCE/tree/base-patch/$LEVEL}"
             git push -q -f origin "refs/tags/failed-$LEVEL:refs/base-failed/$LEVEL"
+            git push -q origin ":refs/tags/base-waiting-$LEVEL" 2>/dev/null || true
           fi
 
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9  # v7.0.2

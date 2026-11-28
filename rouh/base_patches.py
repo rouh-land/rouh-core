@@ -24,11 +24,24 @@ and this job keeps it patched:
    ``base-<level>``, and publish it as a signed release of format 2 that moves rouh.land's
    /mac/release/stable.json - "latest" - to it, with its records on the GitHub Release
    ``base-<level>``. A failed one stays open on GitHub, saying what failed.
+   The publish job runs in the environment release-signing, which waits for the owner's yes on
+   GitHub (its Review deployments button). Nobody but the owner gives it, and nothing here goes
+   round it.
 3. **Say how it went.** This reads git only, as its key allows: the tag ``base-<level>`` is a
    published level; the ref ``refs/base-failed/<level>``, an annotated tag the workflow writes,
    is a failed one, with which job and step in its message. It watches for up to three hours, and
    again the next night, and a failure is told to the owner once: which update, which step, the
-   pull request. A success is the Clockwork line and nothing else (Petar's N1: a notice only
+   pull request. A level that passed and is merged into main but has no tag yet is **waiting for
+   the owner's approval** to publish, never failed: main holds only a level whose checks passed,
+   and the merge job leaves the tag ``base-waiting-<level>`` saying which run waits (the run
+   whose Review deployments page is the one press there is to make). That is told once a level,
+   with that link, and the level pushed after it is said to be queued behind it (base.yml's runs
+   are one at a time, so it does not start until the one ahead is done), not timed out; it is
+   not pushed again every night, which only cancelled the one in the queue and queued another.
+   Until 28 November 2026 a waiting level was told as "failed its checks" after three hours, with
+   a pull request link that found nothing (1.0.12, 1.0.22, 1.0.23). A level that says nothing in
+   three hours is said on its Clockwork line, never as a failure and never as a notice: only a
+   job that failed is called failed. A success is the Clockwork line and nothing else (Petar's N1: a notice only
    when he must act or know). The next night's look starts from main, which only ever holds a
    level that passed, so a failed level is tried again under the same number, on the same
    branch and the same pull request.
@@ -94,9 +107,16 @@ STATE = Path("deploy") / "container" / "base"
 BRANCH = "base-patch/{level}"
 #: Where base.yml says a level failed (an annotated tag object: which job and step).
 FAILED = "refs/base-failed/{level}"
+#: Where base.yml says a level passed and is merged, its publish waiting for the owner's yes
+#: (an annotated tag: which run waits). Under refs/tags/base-*, which the protected core fetches.
+WAITING = "refs/tags/base-waiting-{level}"
 #: rouh-core's main, as the Creator Rouh's protected core keeps it fetched into /code.
 UPSTREAM = "refs/upstream/heads/main"
 GITHUB = f"https://github.com/{github_org.org()}/rouh-core"
+#: The Base image workflow's runs on GitHub.
+RUNS = f"{GITHUB}/actions/workflows/base.yml"
+#: Its runs waiting for a reviewer, read unsigned (public), when no tag says which run waits.
+WAITING_API = "https://api.github.com/repos/{org}/rouh-core/actions/workflows/base.yml/runs?status=waiting&per_page=20"
 #: How long a pushed level is watched for its result before the next night takes it up.
 WATCH_FOR = 3 * 3600
 WATCH_EVERY = 300
@@ -275,6 +295,77 @@ def _failed(level: str, words: str) -> dict:
     return {"level": level, "ok": False, "what": what, "run": run, "pr": pr}
 
 
+def _ref_words(repo: Path, ref: str) -> str | None:
+    """The message of the annotated tag `ref` (refs/...), or None when there is no such ref."""
+    if _through_guard():
+        code, ref = _app_dir(), ref.replace("refs/", "refs/upstream/", 1)
+        r = _git("for-each-ref", "--format=%(refname)%00%(contents)", ref, cwd=code, timeout=20)
+        name, _, words = r.stdout.partition("\0")
+        return words if name.strip() == ref else None
+    r = _git("ls-remote", "origin", ref, cwd=repo, timeout=60)
+    if r.returncode or not r.stdout.strip():
+        return None
+    _git("fetch", "-q", "--no-tags", "origin", f"+{ref}:{ref}", cwd=repo, timeout=60)
+    return _git("for-each-ref", "--format=%(contents)", ref, cwd=repo, timeout=20).stdout
+
+
+def main_level(repo: Path) -> str:
+    """The level main holds (its deploy/container/base/line.json), or ""."""
+    try:
+        return str(json.loads((repo / STATE / "line.json").read_text()).get("level") or "")
+    except (OSError, ValueError):
+        return ""
+
+
+def _waiting_run(repo: Path, level: str) -> str:
+    """The run whose publish of `level` waits for the owner's yes: from the tag the merge job
+    leaves, else from GitHub's public list of waiting runs, else ""."""
+    words = _ref_words(repo, WAITING.format(level=level)) or ""
+    run = next((ln[len("The run: "):].strip() for ln in words.splitlines() if ln.startswith("The run: ")), "")
+    if run:
+        return run
+    try:
+        doc = github_org.read_json(WAITING_API, headers={"Accept": "application/vnd.github+json",
+                                                         "User-Agent": "Rouh base patches"}, timeout=20)
+    except Exception:  # noqa: BLE001 - unsigned reads are often refused (60 an hour); tried again later
+        return ""
+    for r in doc.get("workflow_runs") or []:
+        if r.get("head_branch") == BRANCH.format(level=level) and r.get("html_url"):
+            return str(r["html_url"])
+    return ""
+
+
+def held(repo: Path, rec: dict) -> dict | None:
+    """The level main holds when it passed its checks and is not published yet: its publish is
+    waiting for the owner's approval. Kept in the record as ``waiting``; None (and taken out of the
+    record) when main's level is published, failed, or not to be read."""
+    level = main_level(repo)
+    got = _result(repo, level) if level else {"ok": True}
+    if got is not None:
+        was = rec.pop("waiting", None)
+        if was and was.get("level") == level and got.get("ok"):
+            rec["published"] = {"level": level, "at": time.time()}
+        return None
+    kept = rec.get("waiting") or {}
+    if kept.get("level") != level:
+        kept = {"level": level, "since": time.time()}
+    if not kept.get("run"):
+        kept["run"] = _waiting_run(repo, level)
+    rec["waiting"] = kept
+    return kept
+
+
+def waiting_link(waiting: dict) -> str:
+    """Where the owner approves it: the run's page, whose Review deployments button it is."""
+    return waiting.get("run") or f"{RUNS}?query=is%3Awaiting"
+
+
+def waiting_line(waiting: dict, queued: str = "") -> str:
+    """The Clockwork line, and the scheduled-jobs check's, for a level waiting for its approval."""
+    line = f"base {waiting['level']} passed its checks and is waiting for your approval to publish"
+    return line + (f"; {queued} is queued behind it" if queued else "") + f" ({waiting_link(waiting)})"
+
+
 def _failure_words(result: dict, plan: dict | None) -> str:
     steps = result.get("what") or "the build did not finish"
     what = ", ".join(f"{c['what']} {c['from'] or '(new)'} -> {c['to']}" for c in (plan or {}).get("changes", [])[:8])
@@ -283,11 +374,39 @@ def _failure_words(result: dict, plan: dict | None) -> str:
         what = (what + "; " if what else "") + f"{sec} Debian security updates"
     return (f"Base {result.get('level')} was not published, so every Rouh stays on the base it has. "
             f"It was to bring: {what or 'what the last look found'}. What failed: {steps}. "
-            f"Its pull request stays open: {result.get('pr') or _pulls(result.get('level', ''))}")
+            f"The run: {result.get('run') or _runs_of(result.get('level', ''))}"
+            + (f"; its pull request stays open: {result['pr']}" if result.get("pr") else ""))
 
 
-def _pulls(level: str) -> str:
-    return f"{GITHUB}/pulls?q=is%3Apr+head%3Abase-patch%2F{level}"
+def _runs_of(level: str) -> str:
+    """The Base image runs of one level's branch."""
+    return f"{RUNS}?query=branch%3Abase-patch%2F{level}"
+
+
+async def _tell_waiting(who, rec: dict, waiting: dict, queued: str) -> None:
+    """One notice for one level waiting for the owner's approval, never twice."""
+    from . import notices
+
+    level = waiting["level"]
+    told = set(rec.get("told_waiting") or [])
+    if level in told:
+        return
+    link = waiting_link(waiting)
+    now_on = (rec.get("published") or {}).get("level") or ""
+    body = (f"Base {level} passed its checks on Intel and Arm and is merged into main"
+            + (f"; base {queued} is queued behind it" if queued else "")
+            + f". Its last step, Publish {level}, waits for your yes in GitHub's release-signing environment: "
+            f"open the run, press Review deployments, tick release-signing and approve. Until then every Rouh "
+            f"stays on {'base ' + now_on if now_on else 'the base it has'}"
+            + (f", and base {queued} starts as soon as this one is done" if queued else "")
+            + f". The run: {link}")
+    phone = (f"Rouh's base {level} passed its checks and is waiting for your approval to publish"
+             + (f"; {queued} is queued behind it" if queued else "") + f". {link}")
+    await notices.notify(title=f"Base {level} is waiting for your approval to publish", body=body, link=link,
+                         link_label="Review deployments", kind="base_patch", key=f"base-waiting-{level}",
+                         phone_text=phone, who=who)
+    told.add(level)
+    rec["told_waiting"] = sorted(told)[-40:]
 
 
 async def _tell(who, rec: dict, level: str, words: str, link: str) -> None:
@@ -298,18 +417,44 @@ async def _tell(who, rec: dict, level: str, words: str, link: str) -> None:
     if level in told:
         return
     await notices.notify(title=f"Base {level} failed its checks and was not published", body=words,
-                         link=link, link_label="The pull request", kind="base_patch", key=f"base-patch-{level}",
+                         link=link, link_label="The pull request" if "/pull/" in link else "The run", kind="base_patch", key=f"base-patch-{level}",
                          phone_text=f"Rouh's base {level} failed its checks and was not published. {link}",
                          who=who)
     told.add(level)
     rec["told"] = sorted(told)[-40:]
 
 
-async def _settle(who, rec: dict, repo: Path) -> str:
-    """What became of the level pushed last, said once: "" while it is still being built."""
+async def _settle(who, rec: dict, repo: Path, *, tell: bool = True) -> str:
+    """What became of the level pushed last, and of the one main holds, said once: "" while the
+    level pushed last is still being built and nothing waits."""
+    was = (rec.get("waiting") or {}).get("level")
+    waiting = held(repo, rec)
     pending = rec.get("pending")
+    if was and not waiting and (rec.get("published") or {}).get("level") == was:
+        done = f"base {was} was approved and is published"
+        if not pending:
+            return done
+        return done + "; " + await _settle_pending(who, rec, repo, pending)
+    if pending and waiting and pending["level"] == waiting["level"]:
+        # The level pushed last passed and is merged: now it is the one waiting.
+        rec.pop("pending", None)
+        pending = None
+    if waiting:
+        queued = pending["level"] if pending and _result(repo, pending["level"]) is None else ""
+        if queued:
+            # base.yml's runs go one at a time: this one has not started, so it is not timed out.
+            pending["queued"] = True
+        if tell or queued:
+            await _tell_waiting(who, rec, waiting, queued)
+        if not queued and pending:
+            return await _settle_pending(who, rec, repo, pending)
+        return waiting_line(waiting, queued)
     if not pending:
         return ""
+    return await _settle_pending(who, rec, repo, pending)
+
+
+async def _settle_pending(who, rec: dict, repo: Path, pending: dict) -> str:
     got = _result(repo, pending["level"])
     newer = _newer_published(repo, pending["level"]) if got is None else ""
     if newer:
@@ -318,17 +463,23 @@ async def _settle(who, rec: dict, repo: Path) -> str:
         rec.pop("pending", None)
         rec["published"] = {"level": newer, "at": time.time()}
         return f"base {pending['level']} was replaced by base {newer}, which is published"
+    if got is None and pending.pop("queued", None):
+        # The one ahead of it is done, so its run starts now: its three hours start now too.
+        pending["pushed_at"] = time.time()
+        return f"base {pending['level']} is being built and checked, now that the one ahead of it is done"
     if got is None:
         if time.time() - pending.get("pushed_at", 0) < WATCH_FOR:
             return f"base {pending['level']} is still being built and checked"
-        got = {"level": pending["level"], "ok": False, "run": "", "pr": _pulls(pending["level"]),
-               "what": "it never said how it went, in three hours"}
+        # Nothing is known to have failed: said here, the next night pushes it again, nobody is woken.
+        rec.pop("pending", None)
+        return (f"base {pending['level']} has not said how it went in three hours and is not published; "
+                f"no job is known to have stopped on an error; the next night tries it again ({_runs_of(pending['level'])})")
     rec.pop("pending", None)
     if got.get("ok"):
         rec["published"] = {"level": got["level"], "at": time.time()}
         return f"base {got['level']} passed every check and is published"
     await _tell(who, rec, got["level"], _failure_words(got, pending.get("plan")),
-                got.get("pr") or got.get("run") or _pulls(got["level"]))
+                got.get("pr") or got.get("run") or _runs_of(got["level"]))
     return f"base {got['level']} failed its checks and was not published; the owner was told"
 
 
@@ -375,10 +526,31 @@ async def night(who, *, trying: bool = False) -> str:
         repo = await asyncio.to_thread(_state)
     except Exception as e:  # noqa: BLE001 - said on the row
         return f"could not look: {e}"
-    settled = await _settle(who, rec, repo)
+    # A level waiting for approval is told after tonight's push, if any, so the notice can say what
+    # is queued behind it.
+    settled = await _settle(who, rec, repo, tell=False)
     _keep(rec)
-    if rec.get("pending"):
+    pending = rec.get("pending")
+    if pending:
+        if not pending.get("queued") and time.time() - pending.get("pushed_at", 0) < WATCH_EVERY:
+            asyncio.ensure_future(_watch(who, pending["level"]))
         return settled
+    said = await _night_look(who, rec, repo, settled, trying)
+    waiting, pending = rec.get("waiting"), rec.get("pending")
+    if waiting:
+        queued = pending["level"] if pending else ""
+        if queued:
+            pending["queued"] = True
+        await _tell_waiting(who, rec, waiting, queued)
+        _keep(rec)
+        if queued:
+            said = said.replace(f"base {queued} is a pull request on main, being built and checked",
+                                f"base {queued} is a pull request on main, queued behind base {waiting['level']}")
+    return said
+
+
+async def _night_look(who, rec: dict, repo: Path, settled: str, trying: bool) -> str:
+    """Tonight's look, and the level it pushes."""
     if not (repo / STATE / "line.json").exists():
         return f"main has no base line in {STATE}: run the Base image workflow by hand with cut, such as 1.1"
     try:
@@ -457,7 +629,7 @@ async def _watch(who, level: str) -> None:
             if (rec.get("pending") or {}).get("level") != level:
                 return
             repo = await asyncio.to_thread(_state)
-            if _result(repo, level) is None:
+            if _result(repo, level) is None and main_level(repo) != level:
                 continue
             said = await _settle(who, rec, repo)
             _keep(rec)

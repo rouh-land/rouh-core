@@ -154,8 +154,26 @@ def _said_failed(entry: dict) -> dict:
     return entry
 
 
+def _base_patch(who, entry: dict) -> dict:
+    """The nightly base patch check: a level that passed and waits for the owner's approval to
+    publish is said as that, never as a failure (Petar, 28 November 2026: 1.0.12, 1.0.22 and 1.0.23
+    were said to have failed while each one waited for his yes); a level that failed is a failure."""
+    from . import base_patches
+
+    rec = base_patches.record()
+    waiting = rec.get("waiting")
+    got = _said_failed(entry)
+    if not waiting:
+        return got
+    pending = rec.get("pending") or {}
+    line = base_patches.waiting_line(waiting, pending.get("level", "") if pending.get("queued") else "")
+    if got["ok"] is False:
+        return {**got, "why": f"{got['why']}; {line}"[:500]}
+    return {**entry, "ok": None, "why": line}
+
+
 #: The job's own record, read after its Clockwork row, where it keeps one.
-OWN_RECORD = {"synapse_nightly": _synapse, "nightly_refactor": _refactor}
+OWN_RECORD = {"synapse_nightly": _synapse, "nightly_refactor": _refactor, "base_patch": _base_patch}
 
 
 def _backups(now: float) -> list[dict]:
