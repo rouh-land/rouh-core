@@ -40,9 +40,32 @@
 
   var PAGE = 50;
   /** What each group of Jobs holds, said on its chip (`notices.job_groups`). */
+  /** Each group of Jobs has its own mark, a shape as well as a colour (Petar, 28 November 2026:
+   *  "the different statuses of jobs should have different icons and colors. so I recognize
+   *  them"): never told apart by colour alone. */
+  var SUB_ICONS = {
+    failed: '<path d="M8.2 3h7.6L21 8.2v7.6L15.8 21H8.2L3 15.8V8.2z"/><path d="M12 7.5v5M12 16.2h.01"/>',
+    waiting: '<circle cx="12" cy="12" r="9"/><path d="M9.5 9.4a2.6 2.6 0 1 1 3.4 2.5c-.6.3-.9.8-.9 1.4v.5M12 16.8h.01"/>',
+    running: '<path d="M12 3a9 9 0 1 0 9 9"/><circle cx="12" cy="12" r="2.2"/>',
+    stopped: '<circle cx="12" cy="12" r="9"/><path d="M5.7 5.7l12.6 12.6"/>',
+    live: '<path d="M12 15.5V4.5M7.5 9l4.5-4.5L16.5 9"/><path d="M4.5 19.5h15"/>',
+    tasks: '<rect x="3.5" y="3.5" width="17" height="17" rx="4.5"/><path d="M8 12.3l2.8 2.8L16.2 9"/>',
+    research: '<circle cx="10.5" cy="10.5" r="6.2"/><path d="M15.2 15.2l5.3 5.3"/>',
+    auto: '<path d="M20 14.6A8.2 8.2 0 1 1 9.4 4a6.6 6.6 0 0 0 10.6 10.6z"/>',
+    other: '<circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="1.6" fill="currentColor"/>'
+  };
+  /** A job's mark, by its group: the card's icon and its filter's. @param {string} g */
+  function groupIcon(g) {
+    var s = el('span', 'nt-ico nf-g nf-g-' + (SUB_ICONS[g] ? g : 'other'));
+    s.setAttribute('aria-hidden', 'true');
+    s.innerHTML = svg(SUB_ICONS[g] || SUB_ICONS.other, 16);
+    return s;
+  }
   var SUB_TIPS = {
     failed: 'Jobs whose run failed, or whose change reached main and is not live',
     waiting: 'Jobs that said they need you, or are waiting on your answer',
+    running: 'Jobs at work again now, after a result they gave',
+    stopped: 'Jobs stopped before they finished',
     live: 'Jobs that put a change to Rouh live',
     tasks: 'Jobs about a task in your workspace, or that made a page of one',
     research: 'Jobs about a task filed under research or buy',
@@ -674,13 +697,15 @@
     // at, or several, and "Dismiss these N" clears exactly that.
     var subs = list(P.v.sub);
     if (c.sub && c.sub.length) {
-      side.appendChild(group('Jobs', c.sub.map(function (g) {
+      // A group with none in it is left out unless it is on: Running and Stopped are rare.
+      side.appendChild(group('Jobs', c.sub.filter(function (g) { return g.n || subs.indexOf(g.id) >= 0; }).map(function (g) {
         var on = subs.indexOf(g.id) >= 0;
         var b = chip(g.name, g.n, on, function () {
           var now = on ? subs.filter(function (x) { return x !== g.id; }) : subs.concat([g.id]);
           setView({ sub: now.join(',') });
         }, 'sub:' + g.id, false);
         b.title = SUB_TIPS[g.id] || g.name;
+        b.insertBefore(groupIcon(g.id), b.firstChild);
         return b;
       })));
     }
@@ -1089,7 +1114,8 @@
     } else {
       strip = el('div', 'nf-open nf-open-none');
     }
-    strip.appendChild(iconFor(n.kind || 'rouh'));
+    // A job's card wears its group's mark, so its status is seen before a word is read.
+    strip.appendChild(n.group ? groupIcon(n.group) : iconFor(n.kind || 'rouh'));
     if (more) {
       var chev = el('span', 'nf-chev');
       chev.innerHTML = svg(opened ? GLYPH.fold : GLYPH.unfold, 18);

@@ -650,6 +650,8 @@ def _leads(row: dict) -> tuple[set, dict]:
 JOB_GROUPS = (
     ("failed", "Failed"),
     ("waiting", "Waiting on you"),
+    ("running", "Running"),
+    ("stopped", "Stopped"),
     ("live", "Rouh changes"),
     ("tasks", "Workspace tasks"),
     ("research", "Research"),
@@ -660,6 +662,8 @@ JOB_GROUP_NAMES = dict(JOB_GROUPS)
 #: The categories of the workspace whose tasks are research: looked into, compared, weighed.
 #: Buying is researched there too ("which vacuum should I buy"), and filed under buy.
 RESEARCH_CATEGORIES = frozenset({"research", "buy"})
+#: A run's phase that says it was stopped before it finished: by the person, or reaped.
+STOPPED_PHASES = frozenset({"stopped", "reaped", "cancelled", "canceled", "killed"})
 
 _JOB_KEY = re.compile(r"^job:([^:]+):([^:]*)")
 
@@ -684,18 +688,21 @@ def job_groups(who) -> dict[str, str]:
     """Every job of the person's that has a notification, and the one group of Jobs it is in.
 
     One group a job, whichever of its notifications is asked about, so a job's card and its
-    count are always in the same place. In this order, the first that holds:
+    count are always in the same place. In this order, the first that holds (Petar, the same
+    day: a card shows Failed or Waiting if any one about the job is):
 
-    1. **Failed**: its run failed, or its newest notification says a change of it reached main
+    1. **Failed**: its run failed, or any of its notifications says a change of it reached main
        and is not live.
-    2. **Waiting on you**: its newest notification says it needs him, or its run is waiting.
-    3. **Nightly and automatic**: Rouh started it on its own (`Run.made_by`, "process:...": a
+    2. **Waiting on you**: any of its notifications says it needs him, or its run is waiting.
+    3. **Running**: its run is at work now (a further turn after a result).
+    4. **Stopped**: its run was stopped before it finished (`STOPPED_PHASES`).
+    5. **Nightly and automatic**: Rouh started it on its own (`Run.made_by`, "process:...": a
        night, Synapse's, a heartbeat's follow-up, a Clockwork item's).
-    4. **Rouh changes**: it put a change to Rouh live (a notice's `deployed`, or a change of
+    6. **Rouh changes**: it put a change to Rouh live (a notice's `deployed`, or a change of
        Rouh's code it landed, `RouhChange`).
-    5. **Research**: a task it is about is filed under research (or buy).
-    6. **Workspace tasks**: it is about a task, or made a page of one.
-    7. **Other**: none of those; never a guess.
+    7. **Research**: a task it is about is filed under research (or buy).
+    8. **Workspace tasks**: it is about a task, or made a page of one.
+    9. **Other**: none of those; never a guess.
     """
     user_id, org_id = _ids(who)
     facts: dict[str, dict] = {}
@@ -704,10 +711,12 @@ def job_groups(who) -> dict[str, str]:
         job, what = job_of(r["key"])
         if not job:
             continue
-        f = facts.setdefault(job, {"at": -1.0, "newest": None, "live": False, "tasks": set(),
-                                   "page": False})
-        if r["created_at"] > f["at"]:
-            f["at"], f["newest"] = r["created_at"], (what, r["title"])
+        f = facts.setdefault(job, {"live": False, "tasks": set(), "page": False,
+                                   "failed": False, "needs": False})
+        if _needs_him(r["title"]):
+            f["needs"] = True
+            if what == "change":
+                f["failed"] = True
         if r["deployed"]:
             f["live"] = True
         if what == "page":
@@ -715,27 +724,30 @@ def job_groups(who) -> dict[str, str]:
         f["tasks"].update(_leads(r)[1])
     if not facts:
         return {}
-    runs: dict[str, tuple[str, str]] = {}
+    runs: dict[str, tuple[str, str, str]] = {}
     landed: set[str] = set()
     try:
         from .models import Run
         from .models.changes import RouhChange
 
         ids = list(facts)
-        runs = {i: (m or "", s or "") for i, m, s in Run.objects.filter(id__in=ids).values_list(
-            "id", "made_by", "state")}
+        runs = {i: (m or "", s or "", p or "") for i, m, s, p in Run.objects.filter(
+            id__in=ids).values_list("id", "made_by", "state", "phase")}
         landed = set(RouhChange.objects.filter(org_id=org_id, run_id__in=ids, state="landed")
                      .values_list("run_id", flat=True))
     except Exception:  # noqa: BLE001 - without the runs, what the notices say still groups them
         log.exception("could not read the runs behind the job notifications")
     out = {}
     for job, f in facts.items():
-        what, title = f["newest"] or ("", "")
-        made_by, state = runs.get(job, ("", ""))
-        if state == "failed" or (what == "change" and _needs_him(title)):
+        made_by, state, phase = runs.get(job, ("", "", ""))
+        if state == "failed" or f["failed"]:
             group = "failed"
-        elif _needs_him(title) or state == "waiting":
+        elif f["needs"] or state == "waiting":
             group = "waiting"
+        elif state == "running":
+            group = "running"
+        elif phase in STOPPED_PHASES:
+            group = "stopped"
         elif made_by.startswith("process:"):
             group = "auto"
         elif f["live"] or job in landed:

@@ -95,6 +95,26 @@
 .nf-chip.none { color: var(--dimmer); }
 .nf-chip .nt-ico { width: 22px; height: 22px; border-radius: 6px; }
 .nf-chip .nt-ico svg { width: 13px; height: 13px; }
+
+/* A job's status, each its own mark and colour (Petar, 28 November 2026): on the card's left
+   column and on its filter. Colours are the page's own tokens where there is one; the shape
+   says it as well, so nothing rests on colour alone. */
+.nf-page { --nf-g-tasks: #3fd2c2; --nf-g-other: #c4cdd9; }
+.nf-g { color: var(--nf-gc); background: color-mix(in srgb, var(--nf-gc) 15%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--nf-gc) 28%, transparent); }
+.nf-g-failed { --nf-gc: var(--bad); }
+.nf-g-waiting { --nf-gc: var(--warn); }
+.nf-g-running { --nf-gc: var(--accent); }
+.nf-g-stopped { --nf-gc: var(--dimmer); }
+.nf-g-live { --nf-gc: var(--good); }
+.nf-g-tasks { --nf-gc: var(--nf-g-tasks); }
+.nf-g-research { --nf-gc: var(--user); }
+.nf-g-auto { --nf-gc: var(--dim); }
+.nf-g-other { --nf-gc: var(--nf-g-other); background: transparent; }
+.nf-g-stopped, .nf-g-auto { background: color-mix(in srgb, var(--nf-gc) 10%, transparent); }
+.nf-g-running svg { animation: nf-turn 2.4s linear infinite; }
+@keyframes nf-turn { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .nf-g-running svg { animation: none; } }
 .nf-chip-name { flex: 1 1 auto; min-width: 0; overflow-wrap: anywhere; }
 .nf-n { flex: 0 0 auto; font-size: 12px; color: var(--dim); font-variant-numeric: tabular-nums; }
 .nf-dates { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-top: 4px; }
