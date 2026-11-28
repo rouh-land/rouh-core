@@ -6,7 +6,9 @@
  * - screen_errors: each script error of this page, and each request Rouh's server answered with a
  *   failure, is sent to the server, which hands the newest to the next run of Rouh's code.
  * - request_broke: a request Rouh's server answered with a failure (500 and over) is said once as a
- *   notice with Fix it (Start a run on Rouh's code, the request and its answer written) or Copy.
+ *   notice with Fix it (Start a run on Rouh's code, the request and its answer written) or Copy,
+ *   saying what it was for, that it was not done, and whether that matters. One that met Rouh
+ *   starting again after a change waits for it and is sent again, and is never offered Fix it.
  * - screen_trouble: What went wrong here (the menu's link presses `#screenTroubleBtn`) lists what
  *   this screen had go wrong since it was opened, with Fix them in one run and Copy the details.
  * - brief_check: under Start a run's brief, on Rouh's code, four marks of what a good brief says,
@@ -16,6 +18,7 @@ import { sbSet } from 'app/controls.js';
 import { $, el } from 'app/helpers.js';
 import { notify } from 'app/notices.js';
 import { oneStartOpen } from 'app/runs.js';
+import { S } from 'app/socket.js';
 
 /** @type {{on: string[], code: string}} */
 var MORE = (function () {
@@ -94,16 +97,102 @@ if (WATCH) {
 
 /* ---------- request_broke ---------- */
 
+/* Petar, 28 November 2026: "every time rouh evolves, and is down I get this notification. it
+   feels wrong. first of all it doesn't tell me what couldn't happen. then i don't know if it
+   will ever happen and how critical it was". While Rouh starts again after a change lands, the
+   proxy in front of it (Caddy, `deploy/stack/compose.yml`, edge) answers every request 502, and
+   the screen's own refreshes - the orb's load, what was read, the day's one thing - each came
+   back as "could not do that" with Fix it. So now:
+
+   - A request answered 502, 503 or 504 (the proxy saying Rouh is not there), or any 5xx while
+     the socket says Rouh is Evolving (`S.renewing`), waits for Rouh to answer `/healthz` again
+     and is sent again then, and the screen gets that answer as though nothing happened. Asking
+     again is only for what cannot have been done twice: anything that only reads, and a change
+     the proxy never handed to Rouh (502 or 503). Nothing is said if it then works.
+   - If Rouh is not back within `AWAY_MS`, or the request was a change that may have reached it,
+     one plain notice says what it was, that it was not done, whether that matters, and that it
+     will not be tried again by itself. No Fix it: a restart is not a fault in the code.
+   - A real fault (Rouh answered and failed, or failed again once back) says the same three
+     things, and only then offers Fix it. */
+
 var BROKE = { said: /** @type {string[]} */ ([]) };
 
+//: How long a request waits for Rouh to come back from a restart before it is given up.
+var AWAY_MS = 4 * 60 * 1000;
+//: How often `/healthz` is asked while Rouh is away.
+var AWAY_EVERY = 2000;
+
+/** One shared wait for Rouh to answer again, however many requests are waiting on it.
+ * @type {{back: Promise<boolean>|null, again: Record<string, Promise<Response>>}} */
+var AWAY = { back: null, again: {} };
+
+/** Rouh answering `/healthz` with its database up: true when it does, false after `AWAY_MS`. */
+function rouhBack() {
+  if (AWAY.back) return AWAY.back;
+  var until = Date.now() + AWAY_MS;
+  AWAY.back = new Promise(function (resolve) {
+    function ask() {
+      realFetch('/healthz', { cache: 'no-store', credentials: 'same-origin' })
+        .then(function (r) { return r.ok ? r.json() : null; })
+        .catch(function () { return null; })
+        .then(function (said) {
+          if (said && said.ok) { resolve(true); return; }
+          if (Date.now() >= until) { resolve(false); return; }
+          setTimeout(ask, AWAY_EVERY);
+        });
+    }
+    setTimeout(ask, 800);
+  });
+  AWAY.back.then(function () { AWAY.back = null; });
+  return AWAY.back;
+}
+
+/** What a request was for, in the person's words, from where it went.
+ * @type {[RegExp, string][]} */
+var WHAT = [
+  [/^\/api\/machine\/load/, 'how busy this machine is, for the orb'],
+  [/^\/api\/reading/, 'which messages of this chat you have read'],
+  [/^\/api\/brief\/one-thing/, "the day's one thing"],
+  [/^\/api\/brief/, 'the morning brief'],
+  [/^\/api\/easy-start/, 'the getting-started tips'],
+  [/^\/api\/transcript/, "this chat's earlier messages"],
+  [/^\/api\/threads/, 'the list of chats'],
+  [/^\/api\/canvas/, 'the cards on the canvas'],
+  [/^\/api\/workspace|^\/api\/task-docs|^\/api\/task-time/, 'the tasks and their files'],
+  [/^\/api\/offline/, "this device's offline copy"],
+  [/^\/api\/settings/, 'your settings'],
+  [/^\/api\/reminders/, 'your reminders'],
+  [/^\/api\/goals|^\/api\/quests/, 'your goals'],
+  [/^\/api\/decisions/, 'a decision'],
+  [/^\/api\/comments/, 'comments'],
+  [/^\/api\/usage/, 'usage and costs'],
+  [/^\/api\/job|^\/api\/one\//, 'a run'],
+  [/^\/api\/share/, 'sharing'],
+  [/^\/api\/rules/, 'the rules'],
+  [/^\/api\/highlights/, 'highlights'],
+  [/^\/api\/notifications/, 'the notifications'],
+  [/^\/api\/page-pdf|^\/api\/page-gdoc/, 'a copy of a page'],
+];
+
+/** @param {string} path */
+function whatFor(path) {
+  var p = path.split('?')[0];
+  for (var i = 0; i < WHAT.length; i++) if (WHAT[i][0].test(p)) return WHAT[i][1];
+  return 'something this screen asked for (' + p + ')';
+}
+
+/** Only reads, so asking twice changes nothing. @param {string} method */
+function onlyReads(method) { return method === 'GET' || method === 'HEAD'; }
+
 /** The brief Fix it writes for one failed request.
- * @param {string} method @param {string} path @param {number} status @param {string} said */
-function requestBrief(method, path, status, said) {
+ * @param {string} method @param {string} path @param {number} status @param {string} said @param {string} how */
+function requestBrief(method, path, status, said, how) {
   var lines = [
     'A request of Rouh\'s own page failed, and the screen said so:',
     '',
-    '> ' + method + ' ' + path + ' was answered ' + status + '.',
+    '> ' + method + ' ' + path + ' (' + whatFor(path) + ') was answered ' + status + '.',
   ];
+  if (how) lines.push('', how);
   if (said) lines.push('', 'What the server answered, the start of it:', '```', said, '```');
   lines.push('',
     'The screen: ' + screenNow() + ', at ' + new Date().toISOString() + ', in a window '
@@ -114,13 +203,15 @@ function requestBrief(method, path, status, said) {
   return lines.join('\n');
 }
 
-/** Say it once a path, three a screen at most.
- * @param {string} method @param {string} path @param {number} status @param {string} said */
-function requestSay(method, path, status, said) {
+/** Say a real fault once a path, three a screen at most: what it was, that it was not done and
+ * will not be tried again, whether that matters, and Fix it.
+ * @param {string} method @param {string} path @param {number} status @param {string} said @param {string} how */
+function requestSay(method, path, status, said, how) {
   var key = method + ' ' + path.split('?')[0];
   if (BROKE.said.indexOf(key) >= 0 || BROKE.said.length >= 3) return;
   BROKE.said.push(key);
-  var details = requestBrief(method, path, status, said);
+  var details = requestBrief(method, path, status, said, how);
+  var reads = onlyReads(method);
   /** @type {{label: string, run: () => void}} */
   var action = MORE.code ? {
     label: 'Fix it',
@@ -136,17 +227,78 @@ function requestSay(method, path, status, said) {
       notify('The details are copied.', { tone: 'success', body: 'Paste them to whoever looks after this Rouh.' });
     }
   };
-  notify('Rouh\'s server could not do that.', {
+  var what = whatFor(path);
+  notify(reads ? 'Part of this screen could not load.' : 'Something you did was not done.', {
     tone: 'warning', kind: 'request_broke',
-    body: 'What this screen asked of it failed (' + status + ').'
-      + (MORE.code ? ' Fix it starts a run that finds and fixes the cause.' : ' Copy the details for whoever looks after this Rouh.'),
+    body: (reads ? 'Loading ' : 'Saving ') + what + ' hit an error in Rouh (' + status + ') and will not be retried. '
+      + (reads ? 'Nothing you did is lost; this screen may be out of date. ' : 'Do it again if you need it. ')
+      + (MORE.code ? 'Fix it starts a run to fix the cause.' : 'Copy the details for whoever looks after this Rouh.'),
     action: action, for: 15000
   });
+}
+
+/** Rouh stayed away longer than a request could wait, or a change may have reached it as it
+ * went: said once a path, plainly, and with nothing to fix. @param {string} method @param {string} path @param {boolean} cut */
+function awaySay(method, path, cut) {
+  var key = 'away ' + method + ' ' + path.split('?')[0];
+  if (BROKE.said.indexOf(key) >= 0) return;
+  BROKE.said.push(key);
+  var what = whatFor(path);
+  if (onlyReads(method)) {
+    notify('Rouh is taking long to come back.', {
+      tone: 'info', kind: 'request_away',
+      body: 'It is restarting after a change, so ' + what + ' did not refresh. Nothing is lost: it refreshes once Rouh is back.',
+      for: 12000
+    });
+  } else {
+    notify(cut ? 'Rouh restarted while saving.' : 'Rouh was restarting: not saved.', {
+      tone: 'warning', kind: 'request_away',
+      body: (cut ? 'Saving ' + what + ' may not have finished. ' : 'Saving ' + what + ' did not reach it. ')
+        + 'It will not be retried: do it again once Rouh is back.',
+      for: 20000
+    });
+  }
 }
 
 /** The page's own requests to Rouh's server, and none of these genes' own. @param {string} path */
 function watched(path) {
   return path.indexOf('/api/') === 0 && path.indexOf('/api/build-more') !== 0;
+}
+
+/** The answer came from the proxy, not from Rouh: Rouh was not there. @param {number} status */
+function proxyAway(status) { return status === 502 || status === 503 || status === 504; }
+
+/** The request once more, as it was first sent; null when its body cannot be sent twice.
+ * @param {RequestInfo|URL} input @param {RequestInit|undefined} init @param {Request|null} spare */
+function sendAgain(input, init, spare) {
+  if (init && init.body && typeof ReadableStream === 'function' && init.body instanceof ReadableStream) return null;
+  if (spare) return realFetch(spare, init);
+  return realFetch(input, init);
+}
+
+/** Wait for Rouh, then ask again; the same reading asked many times while away is asked once.
+ * @param {string} key @param {() => Promise<Response>|null} again @param {AbortSignal|null|undefined} signal
+ * @returns {Promise<Response|null>} null when Rouh did not come back in time */
+function afterBack(key, again, signal) {
+  var waited = rouhBack().then(function (back) {
+    if (!back) return null;
+    if (key && AWAY.again[key]) return AWAY.again[key].then(function (r) { return r.clone(); });
+    var p = again();
+    if (!p) return null;
+    if (key) {
+      AWAY.again[key] = p;
+      p.then(function () { delete AWAY.again[key]; }, function () { delete AWAY.again[key]; });
+      return p.then(function (r) { return r.clone(); });
+    }
+    return p;
+  });
+  if (!signal) return waited;
+  return new Promise(function (resolve, reject) {
+    var gone = function () { reject(new DOMException('The operation was aborted.', 'AbortError')); };
+    if (signal.aborted) { gone(); return; }
+    signal.addEventListener('abort', gone, { once: true });
+    waited.then(resolve, reject);
+  });
 }
 
 if (WATCH) {
@@ -157,22 +309,41 @@ if (WATCH) {
       url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url;
       method = String((init && init.method) || (typeof input === 'object' && 'method' in input ? input.method : 'GET')).toUpperCase();
     } catch (err) { /* not one to look at */ }
-    var got = realFetch(input, init);
     var at;
-    try { at = new URL(url, location.href); } catch (err) { return got; }
-    if (at.origin !== location.origin || !watched(at.pathname)) return got;
+    try { at = new URL(url, location.href); } catch (err) { return realFetch(input, init); }
+    if (at.origin !== location.origin || !watched(at.pathname)) return realFetch(input, init);
     var path = at.pathname + at.search;
-    return got.then(function (r) {
-      if (r.status >= 500) {
-        var copy = r.clone();
-        copy.text().then(function (text) {
-          var said = String(text || '').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 400);
-          seen('request', method + ' ' + path.split('?')[0] + ' was answered ' + r.status
-            + (said ? ': ' + said.slice(0, 160) : ''), path);
-          if (moreOn('request_broke')) requestSay(method, path, r.status, said);
-        }).catch(function () {});
-      }
-      return r;
+    // A Request is used up by sending it: a copy is kept in case it is sent again.
+    /** @type {Request|null} */
+    var spare = null;
+    try { if (input instanceof Request) spare = input.clone(); } catch (err) { spare = null; }
+    var signal = (init && init.signal) || (input instanceof Request ? input.signal : null);
+    /** @param {Response} r @param {string} how */
+    var fault = function (r, how) {
+      var copy = r.clone();
+      copy.text().then(function (text) {
+        var said = String(text || '').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 400);
+        seen('request', method + ' ' + path.split('?')[0] + ' was answered ' + r.status
+          + (said ? ': ' + said.slice(0, 160) : ''), path);
+        if (moreOn('request_broke')) requestSay(method, path, r.status, said, how);
+      }).catch(function () {});
+    };
+    return realFetch(input, init).then(function (r) {
+      if (r.status < 500) return r;
+      var away = proxyAway(r.status) || S.renewing;
+      if (!away) { fault(r, ''); return r; }
+      // Asked again only when doing it twice cannot do it twice: a reading, or a change the
+      // proxy never handed to Rouh. A 504, or a 5xx from Rouh itself as it went, may have been done.
+      var safe = onlyReads(method) || r.status === 502 || r.status === 503;
+      if (!safe) { awaySay(method, path, true); return r; }
+      return afterBack(onlyReads(method) ? method + ' ' + path : '', function () {
+        return sendAgain(input, init, spare && spare.clone());
+      }, signal).then(function (again) {
+        if (!again) { awaySay(method, path, false); return r; }
+        if (again.status >= 500) fault(again, 'It was first answered ' + r.status + ', as though Rouh was starting again,'
+          + ' was sent again once Rouh\'s /healthz answered, and failed again.');
+        return again;
+      });
     });
   };
 }
