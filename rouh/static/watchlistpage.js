@@ -26,8 +26,21 @@
     detail: 0, editing: false,
     adding: false, addQ: '', matches: [], look: 'idle', lookSeq: 0, lookTimer: 0, addBusy: '',
     minutes: '', skip: [],
-    toast: null, toastTimer: 0, saved: ''
+    toast: null, toastTimer: 0, saved: '',
+    // Which list is shown: 'all', '0' for My list, or a shared list's id; kept in this browser.
+    list: remembered(),
+    // The Share a list / People sheet: null, or {mode: 'new' | 'people', id, said, link, busy, ...}.
+    sheet: null,
+    // The other person's page: Leave this list asked once; why the list is not theirs any more.
+    leaving: false, gone: '', poll: 0
   };
+
+  function remembered() {
+    try { return localStorage.getItem('rouh.watch.list') || 'all'; } catch (e) { return 'all'; }
+  }
+  function remember(v) {
+    try { localStorage.setItem('rouh.watch.list', v); } catch (e) { /* a private window */ }
+  }
 
   var STATUS = [['to_watch', 'To watch'], ['watching', 'Watching'], ['watched', 'Watched']];
   var KIND = { film: 'Film', show: 'Show', miniseries: 'Mini-series', documentary: 'Documentary' };
@@ -42,6 +55,11 @@
   };
 
   function host() { return window.RouhWatchHost || {}; }
+  // Where the list is read and written: the owner's /api/watch, or, for a person a shared list was
+  // shared with, the routes under their own share (`/shared/<token>/watch`, `rouh/web/watchlist.py`).
+  function api(p) { return (host().api || '/api/watch') + (p || ''); }
+  function guest() { return !!host().guest; }
+  function href(n) { return host().href ? host().href(n) : '/watch/' + n; }
   function $(id) { return document.getElementById(id); }
   function el(tag, cls, text) {
     var n = document.createElement(tag);
@@ -82,7 +100,8 @@
     shuffle: '<path d="M4 7h3.5c4 0 5 10 9 10H20M17 4l3 3-3 3M4 17h3.5c1.4 0 2.4-1.2 3.3-2.8M13.2 9.8C14 8.2 15 7 16.5 7H20M17 14l3 3-3 3"/>',
     up: '<path d="M12 19V5M6 11l6-6 6 6"/>',
     refresh: '<path d="M19.5 12a7.5 7.5 0 1 1-2.2-5.3M19.5 4.5v4h-4"/>',
-    link: '<path d="M10 14l4-4M8.5 11.5l-2 2a3 3 0 0 0 4.2 4.2l2-2M15.5 12.5l2-2a3 3 0 0 0-4.2-4.2l-2 2"/>'
+    link: '<path d="M10 14l4-4M8.5 11.5l-2 2a3 3 0 0 0 4.2 4.2l2-2M15.5 12.5l2-2a3 3 0 0 0-4.2-4.2l-2 2"/>',
+    people: '<circle cx="9" cy="8.5" r="3.2"/><path d="M3.5 19c.6-3.2 2.8-5 5.5-5s4.9 1.8 5.5 5"/><circle cx="16.5" cy="9.5" r="2.6"/><path d="M15.5 14.2c2.4-.3 4.4 1.2 5 4.3"/>'
   };
 
   /* ---- words ---- */
@@ -123,7 +142,13 @@
       init.body = JSON.stringify(body);
     }
     return fetch(url, init).then(function (r) {
-      if (r.status === 401) { location.href = '/login'; throw new Error('Sign in first.'); }
+      if (r.status === 401 && !guest()) { location.href = '/login'; throw new Error('Sign in first.'); }
+      if ((r.status === 401 || r.status === 403 || r.status === 410) && guest()) {
+        return r.json().catch(function () { return null; }).then(function (j) {
+          W.gone = (j && j.error) || 'This list is not shared with you any more.';
+          throw new Error(W.gone);
+        });
+      }
       return r.json().catch(function () { return null; }).then(function (j) {
         if (!r.ok || !j) { throw new Error((j && j.error) || 'Rouh could not do that. Try again in a moment.'); }
         return j;
@@ -134,9 +159,11 @@
   function load(quiet) {
     var seq = ++W.seq;
     if (!quiet) { W.loading = !W.data; draw(); }
-    return ask('/api/watch').then(function (j) {
+    return ask(api()).then(function (j) {
       if (seq !== W.seq) { return; }
       W.data = j; W.error = ''; W.loading = false;
+      if (guest()) { W.list = String(j.list); }
+      else if (W.list !== 'all' && W.list !== '0' && !listById(W.list)) { W.list = 'all'; }
       if (W.detail && !find(W.detail)) { W.detail = 0; W.editing = false; }
       draw();
     }).catch(function (e) {
@@ -146,6 +173,35 @@
   }
 
   function items() { return (W.data && W.data.items) || []; }
+  function lists() { return (W.data && W.data.lists) || []; }
+  function listById(id) {
+    var all = lists();
+    for (var i = 0; i < all.length; i++) { if (String(all[i].id) === String(id)) { return all[i]; } }
+    return null;
+  }
+  // The shared list shown, or null on All and My list.
+  function shownList() { return W.list === 'all' || W.list === '0' ? null : listById(W.list); }
+  function listName(id) {
+    if (!id) { return 'My list'; }
+    var l = listById(id);
+    return l ? l.name : 'a shared list';
+  }
+  // The titles of the list shown: every count, Tonight and the shelf read these.
+  function inList() {
+    if (W.list === 'all') { return items(); }
+    var id = W.list === '0' ? 0 : parseInt(W.list, 10);
+    return items().filter(function (t) { return (t.list || 0) === id; });
+  }
+  function countOf(list) {
+    var c = { to_watch: 0, watching: 0, watched: 0, all: 0 };
+    list.forEach(function (t) { c[t.status] = (c[t.status] || 0) + 1; c.all += 1; });
+    return c;
+  }
+  function pickList(v) {
+    W.list = v; W.skip = []; W.q = ''; W.kind = ''; W.where = '';
+    if (!guest()) { remember(v); }
+    draw();
+  }
   function find(n) {
     var all = items();
     for (var i = 0; i < all.length; i++) { if (all[i].number === n) { return all[i]; } }
@@ -163,7 +219,7 @@
     items().forEach(function (t) { c[t.status] = (c[t.status] || 0) + 1; c.all += 1; });
     W.data.counts = c;
   }
-  function counts() { return (W.data && W.data.counts) || { to_watch: 0, watching: 0, watched: 0, all: 0 }; }
+  function counts() { return countOf(inList()); }
 
   // Every write goes through here: the title it answers is put in place, and the page is drawn again.
   function act(url, body, done) {
@@ -189,7 +245,7 @@
   function tonight() {
     var m = W.minutes ? parseInt(W.minutes, 10) : 0;
     var fits = function (t) { return !m || !t.runtime || t.runtime <= m; };
-    var left = items().filter(function (t) { return t.status !== 'watched' && fits(t); });
+    var left = inList().filter(function (t) { return t.status !== 'watched' && fits(t); });
     var watching = left.filter(function (t) { return t.status === 'watching'; })
       .sort(function (a, b) { return b.updated_at - a.updated_at; });
     var next = left.filter(function (t) { return t.status === 'to_watch'; })
@@ -197,20 +253,39 @@
     return watching.concat(next);
   }
 
+  function names(list) {
+    if (list.length < 2) { return list.join(''); }
+    return list.slice(0, -1).join(', ') + ' and ' + list[list.length - 1];
+  }
+  // On a shared list: who added it, and who has seen it before, so two people can choose.
+  function together(t) {
+    if (!t.list) { return ''; }
+    var bits = [];
+    if (W.list === 'all' && !guest()) { bits.push('On ' + listName(t.list) + '.'); }
+    bits.push((t.added_by_name || 'You') + ' added it.');
+    var others = t.others || [];
+    var seen = others.filter(function (o) { return o.seen_before; }).map(function (o) { return o.name; });
+    if (t.seen_before) { seen.unshift('You'); }
+    if (!seen.length) { bits.push(others.length === 1 ? 'Neither of you has seen it.' : 'Nobody on the list has seen it.'); }
+    else { bits.push(names(seen) + (seen.length === 1 && seen[0] !== 'You' ? ' has' : ' have') + ' seen it before.'); }
+    return bits.join(' ');
+  }
   function why(t, list) {
+    var we = t.list ? ' together' : '';
     if (t.status === 'watching') {
-      return t.next ? 'You are in the middle of it. Next is season ' + t.next.season + ', episode ' + t.next.episode + '.'
-        : 'You are in the middle of it.';
+      return (t.next ? 'You are in the middle of it' + we + '. Next is season ' + t.next.season + ', episode ' + t.next.episode + '.'
+        : 'You are in the middle of it' + we + '.') + (t.list ? ' ' + together(t) : '');
     }
     var ahead = list.filter(function (x) { return x.status === 'to_watch'; });
     var at = ahead.indexOf(t) + 1;
     var s = at === 1 ? 'First in Up next.' : 'Number ' + at + ' in Up next.';
     if (t.recommended_by) { s += ' ' + t.recommended_by + ' recommended it.'; }
+    if (t.list) { s += ' ' + together(t); }
     return s;
   }
 
   function shown() {
-    var list = items().slice();
+    var list = inList().slice();
     if (W.view === 'next') { list = list.filter(function (t) { return t.status !== 'watched'; }); }
     if (W.view === 'watched') { list = list.filter(function (t) { return t.status === 'watched'; }); }
     if (W.kind === 'film') { list = list.filter(function (t) { return t.kind === 'film'; }); }
@@ -330,7 +405,7 @@
     var li = el('li', 'wl-card');
     li.dataset.number = String(t.number);
     var open = el('a', 'wl-open');
-    open.href = '/watch/' + t.number;
+    open.href = href(t.number);
     open.addEventListener('click', function (e) {
       if (e.metaKey || e.ctrlKey || e.shiftKey || e.button) { return; }
       e.preventDefault();
@@ -340,6 +415,10 @@
     var text = el('span', 'wl-card-text');
     text.appendChild(el('span', 'wl-card-title', t.title));
     text.appendChild(el('span', 'wl-card-facts', facts(t)));
+    var who = [];
+    if (W.list === 'all' && !guest() && lists().length) { who.push(listName(t.list)); }
+    if (t.list) { who.push('added by ' + (t.added_by_name || 'you')); }
+    if (who.length) { text.appendChild(el('span', 'wl-card-who', who.join(', ').replace(/^./, function (x) { return x.toUpperCase(); }))); }
     open.appendChild(text);
     li.appendChild(open);
     var foot = el('div', 'wl-card-foot');
@@ -347,7 +426,10 @@
     if (p) { foot.appendChild(p); }
     var row = el('div', 'wl-card-row');
     if (t.status === 'watched') {
-      row.appendChild(stars(t, true) || el('span', 'wl-dim', 'Watched ' + day(t.watched_at)));
+      row.appendChild(stars(t, true) || el('span', 'wl-dim', t.list ? 'You have not rated it' : 'Watched ' + day(t.watched_at)));
+      (t.others || []).forEach(function (o) {
+        row.appendChild(el('span', 'wl-dim wl-their', o.name + ': ' + (o.rating ? o.rating + ' of 5' : 'not rated')));
+      });
     } else {
       row.appendChild(statusMark(t));
     }
@@ -360,7 +442,14 @@
 
   function headline() {
     var c = counts();
-    if (!c.all) { return 'Your watch list is empty.'; }
+    var l = shownList();
+    if (!c.all) {
+      return l ? 'Nothing on ' + l.name + ' yet.' : W.list === '0' && items().length ? 'Nothing on My list: everything is on a shared list.'
+        : 'Your watch list is empty.';
+    }
+    return (l ? l.name + ': ' : W.list === '0' && lists().length ? 'My list: ' : '') + counted0(c);
+  }
+  function counted0(c) {
     var bits = [];
     if (c.watching) { bits.push(counted(c.watching, 'watching', 'watching')); }
     bits.push(counted(c.to_watch, 'to watch', 'to watch'));
@@ -375,7 +464,7 @@
     var sec = el('section', 'wl-tonight');
     sec.setAttribute('aria-labelledby', 'wlTonightH');
     var head = el('div', 'wl-tonight-head');
-    var h = el('h4', 'wl-h', 'Tonight');
+    var h = el('h4', 'wl-h', shownList() || guest() ? 'Tonight, together' : 'Tonight');
     h.id = 'wlTonightH';
     head.appendChild(h);
     var times = el('div', 'wl-seg wl-times');
@@ -406,7 +495,7 @@
     }
     var pick = el('div', 'wl-pick');
     var po = el('a', 'wl-pick-poster');
-    po.href = '/watch/' + t.number;
+    po.href = href(t.number);
     po.setAttribute('aria-label', 'Open ' + t.title);
     po.addEventListener('click', function (e) { e.preventDefault(); openDetail(t.number); });
     po.appendChild(poster(t));
@@ -414,7 +503,7 @@
     var body = el('div', 'wl-pick-body');
     var title = el('h5', 'wl-pick-title');
     var ta = el('a', '', t.title);
-    ta.href = '/watch/' + t.number;
+    ta.href = href(t.number);
     ta.addEventListener('click', function (e) { e.preventDefault(); openDetail(t.number); });
     title.appendChild(ta);
     body.appendChild(title);
@@ -463,7 +552,7 @@
       after.forEach(function (x) {
         var li = el('li');
         var a = el('a', 'wl-then-item');
-        a.href = '/watch/' + x.number;
+        a.href = href(x.number);
         a.addEventListener('click', function (e) { e.preventDefault(); openDetail(x.number); });
         a.appendChild(poster(x, 'is-thumb'));
         var tx = el('span', 'wl-match-text');
@@ -531,7 +620,7 @@
     tools.appendChild(select('Kind', W.kind, [['', 'Everything'], ['film', 'Films'], ['show', 'Shows and series']],
       function (v) { W.kind = v; drawGrid(); }));
     var services = {};
-    items().forEach(function (t) { services[t.where || '-'] = 1; });
+    inList().forEach(function (t) { services[t.where || '-'] = 1; });
     var wh = Object.keys(services).sort().map(function (k) { return [k, k === '-' ? 'Not said' : k]; });
     if (wh.length > 1) {
       tools.appendChild(select('Where', W.where, [['', 'Anywhere']].concat(wh), function (v) { W.where = v; drawGrid(); }));
@@ -577,6 +666,362 @@
     grid.appendChild(ul);
   }
 
+
+  /* ---- lists, and the people on them ---- */
+
+  function initials(name) {
+    var words = String(name || '?').replace(/@.*$/, '').replace(/[^\p{L}\p{N} ]/gu, ' ').trim().split(/\s+/).filter(Boolean);
+    return ((words[0] || '?').charAt(0) + (words[1] ? words[1].charAt(0) : '')).toUpperCase();
+  }
+  function face(name, cls) {
+    var f = el('span', 'wl-face' + (cls ? ' ' + cls : ''), initials(name));
+    f.setAttribute('aria-hidden', 'true');
+    return f;
+  }
+
+  // All, My list and each shared list, with what is left to watch on each. Only once a list is shared.
+  function drawLists(into) {
+    if (guest() || !lists().length) { return; }
+    var row = el('div', 'wl-lists');
+    row.setAttribute('role', 'group');
+    row.setAttribute('aria-label', 'Which list');
+    var opts = [['all', 'All lists', items()], ['0', 'My list', items().filter(function (t) { return !t.list; })]];
+    lists().forEach(function (l) {
+      opts.push([String(l.id), l.name, items().filter(function (t) { return t.list === l.id; }), l]);
+    });
+    opts.forEach(function (o) {
+      var c = countOf(o[2]);
+      var b = button('wl-list-b', '', function () { pickList(o[0]); });
+      b.setAttribute('aria-pressed', W.list === o[0] ? 'true' : 'false');
+      b.appendChild(el('span', 'wl-list-name', o[1]));
+      b.appendChild(el('span', 'wl-tab-n', c.all));
+      b.setAttribute('aria-label', o[1] + ', ' + counted(c.all, 'title', 'titles'));
+      row.appendChild(b);
+    });
+    into.appendChild(row);
+  }
+
+  // Who is on the list shown: you, and each person, joined or only invited.
+  function drawPeople(into) {
+    var l = guest() ? (lists()[0] || null) : shownList();
+    if (!l) { return; }
+    var row = el('div', 'wl-people');
+    var ul = el('ul', 'wl-people-list');
+    ul.setAttribute('aria-label', 'On this list');
+    var all = [{ name: 'You', you: true, joined: true }];
+    if (guest()) { all.push({ name: l.owner_name, joined: true, owner: true }); }
+    l.people.forEach(function (p) { if (!p.you) { all.push(p); } });
+    var most = 4;
+    all.slice(0, most).forEach(function (p) {
+      var li = el('li', 'wl-person' + (p.joined ? '' : ' is-invited'));
+      li.appendChild(face(p.name || p.email));
+      var label = p.name || p.email;
+      li.appendChild(el('span', 'wl-person-name', label));
+      if (p.owner) { li.appendChild(el('span', 'wl-dim', 'shared it')); }
+      else if (!p.joined) { li.appendChild(el('span', 'wl-dim', 'invited, not opened yet')); }
+      ul.appendChild(li);
+    });
+    if (all.length > most) { ul.appendChild(el('li', 'wl-person wl-dim', '+' + (all.length - most) + ' more')); }
+    row.appendChild(ul);
+    if (guest() && !W.leaving) {
+      row.appendChild(button('ctl small wl-people-b', 'Leave this list', function () { W.leaving = true; draw(); }));
+    }
+    if (!guest()) {
+      var b = button('ctl small wl-people-b', 'People and invites', function () { openSheet('people', l.id); });
+      b.setAttribute('aria-haspopup', 'dialog');
+      row.appendChild(b);
+    }
+    into.appendChild(row);
+    drawLeave(into);
+  }
+
+  /* ---- the Share a list and People sheet (the owner's) ---- */
+
+  function openSheet(mode, id) {
+    W.sheet = { mode: mode, id: id || 0, said: '', link: '', busy: false, confirmStop: false,
+                email: '', name: '', listName: '', named: false, role: 'edit', letter: false, bring: {} };
+    draw();
+    var f = $('wlSheetFirst');
+    if (f) { f.focus(); }
+  }
+  function closeSheet() {
+    W.sheet = null;
+    draw();
+    var b = $('wlShareBtn') || document.querySelector('.wl-people-b');
+    if (b) { b.focus(); }
+  }
+
+  function field(label, input) {
+    var f = el('label', 'wl-field');
+    f.appendChild(el('span', 'wl-field-label', label));
+    f.appendChild(input);
+    return f;
+  }
+  function textInput(id, type, value, placeholder, onInput) {
+    var i = el('input', 'wl-in');
+    i.id = id; i.type = type; i.value = value || ''; i.autocomplete = 'off';
+    if (placeholder) { i.placeholder = placeholder; }
+    i.addEventListener('input', function () { onInput(i.value); });
+    return i;
+  }
+  function roleChoice(S) {
+    var fs = el('fieldset', 'wl-choice');
+    fs.appendChild(el('legend', 'wl-field-label', 'They can'));
+    [['edit', 'Add and tick', 'Add titles, tick episodes, rate and note'], ['view', 'Only look', 'See the list and Tonight, change nothing']]
+      .forEach(function (o) {
+        var lab = el('label', 'wl-radio');
+        var r = el('input');
+        r.type = 'radio'; r.name = 'wlRole'; r.value = o[0]; r.checked = S.role === o[0];
+        r.addEventListener('change', function () { S.role = o[0]; });
+        lab.appendChild(r);
+        var tx = el('span', 'wl-radio-text');
+        tx.appendChild(el('span', 'wl-radio-name', o[1]));
+        tx.appendChild(el('span', 'wl-dim', o[2]));
+        lab.appendChild(tx);
+        fs.appendChild(lab);
+      });
+    return fs;
+  }
+  function letterBox(S) {
+    var lab = el('label', 'wl-check');
+    var c = el('input');
+    c.type = 'checkbox'; c.checked = S.letter;
+    c.addEventListener('change', function () { S.letter = c.checked; });
+    lab.appendChild(c);
+    var tx = el('span', 'wl-radio-text');
+    tx.appendChild(el('span', '', 'Also email them the invite'));
+    tx.appendChild(el('span', 'wl-dim', S.letter ? 'Rouh sends it as you press Make the invite.' : 'Off: you send them the link yourself.'));
+    lab.appendChild(tx);
+    c.addEventListener('change', function () { tx.lastChild.textContent = c.checked ? 'Rouh sends it as you press Make the invite.' : 'Off: you send them the link yourself.'; });
+    return lab;
+  }
+
+  // What became of an invite: the sentence, and the link to copy whatever happened to the letter.
+  function drawSaid(box, S) {
+    if (!S.said) { return; }
+    var said = el('div', 'wl-said');
+    said.setAttribute('role', 'status');
+    said.appendChild(el('p', 'wl-said-text', S.said));
+    if (S.link) {
+      var row = el('div', 'wl-link-row');
+      var inp = el('input', 'wl-in wl-link');
+      inp.readOnly = true; inp.value = S.link; inp.id = 'wlInviteLink';
+      inp.setAttribute('aria-label', 'Their link');
+      row.appendChild(inp);
+      row.appendChild(button('ctl small', 'Copy the link', function () { copy(S.link); }));
+      said.appendChild(row);
+    }
+    box.appendChild(said);
+  }
+  function copy(text) {
+    var done = function () { toast('The link is copied.'); };
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(done, function () { toast('Select the link and copy it.'); });
+    } else { toast('Select the link and copy it.'); }
+  }
+
+  function invite(S, id) {
+    var email = S.email.trim();
+    if (!email) { S.said = 'Write their email address first.'; S.link = ''; draw(); return; }
+    S.busy = true; draw();
+    var body = { email: email, name: S.name.trim(), role: S.role, notify: S.letter };
+    var url = id ? api('/lists/' + id + '/invite') : api('/lists/new');
+    if (!id) {
+      body.list_name = (S.listName || defaultName(S)).trim();
+      body.titles = Object.keys(S.bring).filter(function (k) { return S.bring[k]; }).map(Number);
+    }
+    ask(url, body).then(function (j) {
+      W.data = j.data || W.data;
+      S.busy = false; S.said = j.said; S.link = j.link || '';
+      if (!id && j.list) { S.mode = 'people'; S.id = j.list.id; W.list = String(j.list.id); remember(W.list); }
+      S.email = ''; S.name = ''; S.letter = false;
+      draw();
+    }).catch(function (e) { S.busy = false; S.said = e.message; S.link = ''; draw(); });
+  }
+  function defaultName(S) {
+    var me = (W.data && W.data.me && W.data.me.name) || 'Me';
+    var them = (S.name || S.email.replace(/@.*$/, '')).trim().split(/\s+/)[0];
+    return them ? me + ' and ' + them.charAt(0).toUpperCase() + them.slice(1) : me + "'s shared list";
+  }
+
+  function drawSheet(view) {
+    var S = W.sheet;
+    var old = $('wlSheet');
+    if (old) { old.remove(); }
+    if (!S || !W.data) { return; }
+    var back = el('div', 'wl-sheet-back');
+    back.id = 'wlSheet';
+    back.addEventListener('mousedown', function (e) { if (e.target === back) { closeSheet(); } });
+    var box = el('section', 'wl-sheet');
+    box.setAttribute('role', 'dialog');
+    box.setAttribute('aria-modal', 'true');
+    box.setAttribute('aria-labelledby', 'wlSheetH');
+    var top = el('div', 'wl-add-top');
+    var l = S.mode === 'people' ? listById(S.id) : null;
+    var h = el('h4', 'wl-h', l ? l.name : 'Share a list');
+    h.id = 'wlSheetH';
+    top.appendChild(h);
+    var x = button('wl-toast-x', '', closeSheet, 'Close');
+    x.appendChild(icon(I.close, 16));
+    top.appendChild(x);
+    box.appendChild(top);
+
+    if (W.data.can_share) {
+      box.appendChild(el('p', 'wl-lede', W.data.can_share));
+      back.appendChild(box); view.appendChild(back);
+      return;
+    }
+
+    if (S.mode === 'new') {
+      box.appendChild(el('p', 'wl-hint', 'A list you keep with someone. They open it with a rouh.land sign-in, from the email or the link; nothing else of yours opens to them.'));
+      var form = el('form', 'wl-sheet-form');
+      var em = textInput('wlSheetFirst', 'email', S.email, 'maria@example.com', function (v) { S.email = v; nameHint(); });
+      form.appendChild(field('Their email', em));
+      form.appendChild(field('Their name', textInput('wlInvName', 'text', S.name, 'What you call them', function (v) { S.name = v; nameHint(); })));
+      var ln = textInput('wlListName', 'text', S.listName || defaultName(S), '', function (v) { S.listName = v; S.named = true; });
+      form.appendChild(field('Name of the list', ln));
+      function nameHint() { if (!S.named) { ln.value = defaultName(S); S.listName = ''; } }
+      form.appendChild(roleChoice(S));
+      var mine = items().filter(function (t) { return !t.list && t.status !== 'watched'; });
+      if (mine.length) {
+        var fs = el('fieldset', 'wl-choice');
+        fs.appendChild(el('legend', 'wl-field-label', 'Bring titles over from My list (optional)'));
+        var ul = el('div', 'wl-bring');
+        mine.forEach(function (t) {
+          var lab = el('label', 'wl-check');
+          var c = el('input');
+          c.type = 'checkbox'; c.checked = !!S.bring[t.number];
+          c.addEventListener('change', function () { S.bring[t.number] = c.checked; });
+          lab.appendChild(c);
+          lab.appendChild(el('span', '', t.title));
+          ul.appendChild(lab);
+        });
+        fs.appendChild(ul);
+        form.appendChild(fs);
+      }
+      form.appendChild(letterBox(S));
+      var acts = el('div', 'wl-acts');
+      var go = el('button', 'ctl wl-primary', S.busy ? 'Making the invite...' : 'Make the invite');
+      go.type = 'submit'; go.disabled = S.busy;
+      acts.appendChild(go);
+      acts.appendChild(button('ctl small', 'Cancel', closeSheet));
+      form.appendChild(acts);
+      form.addEventListener('submit', function (e) { e.preventDefault(); invite(S, 0); });
+      box.appendChild(form);
+      drawSaid(box, S);
+      back.appendChild(box); view.appendChild(back);
+      return;
+    }
+
+    if (!l) { W.sheet = null; return; }
+    drawSaid(box, S);
+    var ppl = el('ul', 'wl-sheet-people');
+    ppl.setAttribute('aria-label', 'People on ' + l.name);
+    var me = el('li', 'wl-sheet-person');
+    me.appendChild(face('You'));
+    var mt = el('span', 'wl-sheet-who');
+    mt.appendChild(el('span', 'wl-person-name', 'You'));
+    mt.appendChild(el('span', 'wl-dim', 'made the list'));
+    me.appendChild(mt);
+    ppl.appendChild(me);
+    l.people.forEach(function (p) {
+      var li = el('li', 'wl-sheet-person');
+      li.appendChild(face(p.name || p.email));
+      var tx = el('span', 'wl-sheet-who');
+      tx.appendChild(el('span', 'wl-person-name', p.name ? p.name : p.email));
+      var state = [p.name ? p.email : '', p.joined ? 'joined' : 'invited, not opened yet',
+                   p.role === 'view' ? 'can only look' : 'can add and tick'];
+      if (!p.joined && !p.mailed) { state.push(p.mail_error ? 'the email did not go: ' + p.mail_error.replace(/\.$/, '') : 'no email sent'); }
+      tx.appendChild(el('span', 'wl-dim', state.filter(Boolean).join(', ')));
+      li.appendChild(tx);
+      var pa = el('span', 'wl-acts');
+      if (!p.joined && p.link) { pa.appendChild(button('ctl small', 'Copy link', function () { copy(p.link); }, 'Copy the link for ' + (p.name || p.email))); }
+      pa.appendChild(button('ctl small wl-remove', 'Remove', function () { uninvite(l, p); }, 'Remove ' + (p.name || p.email) + ' from the list'));
+      li.appendChild(pa);
+      ppl.appendChild(li);
+    });
+    box.appendChild(ppl);
+    if (!l.people.length) { box.appendChild(el('p', 'wl-hint', 'Nobody else is on this list now. Invite someone, or stop sharing it.')); }
+
+    var form2 = el('form', 'wl-sheet-form wl-sheet-invite');
+    form2.appendChild(el('h5', 'wl-h', 'Invite someone'));
+    var two = el('div', 'wl-edit-grid');
+    two.appendChild(field('Their email', textInput('wlSheetFirst', 'email', S.email, 'name@example.com', function (v) { S.email = v; })));
+    two.appendChild(field('Their name', textInput('wlInvName', 'text', S.name, 'What you call them', function (v) { S.name = v; })));
+    form2.appendChild(two);
+    form2.appendChild(roleChoice(S));
+    form2.appendChild(letterBox(S));
+    var a2 = el('div', 'wl-acts');
+    var go2 = el('button', 'ctl', S.busy ? 'Making the invite...' : 'Make the invite');
+    go2.type = 'submit'; go2.disabled = S.busy;
+    a2.appendChild(go2);
+    form2.appendChild(a2);
+    form2.addEventListener('submit', function (e) { e.preventDefault(); invite(S, l.id); });
+    box.appendChild(form2);
+
+    var tail = el('div', 'wl-sheet-tail');
+    var rn = textInput('wlRename', 'text', l.name, '', function () {});
+    rn.addEventListener('change', function () {
+      act(api('/lists/' + l.id), { name: rn.value }, function (j) { if (j.data) { W.data = j.data; } toast('The list is called ' + rn.value.trim() + ' now.'); });
+    });
+    tail.appendChild(field('Name of the list', rn));
+    if (!S.confirmStop) {
+      tail.appendChild(button('ctl small wl-remove', 'Stop sharing this list', function () { S.confirmStop = true; draw(); }));
+    } else {
+      var c = el('div', 'wl-confirm');
+      c.setAttribute('role', 'alert');
+      c.appendChild(el('p', 'wl-said-text', 'Stop sharing ' + l.name + '? Its titles go back to My list, with your ratings and notes, and nobody else can open it.'));
+      var ca = el('div', 'wl-acts');
+      ca.appendChild(button('ctl small wl-remove', 'Yes, stop sharing', function () {
+        act(api('/lists/' + l.id + '/stop'), {}, function (j) {
+          if (j.data) { W.data = j.data; }
+          W.list = '0'; remember('0'); W.sheet = null;
+          toast(l.name + ' is not shared any more. Its titles are on My list.');
+        });
+      }));
+      ca.appendChild(button('ctl small', 'Keep sharing', function () { S.confirmStop = false; draw(); }));
+      c.appendChild(ca);
+      tail.appendChild(c);
+    }
+    box.appendChild(tail);
+    back.appendChild(box);
+    view.appendChild(back);
+  }
+
+  function uninvite(l, p) {
+    act(api('/lists/' + l.id + '/uninvite'), { token: p.token }, function (j) {
+      if (j.data) { W.data = j.data; }
+      toast((p.name || p.email) + ' is off ' + l.name + '. Their link stops working now.', function () {
+        act(api('/lists/' + l.id + '/putback'), { was: j.was }, function (k) {
+          if (k.data) { W.data = k.data; }
+          toast((p.name || p.email) + ' is back on ' + l.name + ', with the same link.');
+        });
+      });
+    });
+  }
+
+  // The other person's page: Leave this list, asked once.
+  function drawLeave(into) {
+    if (!guest()) { return; }
+    var l = lists()[0];
+    var box = el('div', 'wl-leave');
+    if (!W.leaving) {
+      return;
+    } else {
+      box.setAttribute('role', 'alert');
+      box.appendChild(el('p', 'wl-said-text', 'Leave ' + (l ? l.name : 'this list') + '? You will not be able to open it again unless ' +
+        (l ? l.owner_name : 'its owner') + ' invites you again. Your ratings and notes stay on it.'));
+      var a = el('div', 'wl-acts');
+      a.appendChild(button('ctl small wl-remove', 'Yes, leave', function () {
+        ask(api('/leave'), {}).then(function () { W.gone = 'You left ' + (l ? l.name : 'the list') + '.'; draw(); })
+          .catch(function (e) { toast(e.message); });
+      }));
+      a.appendChild(button('ctl small', 'Stay', function () { W.leaving = false; draw(); }));
+      box.appendChild(a);
+    }
+    into.appendChild(box);
+  }
+
   /* ---- adding ---- */
 
   function startAdd() {
@@ -600,7 +1045,7 @@
     drawMatches();
     W.lookTimer = setTimeout(function () {
       var seq = ++W.lookSeq;
-      ask('/api/watch/search?q=' + encodeURIComponent(q)).then(function (j) {
+      ask(api('/search?q=') + encodeURIComponent(q)).then(function (j) {
         if (seq !== W.lookSeq) { return; }
         W.matches = j.matches || [];
         W.look = j.offline ? 'offline' : 'done';
@@ -616,11 +1061,13 @@
     W.addBusy = m ? m.key : 'name';
     drawMatches();
     var body = m ? { pick: m, title: m.title } : { title: W.addQ.trim(), lookup: false };
-    ask('/api/watch/new', body).then(function (j) {
+    var l = shownList();
+    if (l && !guest()) { body.list = l.id; }
+    ask(api('/new'), body).then(function (j) {
       put(j.item);
       W.adding = false; W.addBusy = '';
       W.view = 'next';
-      toast(j.item.title + ' is on your watch list.' + (j.said ? ' ' + j.said : ''));
+      toast(j.item.title + ' is on ' + (j.item.list ? listName(j.item.list) : W.list === 'all' && lists().length ? 'My list' : 'your watch list') + '.' + (j.said ? ' ' + j.said : ''));
       openDetail(j.item.number);
     }).catch(function (e) { W.addBusy = ''; toast(e.message); drawMatches(); });
   }
@@ -629,7 +1076,7 @@
     var box = el('section', 'wl-add');
     box.setAttribute('aria-labelledby', 'wlAddH');
     var top = el('div', 'wl-add-top');
-    var h = el('h4', 'wl-h', 'Add a title');
+    var h = el('h4', 'wl-h', shownList() || guest() ? 'Add a title to ' + (shownList() || lists()[0] || {}).name : 'Add a title');
     h.id = 'wlAddH';
     top.appendChild(h);
     top.appendChild(button('ctl small', 'Cancel', stopAdd));
@@ -707,26 +1154,26 @@
   /* ---- what a press does ---- */
 
   function stepOn(t) {
-    act('/api/watch/' + t.number + '/tick', { step: true }, function (j) {
+    act(api('/') + t.number + '/tick', { step: true }, function (j) {
       if (j.finished) {
         toast('Last episode: ' + j.item.title + ' is watched. Rate it:', function () {
-          act('/api/watch/' + t.number, { status: 'watching' });
+          act(api('/') + t.number, { status: 'watching' });
         }, j.item);
       }
     });
   }
 
   function tickTo(t, season, episode) {
-    act('/api/watch/' + t.number + '/tick', { season: season, episode: episode }, function (j) {
+    act(api('/') + t.number + '/tick', { season: season, episode: episode }, function (j) {
       if (j.finished) { toast('Every episode seen: ' + j.item.title + ' is watched. Rate it:', null, j.item); }
     });
   }
 
   function markWatched(t) {
     var was = t.status, seen = t.seen || {};
-    act('/api/watch/' + t.number, { status: 'watched' }, function (j) {
+    act(api('/') + t.number, { status: 'watched' }, function (j) {
       toast(j.item.title + ' is watched. Rate it:', function () {
-        act('/api/watch/' + t.number, { status: was, seen: seen });
+        act(api('/') + t.number, { status: was, seen: seen });
       }, j.item);
     });
   }
@@ -735,15 +1182,15 @@
     if (status === t.status) { return; }
     if (status === 'watched') { markWatched(t); return; }
     var was = t.status;
-    act('/api/watch/' + t.number, { status: status }, function (j) {
+    act(api('/') + t.number, { status: status }, function (j) {
       toast(j.item.title + ': ' + j.item.status_said.toLowerCase() + '.', function () {
-        act('/api/watch/' + t.number, { status: was });
+        act(api('/') + t.number, { status: was });
       });
     });
   }
 
   function save(t, fields, said) {
-    act('/api/watch/' + t.number, fields, function () {
+    act(api('/') + t.number, fields, function () {
       W.saved = said || 'Saved';
       var s = $('wlSaved');
       if (s) { s.textContent = W.saved; }
@@ -752,20 +1199,28 @@
   }
 
   function remove(t) {
-    ask('/api/watch/' + t.number + '/delete', {}).then(function (j) {
+    ask(api('/') + t.number + '/delete', {}).then(function (j) {
       W.data.items = items().filter(function (x) { return x.number !== t.number; });
       recount();
       closeDetail(true);
-      toast(t.title + ' is off your watch list.', function () {
-        ask('/api/watch/restore', { was: j.was }).then(function (r) { put(r.item); draw(); toast(r.item.title + ' is back.'); })
+      toast(t.title + ' is off ' + (t.list ? listName(t.list) : 'your watch list') + '.', function () {
+        ask(api('/restore'), { was: j.was }).then(function (r) { put(r.item); draw(); toast(r.item.title + ' is back.'); })
           .catch(function (e) { toast(e.message); });
       });
     }).catch(function (e) { toast(e.message); });
   }
 
+  function moveTo(t, id) {
+    var was = t.list || 0;
+    if (id === was) { return; }
+    act(api('/') + t.number, { list: id }, function (j) {
+      toast(j.item.title + ' is on ' + listName(id) + ' now.', function () { act(api('/') + t.number, { list: was }); });
+    });
+  }
+
   function refresh(t) {
     toast('Looking ' + t.title + ' up again...');
-    act('/api/watch/' + t.number + '/refresh', {}, function (j) {
+    act(api('/') + t.number + '/refresh', {}, function (j) {
       toast(j.said || 'The details of ' + j.item.title + ' are up to date.');
     });
   }
@@ -908,7 +1363,7 @@
                    end_year: fields.end_year.value || null, runtime: fields.runtime.value || null,
                    genres: fields.genres.value, rating: fields.rating.value || null, overview: fields.overview.value,
                    seasons: seasons };
-      act('/api/watch/' + t.number, body, function () { W.editing = false; toast('The details are saved.'); });
+      act(api('/') + t.number, body, function () { W.editing = false; toast('The details are saved.'); });
     });
     return form;
   }
@@ -957,10 +1412,24 @@
     hero.appendChild(info);
     d.appendChild(hero);
 
+    // Which list it is on, and Move to (the owner's).
+    if (lists().length && !guest()) {
+      var on = el('div', 'wl-onlist');
+      var here = String(t.list || 0);
+      var opts = [['0', 'My list']].concat(lists().map(function (l) { return [String(l.id), l.name]; }))
+        .map(function (o) { return [o[0], o[1] + (o[0] === here ? ' (on it now)' : '')]; });
+      on.appendChild(select('Move to', here, opts, function (v) { moveTo(t, parseInt(v, 10) || 0); }));
+      if (t.added_by_name) { on.appendChild(el('span', 'wl-dim', 'Added by ' + t.added_by_name)); }
+      d.appendChild(on);
+    } else if (t.added_by_name) {
+      d.appendChild(el('p', 'wl-dim wl-onlist', 'Added by ' + t.added_by_name + ', ' + day(t.added_at)));
+    }
+
     // Status, and the one press that moves it on.
+    if (t.list) { d.appendChild(el('h4', 'wl-h wl-together-h', 'Together')); }
     var st = el('div', 'wl-seg wl-status-seg');
     st.setAttribute('role', 'group');
-    st.setAttribute('aria-label', 'Status');
+    st.setAttribute('aria-label', t.list ? 'Status, together' : 'Status');
     STATUS.forEach(function (s) {
       var b = button('wl-seg-b', s[1], function () { setStatus(t, s[0]); });
       b.setAttribute('aria-pressed', t.status === s[0] ? 'true' : 'false');
@@ -983,7 +1452,7 @@
         acts.appendChild(w);
       }
       var front = button('ctl wl-ghost', '', function () {
-        act('/api/watch/' + t.number + '/front', {}, function (j) { toast(j.item.title + ' is first in Up next.'); });
+        act(api('/') + t.number + '/front', {}, function (j) { toast(j.item.title + ' is first in Up next.'); });
       });
       front.appendChild(icon(I.up));
       front.appendChild(document.createTextNode('Watch next'));
@@ -997,7 +1466,7 @@
     var rate = el('div', 'wl-rate');
     rate.setAttribute('role', 'group');
     rate.setAttribute('aria-label', 'My rating');
-    rate.appendChild(el('span', 'wl-field-label', 'My rating'));
+    rate.appendChild(el('span', 'wl-field-label', t.list ? 'Ratings' : 'My rating'));
     var row = el('div', 'wl-rate-row');
     for (var i = 1; i <= 5; i++) {
       (function (i) {
@@ -1010,13 +1479,41 @@
         row.appendChild(b);
       })(i);
     }
-    rate.appendChild(row);
+    if (t.list) {
+      var you = el('div', 'wl-rater');
+      you.appendChild(face('You'));
+      you.appendChild(el('span', 'wl-rater-name', 'You'));
+      you.appendChild(el('span', 'wl-dim wl-rater-said', t.my_rating ? t.my_rating + ' of 5' : 'not rated yet'));
+      you.appendChild(row);
+      rate.appendChild(you);
+      (t.others || []).forEach(function (o) {
+        var r = el('div', 'wl-rater');
+        r.appendChild(face(o.name));
+        r.appendChild(el('span', 'wl-rater-name', o.name));
+        var st2 = stars({ my_rating: o.rating }, false);
+        if (st2) { st2.setAttribute('aria-label', o.name + ': ' + o.rating + ' of 5'); r.appendChild(st2); r.appendChild(el('span', 'wl-dim wl-rater-said', o.rating + ' of 5')); }
+        else { r.appendChild(el('span', 'wl-dim', 'not rated yet')); }
+        if (o.note) { r.appendChild(el('p', 'wl-rater-note', o.note)); }
+        rate.appendChild(r);
+      });
+    } else {
+      rate.appendChild(row);
+    }
     mine.appendChild(rate);
+    if (t.list) {
+      var sb = el('label', 'wl-check');
+      var cb = el('input');
+      cb.type = 'checkbox'; cb.checked = !!t.seen_before;
+      cb.addEventListener('change', function () { save(t, { seen_before: cb.checked }, cb.checked ? 'Marked: you have seen it before' : 'Saved'); });
+      sb.appendChild(cb);
+      sb.appendChild(el('span', '', 'I have seen it before, on my own'));
+      mine.appendChild(sb);
+    }
     mine.appendChild(textField('Recommended by', t.recommended_by, { placeholder: 'Who told you about it' },
       function (v) { save(t, { recommended_by: v }); }));
     mine.appendChild(textField('Where to watch', t.where, { placeholder: 'Netflix, HBO Max, cinema...' },
       function (v) { save(t, { where: v }); }));
-    mine.appendChild(textField('Notes', t.notes, { area: true, placeholder: 'Anything to remember about it' },
+    mine.appendChild(textField(t.list ? 'My notes' : 'Notes', t.notes, { area: true, placeholder: 'Anything to remember about it' },
       function (v) { save(t, { notes: v }); }));
     d.appendChild(mine);
 
@@ -1045,9 +1542,9 @@
     re.appendChild(icon(I.refresh, 14));
     re.appendChild(document.createTextNode('Look it up again'));
     tail.appendChild(re);
-    tail.appendChild(button('ctl small wl-remove', 'Remove from the list', function () { remove(t); }));
+    if (t.can_remove !== false) { tail.appendChild(button('ctl small wl-remove', 'Remove from the list', function () { remove(t); })); }
     d.appendChild(tail);
-    var when = ['Added ' + day(t.added_at)];
+    var when = ['Added ' + day(t.added_at) + (t.list ? ' by ' + (t.added_by_name || 'you') : '')];
     if (t.started_at) { when.push('started ' + day(t.started_at)); }
     if (t.watched_at) { when.push('watched ' + day(t.watched_at)); }
     d.appendChild(el('p', 'wl-dim wl-when', when.join(', ') + '.'));
@@ -1073,7 +1570,7 @@
         (function (i) {
           var b = button('wl-star is-small', '', function () {
             W.toast = null; drawToast();
-            act('/api/watch/' + rt.number, { my_rating: i }, function (j) { toast('Rated ' + j.item.title + ' ' + i + ' of 5.'); });
+            act(api('/') + rt.number, { my_rating: i }, function (j) { toast('Rated ' + j.item.title + ' ' + i + ' of 5.'); });
           }, 'Rate it ' + i + ' of 5');
           b.appendChild(icon(I.star, 18));
           stars.appendChild(b);
@@ -1099,9 +1596,21 @@
     var scroll = body.scrollTop;
     body.textContent = '';
     if (meta) { meta.textContent = ''; }
-    var page = el('div', 'wl-page' + (W.detail ? ' has-detail' : ''));
+    var page = el('div', 'wl-page' + (W.detail ? ' has-detail' : '') + (W.data && W.data.read_only ? ' is-readonly' : ''));
     var main = el('div', 'wl-main');
     if (W.detail) { main.setAttribute('aria-hidden', narrowNow() ? 'true' : 'false'); }
+    if (W.gone) {
+      var g = el('div', 'wl-empty wl-empty-first');
+      g.appendChild(el('p', 'wl-lede', W.gone));
+      var to = el('a', 'ctl small', 'Everything shared with you');
+      to.href = '/shared';
+      g.appendChild(to);
+      main.appendChild(g);
+      page.appendChild(main);
+      body.appendChild(page);
+      drawToast();
+      return;
+    }
     if (W.loading) {
       main.appendChild(el('p', 'wl-lede', 'Reading your watch list...'));
     } else if (W.error && !W.data) {
@@ -1110,21 +1619,45 @@
     } else if (W.data) {
       var top = el('div', 'wl-top');
       top.appendChild(el('p', 'wl-headline', headline()));
-      if (!W.adding) {
+      var tacts = el('div', 'wl-acts');
+      if (!W.adding && !(W.data.read_only)) {
         var add = button(counts().all ? 'ctl wl-add-btn' : 'ctl wl-primary wl-add-btn', '', startAdd);
         add.id = 'wlAddBtn';
         add.appendChild(icon(I.plus));
         add.appendChild(document.createTextNode('Add a title'));
-        top.appendChild(add);
+        tacts.appendChild(add);
       }
+      if (!guest() && !shownList()) {
+        var sh = button('ctl wl-ghost wl-share-btn', '', function () { openSheet('new'); });
+        sh.id = 'wlShareBtn';
+        sh.setAttribute('aria-haspopup', 'dialog');
+        sh.appendChild(icon(I.people));
+        sh.appendChild(document.createTextNode('Share a list'));
+        tacts.appendChild(sh);
+      }
+      top.appendChild(tacts);
       main.appendChild(top);
+      drawLists(main);
+      drawPeople(main);
       if (W.adding) { drawAdd(main); }
       if (counts().all) {
         drawTonight(main);
         drawList(main);
       } else if (!W.adding) {
         var empty = el('div', 'wl-empty wl-empty-first');
-        empty.appendChild(el('p', 'wl-lede', 'Keep the films and shows you want to watch here. Add one, or say to Rouh: "add Severance to my watch list".'));
+        var l = shownList() || (guest() ? lists()[0] : null);
+        if (l) {
+          empty.appendChild(el('p', 'wl-lede', guest()
+            ? 'Nothing on this list yet, so Tonight has nothing to pick. Add the first title: ' + l.owner_name + ' sees it here too.'
+            : 'Nothing on ' + l.name + ' yet, so Tonight has nothing to pick. Add a title here, or open one on My list and use Move to.'));
+          if (!guest() && items().some(function (t) { return !t.list; })) {
+            empty.appendChild(button('ctl small', 'Show My list', function () { pickList('0'); }));
+          }
+        } else if (W.list === '0' && items().length) {
+          empty.appendChild(el('p', 'wl-lede', 'Every title is on a shared list. Add one here to keep it to yourself.'));
+        } else {
+          empty.appendChild(el('p', 'wl-lede', 'Keep the films and shows you want to watch here. Add one, or say to Rouh: "add Severance to my watch list".'));
+        }
         main.appendChild(empty);
       }
     }
@@ -1138,6 +1671,7 @@
       if (at != null && f.setSelectionRange) { try { f.setSelectionRange(at, at); } catch (e) { /* a field without a caret */ } }
     }
     drawToast();
+    drawSheet($('watchView'));
   }
 
   function narrowNow() { var b = $('watchBody'); return !!b && b.clientWidth <= 1000; }
@@ -1145,6 +1679,7 @@
   // Escape closes a title's page and the add box before the layer itself.
   document.addEventListener('keydown', function (e) {
     if (!W.open || e.key !== 'Escape') { return; }
+    if (W.sheet) { e.preventDefault(); e.stopImmediatePropagation(); closeSheet(); return; }
     if (W.detail) { e.preventDefault(); e.stopImmediatePropagation(); closeDetail(); return; }
     if (W.adding) { e.preventDefault(); e.stopImmediatePropagation(); stopAdd(); }
   }, true);
@@ -1157,6 +1692,13 @@
       W.open = true;
       if (n !== W.detail) { W.detail = n; W.editing = false; }
       if (first || !W.data) { load(); } else { draw(); }
+      // The other person has no live line to Rouh: their page reads the list again every 30 s.
+      if (guest() && !W.poll) {
+        W.poll = setInterval(function () {
+          if (W.open && !W.gone && !W.sheet && !W.editing && !W.adding && !document.hidden &&
+              !(document.activeElement && /^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement.tagName))) { load(true); }
+        }, 30000);
+      }
     },
     hidden: function () {
       W.open = false; W.adding = false; W.toast = null;

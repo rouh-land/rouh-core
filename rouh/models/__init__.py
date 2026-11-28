@@ -15,7 +15,7 @@ from .accounts import (DEFAULT_ORG_ID, DEFAULT_ORG_NAME, Handover, Organisation,
                        SignInFailure, User)
 from .evolution import EvolutionSetting, GeneMutation, GeneQuestion, MutationsGene, MutationsGeneEvent
 from .incubator import IncubatorEvent, IncubatorIdea
-from .watchlist import WatchItem
+from .watchlist import WatchItem, WatchList, WatchMark
 from .changes import FeedbackOutbox, RouhChange
 from .trials import Trial, TrialJob, TrialNote, TrialRequest, TrialProblem, TrialProblemNumber, TrialSighting, TrialStep, TrialTester, TrialWave
 from .genelog import (GeneEval, GeneLogCommit, GeneLogEvent, GeneLogGene, GeneMark, GeneUseDaily,
@@ -76,6 +76,8 @@ __all__ = [
     "PermissionGate", "PermissionMode", "PermissionModeFlip", "UnrestrictedAction",
     "IncubatorEvent", "IncubatorIdea",
     "WatchItem",
+    "WatchList",
+    "WatchMark",
     "Trial", "TrialJob", "TrialNote", "TrialRequest", "TrialProblem", "TrialProblemNumber", "TrialSighting", "TrialStep", "TrialTester", "TrialWave",
     "DemoApproval", "DemoEvent", "DemoState",
     "CapabilityGrant", "CapabilityGrantEvent", "CapabilityUse",

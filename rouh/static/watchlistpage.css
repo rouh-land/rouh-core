@@ -225,7 +225,7 @@ select.wl-in { padding-right: 28px; cursor: pointer; }
 .wl-empty-first { padding: 28px 20px; }
 
 /* A note at the foot, with Undo where a press can be taken back. */
-.wl-toast { position: absolute; left: 50%; bottom: 16px; transform: translateX(-50%); z-index: 5;
+.wl-toast { position: absolute; left: 50%; bottom: 16px; transform: translateX(-50%); z-index: 7;
   display: flex; align-items: center; gap: 10px; max-width: min(680px, calc(100% - 24px));
   padding: 8px 8px 8px 14px; border-radius: 12px; background: var(--panel-2); border: 1px solid var(--line);
   box-shadow: var(--shadow); font-size: 13.5px; }
@@ -266,6 +266,89 @@ select.wl-in { padding-right: 28px; cursor: pointer; }
   .wl-times .wl-seg-b { flex: 1 1 auto; padding: 6px 8px; }
   .wl-card-row .wl-quick, .wl-quick-pair { width: 100%; }
   .wl-quick-pair .wl-quick { flex: 1 1 auto; }
+}
+
+/* Lists: All, My list and each shared list (step 202-03). A person is initials in a circle with their
+   name written beside them, never a colour alone. */
+.wl-lists { display: flex; flex-wrap: wrap; gap: 6px; }
+.wl-list-b { appearance: none; cursor: pointer; display: inline-flex; align-items: center; gap: 8px; min-height: 44px;
+  padding: 6px 12px; border-radius: 999px; border: 1px solid var(--line); background: var(--panel); color: var(--dim);
+  font: inherit; font-size: 13.5px; font-weight: 650; max-width: 100%; }
+.wl-list-b:hover { color: var(--text); border-color: var(--dim); }
+.wl-list-b[aria-pressed="true"] { color: var(--text); background: var(--accent-soft); border-color: var(--accent); }
+.wl-list-name { overflow-wrap: anywhere; text-align: left; }
+.wl-face { display: inline-grid; place-items: center; flex: 0 0 auto; width: 30px; height: 30px; border-radius: 50%;
+  background: var(--panel-2); border: 1px solid var(--line); color: var(--text); font-size: 11.5px; font-weight: 750;
+  letter-spacing: 0.02em; }
+.wl-face.is-small { width: 24px; height: 24px; font-size: 10px; }
+.wl-people { display: flex; align-items: center; justify-content: space-between; gap: 8px 12px; flex-wrap: wrap;
+  padding: 8px 10px; border: 1px solid var(--line-soft); border-radius: var(--radius-s); }
+.wl-people-list { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 6px 16px; min-width: 0; }
+.wl-person { display: inline-flex; align-items: center; gap: 7px; min-width: 0; font-size: 13.5px; }
+.wl-person-name { font-weight: 650; overflow-wrap: anywhere; }
+.wl-person.is-invited .wl-face { border-style: dashed; color: var(--dim); }
+.wl-card-who { font-size: 12px; color: var(--dim); line-height: 1.35; overflow-wrap: anywhere; }
+.wl-their { font-size: 12px; }
+.wl-share-btn svg { color: var(--dim); }
+
+/* A title on a shared list: which list, Together, and each person's rating. */
+.wl-onlist { display: flex; align-items: end; gap: 8px 14px; flex-wrap: wrap; margin: 0; }
+.wl-onlist .wl-select .wl-in { min-width: 180px; }
+.wl-together-h { margin-bottom: -8px; }
+.wl-rater { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; }
+.wl-rater .wl-rate-row { order: 3; }
+.wl-rater-said { font-size: 12.5px; }
+
+.wl-rater-name { font-size: 13.5px; font-weight: 650; min-width: 44px; overflow-wrap: anywhere; }
+.wl-rater-note { flex: 1 0 100%; padding-left: 40px; margin: 0; font-size: 13px; line-height: 1.45; color: var(--text); overflow-wrap: anywhere; }
+.wl-rater .wl-stars svg { width: 16px; height: 16px; }
+.wl-check { display: flex; align-items: center; gap: 10px; min-height: 44px; font-size: 13.5px; cursor: pointer; }
+.wl-check input, .wl-radio input { width: 18px; height: 18px; accent-color: var(--accent); flex: 0 0 auto; margin: 0; }
+
+/* The Share a list and People sheet. */
+.wl-sheet-back { position: absolute; inset: 0; z-index: 6; display: grid; place-items: start center; overflow: auto;
+  padding: 48px 16px 112px; background: rgba(4, 6, 10, 0.62); }
+.wl-sheet { width: min(560px, 100%); display: grid; gap: 14px; padding: 18px; border-radius: var(--radius);
+  border: 1px solid var(--line); background: var(--panel); box-shadow: var(--shadow); }
+.wl-sheet .wl-h { font-size: 15px; color: var(--text); }
+.wl-sheet-form { display: grid; gap: 12px; }
+.wl-choice { border: 0; margin: 0; padding: 0; display: grid; gap: 4px; min-width: 0; }
+.wl-choice legend { padding: 0; margin-bottom: 4px; }
+.wl-radio { display: flex; align-items: center; gap: 10px; min-height: 44px; cursor: pointer; }
+.wl-radio-text { display: grid; gap: 1px; }
+.wl-radio-name { font-size: 13.5px; font-weight: 650; }
+.wl-bring { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(220px, 100%), 1fr)); gap: 0 12px; }
+.wl-said { display: grid; gap: 8px; padding: 12px; border-radius: var(--radius-s); background: var(--bg-2, var(--bg));
+  border: 1px solid var(--line); }
+.wl-said-text { margin: 0; font-size: 13.5px; line-height: 1.5; }
+.wl-link-row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.wl-link { flex: 1 1 220px; font-size: 13px; }
+.wl-sheet-people { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; }
+.wl-sheet-person { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 10px;
+  padding: 8px 0; border-bottom: 1px solid var(--line-soft); }
+.wl-sheet-who { display: grid; gap: 1px; min-width: 0; }
+.wl-sheet-who .wl-dim { overflow-wrap: anywhere; }
+.wl-sheet-invite { padding-top: 4px; }
+.wl-sheet-tail { display: grid; gap: 10px; padding-top: 12px; border-top: 1px solid var(--line-soft); justify-items: start; }
+.wl-sheet-tail .wl-field { width: 100%; }
+.wl-confirm { display: grid; gap: 8px; }
+.wl-leave { display: grid; gap: 8px; justify-items: start; padding: 12px; border: 1px solid var(--bad); border-radius: var(--radius-s); }
+
+/* Only look: the other person sees the list and changes nothing (the server refuses it too). */
+.is-readonly .wl-quick, .is-readonly .wl-quick-pair, .is-readonly .wl-tonight .wl-acts > button,
+.is-readonly .wl-detail .wl-acts > button, .is-readonly .wl-status-seg, .is-readonly .wl-mine,
+.is-readonly .wl-tail, .is-readonly .wl-season-acts { display: none; }
+.is-readonly .wl-ep { pointer-events: none; }
+
+@container wl (max-width: 560px) {
+  .wl-sheet-person { grid-template-columns: auto minmax(0, 1fr); }
+  .wl-sheet-person > .wl-acts { grid-column: 2; }
+  .wl-list-b { flex: 1 1 auto; }
+  .wl-rater .wl-rate-row { flex: 1 0 100%; }
+}
+@media (max-width: 560px) {
+  .wl-sheet-back { padding: 12px 8px 112px; }
+  .wl-sheet { padding: 14px; }
 }
 
 /* The note is beside the list, not inside it, so it follows the window. */

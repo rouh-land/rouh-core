@@ -2360,11 +2360,18 @@ class ToolRegistry:
             "detail by hand, such as where it streams), next (to the top of Up next), remove, list, read (one "
             "title whole), tonight (\"what should I watch tonight\": the show they are in the middle of first, "
             "then Up next, within minutes when they say how long they have), and show (open the page, at one "
-            "title when named). A title is named by its words or its number (#3).",
+            "title when named). A title is named by its words or its number (#3). Shared lists (kept with "
+            "another person): lists (which there are, and who is on each); `list` names one for add (\"add Dune "
+            "to our list with Maria\"), list and tonight (\"what should Maria and I watch\"); move puts a title "
+            "on a list (\"my list\" for their own). Inviting someone is done on the page (Share a list), where "
+            "they type the email; open it with show.",
             {"type": "object",
              "properties": {
                  "action": {"type": "string", "enum": ["add", "mark", "progress", "rate", "note", "edit", "next",
-                                                       "remove", "list", "read", "tonight", "show"]},
+                                                       "remove", "list", "read", "tonight", "show", "lists",
+                                                       "move"]},
+                 "list": {"type": "string", "description": "A shared list by its name or a person on it, or "
+                                                           "\"my list\"; for add, list, tonight and move."},
                  "title": {"type": "string", "description": "The title as the person said it, or its number."},
                  "year": {"type": "integer", "description": "For add: the year, when they said which one."},
                  "kind": {"type": "string", "enum": ["film", "show", "miniseries", "documentary"],
@@ -13320,15 +13327,18 @@ class ToolRegistry:
             return watchlist.find(who, title)
 
         try:
+            on = await asyncio.to_thread(watchlist.list_named, who, args.get("list"))
+            if action == "lists":
+                return await asyncio.to_thread(watchlist.lists_for_model, who)
             if action == "list":
-                listed = await asyncio.to_thread(watchlist.for_model, who, str(args.get("filter") or ""))
+                listed = await asyncio.to_thread(watchlist.for_model, who, str(args.get("filter") or ""), on)
                 c = await asyncio.to_thread(watchlist.counts, who)
                 head = (f"{c['to_watch']} to watch, {c['watching']} watching, {c['watched']} watched, in Up next's "
                         "order:")
                 return head + "\n" + listed if listed else "The watch list is empty."
             if action == "tonight":
                 picks = await asyncio.to_thread(lambda: watchlist.tonight(
-                    who, minutes=args.get("minutes"), kind=str(args.get("only") or "")))
+                    who, minutes=args.get("minutes"), kind=str(args.get("only") or ""), list_id=on))
                 if not picks:
                     return ("Nothing on the watch list fits: everything is watched, or nothing is that short. Say so, "
                             "and offer to add something.")
@@ -13346,6 +13356,8 @@ class ToolRegistry:
             if action == "add":
                 fields = {k: args.get(k) for k in ("year", "kind", "notes", "recommended_by", "where", "my_rating")
                           if args.get(k) not in (None, "")}
+                if on:
+                    fields["list"] = on
                 try:
                     there = await asyncio.to_thread(_one)
                     if watchlist._norm(there.title) == watchlist._norm(title):
@@ -13400,6 +13412,12 @@ class ToolRegistry:
                 got = await asyncio.to_thread(lambda: watchlist.change(who, n, **fields))
                 await watchlist.tell(who, n)
                 return f"Changed: {watchlist.line(got)}."
+            if action == "move":
+                if on is None:
+                    return "Which list? Name a shared list, or say my list."
+                got = await asyncio.to_thread(lambda: watchlist.change(who, n, list=on))
+                await watchlist.tell(who, n)
+                return f"{got['title']} is on {'My list' if not on else 'the shared list'} now. Say so in a few words."
             if action == "next":
                 got = await asyncio.to_thread(watchlist.to_front, who, n)
                 await watchlist.tell(who, n)

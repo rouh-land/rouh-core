@@ -79,10 +79,34 @@ class Unreachable(RuntimeError):
 # --- whose ---------------------------------------------------------------------------------------
 
 
-def _mine(who):
+class Member:
+    """A person a shared list is shared with, reading or changing that one list (step 202-03).
+
+    Every query runs as the list's owner (their organisation and account), held to the one list
+    (`list_id`), so nothing else of the owner's is ever reached. `email` is who they are, `name` what
+    the owner calls them, `can_change` whether the share lets them change the list."""
+
+    def __init__(self, org_id, user_id, list_id, email, name="", can_change=True, token=""):
+        self.org_id, self.user_id, self.list_id = str(org_id), str(user_id), int(list_id)
+        self.email, self.name, self.can_change, self.token = str(email or ""), str(name or ""), bool(can_change), token
+
+
+#: Whose mark the owner's own is (`WatchMark.person`).
+OWNER = "owner"
+
+
+def _owners(who):
+    """Every title of the owner's, on every list: for numbering, which is one count for them all."""
     from .models import WatchItem
 
     return WatchItem.objects.filter(org_id=str(who.org_id), user_id=str(who.user_id))
+
+
+def _mine(who):
+    rows = _owners(who)
+    if isinstance(who, Member):
+        rows = rows.filter(list_id=who.list_id)
+    return rows
 
 
 def _get(who, number):
@@ -221,7 +245,7 @@ def view(item) -> dict:
         "next": nxt, "my_rating": item.my_rating, "notes": item.notes, "recommended_by": item.recommended_by,
         "rank": item.rank, "added_via": item.added_via, "added_at": item.added_at, "updated_at": item.updated_at,
         "started_at": item.started_at, "watched_at": item.watched_at, "looked_up": bool(item.looked_up_at),
-        "links": links(item),
+        "links": links(item), "list": int(item.list_id or 0), "added_by": item.added_by or "",
     }
 
 
@@ -599,7 +623,7 @@ def _set_status(item, status: str) -> None:
 def _next_number(who) -> int:
     from django.db.models import Max
 
-    return int(_mine(who).aggregate(top=Max("number"))["top"] or 0) + 1
+    return int(_owners(who).aggregate(top=Max("number"))["top"] or 0) + 1
 
 
 def _first_rank(who) -> float:
@@ -630,6 +654,7 @@ def add(who, title: str = "", *, pick: dict | None = None, via: str = "page", st
     title = str(title or (pick or {}).get("title") or "").strip()
     if not title:
         raise ValueError("A title needs a name.")
+    on_list = _list_for(who, fields.pop("list", None))
     said = ""
     found: dict = {}
     if pick is None and lookup:
@@ -658,7 +683,8 @@ def add(who, title: str = "", *, pick: dict | None = None, via: str = "page", st
         for _ in range(5):
             item = WatchItem(org_id=str(who.org_id), user_id=str(who.user_id), number=_next_number(who),
                              title=title[:TITLE_MOST], added_via=str(via or "page")[:20], added_at=now,
-                             updated_at=now, rank=_last_rank(who))
+                             updated_at=now, rank=_last_rank(who), list_id=on_list,
+                             added_by=who.email if isinstance(who, Member) else "")
             _apply(item, {**{k: v for k, v in found.items() if k not in ("poster_from",)},
                           **{k: v for k, v in fields.items() if v not in (None, "")}})
             if pick is not None and found:
@@ -683,7 +709,19 @@ def add(who, title: str = "", *, pick: dict | None = None, via: str = "page", st
 
 
 def change(who, number, **fields) -> dict:
+    """Change one title. A person's own (their rating, notes, whether they had seen it before) goes
+    to their own mark on a shared list; the owner's rating and notes stay on the title as before."""
     item = _get(who, number)
+    if "list" in fields:
+        item.list_id = _list_for(who, fields.pop("list"), moving=True)
+    own = {k: fields.pop(k) for k in ("my_rating", "notes", "seen_before") if k in fields}
+    if isinstance(who, Member):
+        if own:
+            _mark(item, who.email, own)
+    else:
+        if "seen_before" in own:
+            _mark(item, OWNER, {"seen_before": own.pop("seen_before")})
+        fields.update(own)
     _apply(item, fields)
     item.updated_at = time.time()
     item.save()
@@ -796,8 +834,11 @@ def refresh(who, number, pick: dict | None = None) -> tuple[dict, str]:
 
 
 def delete(who, number) -> dict:
-    """Take a title off the list; what it was is given back, so it can be put back (`restore`)."""
+    """Take a title off the list; what it was is given back, so it can be put back (`restore`).
+    On a shared list, the person it is shared with takes off only what they added."""
     item = _get(who, number)
+    if isinstance(who, Member) and item.added_by != who.email:
+        raise ValueError("Only the person who added it, or whoever made the list, can take it off.")
     was = view(item)
     was["_poster_file"] = item.poster
     was["_poster_from"] = item.poster_from
@@ -815,7 +856,7 @@ def restore(who, was: dict) -> dict:
     if not isinstance(was, dict) or not str(was.get("title") or "").strip():
         raise ValueError("Nothing to put back.")
     number = _int(was.get("number"), 1)
-    if number is None or _mine(who).filter(number=number).exists():
+    if number is None or _owners(who).filter(number=number).exists():
         number = _next_number(who)
     now = time.time()
     item = WatchItem(org_id=str(who.org_id), user_id=str(who.user_id), number=number, title="x",
@@ -834,6 +875,14 @@ def restore(who, was: dict) -> dict:
     if name and (_poster_dir(who) / name).is_file():
         item.poster = name
     item.poster_from = str(was.get("_poster_from") or "")[:600]
+    if isinstance(who, Member):
+        item.list_id, item.added_by = who.list_id, who.email
+    else:
+        try:
+            item.list_id = _list_for(who, was.get("list"))
+        except ValueError:
+            item.list_id = None
+        item.added_by = str(was.get("added_by") or "")[:200] if item.list_id else ""
     item.save()
     return view(item)
 
@@ -841,13 +890,14 @@ def restore(who, was: dict) -> dict:
 # --- tonight -----------------------------------------------------------------------------------------
 
 
-def tonight(who, minutes=None, kind: str = "", skip=None, most: int = 5) -> list[dict]:
+def tonight(who, minutes=None, kind: str = "", skip=None, most: int = 5, list_id=None) -> list[dict]:
     """What to put on now, best first, each with why: the show they are in the middle of and its next
     episode first, then Up next in their order; within `minutes` when given; a film or a show when
     `kind` says ("film", "show"); never the titles in `skip`."""
     minutes = _int(minutes, 1, 1000)
     skip = {int(s) for s in (skip or []) if str(s).isdigit()}
-    items = [i for i in _mine(who).exclude(status="watched").order_by("rank", "number") if i.number not in skip]
+    rows = _in_list(_mine(who), list_id)
+    items = [i for i in rows.exclude(status="watched").order_by("rank", "number") if i.number not in skip]
     if kind == "film":
         items = [i for i in items if i.kind == "film"]
     elif kind == "show":
@@ -897,11 +947,53 @@ def line(v: dict) -> str:
     return " ".join(bits)
 
 
-def for_model(who, status: str = "") -> str:
-    rows = _mine(who).order_by("rank", "number")
+def for_model(who, status: str = "", list_id=None) -> str:
+    rows = _in_list(_mine(who), list_id).order_by("rank", "number")
     if status in STATUSES:
         rows = rows.filter(status=status)
-    return "\n".join(line(view(i)) for i in rows[:200])
+    names = {l.id: l.name for l in _lists(who)} if not isinstance(who, Member) else {}
+    return "\n".join(line(view(i)) + (f" [on the shared list {names[i.list_id]}]" if i.list_id in names else "")
+                     for i in rows[:200])
+
+
+def _in_list(rows, list_id):
+    """None: every list; 0: My list; else one shared list."""
+    if list_id is None:
+        return rows
+    return rows.filter(list_id__isnull=True) if not list_id else rows.filter(list_id=int(list_id))
+
+
+def list_named(who, words) -> int | None:
+    """The list the words name: None when none was named, 0 for My list, else a shared list's id."""
+    words = _norm(str(words or ""))
+    if not words:
+        return None
+    if words in ("my list", "mine", "my own", "personal", "my watch list", "just me"):
+        return 0
+    rows = list(_lists(who))
+    for l in rows:
+        if _norm(l.name) == words:
+            return l.id
+    hits = [l for l in rows if words in _norm(l.name) or _norm(l.name) in words or
+            any(words in _norm(n) for n in (l.names or {}).values()) or any(words in e for e in (l.names or {}))]
+    if len(hits) == 1:
+        return hits[0].id
+    raise NotFound(f"There is no shared list called \"{words}\". The lists: My list"
+                   + "".join(f", {l.name}" for l in rows) + ".")
+
+
+def lists_for_model(who) -> str:
+    rows = lists_of(who)
+    if not rows:
+        return ("Nothing is shared: every title is on My list. A list is shared on the Watch list page, with Share "
+                "a list, where they type the person's email.")
+    out = []
+    for l in rows:
+        ppl = ", ".join((p["name"] or p["email"]) + ("" if p["joined"] else " (invited, not opened yet)")
+                        for p in l["people"]) or "nobody now"
+        n = _owners(who).filter(list_id=l["id"]).exclude(status="watched").count()
+        out.append(f"{l['name']}: with {ppl}; {n} left to watch")
+    return "Shared lists:\n" + "\n".join(out)
 
 
 async def tell(who, number: int | None = None, opened: bool = False, chat: str = "") -> None:
@@ -928,3 +1020,294 @@ async def tell(who, number: int | None = None, opened: bool = False, chat: str =
 def dump(who) -> str:
     """Every title as JSON, for a copy kept elsewhere."""
     return json.dumps([view(i) for i in _mine(who).order_by("rank", "number")], ensure_ascii=False, indent=1)
+
+
+# --- shared lists (step 202-03) ---------------------------------------------------------------------
+#
+# The owner, 28 November 2026: "let's make a shared list with another person". A shared list is a row
+# of its own (`WatchList`) holding its name; who may open it is the one permission record every
+# share in Rouh is (`PageGuest`, path `_watch/<id>`), opened with a rouh.land sign-in like a shared
+# page (`rouh/web/guests.py`, `rouh/landshare.py`), so nobody is given an account here. A title is on
+# one list: My list (`list_id` None) or one shared list. On a shared list its status and episodes are
+# the list's, watched together; each person keeps their own rating, notes and whether they had seen
+# it before (`WatchMark`).
+
+PREFIX = "_watch/"
+NAME_MOST = 80
+LISTS_MOST = 20
+
+
+def is_watch(rel) -> bool:
+    """Whether a share's path is a shared watch list's."""
+    return str(rel or "").startswith(PREFIX)
+
+
+def list_id_of(rel) -> int | None:
+    return _int(str(rel or "")[len(PREFIX):], 1) if is_watch(rel) else None
+
+
+def rel_of(list_id) -> str:
+    return f"{PREFIX}{int(list_id)}"
+
+
+def _lists(who):
+    from .models import WatchList
+
+    return WatchList.objects.filter(org_id=str(who.org_id), user_id=str(who.user_id))
+
+
+def _list_for(who, value, moving: bool = False) -> int | None:
+    """The list a title goes on: a shared list of the owner's by its id, or None for My list.
+    The person a list is shared with always adds to theirs, and never moves a title off it."""
+    if isinstance(who, Member):
+        if moving:
+            raise ValueError("Only whoever made the list can move a title to another list.")
+        return who.list_id
+    lid = _int(value, 0)
+    if not lid:
+        return None
+    if not _lists(who).filter(id=lid).exists():
+        raise ValueError("There is no such shared list.")
+    return lid
+
+
+def _mark(item, person: str, own: dict) -> None:
+    from .models import WatchMark
+
+    row, _ = WatchMark.objects.get_or_create(item=item, person=person, defaults={"updated_at": time.time()})
+    if "my_rating" in own:
+        row.my_rating = _int(own["my_rating"], 1, 5)
+    if "notes" in own and own["notes"] is not None:
+        row.notes = str(own["notes"]).strip()[:TEXT_MOST]
+    if "seen_before" in own:
+        row.seen_before = bool(own["seen_before"]) and own["seen_before"] not in ("false", "0")
+    row.updated_at = time.time()
+    row.save()
+
+
+def _owner_name(who) -> str:
+    from .models import User
+
+    u = User.objects.filter(pk=_int(who.user_id, 1) or 0).first()
+    if u is None:
+        return "The owner"
+    return (u.first_name or u.username or "The owner").strip()
+
+
+def _people(who, list_ids) -> dict:
+    """Everybody each list is shared with, from the one permission record: {list id: [person]}."""
+    from .models import PageGuest
+
+    want = {rel_of(i): int(i) for i in list_ids}
+    out: dict = {i: [] for i in want.values()}
+    if not want:
+        return out
+    names = {l.id: (l.names or {}) for l in _lists(who).filter(id__in=list(want.values()))}
+    rows = PageGuest.objects.filter(user_id=str(who.user_id), org_id=str(who.org_id), rel__in=list(want)) \
+        .order_by("created_at", "token")
+    for r in rows:
+        lid = want[r.rel]
+        out[lid].append({"token": r.token, "email": r.email, "name": names.get(lid, {}).get(r.email, ""),
+                         "joined": bool(r.guest_id), "role": "edit" if r.role in ("edit", "decide") else "view",
+                         "mailed": bool(r.mailed_at), "mail_error": r.mail_error or ""})
+    return out
+
+
+def lists_of(who, link=None) -> list[dict]:
+    """The owner's shared lists, each with its people (and, with `link`, the link each person opens)."""
+    rows = list(_lists(who).order_by("created_at", "id")[:LISTS_MOST])
+    people = _people(who, [l.id for l in rows])
+    me = _owner_name(who)
+    out = []
+    for l in rows:
+        ppl = people.get(l.id, [])
+        if link:
+            for p in ppl:
+                p["link"] = link("/shared/" + p["token"])
+        out.append({"id": l.id, "name": l.name, "people": ppl, "owner_name": me})
+    return out
+
+
+def dress(who, views: list[dict], people: dict | None = None) -> list[dict]:
+    """Titles as this person sees them: their own rating, notes and whether they had seen it before;
+    on a shared list, everybody else's, named; who added it; whether they may take it off."""
+    from .models import WatchMark
+
+    numbers = [v["number"] for v in views if v.get("list")]
+    lids = sorted({v["list"] for v in views if v.get("list")})
+    if people is None:
+        people = _people(who, lids)
+    marks: dict = {}
+    if numbers:
+        for m in WatchMark.objects.filter(item__org_id=str(who.org_id), item__user_id=str(who.user_id),
+                                          item__number__in=numbers).select_related("item"):
+            marks.setdefault(m.item.number, {})[m.person] = m
+    member = isinstance(who, Member)
+    me = who.email if member else OWNER
+    owner = _owner_name(who)
+    # What the owner calls each person, kept on the list even after they leave it.
+    called = {l.id: (l.names or {}) for l in _lists(who).filter(id__in=lids)} if lids else {}
+    out = []
+    for v in views:
+        v = dict(v)
+        ms = marks.get(v["number"], {})
+        added = v.pop("added_by", "")
+        names = {**called.get(v.get("list"), {}),
+                 **{p["email"]: p["name"] or p["email"] for p in people.get(v.get("list"), [])}}
+        if member:
+            mine = ms.get(me)
+            v["my_rating"] = mine.my_rating if mine else None
+            v["notes"] = mine.notes if mine else ""
+            v["poster"] = v["poster"].replace("/api/watch/", f"/shared/{who.token}/watch/", 1) if v["poster"] else ""
+        v["seen_before"] = bool(ms.get(me) and ms[me].seen_before)
+        v["added_by_name"] = "" if added == (who.email if member else "") else (names.get(added, added) if added else owner)
+        others = []
+        if v.get("list"):
+            if member:
+                own = ms.get(OWNER)
+                # The owner's own rating and notes are on the title itself.
+                others.append({"name": owner, "rating": v.get("_owner_rating"), "note": v.get("_owner_notes") or "",
+                               "seen_before": bool(own and own.seen_before)})
+            for p in people.get(v["list"], []):
+                if not p["joined"] or p["email"] == me:
+                    continue
+                m = ms.get(p["email"])
+                others.append({"name": p["name"] or p["email"], "rating": m.my_rating if m else None,
+                               "note": m.notes if m else "", "seen_before": bool(m and m.seen_before)})
+        v["others"] = others
+        v["can_remove"] = (not member) or added == who.email
+        out.append(v)
+    return out
+
+
+def listing_for(who, link=None) -> dict:
+    """Everything the page draws, for the owner or for a person a list is shared with."""
+    member = isinstance(who, Member)
+    rows = list(_mine(who).order_by("rank", "number"))
+    views = []
+    for i in rows:
+        v = view(i)
+        v["_owner_rating"], v["_owner_notes"] = i.my_rating, i.notes
+        views.append(v)
+    if member:
+        l = _lists(who).filter(id=who.list_id).first()
+        if l is None:
+            raise NotFound("This list is not shared any more.")
+        ls = [x for x in lists_of(who) if x["id"] == who.list_id]
+        for x in ls:
+            for p in x["people"]:
+                p.pop("token", None)
+                p.pop("mail_error", None)
+                p["you"] = p["email"] == who.email
+            x["people"] = [p for p in x["people"] if p["joined"] or p["you"]]
+    else:
+        ls = lists_of(who, link)
+    people = {x["id"]: x["people"] for x in ls}
+    items = dress(who, views, people if not member else None)
+    for v in items:
+        v.pop("_owner_notes", None)
+        v.pop("_owner_rating", None)
+    return {"items": items, "lists": ls, "kinds": KINDS, "statuses": STATUSES,
+            "me": {"name": (who.name or who.email) if member else _owner_name(who)},
+            "guest": member, "list": who.list_id if member else 0,
+            "read_only": member and not who.can_change}
+
+
+def dressed(who, item_view: dict) -> dict:
+    """One title as this person sees it, after a change."""
+    item = _get(who, item_view["number"])
+    v = dict(item_view)
+    v["_owner_rating"], v["_owner_notes"] = item.my_rating, item.notes
+    out = dress(who, [v])[0]
+    out.pop("_owner_rating", None)
+    out.pop("_owner_notes", None)
+    return out
+
+
+def new_list(who, name: str, titles=()) -> dict:
+    """A new shared list of the owner's, with these titles of My list moved onto it."""
+    from .models import WatchList
+
+    name = " ".join(str(name or "").split())[:NAME_MOST]
+    if not name:
+        raise ValueError("Give the list a name.")
+    if any(_norm(l.name) == _norm(name) for l in _lists(who)):
+        raise ValueError(f"You have a list called {name} already: give this one another name, or invite them "
+                         "to that one with People and invites.")
+    if _lists(who).count() >= LISTS_MOST:
+        raise ValueError(f"You have {LISTS_MOST} shared lists already.")
+    now = time.time()
+    row = WatchList.objects.create(org_id=str(who.org_id), user_id=str(who.user_id), name=name,
+                                   created_at=now, updated_at=now)
+    nums = [n for n in (_int(t, 1) for t in titles or ()) if n]
+    if nums:
+        _owners(who).filter(number__in=nums, list_id__isnull=True).update(list_id=row.id, updated_at=now)
+    return {"id": row.id, "name": row.name}
+
+
+def rename_list(who, list_id, name: str) -> dict:
+    name = " ".join(str(name or "").split())[:NAME_MOST]
+    if not name:
+        raise ValueError("Give the list a name.")
+    row = _lists(who).filter(id=_int(list_id, 1) or 0).first()
+    if row is None:
+        raise NotFound("There is no such shared list.")
+    row.name, row.updated_at = name, time.time()
+    row.save(update_fields=["name", "updated_at"])
+    return {"id": row.id, "name": row.name}
+
+
+def name_person(who, list_id, email: str, name: str) -> None:
+    """What the owner calls the person a list is shared with."""
+    row = _lists(who).filter(id=_int(list_id, 1) or 0).first()
+    if row is None:
+        raise NotFound("There is no such shared list.")
+    names = dict(row.names or {})
+    name = " ".join(str(name or "").split())[:80]
+    if name:
+        names[email] = name
+    else:
+        names.pop(email, None)
+    row.names = names
+    row.save(update_fields=["names"])
+
+
+def find_list(who, list_id):
+    row = _lists(who).filter(id=_int(list_id, 1) or 0).first()
+    if row is None:
+        raise NotFound("There is no such shared list.")
+    return row
+
+
+def stop_list(who, list_id) -> int:
+    """Stop sharing a list: everybody's access goes at once, its titles go back to My list with the
+    owner's ratings and notes, and the list is gone. The others' own marks stay on the titles' rows
+    until a title is removed. Returns how many titles came back."""
+    from django.db import transaction
+
+    from .models import PageGuest
+
+    row = find_list(who, list_id)
+    with transaction.atomic():
+        PageGuest.objects.filter(user_id=str(who.user_id), org_id=str(who.org_id), rel=rel_of(row.id)).delete()
+        moved = _owners(who).filter(list_id=row.id).update(list_id=None, updated_at=time.time())
+        row.delete()
+    return moved
+
+
+def member_for(share: dict, user) -> Member | None:
+    """The person a share names, signed in, as a reader of that one list; None when it is not a
+    watch list's share, the list is gone, or the share is not theirs."""
+    from . import sharing
+
+    if not share or not is_watch(share.get("rel")) or not sharing.Guests.belongs_to(share, user):
+        return None
+    lid = list_id_of(share["rel"])
+    from .models import WatchList
+
+    row = WatchList.objects.filter(id=lid or 0, org_id=str(share["org_id"]), user_id=str(share["owner_id"])).first()
+    if row is None:
+        return None
+    email = sharing.clean_email(getattr(user, "email", ""))
+    return Member(share["org_id"], share["owner_id"], row.id, email, name=(row.names or {}).get(email, ""),
+                  can_change=sharing.can_edit(share.get("role")), token=share["token"])

@@ -147,7 +147,8 @@ LAND_SAID = ("To view it you need a rouh.land account for {email}. If you have n
 def _what(rel) -> str:
     """What a share is, in the words a letter and a door say it: a task, a testing run or a page."""
     return ("a task" if taskshare.is_task(rel) else
-            "a testing run" if trialshare.is_trial(rel) else "a page")
+            "a testing run" if trialshare.is_trial(rel) else
+            "a watch list" if str(rel or "").startswith("_watch/") else "a page")
 
 
 def _letter(owner: str, share: dict, has_account: bool, message: str = "") -> mailer.Letter:
@@ -170,6 +171,9 @@ def _letter(owner: str, share: dict, has_account: bool, message: str = "") -> ma
         can = ("read it, step by step with its screenshots and the problems it met, and add your "
                "notes to its problems" if edit else
                "read it, step by step with its screenshots and the problems it met")
+    elif what == "a watch list":
+        can = ("keep it together: add films and shows, tick off episodes, and rate them" if edit
+               else "see it, and what is on for tonight")
     else:
         can = ("read it, ask Rouh's AI about it, and change it" if edit
                else "read it and ask Rouh's AI about it")
@@ -900,6 +904,13 @@ async def reader_view(request: HttpRequest, kind: str, token: str):
     if request.method not in ("GET", "HEAD"):
         return HttpResponse(status=405, headers={"Allow": "GET, HEAD"})
     if kind == "shared":
+        # A shared watch list (`rouh/web/watchlist.py`, step 202-03): the list itself, live.
+        from . import watchlist as watch_web
+
+        member = await watch_web.member_of(request, token)
+        if member is not None:
+            await asyncio.to_thread(_opened, request, token)
+            return await watch_page(request, member)
         held = await _trial_held(request, token)
         if held is not None:
             await asyncio.to_thread(_opened, request, token)
@@ -1294,3 +1305,26 @@ async def link_trial_shot(request: HttpRequest, token: str, step: int):
     return await trial_shot(request, "p", token, step)
 
 __all__ = ["invite", "uninvite", "join", "shared_in", "shared_back", "shared_list", "not_shared_page", "SHARED", "LINK"]
+
+
+async def watch_page(request: HttpRequest, member) -> HttpResponse:
+    """A watch list shared with this person: the Watch list screen for that one list, on a page of
+    its own, its routes under their share (`rouh/web/watchlist.py`). Nothing else of the owner's."""
+    from rouh import watchlist
+
+    def names():
+        row = watchlist.find_list(member, member.list_id)
+        return row.name, watchlist._owner_name(member)
+    title, owner = await asyncio.to_thread(names)
+    get_token(request)
+    response = render(request, "rouh/watch_shared.html", {
+        "title": title, "owner": owner, "api": f"/shared/{member.token}/watch", "base": f"/shared/{member.token}",
+        "me": getattr(request.user, "email", ""), "can_change": member.can_change,
+    })
+    for name, value in READER_HEADERS.items():
+        response[name] = value
+    response["Content-Security-Policy"] = (
+        "default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; script-src 'self'; "
+        "connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'")
+    response["X-Frame-Options"] = "DENY"
+    return response

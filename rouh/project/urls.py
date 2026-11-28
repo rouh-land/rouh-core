@@ -538,6 +538,9 @@ urlpatterns = [
     path("shared/<str:token>/option", guests.SHARED["option"]),
     # The page's shared list, and a name's checks, for a person it is shared with
     # (`rouh/web/sharedlist.py`). Not under `/p/`: a link's visitor has no list.
+    # A shared watch list, for the person it is shared with (`rouh/web/watchlist.py`, step 202-03).
+    path("shared/<str:token>/watch", watchlist_web.shared),
+    path("shared/<str:token>/watch/<path:rest>", watchlist_web.shared),
     path("shared/<str:token>/list", sharedlist_web.for_shared),
     path("shared/<str:token>/checks", sharedlist_web.checks_shared),
 
@@ -790,6 +793,9 @@ urlpatterns = [
     path("api/watch/<int:number>/refresh", watchlist_web.refresh),
     path("api/watch/<int:number>/delete", watchlist_web.delete),
     path("api/watch/<int:number>/poster", watchlist_web.poster),
+    path("api/watch/lists/new", watchlist_web.list_new),
+    path("api/watch/lists/<int:list_id>", watchlist_web.list_one),
+    path("api/watch/lists/<int:list_id>/<str:act>", watchlist_web.list_one),
     # Payments: the card vault and Stripe (`rouh/web/payments.py`).
     path("api/settings/services", services.page),
     path("api/settings/services/state", services.state),

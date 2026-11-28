@@ -33,16 +33,19 @@
       "keeps the person's watch list of films and shows: each title's details, their progress through a show's seasons and episodes, their own rating, notes and who recommended it",
       "looks a title up by its words or its IMDb number in public sources with no account: IMDb's search suggestions, TVmaze, Wikidata and Wikipedia; nothing about the person is sent",
       "downloads each title's poster once into the data directory and serves it from Rouh's own address",
-      "adds, marks, ticks, rates, notes and moves titles when the person asks in a chat or by voice (watch_list), and takes one off only on their own words"
+      "adds, marks, ticks, rates, notes and moves titles when the person asks in a chat or by voice (watch_list), and takes one off only on their own words",
+      "shares a list with a person by email through Rouh's own sharing (the same permission record as a shared page, opened with a rouh.land sign-in): they see and keep that one list at /shared/<token>, never anything else; the invite letter goes only when the owner ticks it"
     ],
     "accounts": [
       "IMDb search suggestions, TVmaze, Wikidata and Wikipedia (public, no account)"
     ],
     "tables": [
-      "watch_items"
+      "watch_items",
+      "watch_lists",
+      "watch_marks"
     ],
     "jobs": [],
-    "remove": "Delete this manifest, rouh/watchlist.py, rouh/web/watchlist.py and its routes in rouh/project/urls.py, rouh/models/watchlist.py, watchlistpage.js and watchlistpage.css, the watchView layer in rouh/templates/rouh/index.html, its side in app/runs.js, app/address.js, app/cards.js and app/socket.js, the watchlist message in protocol.d.ts and PROTOCOL.md, addressing.WATCH, watch_list in tools.py, toolsearch.py, toolsides.py, incognito.py and job_policy.py, rouh/testing/fake_watch.py and ROUH_WATCH_LOOKUP in tests/e2e/conftest.py; drop the table watch_items with a migration and the posters in the data directory's watchlist folder."
+    "remove": "Delete this manifest, rouh/watchlist.py, rouh/web/watchlist.py and its routes in rouh/project/urls.py, rouh/models/watchlist.py, watchlistpage.js, watchlistpage.css, watchshared.js and rouh/templates/rouh/watch_shared.html, the watch-list branch of guests.reader_view and sharing._read_at, the /shared/<token>/watch routes, the watchView layer in rouh/templates/rouh/index.html, its side in app/runs.js, app/address.js, app/cards.js and app/socket.js, the watchlist message in protocol.d.ts and PROTOCOL.md, addressing.WATCH, watch_list in tools.py, toolsearch.py, toolsides.py, incognito.py and job_policy.py, rouh/testing/fake_watch.py and ROUH_WATCH_LOOKUP in tests/e2e/conftest.py; drop the tables watch_marks, watch_lists and watch_items, and the page_guests rows whose rel starts _watch/, with a migration and the posters in the data directory's watchlist folder."
   },
   "uses": {
     "tools": [

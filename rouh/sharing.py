@@ -447,8 +447,9 @@ def _read_at(share: dict | None) -> dict | None:
 
     if share is None:
         return None
-    if trialshare.is_trial(share["rel"]):
-        # A testing run is rows, not a place on disk, and never moves.
+    if trialshare.is_trial(share["rel"]) or str(share["rel"]).startswith("_watch/"):
+        # A testing run, or a shared watch list (`rouh/watchlist.py`), is rows, not a place on disk,
+        # and never moves.
         return share
     if taskshare.is_task(share["rel"]):
         return {**share, "rel": taskshare.reading(share["rel"], pageplaces.ROOT)}

@@ -57,9 +57,51 @@ class WatchItem(models.Model):
     started_at = models.FloatField(null=True, blank=True)
     watched_at = models.FloatField(null=True, blank=True)
     looked_up_at = models.FloatField(null=True, blank=True)
+    #: The shared list it is on (`WatchList.id`), or None for the owner's own, My list (step 202-03).
+    list_id = models.BigIntegerField(null=True, blank=True, db_index=True)
+    #: Who added it: "" for the owner, else the email of the person the list is shared with.
+    added_by = models.TextField(blank=True, default="")
 
     class Meta:
         db_table = "watch_items"
         indexes = [models.Index(fields=["org_id", "user_id", "status"], name="watch_items_whose")]
         constraints = [models.UniqueConstraint(fields=["org_id", "user_id", "number"],
                                                name="watch_items_number")]
+
+
+class WatchList(models.Model):
+    """A list the owner keeps with other people (step 202-03, 28 November 2026: "let's make a shared
+    list with another person"). Who may open it is the one permission record every share is
+    (`PageGuest`, path `_watch/<id>`); this row is its name, and what the owner calls each person."""
+
+    id = models.BigAutoField(primary_key=True)
+    org_id = models.TextField()
+    user_id = models.TextField()
+    name = models.TextField()
+    #: {email: the name the owner gave them}, so a person is called what the owner calls them.
+    names = models.JSONField(default=dict, blank=True)
+    created_at = models.FloatField()
+    updated_at = models.FloatField()
+
+    class Meta:
+        db_table = "watch_lists"
+        indexes = [models.Index(fields=["org_id", "user_id"], name="watch_lists_whose")]
+
+
+class WatchMark(models.Model):
+    """One person's own on one title of a shared list: their rating, their note, and whether they
+    had seen it before. The list's owner's rating and notes stay on the title itself, as on My list;
+    their row holds only whether they had seen it before."""
+
+    id = models.BigAutoField(primary_key=True)
+    item = models.ForeignKey(WatchItem, on_delete=models.CASCADE, related_name="marks", db_column="item_id")
+    #: "owner", or the email of the person the list is shared with.
+    person = models.TextField()
+    my_rating = models.IntegerField(null=True, blank=True)
+    notes = models.TextField(blank=True, default="")
+    seen_before = models.BooleanField(default=False)
+    updated_at = models.FloatField()
+
+    class Meta:
+        db_table = "watch_marks"
+        constraints = [models.UniqueConstraint(fields=["item", "person"], name="watch_marks_one")]
