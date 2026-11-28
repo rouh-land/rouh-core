@@ -3500,13 +3500,13 @@ with {% asset %}, which gives it its hashed address.
               </div>
             </details>
             {% comment %} The line at the top of each reply and its timeline (app/turnline.js): on
-                 this device, on until it is turned off here (Petar, 23 October 2026: "build it on,
-                 with a toggle to hide it later"). The label in place of the dots stays. {% endcomment %}
+                 this device, off until it is turned on here (Petar, 28 November 2026: "make this OFF by
+                 default"; it was on by default from 23 October). The label in place of the dots stays. {% endcomment %}
             <section class="setting-card" aria-labelledby="traceHead">
               <div class="models-head">
                 <h4 id="traceHead">Timeline in each reply</h4>
                 <button id="traceSwitch" class="gt-switch models-auto" type="button" role="switch"
-                        aria-checked="true" aria-labelledby="traceHead">
+                        aria-checked="false" aria-labelledby="traceHead">
                   <span class="gt-switch-track" aria-hidden="true"><span class="gt-switch-knob"></span></span>
                   <span class="gt-switch-label">On this device</span>
                 </button>

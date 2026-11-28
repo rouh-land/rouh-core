@@ -24,20 +24,21 @@
      the memory row opens into its look-ups with their items; Details opens everything kept.
 
    Open or closed is remembered per reply on this device. A reply from before turns were
-   recorded draws what it kept, its decision and its memory, in the same line. The line can
-   be turned off on this device in Settings under Models; the label in place of the dots stays. */
+   recorded draws what it kept, its decision and its memory, in the same line. The line is off
+   until it is turned on on this device in Settings under Models; the label in place of the dots stays. */
 import { el } from 'app/helpers.js';
 import { kindOf } from 'app/orb.js';
 import { shared } from 'app/shared.js';
 
-/** Whether the line is drawn on this device: on until it is turned off. */
+/** Whether the line is drawn on this device: off until it is turned on (Petar, 28 November 2026:
+    "make this OFF by default"). A device that turned it on keeps it, stored as 'on'. */
 var KEY = 'rouh.trace.v1';
 /** The replies left open on this device, by turn (or exchange), newest last. */
 var OPEN_KEY = 'rouh.tline.open.v1';
 var OPEN_MOST = 300;
 
 function traceOn() {
-  try { return localStorage.getItem(KEY) !== 'off'; } catch (e) { return true; }
+  try { return localStorage.getItem(KEY) === 'on'; } catch (e) { return false; }
 }
 
 function traceSet(on) {
