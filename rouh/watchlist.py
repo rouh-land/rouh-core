@@ -480,11 +480,44 @@ def _fetch_poster(who, url: str) -> str:
     body = r.content
     if not ext or not body or len(body) > POSTER_MOST:
         return ""
-    folder = _poster_dir(who)
-    folder.mkdir(parents=True, exist_ok=True)
     name = f"{secrets.token_hex(8)}.{ext}"
-    (folder / name).write_bytes(body)
+    try:
+        folder = _poster_folder(who)
+        (folder / name).write_bytes(body)
+        _hand_to_owner(folder / name)
+    except OSError as exc:
+        # A poster is a nicety: a folder Rouh cannot write must never stop a title being added.
+        log.warning("a poster could not be saved, so the title is kept without one: %s", exc)
+        return ""
     return name
+
+
+def _hand_to_owner(path: Path) -> None:
+    """When run as root (a command in a shell of the core), give what it made to the data folder's owner.
+
+    The server runs as that owner; a poster folder left root's could not be written by it again
+    (28 November 2026: every add answered 500 after the first title was brought over by hand)."""
+    if os.geteuid() != 0:
+        return
+    try:
+        top = _data_dir().stat()
+        if top.st_uid != 0:
+            os.chown(path, top.st_uid, top.st_gid)
+    except OSError as exc:
+        log.warning("could not hand %s to the data folder's owner: %s", path, exc)
+
+
+def _poster_folder(who) -> Path:
+    """The person's poster folder, made if it is not there, each new level the data folder owner's."""
+    folder = _poster_dir(who)
+    top = _data_dir()
+    level = top
+    for part in folder.relative_to(top).parts:
+        level = level / part
+        if not level.is_dir():
+            level.mkdir(exist_ok=True)
+        _hand_to_owner(level)
+    return folder
 
 
 # --- writing -------------------------------------------------------------------------------------
