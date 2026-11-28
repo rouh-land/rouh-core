@@ -778,7 +778,8 @@ def refresh(who, number, pick: dict | None = None) -> tuple[dict, str]:
             if pick is None:
                 return view(item), "No match was found for it."
     found = details(pick)
-    poster_from = found.pop("poster_from", "") or ""
+    # A film's poster comes from its IMDb match, not from the sources asked again here: keep the one it was added with.
+    poster_from = found.pop("poster_from", "") or item.poster_from or ""
     keep = {"status", "seen", "my_rating", "notes", "recommended_by", "where", "where_url", "rank"}
     if item.where:
         found.pop("where", None)
