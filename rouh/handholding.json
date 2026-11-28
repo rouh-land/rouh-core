@@ -2917,7 +2917,8 @@
      "summary": [
       "Rouh's own server holds the keys to your life: your mail, your passwords, your boxes. An app is opened by other people, like your wedding guests or your friends. They should never land on the machine that holds your keys.",
       "Rouh also changes all the time: it updates, restarts and grows. Your apps must keep running while it does, and keep running if Rouh is ever moved to another computer.",
-      "So your apps get a small rented server of their own, which you own. Pages that only show something, like Rouh's explainers, can stay on Rouh."
+      "So your apps get a small rented server of their own, which you own. Pages that only show something, like Rouh's explainers, can stay on Rouh.",
+      "Some workspace pages do more than show: they keep data, like a shortlist everyone adds to, or the choices you made on the page. Those count as apps too. The Apps Dashboard lists them under Pages with their own data, says where each keeps its data, and puts them in the plan for moving onto your apps server. Nothing moves until you say so."
      ],
      "how": [
       "Nothing to do here: read it once, so the next tip makes sense.",
