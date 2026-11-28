@@ -47,3 +47,8 @@ node_modules/
 # Never committed, and a copy of the design skill read out of the workspace,
 # whose guide is private, may sit inside it.
 /.design/
+
+# A design kept with its code (rouh/design_standard.py, DESIGNS): its words and prototype, never its
+# screenshots or scratch files.
+/designs/**/*.png
+/designs/**/temp/

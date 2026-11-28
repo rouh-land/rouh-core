@@ -4753,7 +4753,8 @@
     "rouh/static/appspage.*",
     "deploy/apps-server/**",
     "rouh/genes/manifests/apps.json",
-    "rouh/migrations/0285_app_data_at.py"
+    "rouh/migrations/0285_app_data_at.py",
+    "designs/apps/**"
    ]
   }
  }

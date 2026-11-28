@@ -1,0 +1,690 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Apps</title>
+<style>
+/* Rouh's own tokens (rouh/static/app.css), with a light set derived for the light theme. */
+:root {
+  --bg: #0a0c10; --panel: #12161c; --panel-2: #171c24; --raise: #1c222b; --line: #232a34; --line-soft: #1b2129;
+  --text: #e7ecf3; --dim: #9aa6b6; --dimmer: #7d8899;
+  --accent: #5ec2ff; --accent-ink: #04121c; --accent-soft: rgba(94, 194, 255, 0.14);
+  --good: #57d9a3; --warn: #f2b45e; --bad: #ff7a70;
+  --good-soft: rgba(87, 217, 163, 0.12); --bad-soft: rgba(255, 122, 112, 0.12); --warn-soft: rgba(242, 180, 94, 0.13);
+  --seg-a: #9aabc2; --seg-b: #4a5668; --seg-c: #2c3542; --seg-d: #222a35;
+  --brown: #c79a74;
+  --focus: #ffd76a;
+  --radius: 14px; --radius-s: 9px;
+  --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+  color-scheme: dark;
+}
+@media (prefers-color-scheme: light) {
+  :root {
+    --bg: #eef1f5; --panel: #ffffff; --panel-2: #f6f8fa; --raise: #eef1f5; --line: #d9dee6; --line-soft: #e7ebf0;
+    --text: #121821; --dim: #4c5868; --dimmer: #5d6979;
+    --accent: #0866a6; --accent-ink: #ffffff; --accent-soft: rgba(8, 102, 166, 0.10);
+    --good: #0d7752; --warn: #8a5600; --bad: #b42d27;
+    --good-soft: rgba(13, 119, 82, 0.09); --bad-soft: rgba(180, 45, 39, 0.08); --warn-soft: rgba(138, 86, 0, 0.09);
+    --seg-a: #3d4f66; --seg-b: #8a96a6; --seg-c: #b3bdc9; --seg-d: #d3d9e1;
+    --brown: #8a5a33;
+    --focus: #9a6b00;
+    color-scheme: light;
+  }
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body { background: var(--bg); color: var(--text); font: 14px/1.45 var(--sans); }
+button, input, select, textarea { font: inherit; color: inherit; }
+a { color: var(--accent); }
+:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
+
+/* The shell: a stand-in for Rouh's chat column on a desk, and the Apps panel beside it. */
+.shell { display: grid; grid-template-columns: minmax(300px, 0.68fr) minmax(0, 1fr); gap: 12px; padding: 12px; min-height: 100vh; }
+.chat { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); display: flex; flex-direction: column; padding: 14px; gap: 10px; }
+.chat-h { font-weight: 600; font-size: 14px; color: var(--dim); }
+.chat-note { color: var(--dimmer); font-size: 13px; margin: 0; }
+.chat-box { margin-top: auto; display: flex; flex-direction: column; gap: 6px; }
+.chat-box label { font-size: 12px; color: var(--dimmer); }
+.chat-box textarea { width: 100%; min-height: 64px; resize: vertical; background: var(--panel-2); border: 1px solid var(--line); border-radius: var(--radius-s); padding: 10px; }
+.panel { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); min-width: 0; display: flex; flex-direction: column; }
+@media (max-width: 760px) { .shell { grid-template-columns: 1fr; padding: 0; gap: 0; } .chat { display: none; } .panel { border: 0; border-radius: 0; min-height: 100vh; } }
+
+.head { display: flex; align-items: center; gap: 10px; padding: 14px 18px 12px; border-bottom: 1px solid var(--line-soft); flex-wrap: wrap; }
+.head-t { display: flex; flex-direction: column; min-width: 0; flex: 1 1 160px; }
+.head h1 { font-size: 18px; margin: 0; line-height: 1.25; }
+.head .counts { color: var(--dim); font-size: 13px; }
+.head-acts { display: flex; gap: 8px; align-items: center; }
+.body { padding: 18px; display: flex; flex-direction: column; gap: 22px; max-width: 920px; width: 100%; }
+@media (max-width: 760px) { .head { padding: 12px 16px; } .body { padding: 16px; gap: 20px; } }
+
+/* Buttons, in Rouh's ctl style. One primary per view. */
+.btn { min-height: 44px; padding: 0 16px; border-radius: 999px; border: 1px solid var(--line); background: var(--panel-2); cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: 8px; font-size: 14px; white-space: nowrap; text-decoration: none; color: var(--text); transition: background .15s, border-color .15s; }
+.btn:hover { background: var(--raise); border-color: var(--dimmer); }
+.btn:active { transform: translateY(1px); }
+.btn[disabled] { opacity: .5; cursor: not-allowed; }
+.btn.primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); font-weight: 600; }
+.btn.primary:hover { filter: brightness(1.08); }
+.btn.quiet { background: transparent; border-color: transparent; color: var(--dim); }
+.btn.quiet:hover { color: var(--text); background: var(--panel-2); }
+.btn.danger { border-color: var(--bad); color: var(--bad); background: transparent; }
+.btn.small { min-height: 36px; padding: 0 12px; font-size: 13px; position: relative; }
+.btn.small::after { content: ""; position: absolute; inset: -4px 0; }
+.icon-btn { width: 44px; height: 44px; border-radius: 50%; border: 1px solid var(--line); background: var(--panel-2); display: inline-grid; place-items: center; cursor: pointer; color: var(--dim); }
+.icon-btn:hover { color: var(--text); }
+.ico { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; flex: none; }
+
+/* State: always a shape and a word. */
+.st { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 600; white-space: nowrap; }
+.st.good { color: var(--good); } .st.bad { color: var(--bad); } .st.warn { color: var(--warn); } .st.wait { color: var(--text); } .st.dim { color: var(--dim); }
+
+/* Verdict */
+.verdict { display: flex; gap: 14px; align-items: flex-start; }
+.verdict .big { width: 36px; height: 36px; flex: none; margin-top: 2px; }
+.verdict.good .big { color: var(--good); } .verdict.warn .big { color: var(--warn); } .verdict.bad .big { color: var(--bad); } .verdict.dim .big { color: var(--dim); }
+.verdict h2 { margin: 0; font-size: 24px; line-height: 1.25; letter-spacing: -0.01em; text-wrap: balance; }
+.verdict p { margin: 4px 0 0; color: var(--dim); display: flex; flex-wrap: wrap; gap: 4px 12px; align-items: center; }
+@media (max-width: 760px) { .verdict h2 { font-size: 21px; } .verdict .big { width: 30px; height: 30px; } }
+
+h3 { font-size: 15px; margin: 0 0 10px; display: flex; align-items: center; gap: 8px; }
+.count { font-size: 12px; font-weight: 600; color: var(--dim); background: var(--panel-2); border: 1px solid var(--line); border-radius: 999px; padding: 1px 8px; }
+
+/* Needs you */
+.needs { display: flex; flex-direction: column; border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; }
+.need { display: flex; gap: 12px; align-items: center; padding: 12px 14px; flex-wrap: wrap; background: var(--panel-2); }
+.need + .need { border-top: 1px solid var(--line); }
+.need-t { flex: 1 1 260px; min-width: 0; display: flex; gap: 10px; align-items: flex-start; }
+.need-t .ico { margin-top: 2px; }
+.need-t b { display: block; font-weight: 600; }
+.need-t span { color: var(--dim); font-size: 13px; }
+.need-a { display: flex; gap: 6px; flex-wrap: wrap; }
+.need.bad .need-t .ico { color: var(--bad); } .need.warn .need-t .ico { color: var(--warn); }
+
+/* Next step tracker */
+.next { border: 1px solid var(--line); border-radius: var(--radius); padding: 16px; display: grid; gap: 14px; background: var(--panel-2); }
+.next-top { display: flex; gap: 12px; align-items: flex-start; flex-wrap: wrap; justify-content: space-between; }
+.next-top div { flex: 1 1 280px; min-width: 0; }
+.next-top b { font-size: 16px; display: block; }
+.next-top p { margin: 4px 0 0; color: var(--dim); }
+.track { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; counter-reset: s; }
+.track li { display: flex; flex-direction: column; gap: 6px; font-size: 13px; color: var(--dim); position: relative; }
+.track .dot { width: 26px; height: 26px; border-radius: 50%; border: 2px solid var(--line); display: grid; place-items: center; font-size: 12px; font-weight: 700; background: var(--panel); color: var(--dim); }
+.track li.now .dot { border-color: var(--accent); color: var(--accent); }
+.track li.now { color: var(--text); font-weight: 600; }
+.track li.done .dot { background: var(--good); border-color: var(--good); color: var(--accent-ink); }
+.track li:not(:last-child)::before { content: ""; position: absolute; top: 12px; left: 30px; right: 4px; height: 2px; background: var(--line); }
+@media (max-width: 760px) { .track { grid-template-columns: 1fr 1fr; row-gap: 12px; } .track li::before { display: none; } }
+
+/* Where your apps live */
+.where-top { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; flex-wrap: wrap; margin-bottom: 10px; }
+.where-top h3 { margin: 0; }
+.bar { display: flex; height: 34px; border-radius: var(--radius-s); overflow: hidden; gap: 2px; }
+.seg { display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 700; min-width: 34px; color: var(--text); }
+.seg.a { background: var(--seg-a); color: var(--bg); }
+.seg.b { background: var(--seg-b); } .seg.c { background: var(--seg-c); }
+.seg.d { background: repeating-linear-gradient(135deg, var(--seg-d) 0 6px, var(--seg-c) 6px 12px); }
+.seg.empty { background: transparent; border: 2px dashed var(--line); color: var(--dim); border-radius: var(--radius-s); }
+.legend { list-style: none; margin: 10px 0 0; padding: 0; display: flex; flex-wrap: wrap; gap: 6px 16px; font-size: 13px; color: var(--dim); }
+.legend li { display: inline-flex; gap: 6px; align-items: center; }
+.sw { width: 18px; height: 6px; border-radius: 3px; flex: none; box-shadow: 0 0 0 1px var(--dimmer); }
+.plan-line { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-top: 12px; padding: 10px 12px; border: 1px solid var(--line); border-radius: var(--radius-s); }
+.plan-line span { flex: 1 1 220px; color: var(--dim); }
+.plan-line b { color: var(--text); }
+
+/* The grouped list */
+.place { border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; }
+.place + .place { margin-top: 12px; }
+.place-h { display: flex; gap: 10px; align-items: center; padding: 10px 14px; background: var(--panel-2); flex-wrap: wrap; border-bottom: 1px solid var(--line); }
+.place-h .sw { width: 18px; height: 6px; }
+.place-h b { font-size: 14px; }
+.place-h .tag { font-size: 12px; color: var(--dim); }
+.place-h .grow { flex: 1; }
+.place-say { padding: 8px 14px; font-size: 13px; color: var(--dim); border-bottom: 1px solid var(--line-soft); }
+.rows { list-style: none; margin: 0; padding: 0; }
+.row { display: grid; grid-template-columns: 136px minmax(0, 1fr) minmax(0, auto) 164px 28px; gap: 12px; align-items: center; padding: 0 14px; min-height: 56px; border-top: 1px solid var(--line-soft); cursor: pointer; transition: background .15s; }
+.row:first-child { border-top: 0; }
+.row:hover { background: var(--panel-2); }
+.row .nm { font-weight: 600; min-width: 0; overflow-wrap: anywhere; }
+.row .nm small { display: block; font-weight: 400; color: var(--dim); font-size: 12px; }
+.row a.addr { font-size: 13px; overflow-wrap: anywhere; min-height: 44px; display: inline-flex; align-items: center; justify-self: end; text-align: right; }
+.row .when { font-size: 12px; color: var(--dim); text-align: right; }
+.row .chev { color: var(--dimmer); justify-self: end; background: none; border: 0; width: 44px; height: 44px; display: grid; place-items: center; cursor: pointer; margin-right: -10px; }
+@media (max-width: 760px) {
+  .row .when.kept { display: block; grid-area: when; text-align: left; }
+  .row { grid-template-columns: minmax(0, 1fr) 36px; grid-template-areas: "nm chev" "st chev" "when chev" "addr chev"; gap: 2px 8px; padding: 10px 6px 6px 14px; }
+  .row .nm { grid-area: nm; } .row .st { grid-area: st; } .row a.addr { grid-area: addr; justify-self: start; text-align: left; min-height: 36px; }
+  .row .when { display: none; } .row .chev { grid-area: chev; margin: 0; }
+}
+.foot { display: flex; flex-direction: column; gap: 12px; }
+details.brown, details.fold { border: 1px solid var(--line); border-radius: var(--radius-s); }
+details.fold > summary { cursor: pointer; padding: 12px 14px; color: var(--text); font-weight: 600; min-height: 44px; list-style-position: inside; }
+details.brown > summary { cursor: pointer; padding: 12px 14px; color: var(--brown); font-weight: 600; min-height: 44px; list-style-position: inside; }
+details.fold > div, details.brown > div { padding: 0 14px 14px; color: var(--dim); }
+details.fold ul, details.brown ul { margin: 6px 0 10px; padding-left: 18px; }
+
+/* Focus views */
+.back { align-self: flex-start; margin-left: -12px; }
+.edge { margin-left: -16px; }
+.focus-h { display: flex; gap: 12px; align-items: flex-start; }
+.focus-h h2 { margin: 0; font-size: 22px; line-height: 1.25; overflow-wrap: anywhere; }
+.focus-h p { margin: 4px 0 0; color: var(--dim); }
+.acts { display: flex; flex-wrap: wrap; gap: 8px; }
+.live { display: flex; gap: 10px; align-items: center; padding: 10px 12px; border: 1px solid var(--line); border-radius: var(--radius-s); background: var(--accent-soft); }
+.live .spin { width: 16px; height: 16px; border-radius: 50%; border: 2px solid var(--accent); border-right-color: transparent; animation: spin 1s linear infinite; flex: none; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.facts { display: grid; grid-template-columns: 160px minmax(0, 1fr); gap: 0; margin: 0; border: 1px solid var(--line); border-radius: var(--radius-s); overflow: hidden; }
+.facts dt, .facts dd { margin: 0; padding: 9px 12px; border-top: 1px solid var(--line-soft); }
+.facts dt { color: var(--dim); font-size: 13px; }
+.facts dd { overflow-wrap: anywhere; }
+.facts dt:first-of-type, .facts dt:first-of-type + dd { border-top: 0; }
+@media (max-width: 760px) { .facts { grid-template-columns: 1fr; } .facts dd { border-top: 0; padding-top: 0; } }
+.cmds { list-style: none; margin: 0; padding: 0; border: 1px solid var(--line); border-radius: var(--radius-s); }
+.cmds li { padding: 10px 12px; border-top: 1px solid var(--line-soft); display: grid; gap: 4px; }
+.cmds li:first-child { border-top: 0; }
+.cmds .top { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+.cmds .top b { flex: 1 1 auto; }
+.cmds pre { margin: 0; font: 12px/1.45 var(--mono); white-space: pre-wrap; overflow-wrap: anywhere; color: var(--dim); background: var(--panel-2); padding: 8px; border-radius: 6px; }
+.cmds details summary { cursor: pointer; font-size: 13px; color: var(--accent); min-height: 36px; display: list-item; list-style-position: inside; padding-top: 8px; }
+.confirm { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; padding: 10px 12px; border: 1px solid var(--bad); border-radius: var(--radius-s); }
+.confirm span { flex: 1 1 220px; }
+.note { color: var(--dim); font-size: 13px; margin: 0; }
+.notice { padding: 12px 14px; border: 1px solid var(--line); border-radius: var(--radius-s); display: flex; gap: 10px; align-items: flex-start; flex-wrap: wrap; }
+.notice > div { flex: 1 1 240px; }
+
+/* Setup */
+.hosts { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(190px, 100%), 1fr)); gap: 8px; border: 0; padding: 0; margin: 0; }
+.hosts legend { font-weight: 600; margin-bottom: 8px; }
+.host { position: relative; }
+.host input { position: absolute; opacity: 0; inset: 0; }
+.host label { display: flex; flex-direction: column; gap: 4px; padding: 12px; border: 1px solid var(--line); border-radius: var(--radius-s); cursor: pointer; min-height: 88px; background: var(--panel-2); }
+.host label b { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.host label span { color: var(--dim); font-size: 13px; }
+.host input:checked + label { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
+.host input:focus-visible + label { outline: 2px solid var(--focus); outline-offset: 2px; }
+.pill { font-size: 11px; font-weight: 700; padding: 1px 8px; border-radius: 999px; background: var(--accent-soft); color: var(--accent); }
+.steps { margin: 0; padding-left: 22px; display: grid; gap: 6px; }
+.line { display: flex; gap: 8px; align-items: stretch; }
+.line code { flex: 1; min-width: 0; font: 13px/1.45 var(--mono); background: var(--panel-2); border: 1px solid var(--line); border-radius: var(--radius-s); padding: 10px 12px; overflow-wrap: anywhere; }
+@media (max-width: 760px) { .line { flex-direction: column; } }
+.field { display: grid; gap: 4px; }
+.field label { font-weight: 600; font-size: 13px; }
+.field input, .field select { min-height: 44px; border: 1px solid var(--line); background: var(--panel-2); border-radius: var(--radius-s); padding: 0 12px; width: 100%; }
+.field small { color: var(--dim); }
+.servers { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(260px, 100%), 1fr)); gap: 10px; }
+.server { border: 1px solid var(--line); border-radius: var(--radius-s); padding: 12px; display: grid; gap: 6px; }
+.server-top { display: flex; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
+.server .acts .btn.quiet:first-child { margin-left: -12px; }
+.server p { margin: 0; color: var(--dim); font-size: 13px; }
+.plan { list-style: none; margin: 0; padding: 0; counter-reset: p; border: 1px solid var(--line); border-radius: var(--radius); }
+.plan li { counter-increment: p; display: grid; grid-template-columns: 32px minmax(0, 1fr) auto; gap: 10px; padding: 12px 14px; border-top: 1px solid var(--line-soft); align-items: start; }
+.plan li:first-child { border-top: 0; }
+.plan li::before { content: counter(p); width: 26px; height: 26px; border-radius: 50%; border: 1px solid var(--line); display: grid; place-items: center; font-size: 12px; font-weight: 700; color: var(--dim); }
+.plan b { display: block; overflow-wrap: anywhere; }
+.plan span { color: var(--dim); font-size: 13px; }
+@media (max-width: 760px) { .plan li { grid-template-columns: 32px minmax(0, 1fr); } .plan li .btn { grid-column: 2; justify-self: start; } }
+.empty-hero h2 { font-size: 26px; margin: 0 0 6px; line-height: 1.2; }
+.empty-hero p { margin: 0; color: var(--dim); max-width: 60ch; }
+.ideas { display: flex; flex-wrap: wrap; gap: 8px; list-style: none; padding: 0; margin: 12px 0 0; }
+.why { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(220px, 100%), 1fr)); gap: 10px; list-style: none; margin: 0; padding: 0; }
+.why li { border: 1px solid var(--line); border-radius: var(--radius-s); padding: 12px; color: var(--dim); }
+.why li b { display: block; color: var(--text); margin-bottom: 4px; }
+.toast { position: fixed; left: 50%; bottom: 18px; transform: translateX(-50%); background: var(--raise); border: 1px solid var(--line); border-radius: 999px; padding: 6px 8px 6px 16px; display: flex; gap: 10px; align-items: center; box-shadow: 0 10px 30px rgba(0,0,0,.35); max-width: calc(100vw - 32px); z-index: 5; }
+.toast[hidden] { display: none; }
+[hidden] { display: none !important; }
+.sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+</style>
+</head>
+<body>
+<div class="shell">
+  <aside class="chat" aria-label="The chat (a stand-in for Rouh's chat column)">
+    <div class="chat-h">Chat</div>
+    <p class="chat-note">The chat column of Rouh sits here. Build a new app, an idea and Ask Rouh to change it put their sentence in its message box.</p>
+    <div class="chat-box"><label for="msg">Message</label><textarea id="msg" placeholder="Type a message"></textarea></div>
+  </aside>
+  <main class="panel" id="panel" aria-live="polite"></main>
+</div>
+<div class="toast" id="toast" role="status" hidden><span id="toastT"></span><button class="btn small quiet" id="toastU" type="button">Undo</button></div>
+<script>
+var DATA = {"hosts": [{"id": "hostinger", "name": "Hostinger", "recommended": true, "why": "Cheap, quick to buy, a browser terminal, and an API token lets Rouh do the setup with one press.", "plan": "A KVM 2 VPS (2 CPUs, 8 GB memory) holds a dozen small apps; KVM 1 is enough to start.", "buy": "https://www.hostinger.com/vps-hosting", "steps": ["Buy a KVM VPS at Hostinger. Rouh never buys it for you.", "When hPanel asks for the operating system, pick Ubuntu 24.04 (plain, without a panel).", "Open the VPS in hPanel and press Browser terminal.", "Paste the line below and press Enter. It takes about five minutes."], "boot": "Or, before you install it: in hPanel, VPS, Settings, Post-install script, paste the script below, then install Ubuntu 24.04. It runs by itself on the first start."}, {"id": "hetzner", "name": "Hetzner", "why": "The best price for the power in Europe; servers in Germany and Finland.", "plan": "A CX22 or CAX11 is enough to start.", "buy": "https://console.hetzner.cloud/", "steps": ["In the Hetzner Cloud console, press Add Server.", "Pick a location and the image Ubuntu 24.04.", "Under Cloud config, paste the script below.", "Press Create & Buy now. The server sets itself up in about five minutes."], "boot": "Already have one? Log in to it and paste the line below."}, {"id": "digitalocean", "name": "DigitalOcean", "why": "Simple and well documented; servers around the world.", "plan": "A Basic droplet with 2 GB memory is enough to start.", "buy": "https://cloud.digitalocean.com/droplets/new", "steps": ["Create a Droplet with the image Ubuntu 24.04.", "Under Advanced options, tick Add initialization scripts and paste the script below.", "Press Create Droplet. It sets itself up in about five minutes."], "boot": "Already have one? Log in to it and paste the line below."}, {"id": "other", "name": "Any Linux server", "why": "Any server with Ubuntu 22.04 or newer, or Debian 12, that you can log in to.", "plan": "At least 1 GB memory and 20 GB disk.", "buy": "", "steps": ["Log in to the server as root, or as a user who may use sudo.", "Paste the line below and press Enter. It takes about five minutes."], "boot": "Or paste the script below where your host asks for a first-boot or user data script."}], "ideas": [{"name": "Travel companion", "say": "Build me a travel companion app for my next trip: the plan by day, bookings, maps and a shared list for everyone coming."}, {"name": "Wedding inviter", "say": "Build me a wedding invitation app: a page per guest, replies, plus-ones and meal choices, and a list I can see."}, {"name": "Movie watch list", "say": "Build me a movie watch list app we can share at home, with ratings and what to watch next."}, {"name": "A game", "say": "Build me a small game I can play on my phone and share with friends."}, {"name": "Work helper", "say": "Build me a work helper app that "}, {"name": "Email handler", "say": "Build me an app that handles a kind of email for me: "}], "reachable": true, "line": "curl -fsSL https://rouh.example.com/apps/join/k7Qm2xR9 | sudo bash", "boot": "#!/bin/bash\ncurl -fsSL https://rouh.example.com/apps/join/k7Qm2xR9 | bash", "vps": [{"id": 11, "hostname": "srv-4471.hstgr.cloud", "plan": "KVM 2", "state": "running, Ubuntu 24.04 with a panel", "fresh": false}, {"id": 12, "hostname": "srv-5120.hstgr.cloud", "plan": "KVM 1", "state": "new, nothing installed", "fresh": true}], "apps": [{"id": 6, "slug": "briefings", "name": "Briefings", "url": "https://briefings.example.com", "server_id": 2, "elsewhere": "", "what": "The morning briefings site", "state": "answering", "checked_at": 180, "check_said": "Answered 200 in 220 ms.", "down_since": 0, "data_at": "Not known, because Rouh cannot reach the old server", "commands": [], "release": "", "previous_release": ""}, {"id": 2, "slug": "leads", "name": "Lead finder", "url": "https://leads.example.com", "server_id": 1, "elsewhere": "", "what": "Finds and scores sales leads", "state": "answering", "checked_at": 180, "check_said": "Answered 200 in 220 ms.", "down_since": 0, "data_at": "Its own PostgreSQL database, leads, on the sites server", "commands": [], "release": "", "previous_release": ""}, {"id": 1, "slug": "notes", "name": "Meeting notes", "url": "https://notes.example.com", "server_id": 1, "elsewhere": "", "what": "The library of meeting notes", "state": "answering", "checked_at": 180, "check_said": "Answered 200 in 220 ms.", "down_since": 0, "data_at": "Its own PostgreSQL database, notes, on the sites server", "commands": [], "release": "", "previous_release": ""}, {"id": 3, "slug": "metrics", "name": "Metrics", "url": "https://metrics.example.com", "server_id": 1, "elsewhere": "", "what": "The company's numbers", "state": "answering", "checked_at": 180, "check_said": "Answered 200 in 220 ms.", "down_since": 0, "data_at": "Its own PostgreSQL database, metrics, on the sites server", "commands": [], "release": "", "previous_release": ""}, {"id": 4, "slug": "social", "name": "Social planner", "url": "https://social.example.com", "server_id": 1, "elsewhere": "", "what": "Plans and posts to social accounts", "state": "answering", "checked_at": 180, "check_said": "Answered 200 in 220 ms.", "down_since": 0, "data_at": "Its own PostgreSQL database, social, on the sites server", "commands": [], "release": "", "previous_release": ""}, {"id": 5, "slug": "bridge", "name": "The Bridge", "url": "https://bridge.example.com", "server_id": 1, "elsewhere": "", "what": "The partners' meeting place", "state": "answering", "checked_at": 180, "check_said": "Answered 200 in 220 ms.", "down_since": 0, "data_at": "Its own PostgreSQL database, bridge, on the sites server", "commands": [], "release": "", "previous_release": ""}], "servers": [{"id": 1, "name": "the sites server", "host_name": "Any Linux server", "address": "203.0.113.50", "state": "elsewhere", "standard": false, "seen_at": 0, "made_at": 259200}, {"id": 2, "name": "the old server", "host_name": "Any Linux server", "address": "203.0.113.38", "state": "elsewhere", "standard": false, "seen_at": 0, "made_at": 259200, "data_note": "Rouh cannot see where their data is kept."}], "pages": [{"name": "New company name: shortlist and word lists", "href": "#page-1", "keeps": "A shared list of 66 entries, and your choices (about 7 KB)", "updated_at": 7200}, {"name": "Pick the defaults", "href": "#page-2", "keeps": "Your choices on the page (about 18 KB)", "updated_at": 172800}, {"name": "Glass orb and pruning", "href": "#page-3", "keeps": "Your choices on the page (about 1 KB)", "updated_at": 345600}, {"name": "Pick the projects for each law", "href": "#page-4", "keeps": "Your choices on the page (about 1 KB)", "updated_at": 777600}]};
+var START = {"view": "home"};
+var NOW = Date.now() / 1000;
+var D = JSON.parse(JSON.stringify(DATA));
+/* Times in DATA are seconds ago (negative: from now), so the prototype reads true whenever it is opened. */
+(function times(o) { Object.keys(o).forEach(function (k) { var v = o[k];
+  if (v && typeof v === 'object') { times(v); }
+  else if (typeof v === 'number' && /_at$|_since$|_until$/.test(k) && v !== 0) { o[k] = NOW - v; } }); })(D);
+var V = { view: START.view || 'home', app: START.app || '', confirm: 0, host: 'hostinger', line: !!START.line, token: !!START.token, wipe: 0, checking: false };
+
+var ICON = {
+  xc: '<circle cx="12" cy="12" r="8.5"/><path d="M9 9l6 6M15 9l-6 6"/>',
+  doc: '<path d="M7 3.5h7l4 4V20.5H7z"/><path d="M14 3.5v4h4"/>',
+  disk: '<rect x="4" y="5" width="16" height="14" rx="2"/><path d="M9.5 10l5 5M14.5 10l-5 5"/>',
+  good: '<circle cx="12" cy="12" r="8.5"/><path d="M8.2 12.4l2.6 2.6 5-5.4"/>',
+  bad: '<path d="M12 3.6l9 15.6H3z"/><path d="M12 9.6v4.6M12 16.9v.2"/>',
+  dim: '<circle cx="12" cy="12" r="8.5" stroke-dasharray="3 3"/>',
+  wait: '<circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/>',
+  chev: '<path d="M9 6l6 6-6 6"/>', back: '<path d="M15 6l-6 6 6 6"/>',
+  x: '<path d="M6 6l12 12M18 6L6 18"/>', chat: '<path d="M4 5h16v11H9l-5 4z"/>',
+  ext: '<path d="M14 4h6v6M20 4l-9 9M18 14v5H5V6h5"/>'
+};
+function ico(n, cls) { return '<svg class="ico' + (cls ? ' ' + cls : '') + '" viewBox="0 0 24 24" aria-hidden="true">' + ICON[n] + '</svg>'; }
+function esc(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
+function ago(t) { if (!t) { return 'never'; } var s = NOW - t; if (s < 60) { return 'just now'; } if (s < 3600) { return Math.round(s / 60) + ' min ago'; } if (s < 86400) { return Math.round(s / 3600) + ' h ago'; } var d = Math.round(s / 86400); return d + (d === 1 ? ' day ago' : ' days ago'); }
+function clock(t) { var d = new Date(t * 1000); return String(d.getUTCHours()).padStart(2, '0') + ':' + String(d.getUTCMinutes()).padStart(2, '0'); }
+function bare(u) { return String(u || '').replace(/^https?:\/\//, '').replace(/\/$/, ''); }
+function plural(n, one, many) { return n + ' ' + (n === 1 ? one : many); }
+
+var APP_ST = { answering: ['good', 'good', 'Answering'], down: ['bad', 'bad', 'Not answering'], unknown: ['dim', 'dim', 'Not checked yet'] };
+var SRV_ST = { ready: ['good', 'good', 'Calling in'], silent: ['bad', 'bad', 'Silent'], waiting: ['wait', 'wait', 'Waiting to join'], elsewhere: ['dim', 'dim', 'Checked by address only'] };
+function st(map, s) { var m = map[s] || map.unknown || map.elsewhere; return '<span class="st ' + m[0] + '">' + ico(m[1]) + esc(m[2]) + '</span>'; }
+
+function server(id) { return D.servers.filter(function (s) { return s.id === id; })[0]; }
+function app(slug) { return D.apps.filter(function (a) { return a.slug === slug; })[0]; }
+function managed(a) { var s = server(a.server_id); return !!(s && s.standard && (s.state === 'ready' || s.state === 'silent')); }
+function failedOf(a) { return a.commands.filter(function (c) { return c.state === 'failed' && c.verb !== 'logs' && c.done_at > NOW - 86400; })[0]; }
+function ready() { return D.servers.some(function (s) { return s.standard && (s.state === 'ready' || s.state === 'silent'); }); }
+function pending(a) { return a.commands.filter(function (c) { return c.verb !== 'logs' && (c.state === 'sent' || c.state === 'running' || c.state === 'waiting'); })[0]; }
+
+/* Everything counted from D, so every view agrees. */
+function needs() {
+  var out = [];
+  D.apps.forEach(function (a) { if (a.state === 'down') { out.push({ kind: 'down', app: a.slug, said: a.name + ' is not answering', since: a.down_since }); } });
+  D.apps.forEach(function (a) { if (a.state !== 'down' && managed(a) && (a.backup_ok === false || a.restore_test_ok === false)) { out.push({ kind: 'backup', app: a.slug, said: 'The last ' + (a.backup_ok === false ? 'backup' : 'test restore') + ' of ' + a.name + ' failed', since: a.backup_at }); } });
+  D.apps.forEach(function (a) { a.commands.forEach(function (c) { if (c.state === 'failed' && a.state !== 'down' && c.verb !== 'logs' && c.done_at > NOW - 86400 && !out.some(function (x) { return x.kind === 'failed' && x.app === a.slug; })) { out.push({ kind: 'failed', app: a.slug, said: c.said + ' of ' + a.name + ' failed', since: c.done_at, detail: a.last_error }); } }); });
+  D.servers.forEach(function (s) { if (s.state === 'silent') { out.push({ kind: 'silent', server: s.id, said: s.name + ' has not called in', since: s.seen_at }); } });
+  return out;
+}
+function places() {
+  var list = [];
+  D.servers.filter(function (s) { return s.standard && s.state !== 'waiting'; }).forEach(function (s) { list.push({ key: 's' + s.id, server: s, cls: 'a', apps: D.apps.filter(function (a) { return a.server_id === s.id; }) }); });
+  var other = ['b', 'c'];
+  D.servers.filter(function (s) { return !s.standard; }).forEach(function (s, i) { list.push({ key: 's' + s.id, server: s, cls: other[i % 2], apps: D.apps.filter(function (a) { return a.server_id === s.id; }) }); });
+  var loose = D.apps.filter(function (a) { return !a.server_id; });
+  if (loose.length) { list.push({ key: 'elsewhere', name: 'Elsewhere', cls: 'c', apps: loose }); }
+  if (D.pages.length) { list.push({ key: 'rouh', name: 'Rouh’s own server', cls: 'd', pages: D.pages, apps: [] }); }
+  return list;
+}
+function toMove() { return D.apps.filter(function (a) { return !managed(a); }).length + D.pages.length; }
+
+/* ---------- views ---------- */
+
+function draw() {
+  var p = document.getElementById('panel');
+  var html = V.view === 'app' ? viewApp() : V.view === 'setup' ? viewSetup() : V.view === 'plan' ? viewPlan() : V.view === 'add' ? viewAdd() : viewHome();
+  p.innerHTML = html;
+  wire(p);
+}
+
+function head(title, counts, primaryBuild) {
+  return '<header class="head"><div class="head-t"><h1>' + esc(title) + '</h1>' + (counts ? '<span class="counts">' + esc(counts) + '</span>' : '') + '</div>' +
+    '<div class="head-acts"><button class="btn ' + (primaryBuild ? 'primary' : '') + '" type="button" data-do="build">Build a new app</button>' +
+    '<button class="icon-btn" type="button" aria-label="Close Apps" data-do="noop">' + ico('x') + '</button></div></header>';
+}
+
+function viewHome() {
+  if (!D.apps.length && !D.servers.length && !D.pages.length) { return viewEmpty(); }
+  var n = needs(), down = D.apps.filter(function (a) { return a.state === 'down'; }), up = D.apps.filter(function (a) { return a.state === 'answering'; });
+  var counts = [plural(D.apps.length, 'app', 'apps'), D.pages.length ? plural(D.pages.length, 'page with data', 'pages with data') : '', plural(D.servers.length, 'server', 'servers')].filter(Boolean).join(', ');
+  var h = head('Apps', counts, ready() && !needs().length);
+  h += '<div class="body">';
+  // Verdict
+  var cls = 'good', line, sub;
+  if (down.length) { cls = 'bad'; line = down.length === 1 ? down[0].name + ' is not answering.' : down.length + ' of ' + D.apps.length + ' apps are not answering.'; }
+  else if (!up.length) { cls = 'dim'; line = 'Your apps have not been checked yet.'; }
+  else if (up.length < D.apps.length) { cls = 'dim'; var un = D.apps.filter(function (a) { return a.state !== 'answering'; }); line = up.length + ' of ' + D.apps.length + ' apps are answering; ' + (un.length === 1 ? un[0].name + ' has' : un.length + ' have') + ' not been checked yet.'; }
+  else { line = D.apps.length === 1 ? 'Your app is answering.' : 'All ' + D.apps.length + ' apps are answering.'; }
+  line += n.length ? ' ' + plural(n.length, 'thing needs', 'things need') + ' you.' : ' Nothing needs you.';
+  if (cls === 'good' && n.length) { cls = 'warn'; }
+  var checked = Math.max.apply(null, D.apps.map(function (a) { return a.checked_at; }).concat([0]));
+  h += '<section class="verdict ' + cls + '" aria-label="Are your apps answering">' + ico(cls === 'good' ? 'good' : cls === 'bad' || cls === 'warn' ? 'bad' : 'dim', 'big') +
+    '<div><h2>' + esc(line) + '</h2><p><span>Checked by address ' + (V.checking ? 'now' : ago(checked)) + ', every five minutes.</span>' +
+    '<button class="btn small" type="button" data-do="check"' + (V.checking ? ' disabled' : '') + '>' + (V.checking ? 'Checking…' : 'Check now') + '</button></p></div></section>';
+  // Needs you
+  if (n.length) {
+    h += '<section aria-labelledby="needsH"><h3 id="needsH">Needs you <span class="count">' + n.length + '</span></h3><div class="needs">';
+    n.forEach(function (x) {
+      var a = x.app ? app(x.app) : null, busy = a && pending(a);
+      h += '<div class="need bad"><div class="need-t">' + ico(x.kind === 'backup' ? 'disk' : x.kind === 'failed' ? 'xc' : 'bad') +
+        '<div><b>' + esc(x.said) + '</b><span>' + (x.detail && !busy ? esc(x.detail) + '. ' : '') + (busy ? esc(busy.said) + ': ' + (busy.state === 'running' ? 'running now' : 'sent, waiting for the server') : 'Since ' + clock(x.since) + ', ' + ago(x.since)) + '</span></div></div><div class="need-a">';
+      if (x.kind === 'down' && a) {
+        if (managed(a)) {
+          h += '<button class="btn small" type="button" data-do="verb" data-app="' + a.slug + '" data-verb="restart"' + (busy ? ' disabled' : '') + '>Restart</button>';
+          h += '<button class="btn small" type="button" data-do="verb" data-app="' + a.slug + '" data-verb="rollback"' + (busy || !a.previous_release ? ' disabled' : '') + '>Roll back</button>';
+          h += '<button class="btn small" type="button" data-do="logs" data-app="' + a.slug + '">Logs</button>';
+        }
+        h += '<button class="btn small" type="button" data-do="fix" data-app="' + a.slug + '">Ask Rouh to fix it</button>';
+        h += '<a class="btn small quiet" href="' + esc(a.url) + '" target="_blank" rel="noopener">Open</a>';
+      } else if (x.kind === 'failed' && a) {
+        h += '<button class="btn small" type="button" data-do="logs" data-app="' + a.slug + '">Logs</button>';
+        h += '<button class="btn small" type="button" data-do="verb" data-app="' + a.slug + '" data-verb="rollback"' + (busy || !a.previous_release ? ' disabled' : '') + '>Roll back</button>';
+        h += '<button class="btn small" type="button" data-do="fix" data-app="' + a.slug + '">Ask Rouh to fix it</button>';
+      } else if (x.kind === 'backup' && a) {
+        h += '<button class="btn small" type="button" data-do="verb" data-app="' + a.slug + '" data-verb="backup"' + (busy ? ' disabled' : '') + '>Back up now</button>';
+        h += '<button class="btn small quiet" type="button" data-do="open" data-app="' + a.slug + '">More</button>';
+      } else if (x.kind === 'silent') {
+        h += '<button class="btn small" type="button" data-do="report" data-server="' + x.server + '">Ask for a report</button>';
+      }
+      h += '</div></div>';
+    });
+    h += '</div></section>';
+  }
+  // Next step: the apps server
+  if (!ready()) { h += nextStep(); }
+  // Where they live
+  var pl = places();
+  h += '<section aria-labelledby="whereH"><div class="where-top"><h3 id="whereH">Where your apps live</h3></div>';
+  var segs = '';
+  if (!ready()) { segs += '<div class="seg empty" style="flex:0 0 auto;padding:0 12px" title="Your apps server: not set up yet">0</div>'; }
+  pl.forEach(function (p) { var c = p.pages ? p.pages.length : p.apps.length; if (c) { segs += '<div class="seg ' + p.cls + '" style="flex:' + c + ' 1 0">' + c + '</div>'; } });
+  h += '<div class="bar" role="img" aria-label="' + esc(pl.map(function (p) { return (p.server ? p.server.name : p.name) + ': ' + (p.pages ? p.pages.length : p.apps.length); }).join(', ')) + '">' + segs + '</div>';
+  h += '<ul class="legend">' + (ready() ? '' : '<li><span class="sw" style="border:2px dashed var(--line)"></span>Your apps server, not set up yet</li>') +
+    pl.map(function (p) { var c = p.pages ? p.pages.length : p.apps.length; return '<li><span class="sw seg ' + p.cls + '" style="min-width:0"></span>' + esc(p.server ? p.server.name : p.name) + ': ' + (p.pages ? plural(c, 'page', 'pages') : plural(c, 'app', 'apps')) + '</li>'; }).join('') + '</ul>';
+  var mv = toMove();
+  h += '<div class="plan-line"><span>' + (mv ? '<b>' + mv + ' to move onto your apps server,</b> none moved yet. Nothing moves until you say.' : '<b>Everything is on your apps server.</b>') + '</span>' +
+    (mv ? '<button class="btn small" type="button" data-do="go" data-view="plan">See the moving plan</button>' : '') + '</div></section>';
+  // Grouped list
+  h += '<section aria-labelledby="listH"><h3 id="listH" class="sr">Your apps, by where they run</h3>';
+  pl.forEach(function (p) { h += placeBox(p); });
+  h += '</section>';
+  // Foot
+  h += '<div class="foot"><div class="acts"><button class="btn" type="button" data-do="go" data-view="add">Add an app you already have</button>' +
+    (D.servers.length ? '<button class="btn" type="button" data-do="go" data-view="setup">' + (ready() ? 'Servers' : 'Servers and setup') + '</button>' : '') + '</div>' + about() + '</div>';
+  h += '</div>';
+  return h;
+}
+
+function nextStep() {
+  var waiting = D.servers.filter(function (s) { return s.state === 'waiting'; })[0];
+  var at = waiting ? 2 : 0;
+  var steps = ['Pick a host', 'Buy a small server', 'Paste one line on it', 'Ready by itself'];
+  return '<section class="next" aria-labelledby="nextH"><div class="next-top"><div><b id="nextH">Next: your own apps server</b><p>' +
+    (waiting ? esc(waiting.name) + ' has its setup line. It turns Ready by itself once the line has run on it.' : D.apps.length ? 'Your apps run on servers Rouh can only check from outside. An apps server of your own lets Rouh update, restart, roll back and back up every app.' : 'Before Rouh builds your first app, it needs a small server of yours to put it on. Rouh sets it up; you only buy it.') +
+    '</p></div><button class="btn primary" type="button" data-do="go" data-view="setup">' + (waiting ? 'See the setup line' : 'Set up an apps server') + '</button></div>' +
+    '<ol class="track" aria-label="Setting up an apps server">' + steps.map(function (s, i) { return '<li class="' + (i < at ? 'done' : i === at ? 'now' : '') + '"><span class="dot" aria-hidden="true">' + (i < at ? '✓' : i + 1) + '</span>' + s + (i < at ? '<span class="sr"> (done)</span>' : i === at ? '<span class="sr"> (you are here)</span>' : '') + '</li>'; }).join('') + '</ol></section>';
+}
+
+function placeBox(p) {
+  var h = '<div class="place">';
+  if (p.pages) {
+    h += '<div class="place-h"><span class="sw seg d" style="min-width:0"></span><b>' + esc(p.name) + '</b><span class="tag">' + plural(p.pages.length, 'page with its own data', 'pages with their own data') + '</span><span class="grow"></span><span class="st dim">' + ico('dim') + 'To move</span></div>';
+    h += '<div class="place-say">Workspace pages that keep data are apps too. They run on Rouh’s own server for now.</div><ul class="rows">';
+    p.pages.forEach(function (pg) {
+      h += '<li class="row" data-do="page" data-href="' + esc(pg.href) + '"><span class="st dim">' + ico('doc') + 'Page</span><span class="nm">' + esc(pg.name) + '<small>' + esc(pg.keeps) + '</small></span><a class="addr" href="' + esc(pg.href) + '">Open page</a><span class="when">Changed ' + ago(pg.updated_at) + '</span><span aria-hidden="true"></span></li>';
+    });
+    return h + '</ul></div>';
+  }
+  var s = p.server, m = s && s.standard && (s.state === 'ready' || s.state === 'silent');
+  h += '<div class="place-h"><span class="sw seg ' + p.cls + '" style="min-width:0"></span><b>' + esc(s ? s.name : p.name) + '</b><span class="tag">' + esc(s ? (s.standard ? 'Your apps server, ' : '') + s.host_name + (s.address ? ', ' + s.address : '') : 'not on a server Rouh knows') + '</span><span class="grow"></span>' + (s ? st(SRV_ST, s.state) : '') + '</div>';
+  if (!m) { h += '<div class="place-say">Rouh cannot update, restart or back these up. ' + esc(s && s.data_note ? s.data_note : '') + '</div>'; }
+  h += '<ul class="rows">';
+  p.apps.forEach(function (a) {
+    var busy = pending(a);
+    h += '<li class="row" data-do="open" data-app="' + a.slug + '">' + st(APP_ST, a.state) +
+      '<span class="nm">' + esc(a.name) + (busy ? '<small>' + esc(busy.said) + ': ' + (busy.state === 'running' ? 'running' : 'sent') + '</small>' : failedOf(a) ? '<small class="st bad" style="font-size:12px">' + ico('xc') + esc(failedOf(a).said) + ' failed ' + ago(failedOf(a).done_at) + '</small>' : a.what ? '<small>' + esc(a.what) + '</small>' : '') + '</span>' +
+      '<a class="addr" href="' + esc(a.url) + '" target="_blank" rel="noopener">' + esc(bare(a.url)) + '</a>' +
+      '<span class="when' + (m ? ' kept' : '') + '">' + (m ? (a.backup_ok === false ? '<span class="st bad" style="font-size:12px">' + ico('disk') + 'Backup failed</span>' : 'Backed up ' + ago(a.backup_at)) + '<br>' + (a.restore_test_ok === false ? '<span class="st bad" style="font-size:12px">' + ico('disk') + 'Restore test failed</span>' : 'Restore tested ' + ago(a.restore_test_at)) : 'Checked ' + ago(a.checked_at)) + '</span>' +
+      '<button class="chev" type="button" aria-label="Open ' + esc(a.name) + '" data-do="open" data-app="' + a.slug + '">' + ico('chev') + '</button></li>';
+  });
+  return h + '</ul></div>';
+}
+
+function about() {
+  return '<details class="fold"><summary>What Apps is, ideas, and why a server of its own</summary><div>' + aboutBody() + '<p style="margin:8px 0 0">Ideas to start from:</p>' + ideasList() + '<p><a href="#guide">The Guide: Your apps</a></p></div></details>';
+}
+function aboutBody() {
+  return '<p>Rouh can build you any app. Tell it what you want in your own words: it writes it, puts it online at an address of yours, keeps it running and backed up, and changes it whenever you ask.</p>' +
+    '<ul><li>Rouh’s server holds the keys to your mail and accounts. A guest opening your wedding page should never come near it.</li><li>Rouh restarts and changes all the time. Your apps keep running while it does.</li><li>The apps are yours: a small rented server, about 5 to 10 euros a month, that you own and can take anywhere.</li></ul>';
+}
+
+function ideasList() { return '<ul class="ideas" aria-label="Ideas to start from">' + D.ideas.map(function (i, k) { return '<li><button class="btn" type="button" data-do="idea" data-i="' + k + '">' + esc(i.name) + '</button></li>'; }).join('') + '</ul>'; }
+
+function viewEmpty() {
+  var h = head('Apps', '', false);
+  h += '<div class="body"><section class="empty-hero"><h2>Rouh can build you any app.</h2><p>Tell it what you want, in your own words. Rouh writes it, puts it online at an address of yours, keeps it running and backed up, and changes it whenever you ask.</p>' +
+    ideasList() + '</section>';
+  h += '<section aria-labelledby="whyH"><h3 id="whyH">Why your apps get a server of their own</h3><ul class="why">' +
+    '<li><b>Kept apart from your keys</b>Rouh’s server holds your mail and accounts. A guest opening your wedding page never comes near it.</li>' +
+    '<li><b>Up while Rouh changes</b>Rouh restarts and changes all the time. Your apps keep running while it does.</li>' +
+    '<li><b>Yours</b>A small rented server, about 5 to 10 euros a month, that you own and can take anywhere.</li></ul></section>';
+  h += nextStep();
+  h += '<div class="acts"><button class="btn" type="button" data-do="go" data-view="add">Add an app you already have</button><a class="btn quiet" href="#guide">The Guide: Your apps</a></div></div>';
+  return h;
+}
+
+function back() { return '<button class="btn small quiet back" type="button" data-do="go" data-view="home">' + ico('back') + 'All apps</button>'; }
+
+function viewApp() {
+  var a = app(V.app); if (!a) { V.view = 'home'; return viewHome(); }
+  var s = server(a.server_id), m = managed(a), busy = pending(a);
+  var h = head('Apps', '', false) + '<div class="body">' + back();
+  var line = a.state === 'down' ? a.name + ' is not answering' + (a.down_since ? ', since ' + clock(a.down_since) + '.' : '.') : a.state === 'answering' ? a.name + ' is answering.' : a.name + ' has not been checked yet.';
+  h += '<p class="note" style="margin-bottom:-14px">' + esc(s ? 'On ' + s.name : 'Elsewhere') + '</p>';
+  h += '<section class="verdict ' + (a.state === 'down' ? 'bad' : a.state === 'answering' ? 'good' : 'dim') + '">' + ico(a.state === 'down' ? 'bad' : a.state === 'answering' ? 'good' : 'dim', 'big') +
+    '<div><h2>' + esc(line) + '</h2><p><span>' + esc(a.check_said || '') + ' Checked ' + ago(a.checked_at) + '.</span><button class="btn small" type="button" data-do="checkone" data-app="' + a.slug + '">Check now</button></p></div></section>';
+  if (busy) { h += '<div class="live" role="status"><span class="spin" aria-hidden="true"></span><span><b>' + esc(busy.said) + '</b>: ' + (busy.state === 'running' ? 'running on ' + esc(s.name) + ' now.' : 'sent, ' + esc(s.name) + ' takes it within a minute.') + ' The other commands wait until it finishes.</span></div>'; }
+  var openRow = '<div class="acts"><a class="btn ' + (a.state === 'down' ? '' : 'primary') + '" href="' + esc(a.url) + '" target="_blank" rel="noopener">' + ico('ext') + 'Open ' + esc(bare(a.url)) + '</a>' +
+    '<button class="btn" type="button" data-do="' + (a.state === 'down' ? 'fix' : 'change') + '" data-app="' + a.slug + '">' + (a.state === 'down' ? 'Ask Rouh to fix it' : 'Ask Rouh to change it') + '</button></div>';
+  if (!(m && a.state === 'down')) { h += openRow; }
+  if (m) {
+    var dis = busy ? ' disabled' : '';
+    h += '<section aria-labelledby="cmdH"><h3 id="cmdH">Run it</h3><div class="acts">' +
+      (a.state === 'down' && !busy ? '<button class="btn primary" type="button" data-do="verb" data-app="' + a.slug + '" data-verb="restart">Restart</button>' : '<button class="btn" type="button" data-do="verb" data-app="' + a.slug + '" data-verb="restart"' + dis + '>Restart</button>') +
+      '<button class="btn" type="button" data-do="verb" data-app="' + a.slug + '" data-verb="update"' + dis + ' title="The newest code to a test copy first, then live if it answers">Update</button>' +
+      '<button class="btn" type="button" data-do="verb" data-app="' + a.slug + '" data-verb="rollback"' + (busy || !a.previous_release ? ' disabled' : '') + '>' + (a.previous_release ? 'Roll back to ' + esc(a.previous_release) : 'Roll back') + '</button>' +
+      '<button class="btn" type="button" data-do="verb" data-app="' + a.slug + '" data-verb="logs">Logs</button>' +
+      '<button class="btn" type="button" data-do="verb" data-app="' + a.slug + '" data-verb="backup"' + dis + '>Back up now</button></div>' +
+      '<p class="note" style="margin-top:8px">Update puts the newest code on a test copy first, and live only if the test copy answers.</p></section>';
+    if (a.state === 'down') { h += openRow; }
+  } else {
+    h += '<div class="notice">' + ico('dim') + '<div>On ' + esc(s ? s.name : 'a server Rouh does not know') + ' Rouh can only check its address: it cannot update, restart, roll back or back it up. ' +
+      (ready() ? 'Your apps server is ready, so Rouh can move it there.' : 'Once your apps server is set up, Rouh can move it there.') + '</div>' +
+      (ready() ? '<button class="btn" type="button" data-do="move" data-name="' + esc(a.name) + '">Ask Rouh to move it</button>' : '<button class="btn" type="button" data-do="go" data-view="setup">Set up an apps server</button>') + '</div>';
+  }
+  h += '<section aria-labelledby="factH"><h3 id="factH">About it</h3><dl class="facts">';
+  function f(k, v) { if (v) { h += '<dt>' + esc(k) + '</dt><dd>' + v + '</dd>'; } }
+  f('What it is', esc(a.what));
+  f('Address', '<a href="' + esc(a.url) + '" target="_blank" rel="noopener">' + esc(a.url) + '</a>');
+  f('Runs on', esc(s ? s.name + ' (' + s.host_name + ')' : a.elsewhere));
+  f('Its data', esc(a.data_at || 'Not said yet'));
+  if (m) {
+    f('Release', esc(a.release ? a.release + ', ' + ago(a.released_at) : 'Not deployed yet'));
+    f('Last backup', a.backup_ok === false ? '<span class="st bad">' + ico('bad') + 'Failed ' + ago(a.backup_at) + '</span>' : esc('Worked ' + ago(a.backup_at)));
+    f('Test restore', a.restore_test_ok === false ? '<span class="st bad">' + ico('bad') + 'Failed ' + ago(a.restore_test_at) + '</span>' : esc('Worked ' + ago(a.restore_test_at)));
+    f('Memory', esc(a.memory_mb ? a.memory_mb + ' MB of ' + a.memory_limit : ''));
+    f('Code', esc(a.repo));
+    f('Deploy key', a.deploy_key ? '<code style="font:12px var(--mono);overflow-wrap:anywhere">' + esc(a.deploy_key) + '</code>' : '');
+    f('Last deploy failed', esc(a.last_error));
+  }
+  h += '</dl></section>';
+  if (a.commands.length) {
+    h += '<section aria-labelledby="didH"><h3 id="didH">What Rouh did</h3><ul class="cmds">' + a.commands.map(function (c) {
+      var w = { done: ['good', 'good', 'Done'], failed: ['bad', 'bad', 'Failed'], running: ['wait', 'wait', 'Running'], sent: ['wait', 'wait', 'Sent'], waiting: ['wait', 'wait', 'Waiting'] }[c.state];
+      return '<li><div class="top"><b>' + esc(c.said) + '</b><span class="st ' + w[0] + '">' + ico(w[1]) + w[2] + '</span><span class="note">' + ago(c.asked_at) + ', by ' + esc(c.asked_by === 'page' ? 'you, here' : c.asked_by) + '</span></div>' +
+        (c.output ? '<details' + (c.verb === 'logs' ? ' open' : '') + '><summary>Show what the server said</summary><pre>' + esc(c.output) + '</pre></details>' : '') + '</li>';
+    }).join('') + '</ul></section>';
+  }
+  h += V.confirm === a.id ? '<div class="confirm"><span>Take ' + esc(a.name) + ' off the list? Nothing on its server is stopped.</span><button class="btn danger" type="button" data-do="remove" data-app="' + a.slug + '">Take it off</button><button class="btn" type="button" data-do="unconfirm">Keep it</button></div>'
+    : '<div><button class="btn quiet edge" type="button" data-do="confirm" data-id="' + a.id + '">Take it off the list</button></div>';
+  return h + '</div>';
+}
+
+function viewSetup() {
+  var hst = D.hosts.filter(function (x) { return x.id === V.host; })[0];
+  var waiting = D.servers.filter(function (s) { return s.state === 'waiting'; })[0];
+  var h = head('Apps', '', false) + '<div class="body">' + back();
+  if (ready() && !V.line) {
+    var main = D.servers.filter(function (x) { return x.standard && x.state !== 'waiting'; })[0];
+    h += '<section class="verdict ' + (main.state === 'silent' ? 'bad' : 'good') + '">' + ico(main.state === 'silent' ? 'bad' : 'good', 'big') + '<div><h2>' + esc(main.state === 'silent' ? main.name + ' has not called in for ' + ago(main.seen_at).replace(' ago', '') + '.' : 'Your apps server ' + main.name + ' is calling in.') + '</h2><p><span>It calls Rouh every 30 seconds and takes the commands waiting for it.</span></p></div></section>';
+    h += serversBox('Your servers') + '<details class="fold"><summary>Set up another apps server</summary><div style="display:grid;gap:18px">' + setupGuide(hst, waiting) + '</div></details>'; return h + '</div>'; }
+  h += setupGuide(hst, waiting);
+  if (D.servers.length) { h += serversBox('Your servers'); }
+  return h + '</div>';
+}
+
+function setupGuide(hst, waiting) {
+  var h = '<section class="verdict dim" style="display:block"><h2>Buy a small server, paste one line on it, and it turns Ready by itself.</h2><p>Rouh installs everything: each app its own user, database and login, backups every night with a test restore, and HTTPS. Rouh never buys a server for you.</p></section>';
+  h += '<fieldset class="hosts"><legend>Where will you rent it?</legend>' + D.hosts.map(function (x) {
+    return '<div class="host"><input type="radio" name="host" id="h-' + x.id + '" value="' + x.id + '"' + (x.id === V.host ? ' checked' : '') + ' data-do="host"><label for="h-' + x.id + '"><b>' + esc(x.name) + (x.recommended ? ' <span class="pill">Recommended</span>' : '') + '</b><span>' + esc(x.why) + '</span></label></div>';
+  }).join('') + '</fieldset>';
+  h += '<section aria-labelledby="stepsH"><h3 id="stepsH">At ' + esc(hst.name) + '</h3><p class="note" style="margin-bottom:8px">' + esc(hst.plan) + (hst.buy ? ' <a href="' + esc(hst.buy) + '" target="_blank" rel="noopener">Open ' + esc(hst.name) + '</a>' : '') + '</p><ol class="steps">' + hst.steps.map(function (s) { return '<li>' + esc(s) + '</li>'; }).join('') + '</ol></section>';
+  if (!D.reachable) {
+    h += '<div class="notice">' + ico('bad') + '<div>This Rouh has no address on the internet yet, so a server cannot reach it. Connect Rouh to rouh.land or give it a domain first.</div></div>';
+  } else if (!V.line) {
+    h += '<div class="acts"><button class="btn primary" type="button" data-do="makeline">Make my setup line</button></div><p class="note">The line works once, for one server, for seven days.</p>';
+  } else {
+    h += '<section aria-labelledby="lineH"><h3 id="lineH">The line to paste on the server</h3><div class="line"><code id="theLine">' + esc(D.line) + '</code><button class="btn primary" type="button" data-do="copy">Copy</button></div>' +
+      '<details class="fold" style="margin-top:10px"><summary>The same as a first-boot script</summary><div><p>' + esc(hst.boot) + '</p><div class="line"><code>' + esc(D.boot) + '</code><button class="btn" type="button" data-do="copy">Copy</button></div></div></details>' +
+      '<p class="note" style="margin-top:8px">It works once, for one server, for seven days.</p></section>';
+    h += '<div class="live" role="status"><span class="spin" aria-hidden="true"></span><span><b>' + esc(waiting ? waiting.name : 'apps-1') + '</b> is waiting for the server to call in. This page turns to Ready by itself; the setup takes about five minutes.</span></div>';
+  }
+  if (V.host === 'hostinger') { h += hostinger(); }
+  return h;
+}
+
+function serversBox(title) {
+  var h = '';
+  {
+    h += '<section aria-labelledby="srvH"><h3 id="srvH">' + title + ' <span class="count">' + D.servers.length + '</span></h3><div class="servers">' + D.servers.map(function (s) {
+      var on = D.apps.filter(function (a) { return a.server_id === s.id; }).length;
+      return '<div class="server"><div class="server-top"><b>' + esc(s.name) + '</b>' + st(SRV_ST, s.state) + '</div><p>' + esc(s.host_name + (s.address ? ', ' + s.address : '')) + '</p>' +
+        '<p>' + (s.state === 'waiting' ? 'Setup line made ' + ago(s.made_at) + ', good until ' + new Date(s.join_until * 1000).toUTCString().slice(5, 16) : plural(on, 'app', 'apps') + (s.os ? ', ' + esc(s.os) + ', ' + s.cpus + ' CPUs, ' + Math.round(s.memory_mb / 1024) + ' GB memory, ' + s.disk_free_gb + ' of ' + s.disk_gb + ' GB disk free' : '') + (s.seen_at ? ', last called in ' + ago(s.seen_at) : '')) + '</p>' +
+        '<div class="acts">' + (s.standard && s.state !== 'waiting' ? '<button class="btn small" type="button" data-do="report" data-server="' + s.id + '">Ask for a report</button>' : '') + (V.confirm === -s.id ? '<button class="btn small danger" type="button" data-do="srvoffyes" data-server="' + s.id + '">Take it off</button><button class="btn small" type="button" data-do="unconfirm">Keep it</button>' : '<button class="btn small quiet" type="button" data-do="srvoff" data-server="' + s.id + '">' + (s.state === 'waiting' ? 'Cancel the setup line' : 'Take it off the list') + '</button>') + '</div></div>';
+    }).join('') + '</div></section>';
+  }
+  return h;
+}
+
+function hostinger() {
+  var h = '<details class="fold"' + (V.token ? ' open' : '') + '><summary>Or let Rouh do it with a Hostinger API token</summary><div>';
+  if (!V.token) {
+    h += '<p>Make a token in hPanel, Profile, API, and paste it here. Rouh keeps it sealed and never shows it again. <a href="#hpanel">Open hPanel API</a></p>' +
+      '<form class="line" data-do="token"><div class="field" style="flex:1"><label for="tok">Hostinger API token</label><input id="tok" type="password" autocomplete="off"></div><button class="btn" type="submit" style="align-self:end">Save</button></form>';
+  } else {
+    h += '<p>Token ending 4f2a, saved just now.</p><div class="acts" style="margin-bottom:10px"><button class="btn" type="button" data-do="vps">' + 'Show my VPSs' + '</button><button class="btn small quiet" type="button" data-do="forget">Forget the token</button></div>';
+    if (!V.vps) { return h + '</div></details>'; }
+    h += '<ul class="cmds">' + D.vps.map(function (v) {
+      var r = '<li><div class="top"><b>' + esc(v.hostname) + '</b><span class="note">' + esc(v.plan + ', ' + v.state) + '</span></div>';
+      if (V.wipe === v.id) {
+        r += '<form class="confirm" data-do="wipe" data-id="' + v.id + '"><span>Everything on ' + esc(v.hostname) + ' will be erased. Type its name to go on.</span><div class="field" style="flex:1 1 200px"><label for="wipe">Its name</label><input id="wipe" autocomplete="off"></div><button class="btn danger" type="submit" disabled data-name="' + esc(v.hostname) + '">Erase and set up</button><button class="btn" type="button" data-do="unwipe">Cancel</button></form>';
+      } else {
+        r += '<div class="acts">' + (v.fresh ? '<button class="btn" type="button" data-do="hsset">Set it up</button>' : '<button class="btn" type="button" data-do="wipeask" data-id="' + v.id + '">Erase and set up…</button>') + '</div>';
+      }
+      return r + '</li>';
+    }).join('') + '</ul>';
+  }
+  return h + '</div></details>';
+}
+
+function viewPlan() {
+  var r = ready(), target = (D.servers.filter(function (s) { return s.standard && s.state !== 'waiting'; })[0] || {}).name;
+  var items = [];
+  D.apps.forEach(function (a) { if (!managed(a)) { var s = server(a.server_id); items.push({ name: a.name, from: s ? s.name : a.elsewhere, kind: 'App', data: a.data_at }); } });
+  D.pages.forEach(function (p) { items.push({ name: p.name, from: 'Rouh’s own server', kind: 'Page', data: p.keeps }); });
+  var h = head('Apps', '', false) + '<div class="body">' + back();
+  h += '<section class="verdict dim"><div><h2>' + items.length + ' to move onto your apps server. None moved yet.</h2><p><span>Nothing moves until you say. Rouh moves them one at a time' + (target ? ' onto ' + esc(target) : '') + ', each tested before the old one stops.</span></p></div></section>';
+  if (!r) { h += '<div class="notice">' + ico('dim') + '<div>Your apps server is not set up yet, so nothing can move.</div><button class="btn primary" type="button" data-do="go" data-view="setup">Set up an apps server</button></div>'; }
+  h += '<dl class="facts"><dt>How an app moves</dt><dd>Rouh backs up its database and files, sets it up on the apps server, restores and tests them there, points its address at the new server, then stops the old one.</dd><dt>How a page with data moves</dt><dd>It becomes a small app with a database of its own on the apps server, its data copied over. The page in the workspace stays and links to it.</dd></dl>';
+  h += '<ol class="plan">' + items.map(function (it) {
+    return '<li><div><b>' + esc(it.name) + '</b><span>' + it.kind + ' on ' + esc(it.from) + '. Data: ' + esc(it.data || 'where it is kept is not said yet') + '</span></div>' + (r ? '<button class="btn small" type="button" data-do="move" data-name="' + esc(it.name) + '">Ask Rouh to move it</button>' : '') + '</li>';
+  }).join('') + '</ol>';
+  return h + '</div>';
+}
+
+function viewAdd() {
+  var h = head('Apps', '', false) + '<div class="body">' + back() + '<h2 style="margin:0;font-size:22px">Add an app you already have</h2>';
+  h += '<p class="note">For an app that already runs somewhere. Rouh checks its address every five minutes and lists it here.</p>';
+  h += '<form class="foot" data-do="add" style="max-width:520px"><div class="field"><label for="an">Name</label><input id="an" required autocomplete="off"></div>' +
+    '<div class="field"><label for="au">Address</label><input id="au" type="url" required placeholder="https://notes.example.com"><small>Rouh checks it every five minutes.</small></div>' +
+    '<div class="field"><label for="as">Where it runs</label><select id="as">' + D.servers.map(function (s) { return '<option value="' + s.id + '">' + esc(s.name) + '</option>'; }).join('') + '<option value="">Somewhere else</option></select></div>' +
+    '<div class="field" id="aw" hidden><label for="ae">Where, in your words</label><input id="ae" autocomplete="off"></div>' +
+    '<div class="acts"><button class="btn primary" type="submit">Add it</button><button class="btn" type="button" data-do="go" data-view="home">Cancel</button></div></form>';
+  return h + '</div>';
+}
+
+/* ---------- presses ---------- */
+
+var undoFn = null, toastTimer = 0;
+function toast(text, undo) {
+  var t = document.getElementById('toast'); document.getElementById('toastT').textContent = text;
+  var pr = document.getElementById('panel').getBoundingClientRect(); t.style.left = (pr.left + pr.width / 2) + 'px';
+  var u = document.getElementById('toastU'); u.hidden = !undo; undoFn = undo || null; t.hidden = false;
+  clearTimeout(toastTimer); toastTimer = setTimeout(function () { t.hidden = true; }, 5000);
+}
+document.getElementById('toastU').addEventListener('click', function () { if (undoFn) { undoFn(); undoFn = null; } document.getElementById('toast').hidden = true; });
+function say(text) { var m = document.getElementById('msg'); m.value = text; if (getComputedStyle(m.closest('.chat')).display !== 'none') { m.focus(); } toast('In the message box: “' + text.slice(0, 48) + (text.length > 48 ? '…' : '') + '”'); }
+function go(view, appSlug) { V.view = view; V.app = appSlug || ''; V.confirm = 0; draw(); window.scrollTo(0, 0); var f = document.querySelector('#panel .back, #panel h2'); if (f && f.focus) { f.setAttribute('tabindex', '-1'); f.focus({ preventScroll: true }); } }
+
+var SAID = { restart: 'Restart', update: 'Update', rollback: 'Roll back', logs: 'Logs', backup: 'Back up' };
+function verb(a, v) {
+  var c = { id: Date.now(), verb: v, said: SAID[v], state: 'sent', asked_at: Date.now() / 1000, asked_by: 'page', output: '' };
+  a.commands.unshift(c); draw();
+  var sv = server(a.server_id);
+  if (sv && sv.state === 'silent') { toast(sv.name + ' has not called in. It takes the ' + SAID[v] + ' when it does.'); return; }
+  setTimeout(function () { c.state = 'running'; draw(); }, 1200);
+  setTimeout(function () {
+    c.state = 'done'; c.output = v === 'logs' ? '11:02:14 GET / 200 12ms\n11:02:31 GET /api/list 200 40ms' : 'ok';
+    if (v === 'restart' || v === 'rollback') { a.state = 'answering'; a.checked_at = Date.now() / 1000; a.check_said = 'Answered 200 in 180 ms.'; }
+    if (v === 'backup') { a.backup_ok = true; a.backup_at = Date.now() / 1000; }
+    draw(); toast(SAID[v] + ' of ' + a.name + ': done.');
+  }, 3200);
+}
+
+function wire(root) {
+  root.querySelectorAll('[data-do]').forEach(function (n) {
+    var d = n.getAttribute('data-do');
+    var evt = n.tagName === 'FORM' ? 'submit' : n.tagName === 'INPUT' ? 'change' : 'click';
+    n.addEventListener(evt, function (e) {
+      if (evt === 'submit') { e.preventDefault(); }
+      if (n.tagName === 'A' && d !== 'page') { return; }
+      if (e.target.closest('a') && d === 'open') { return; }
+      e.stopPropagation();
+      var a = n.dataset.app ? app(n.dataset.app) : null;
+      switch (d) {
+        case 'build': say('Build me an app that '); break;
+        case 'idea': say(D.ideas[+n.dataset.i].say); break;
+        case 'go': go(n.dataset.view); break;
+        case 'open': go('app', n.dataset.app); break;
+        case 'page': e.preventDefault(); toast('Opens the page in the workspace.'); break;
+        case 'check': V.checking = true; draw(); setTimeout(function () { V.checking = false; D.apps.forEach(function (x) { x.checked_at = Date.now() / 1000; }); NOW = Date.now() / 1000; draw(); toast('Checked every app just now.'); }, 1400); break;
+        case 'checkone': a.checked_at = Date.now() / 1000; NOW = a.checked_at; draw(); toast(a.name + ': ' + (a.state === 'down' ? 'still not answering.' : 'answering.')); break;
+        case 'verb': verb(a, n.dataset.verb); break;
+        case 'logs': go('app', a.slug); verb(a, 'logs'); break;
+        case 'fix': say('My app ' + a.name + ' (' + a.url + ') is not answering. Find out why and fix it.'); break;
+        case 'change': say('In my app ' + a.name + ' (' + a.url + '), '); break;
+        case 'move': say('Move ' + n.dataset.name + ' onto my apps server.'); break;
+        case 'report': toast('Asked for a report. It comes in within a minute.'); break;
+        case 'confirm': V.confirm = +n.dataset.id; draw(); break;
+        case 'unconfirm': V.confirm = 0; draw(); break;
+        case 'remove': var i = D.apps.indexOf(a); D.apps.splice(i, 1); go('home'); toast(a.name + ' is off the list.', function () { D.apps.splice(i, 0, a); draw(); }); break;
+        case 'host': V.host = n.value; draw(); break;
+        case 'makeline': V.line = true; if (!D.servers.some(function (x) { return x.state === 'waiting'; })) { D.servers.unshift({ id: 99, name: 'apps-1', host_name: D.hosts.filter(function (x) { return x.id === V.host; })[0].name, address: '', state: 'waiting', standard: true, seen_at: 0, made_at: NOW, join_until: NOW + 7 * 86400 }); } draw(); break;
+        case 'copy': n.textContent = 'Copied'; setTimeout(function () { n.textContent = 'Copy'; }, 1800); break;
+        case 'token': if (document.getElementById('tok').value.trim()) { V.token = true; draw(); toast('Token saved and sealed.'); } break;
+        case 'vps': V.vps = true; draw(); break;
+        case 'forget': V.vps = false; V.token = false; draw(); toast('The token is forgotten.'); break;
+        case 'hsset': toast('Rouh is setting it up. It turns Ready by itself.'); break;
+        case 'wipeask': V.wipe = +n.dataset.id; draw(); var w = document.getElementById('wipe'); if (w) { w.focus(); } break;
+        case 'unwipe': V.wipe = 0; draw(); break;
+        case 'wipe': { var v = D.vps.filter(function (x) { return x.id === +n.dataset.id; })[0]; if (document.getElementById('wipe').value.trim() === v.hostname) { V.wipe = 0; draw(); toast('Erasing ' + v.hostname + ' and setting it up.'); } else { toast('Type ' + v.hostname + ' exactly to go on.'); } break; }
+        case 'srvoff': { var sv = D.servers.filter(function (x) { return x.id === +n.dataset.server; })[0];
+          if (sv.state === 'waiting') { D.servers.splice(D.servers.indexOf(sv), 1); V.line = false; draw(); toast('The setup line for ' + sv.name + ' is cancelled.'); }
+          else { V.confirm = -sv.id; draw(); } break; }
+        case 'srvoffyes': { var sv2 = D.servers.filter(function (x) { return x.id === +n.dataset.server; })[0]; D.servers.splice(D.servers.indexOf(sv2), 1); V.confirm = 0; draw(); toast(sv2.name + ' is off the list. Nothing on it is stopped.'); break; }
+        case 'add':
+          var sid = document.getElementById('as').value;
+          D.apps.push({ id: Date.now(), slug: 'new' + Date.now(), name: document.getElementById('an').value, url: document.getElementById('au').value, server_id: sid ? +sid : null, elsewhere: document.getElementById('ae').value, state: 'unknown', checked_at: 0, what: '', data_at: '', commands: [] });
+          go('home'); toast('Added. Rouh checks it within five minutes.'); break;
+        case 'noop': toast('Closes the Apps panel.'); break;
+      }
+    });
+  });
+  var wp = root.querySelector('#wipe'); if (wp) { wp.addEventListener('input', function () { var b = wp.form.querySelector('button[type=submit]'); b.disabled = wp.value.trim() !== b.dataset.name; }); }
+  var sel = root.querySelector('#as'); if (sel) { sel.addEventListener('change', function () { document.getElementById('aw').hidden = !!sel.value; }); }
+}
+document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && V.view !== 'home') { go('home'); } });
+draw();
+</script>
+</body>
+</html>

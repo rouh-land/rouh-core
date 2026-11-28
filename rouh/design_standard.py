@@ -63,6 +63,14 @@ NOT_SCREEN = (".d.ts", ".md", ".map")
 #: The record of a design, in a checkout (`tools/design/record.py`).
 RECORD = ".design/record.json"
 
+#: Where a full-tier design is kept with the code it is for, committed: `designs/<screen>/`. Petar,
+#: 28 November 2026: the Apps screens landed with their brief, journeys and critic rounds only in the
+#: run's own `.design/`, which went with its checkout, so nobody could see them and the code had been
+#: written before them. A full-tier change lands only with this folder at the commit it pushes.
+DESIGNS = "designs"
+#: What that folder holds, every one of them, plus at least one direction `a-<name>/index.html`.
+DESIGN_FILES = ("brief.md", "journeys.md", "ia.md", "states.md", "loop-log.md", "HANDOFF.md")
+
 #: A commit line that says a change to the screen's files changes nothing a person sees.
 NONE_LINE = "Design: none"
 
@@ -98,7 +106,7 @@ Everything that you build or change that a person sees follows one design proces
 
 **Rules for every build.** One self-contained page that makes no network requests (no CDN, no Google Fonts). All data in one object, so every count agrees on every view. Tokens as CSS custom properties, for both themes. One accent colour. Semantic colours differ in lightness and come with a shape or a label, and are never the colour of a button or the brand. One primary button for each view. Each view starts with a headline sentence, then summary visuals, then detail. Real buttons, links and labelled inputs, touch targets of at least 44 px, and a visible focus. A designed empty state, never a blank box. It works at 390 px with no sideways scroll. No left-border cards, gradient washes or emoji.
 
-**The record, which landing checks (Rouh's code).** In a checkout of Rouh's code, keep the record of the design with `tools/design/record.py`, in `.design/` (never committed; the design files of the full tier go there too, and in the task's step folder when the run has a task): `start --tier full|small --what "..."`, then `journey "<name>" --target "..." --met` (or `--missed`) for each journey, `designs <folder>` for the prototype of the full tier, `critic --round N --blockers K` after each critic round, `screens --url <test world> --user <login> --password <password> <each changed address>` after the real code is built (it checks the real screens at 1440 and 390 px, dark and light), and `cost --usd <amount>`. Landing (`./land.sh`, or `rouh-land` in the containers) does not push a change to the screen (`rouh/static/`, `rouh/templates/`, `one/static/`) when the record is missing, when a journey is missed, when the screen check found a fault (sideways scroll, cut text, a panel that covers the page, a page that draws almost nothing, a script error, a broken image, a request to another site), when a full-tier design has no critic round or still has blockers, or when the screen files changed after the check. A commit that changes those files but truly changes nothing that a person sees (types, comments, a refactor that the screenshot comparisons prove) says so with a line `{NONE_LINE} - <why>` in its own commit message; the line covers only that commit's files.
+**The record, which landing checks (Rouh's code).** In a checkout of Rouh's code, keep the record of the design with `tools/design/record.py`, in `.design/` (never committed). The design files of the full tier are committed with the code, in `{DESIGNS}/<screen>/` (`brief.md`, `journeys.md`, `ia.md`, `states.md`, `loop-log.md`, `HANDOFF.md` and the direction `a-<name>/index.html`, with made-up names and data only, no screenshots), and copied to the task's step folder when the run has a task. The prototype comes before the code: run `designs {DESIGNS}/<screen>` before you change the screen's files, because landing refuses a full-tier change whose screen files were already changed when its prototype was first checked. A new screen file (a new script, style sheet or template) is always the full tier. `start --tier full|small --what "..."`, then `journey "<name>" --target "..." --met` (or `--missed`) for each journey, `designs <folder>` for the prototype of the full tier, `critic --round N --blockers K` after each critic round, `screens --url <test world> --user <login> --password <password> <each changed address>` after the real code is built (it checks the real screens at 1440 and 390 px, dark and light), and `cost --usd <amount>`. Landing (`./land.sh`, or `rouh-land` in the containers) does not push a change to the screen (`rouh/static/`, `rouh/templates/`, `one/static/`) when the record is missing, when a journey is missed, when the screen check found a fault (sideways scroll, cut text, a panel that covers the page, a page that draws almost nothing, a script error, a broken image, a request to another site), when a full-tier design has no critic round or still has blockers, when a full-tier change has no committed `{DESIGNS}/<screen>/` folder or was built before its prototype, when a new screen file comes with only the small tier, or when the screen files changed after the check. A commit that changes those files but truly changes nothing that a person sees (types, comments, a refactor that the screenshot comparisons prove) says so with a line `{NONE_LINE} - <why>` in its own commit message; the line covers only that commit's files.
 
 In your last message, say the tier, the journeys and whether each was met, the result of the check at both widths, the critic rounds (full tier), and the time and the cost."""
 
@@ -310,6 +318,8 @@ def check(repo: Path | str, before: str, after: str, record: Path | str | None =
     if not needs:
         return True, f"the design check: {len(changed)} screen file(s) changed, each in a commit that says \"{said[:160]}\""
     changed = sorted(needs)
+    _, added = _git(["diff", "--name-only", "--diff-filter=A", before, after, "--", *SCREEN_PATHS], repo)
+    new_files = sorted(p for p in added.split() if p in needs)
     path = Path(record) if record else repo / RECORD
     try:
         rec = json.loads(path.read_text(encoding="utf-8"))
@@ -338,7 +348,10 @@ def check(repo: Path | str, before: str, after: str, record: Path | str | None =
                 for f in got.get("faults") or []:
                     bad.append(f"{page} {view}: {f}")
         wrong.append(f"the screen check found {screens['faults']} fault(s), the first: " + (bad[0][:240] if bad else "?"))
+    if new_files and rec.get("tier") != "full":
+        wrong.append(f"{new_files[0]} is a new screen file, so this is the full tier, not the {rec.get('tier')} tier")
     if rec.get("tier") == "full":
+        wrong += designs_wrong(repo, after, rec)
         rounds = rec.get("critic") or []
         if not rounds:
             wrong.append("the full tier has no critic round")
@@ -366,6 +379,38 @@ def check(repo: Path | str, before: str, after: str, record: Path | str | None =
     return True, (f"the design check ({rec['tier']} tier): {j} journey(s) met, no fault at 1440 or 390 px{tail}")
 
 
+def designs_wrong(repo: Path | str, after: str, rec: dict) -> list[str]:
+    """What is wrong with a full-tier design's committed folder, and its order, for the check."""
+    repo = Path(repo)
+    designs = rec.get("designs") or []
+    if not designs:
+        return []  # said by the check itself: the prototype was never checked
+    folder = Path(designs[-1].get("folder", ""))
+    try:
+        rel = (folder if folder.is_absolute() else (repo / folder)).resolve().relative_to(repo.resolve()).as_posix()
+    except ValueError:
+        rel = ""
+    wrong = []
+    if not rel.startswith(DESIGNS + "/") or rel.count("/") != 1:
+        wrong.append(f"the prototype was checked in {folder}, not in a {DESIGNS}/<screen>/ folder of this repository "
+                     f"(run record.py designs {DESIGNS}/<screen>)")
+    else:
+        _, listed = _git(["ls-tree", "-r", "--name-only", after, "--", rel + "/"], repo)
+        have = {p[len(rel) + 1:] for p in listed.split()}
+        missing = [f for f in DESIGN_FILES if f not in have]
+        if not any(p.startswith("a-") and p.endswith("/index.html") and p.count("/") == 1 for p in have):
+            missing.append("a-<name>/index.html")
+        if missing:
+            wrong.append(f"{rel}/ is not committed whole: it has no " + ", ".join(missing))
+    first = rec.get("built_before_design")
+    if first is None:
+        wrong.append("the record does not say whether the screen was changed before its prototype (its prototype was checked by an older record.py: run record.py designs again)")
+    elif first:
+        wrong.append(f"the screen was built before its design: {first[0]} was already changed when the prototype "
+                     "was first checked. Design first, then build")
+    return wrong
+
+
 def main(argv=None) -> int:
     import argparse
 
@@ -390,5 +435,5 @@ if __name__ == "__main__":
     raise SystemExit(main())
 
 
-__all__ = ["BUILD_STAGE", "FOR_AGENTS", "FOR_PAGE_EDITS", "SCREEN_PATHS", "TIERS", "blobs_now", "check",
+__all__ = ["BUILD_STAGE", "DESIGNS", "DESIGN_FILES", "FOR_AGENTS", "designs_wrong", "FOR_PAGE_EDITS", "SCREEN_PATHS", "TIERS", "blobs_now", "check",
            "find_skill", "for_runs", "is_screen", "screen_files", "skill_report", "stage_section", "summary"]

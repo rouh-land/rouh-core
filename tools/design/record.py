@@ -10,7 +10,9 @@ the full tier critic rounds until no blocker is left. This tool writes what was 
     python3 tools/design/record.py skill                        where the design skill is, and the guide
     python3 tools/design/record.py start --tier full|small --what "what is built"
     python3 tools/design/record.py journey "Decide a problem" --target "1 click, 5 s" --met --how "..."
-    python3 tools/design/record.py designs <step>/designs       shoot.mjs on the prototype (full tier)
+    python3 tools/design/record.py designs designs/<screen>     shoot.mjs on the prototype (full tier), before
+                                                                the screen's code changes; designs/<screen>/ is
+                                                                committed with the change
     python3 tools/design/record.py critic --round 1 --blockers 3 [--report path]
     python3 tools/design/record.py screens --url http://127.0.0.1:PORT --user U --password P / /evolution/trials
     python3 tools/design/record.py cost --usd 12.40              what the run cost, when it is known
@@ -168,6 +170,10 @@ def cmd_designs(a) -> int:
     said = (got.stdout + got.stderr).strip()
     print(said)
     fails = [ln.strip() for ln in said.splitlines() if ln.startswith("FAIL") or ln.startswith("     ")]
+    if "built_before_design" not in rec:
+        # The first look at the prototype says whether the screen's code was already written: a full-tier
+        # design comes before the code it is for (rouh/design_standard.py, designs_wrong).
+        rec["built_before_design"] = ds.screen_files(ROOT)
     rec["designs"].append({"folder": str(a.folder), "at": time.time(), "ok": got.returncode == 0,
                            "faults": fails[:40], "widths": [1440, 390]})
     save(rec)
