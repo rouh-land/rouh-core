@@ -888,7 +888,10 @@ def _inside_line(store: objects.ObjectStore, kind: str, row, rest: str) -> dict:
                   else objectindex.subtask_within(config.assistant_repo, folder, rest))
     if not inside:
         page = pages.url_for(objectindex.TASK_PREFIX + at) + "/"
-    elif inside.lower().endswith((".html", ".htm")):
+    elif inside.lower().endswith((".html", ".htm")) or \
+            pages.clean_file(config.assistant_repo, f"{at}/{inside}") != f"{at}/{inside}":
+        # A page, by its file's name or by its clean one (`.../how-it-is-made`, `pages.clean_file`),
+        # which the frame is given as it is, so the bar keeps saying it.
         page = pages.url_for(f"{at}/{inside}")
     else:
         page = objectindex.doc_url(at, inside)

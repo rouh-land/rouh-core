@@ -3593,14 +3593,17 @@ function frameLoad(frame, href) {
           landed = end.pathname + (end.search || '');
         }
       } catch (err) {}
+      // A page asked for by its clean address (`.../how-it-is-made`) is the file the server
+      // says it is (`pages.clean_file`): its comments, Ask AI and settings are that file's.
+      var page = r.headers.get('X-Rouh-Page') || '';
       return r.text().then(function (text) {
-        return { ok: r.ok, status: r.status, text: text, landed: landed };
+        return { ok: r.ok, status: r.status, text: text, landed: landed, page: page };
       });
     })
     .catch(function (err) {
       return { ok: false, status: 0, text: '', why: String(err && err.message || err) };
     })
-    .then(function (/** @type {{ok: boolean, status: number, text: string, landed?: string, why?: string}} */ got) {
+    .then(function (/** @type {{ok: boolean, status: number, text: string, landed?: string, page?: string, why?: string}} */ got) {
       if (frame.rouhLoad !== mine) return { ok: got.ok, title: '' };
       if (got.ok) {
         frameWrite(frame, got.text);
@@ -3617,7 +3620,8 @@ function frameLoad(frame, href) {
         // reads it from here rather than from anything the page inside says:
         // the page runs its own scripts, and what it may ask about is the
         // page it already is.
-        frame.rouhAt = got.landed || u.pathname;
+        frame.rouhAt = (got.page && got.page.indexOf(WORKSPACE_ROUTE) === 0 && got.page)
+          || got.landed || u.pathname;
       }
       else if (got.status === 401 || got.status === 403)
         frameWrite(frame, frameSays('Your sign-in has run out. Reload Rouh to read this page.'));

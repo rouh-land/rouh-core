@@ -975,6 +975,34 @@ def _check_kind(name: str, asked: str) -> None:
         )
 
 
+def clean_file(root, rel: str) -> str:
+    """The file a page's clean address names, or ``rel`` as it is.
+
+    An explainer's pages link to each other without ``.html`` (Petar, 28 November 2026, step
+    169-18: "do we need that ... aren't we doing anything with python behind?"), so
+    ``.../169-18.x/how-it-is-made`` is ``how-it-is-made.html`` beside it, and a step's folder
+    asked for with its slash, ``.../169-18.x/``, is its ``index.html``. Only where that file is
+    there: a name that is a file of its own, or a folder with no ``index.html``, is left alone for
+    ``check`` to answer as it always has. The old ``.html`` addresses are unchanged.
+    """
+    rel = str(rel or "")
+    if not root or not rel or "\\" in rel or "\x00" in rel or "%" in rel or rel.startswith("/"):
+        return rel
+    parts = rel.rstrip("/").split("/")
+    if not parts or any(not p or p.startswith(".") for p in parts) or parts[0] not in TOPS:
+        return rel
+    if rel.endswith("/"):
+        want = rel.rstrip("/") + "/index.html"
+    elif "." not in parts[-1]:
+        want = rel + ".html"
+    else:
+        return rel
+    try:
+        return want if (Path(root) / want).is_file() else rel
+    except OSError:
+        return rel
+
+
 def check(root, asked: str, raw: str = "") -> Path:
     """The file ``asked`` names, if it may be served, or Refused saying why.
 
@@ -989,7 +1017,7 @@ def check(root, asked: str, raw: str = "") -> Path:
             "The address holds an encoded slash, backslash, percent sign, dot or NUL, "
             "which is never followed."
         )
-    rel = str(asked or "")
+    rel = clean_file(root, str(asked or ""))
     if not rel:
         raise Refused("No path was given.")
     if rel.startswith("/") or "\\" in rel or "\x00" in rel or "%" in rel:

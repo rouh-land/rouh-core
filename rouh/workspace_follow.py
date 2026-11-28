@@ -89,21 +89,63 @@ def follow_once() -> str:
     origin = _git("remote", "get-url", "origin").stdout.strip()
     if url and origin:
         did.append(_level_with_remote(origin, url))
+    head, said = move_live()
+    did.append(said)
+    state.update(at=time.time(), head=head)
+    return "; ".join(d for d in did if d) or "level"
+
+
+def move_live() -> tuple[str, str]:
+    """Rouh's live checkout moved onto the workspace's main. Returns (the commit it holds now, what
+    it did in a few words, "" when it was already there); the commit is "" when main could not be
+    read."""
     got = _git("fetch", "--quiet", "origin")
     if got.returncode:
-        return "could not fetch the workspace's main: " + (got.stderr or got.stdout).strip()[:200]
+        return "", "could not fetch the workspace's main: " + (got.stderr or got.stdout).strip()[:200]
     want = _git("rev-parse", "--verify", "-q", "origin/main").stdout.strip()
     head = _git("rev-parse", "--verify", "-q", "HEAD").stdout.strip()
-    if want and want != head:
-        moved = _git("checkout", "--quiet", "--force", "-B", "main", want)
-        if moved.returncode:
-            did.append("could not move onto main: " + (moved.stderr or moved.stdout).strip()[:200])
-        else:
-            _git("branch", "--quiet", "--set-upstream-to=origin/main", "main")
-            did.append(f"moved onto main at {want[:7]}")
-            _changed()
-    state.update(at=time.time(), head=want or head)
-    return "; ".join(d for d in did if d) or "level"
+    if not want or want == head:
+        return want or head, ""
+    moved = _git("checkout", "--quiet", "--force", "-B", "main", want)
+    if moved.returncode:
+        return head, "could not move onto main: " + (moved.stderr or moved.stdout).strip()[:200]
+    _git("branch", "--quiet", "--set-upstream-to=origin/main", "main")
+    _changed()
+    return want, f"moved onto main at {want[:7]}"
+
+
+def _made_live(land: dict, target: str = "main") -> dict:
+    """land.sh's answer for a run's workspace landing, told what became of the live checkout.
+
+    The core lands a run's work with `--no-deploy`, because land.sh's own move of the live
+    workspace is `update-all.sh` on the server, which the containers do not have; this file moves
+    it. land.sh then says "moving the live workspace was turned off for this landing ... left where
+    it is", and that sentence went back to the run as the truth, although the next lines here moved
+    the checkout seconds later (28 November 2026, job b3a76711: the run and its record said the
+    live workspace was not moved, and it was). So the checkout is moved here, before the answer is
+    written, and the answer says where it is."""
+    if not isinstance(land, dict) or not land.get("landed") or land.get("deployed"):
+        return land
+    sha = str(land.get("sha") or "")
+    if (target or "main") != "main":
+        return land
+    said = str(land.get("reason") or "")
+    old = str(land.get("deploy_reason") or "")
+    what = said
+    for tail in (f", and it is NOT live: {old}", f", and {old}"):
+        if old and said.endswith(tail):
+            what = said[: -len(tail)]
+            break
+    what = what or f"landed {sha[:7]} on main"
+    head, did = move_live()
+    short = sha[:7] or head[:7]
+    if sha and head and (head == sha or gitutil.run(config.assistant_repo, "merge-base", "--is-ancestor",
+                                                   sha, head, timeout=60).returncode == 0):
+        why = (f"the live workspace holds {short}" + (f" (at {head[:7]}, which includes it)" if head != sha else "")
+               + " and nothing was restarted, because nothing runs what is in it")
+        return dict(land, deployed=True, deploy="content", deploy_reason=why, reason=f"{what}, and {why}")
+    why = f"the live workspace could not be moved onto {short}: {did or 'it is still on ' + head[:7]}"
+    return dict(land, deployed=False, deploy="not-live", deploy_reason=why, reason=f"{what}, and it is NOT live: {why}")
 
 
 def _level_with_remote(origin: str, url: str) -> str:
@@ -212,6 +254,7 @@ def take_landings() -> list[str]:
                 _write(result, {"state": "done", "error": "land.sh said nothing readable: "
                                 + (proc.stderr or proc.stdout).strip()[-300:]})
             else:
+                land = _made_live(land, str(about.get("target") or "main"))
                 _write(result, {"state": "done", "land": land})
                 said.append(f"{os.path.basename(name)}: {land.get('state')}")
         finally:

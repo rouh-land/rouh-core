@@ -1425,16 +1425,24 @@ async def workspace_page(request: HttpRequest, path: str = ""):
     raw = (request.scope.get("raw_path") or b"").decode("latin-1") \
         if hasattr(request, "scope") else request.path
     framed = request.GET.get("framed") == "1"
+    root = config.assistant_repo
+    # A page by its clean address, `.../how-it-is-made` for `how-it-is-made.html` and a step's
+    # folder with its slash for its `index.html` (`pages.clean_file`): served as that file, with
+    # the address it was asked by kept for the frame, so its links and the bar stay clean.
+    shown = path
+    if path and not path.startswith(objectindex.TASK_PREFIX):
+        path = await asyncio.to_thread(pages.clean_file, root, path)
     # A tab of its own is Rouh with the page in it, not the bare file: a link
     # in a page on the canvas is a plain link to the file, which is what lets
     # the browser open it in a new tab itself (fr_2d5208267e36). A redirect
     # keeps the place in the page (`#part`), which the browser never sends.
     if not framed and _opened_in_a_tab(request):
         there = await asyncio.to_thread(_rouh_address, path, request.GET.get("doc", ""))
+        if there and shown != path:
+            there = "/task/" + quote(shown.strip("/"), safe="/")
         if there:
             return HttpResponseRedirect(there)
-    at = pages.ROUTE + quote(path) if framed else None
-    root = config.assistant_repo
+    at = pages.ROUTE + quote(shown) if framed else None
     # What the person is called, which is what their tasks' notes call them
     # when they say what a task is waiting on them for.
     names = waiting.names_of(getattr(request, "user", None))
@@ -1568,11 +1576,15 @@ async def workspace_page(request: HttpRequest, path: str = ""):
         body, kind = await asyncio.to_thread(pages.read, root, path, raw, at, drawer, mark,
                                              source, pictures, files)
         body = _in_demo(body, kind, lens, path)
+        response = _page_response(body, kind)
+        if shown != path:
+            # Which file the clean address was, for the frame: the page's comments, its Ask AI and
+            # its settings are the file's, whichever address opened it (`frameLoad` in cards.js).
+            response["X-Rouh-Page"] = pages.url_for(path)
         if pictures is not None:
             # The service worker never keeps this over a whole copy (`sw.js`).
-            response = _page_response(body, kind)
             response["X-Rouh-Pictures"] = "linked"
-            return response
+        return response
     except (pages.Refused, OSError):
         # A page under a task whose folder has since been renamed or moved is
         # the same page under the task's new folder, found by its number.
