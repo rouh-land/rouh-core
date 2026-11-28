@@ -31,6 +31,8 @@
   var W = {
     open: false, data: null, error: '', loading: false, seq: 0,
     view: 'next', q: '', kind: '', where: '', tag: '', sort: '',
+    // Step 202-05: Kind, Where, Tag and Sort sit behind Filter, open or shut.
+    filters: false,
     // The rating pad: the number pressed and not yet saved ({n: title, v: 1..10 or 0 to clear}), and the one hovered.
     rateDraft: null, rateHover: 0, tagDraft: '',
     detail: 0, editing: false,
@@ -108,6 +110,7 @@
     again: '<path d="M4.5 12a7.5 7.5 0 0 1 12.8-5.3L19.5 9M19.5 4.5V9H15M19.5 12a7.5 7.5 0 0 1-12.8 5.3L4.5 15M4.5 19.5V15H9"/>',
     tag: '<path d="M3.5 12.2V4.5a1 1 0 0 1 1-1h7.7l8.3 8.3-8.7 8.7z"/><circle cx="8" cy="8" r="1.4"/>',
     search: '<circle cx="11" cy="11" r="6.5"/><path d="M16 16l4.5 4.5"/>',
+    filter: '<path d="M4 6h16M7 12h10M10 18h4"/>',
     shuffle: '<path d="M4 7h3.5c4 0 5 10 9 10H20M17 4l3 3-3 3M4 17h3.5c1.4 0 2.4-1.2 3.3-2.8M13.2 9.8C14 8.2 15 7 16.5 7H20M17 14l3 3-3 3"/>',
     up: '<path d="M12 19V5M6 11l6-6 6 6"/>',
     refresh: '<path d="M19.5 12a7.5 7.5 0 1 1-2.2-5.3M19.5 4.5v4h-4"/>',
@@ -117,6 +120,8 @@
 
   /* ---- words ---- */
 
+  // "2023-2023" is one year (step 202-05).
+  function oneYear(y) { var m = /^(\d{4})-(\d{4})$/.exec(y || ''); return m && m[1] === m[2] ? m[1] : (y || ''); }
   function counted(n, one, many) { return n === 1 ? '1 ' + one : n + ' ' + many; }
   function mins(m) {
     if (!m) { return ''; }
@@ -131,6 +136,7 @@
     return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: same ? undefined : 'numeric' });
   }
   function serial(t) { return !!SERIAL[t.kind]; }
+  function epWords(n) { return n ? 'season ' + n.season + ', episode ' + n.episode : ''; }
   function epLabel(n) { return n ? 'S' + n.season + ' E' + n.episode : ''; }
   function facts(t) {
     var bits = [];
@@ -142,7 +148,7 @@
   function norm(s) {
     return String(s || '').toLowerCase().normalize('NFKD').replace(/[̀-ͯ]/g, '');
   }
-  function times(n) { return n === 1 ? 'once' : n === 2 ? 'twice' : n + ' times'; }
+  function times(n) { return n === 1 ? 'once' : n + ' times'; }
   function rated(r) { return r ? r + '/10' : ''; }
   // Every watch, as dates: "12 Mar 2025, 28 Nov 2026".
   function watchDays(t) { return (t.watches || []).map(day).join(', '); }
@@ -266,7 +272,7 @@
   // order, within the time they have. The same rule as `watchlist.tonight`, on the same list.
   function tonight() {
     var m = W.minutes ? parseInt(W.minutes, 10) : 0;
-    var fits = function (t) { return !m || !t.runtime || t.runtime <= m; };
+    var fits = function (t) { return !m || (t.runtime && t.runtime <= m); };
     var left = inList().filter(function (t) { return t.status !== 'watched' && fits(t); });
     var watching = left.filter(function (t) { return t.status === 'watching'; })
       .sort(function (a, b) { return b.updated_at - a.updated_at; });
@@ -296,12 +302,12 @@
   function why(t, list) {
     var we = isShared(t.list) ? ' together' : '';
     if (t.status === 'watching') {
-      return (t.next ? 'You are in the middle of it' + we + '. Next is season ' + t.next.season + ', episode ' + t.next.episode + '.'
-        : 'You are in the middle of it' + we + '.') + (t.list ? ' ' + together(t) : '');
+      // Step 202-05: the next episode is on the press and under the bar, so the sentence stays short.
+      return 'You are in the middle of it' + we + '.' + (W.list === 'all' && t.list && !guest() ? ' On ' + listName(t.list) + '.' : '');
     }
     var ahead = list.filter(function (x) { return x.status === 'to_watch'; });
     var at = ahead.indexOf(t) + 1;
-    var s = at === 1 ? 'First in Up next.' : 'Number ' + at + ' in Up next.';
+    var s = at === 1 ? 'It is first in Up next, your list to watch.' : 'It is number ' + at + ' in Up next, your list to watch.';
     if (t.recommended_by) { s += ' ' + t.recommended_by + ' recommended it.'; }
     if (t.times_watched) { s += ' A rewatch: watched ' + times(t.times_watched) + ' before.'; }
     if (t.list) { var tg = together(t); if (tg) { s += ' ' + tg; } }
@@ -432,12 +438,9 @@
       return a;
     }
     if (serial(t) && t.next) {
-      var two = el('span', 'wl-quick-pair');
-      two.appendChild(button('ctl small wl-quick', 'Seen ' + epLabel(t.next), function () { stepOn(t); },
-                    'Mark season ' + t.next.season + ', episode ' + t.next.episode + ' of ' + t.title + ' seen'));
-      two.appendChild(button('ctl small wl-quick wl-quick-all', 'All watched', function () { markWatched(t); },
-                    'Mark all of ' + t.title + ' watched'));
-      return two;
+      // Step 202-05: one press on a card; all of it watched is the title page's Status.
+      return button('ctl small wl-quick', 'Seen ' + epLabel(t.next), function () { stepOn(t); },
+                    'Mark season ' + t.next.season + ', episode ' + t.next.episode + ' of ' + t.title + ' seen');
     }
     return button('ctl small wl-quick', 'Mark watched', function () { markWatched(t); }, 'Mark ' + t.title + ' watched');
   }
@@ -455,7 +458,7 @@
     open.appendChild(poster(t));
     var text = el('span', 'wl-card-text');
     text.appendChild(el('span', 'wl-card-title', t.title));
-    text.appendChild(el('span', 'wl-card-facts', facts(t)));
+    text.appendChild(el('span', 'wl-card-facts', facts(t) + (t.runtime ? ', ' + mins(t.runtime) + (serial(t) ? ' an episode' : '') : '')));
     var who = [];
     if (W.list === 'all' && !guest() && lists().length) { who.push(listName(t.list)); }
     if (isShared(t.list)) { who.push('added by ' + (t.added_by_name || 'you')); }
@@ -477,6 +480,8 @@
       });
     } else {
       row.appendChild(statusMark(t));
+      var sc = score(t.my_rating);
+      if (sc) { row.appendChild(sc); }
       if (t.times_watched) {
         var rw = el('span', 'wl-rewatch', 'Rewatch');
         rw.title = 'Watched ' + times(t.times_watched) + ': ' + watchDays(t);
@@ -528,6 +533,15 @@
     if (all.length || W.minutes) { head.appendChild(times); }
     sec.appendChild(head);
     var t = left[0];
+    var longer = W.minutes ? inList().filter(function (x) {
+      return x.status !== 'watched' && (!x.runtime || x.runtime > parseInt(W.minutes, 10));
+    }).length : 0;
+    if (longer && t) {
+      var hid = el('p', 'wl-hint wl-hidden-note', counted(longer, 'title is', 'titles are') + ' left out: longer than ' + mins(parseInt(W.minutes, 10)) + ', or of a length not known.');
+      var anyb = button('wl-inline', 'Show any length', function () { W.minutes = ''; draw(); });
+      hid.appendChild(anyb);
+      sec.appendChild(hid);
+    }
     if (!t) {
       var none = el('div', 'wl-tonight-none');
       var c = counts();
@@ -568,7 +582,7 @@
     if (serial(t) && t.next) {
       var main = button(lead, '', function () { stepOn(t); });
       main.appendChild(icon(I.check));
-      main.appendChild(document.createTextNode('Seen ' + epLabel(t.next)));
+      main.appendChild(document.createTextNode('Seen ' + epWords(t.next)));
       main.setAttribute('aria-label', 'Mark season ' + t.next.season + ', episode ' + t.next.episode + ' seen');
       acts.appendChild(main);
     } else {
@@ -639,6 +653,24 @@
     return wrap;
   }
 
+  // A row of choices, each one press (step 202-05): Kind, Where, Tag and Sort in the Filter panel.
+  function choices(label, value, options, change) {
+    var g = el('div', 'wl-choices');
+    g.setAttribute('role', 'group');
+    g.setAttribute('aria-label', label);
+    g.appendChild(el('span', 'wl-field-label', label));
+    var row = el('div', 'wl-choice-row');
+    options.forEach(function (o) {
+      var b = button('wl-opt', '', function () { change(o[0]); });
+      b.setAttribute('aria-pressed', o[0] === value ? 'true' : 'false');
+      b.appendChild(el('span', '', o[1]));
+      if (o[2]) { b.appendChild(el('span', 'wl-opt-n', o[2])); }
+      row.appendChild(b);
+    });
+    g.appendChild(row);
+    return g;
+  }
+
   function drawList(into) {
     var c = counts();
     var nav = el('div', 'wl-tabs');
@@ -653,8 +685,12 @@
         b.appendChild(el('span', 'wl-tab-n', v[2]));
         nav.appendChild(b);
       });
-    into.appendChild(nav);
+    var shelfHead = el('div', 'wl-shelf-head');
+    shelfHead.appendChild(nav);
+    into.appendChild(shelfHead);
 
+    // Step 202-05: the search is always there; Kind, Where, Tag and Sort sit behind Filter, each a row of
+    // choices that take one press, and every filter that is on shows as a chip with a cross.
     var tools = el('div', 'wl-tools');
     var sw = el('label', 'wl-field wl-search');
     sw.appendChild(el('span', 'wl-sr', 'Search the watch list'));
@@ -662,27 +698,69 @@
     var si = el('input', 'wl-in');
     si.type = 'search';
     si.id = 'wlSearch';
-    si.placeholder = 'Search titles, people, notes';
+    var bw = $('watchBody');
+    si.placeholder = bw && bw.clientWidth <= 560 ? 'Search' : 'Search titles, people, notes, tags';
     si.value = W.q;
     si.autocomplete = 'off';
     si.addEventListener('input', function () { W.q = si.value; drawGrid(); });
     sw.appendChild(si);
     tools.appendChild(sw);
-    tools.appendChild(select('Kind', W.kind, [['', 'Everything'], ['film', 'Films'], ['show', 'Shows and series']],
-      function (v) { W.kind = v; drawGrid(); }));
+    var on = (W.kind ? 1 : 0) + (W.where ? 1 : 0) + (W.tag ? 1 : 0) + (W.sort ? 1 : 0);
+    var fb = button('ctl wl-filter-b', '', function () {
+      W.filters = !W.filters; draw();
+      var fp = $('wlFilters');
+      if (fp && fp.getBoundingClientRect().bottom > window.innerHeight) { fp.scrollIntoView({ block: 'nearest' }); }
+    });
+    fb.id = 'wlFilterB';
+    fb.setAttribute('aria-expanded', W.filters ? 'true' : 'false');
+    fb.setAttribute('aria-controls', 'wlFilters');
+    fb.appendChild(icon(I.filter));
+    fb.appendChild(document.createTextNode('Filter'));
+    if (on) { fb.appendChild(el('span', 'wl-tab-n is-on', on)); }
+    fb.setAttribute('aria-label', 'Filter and sort' + (on ? ', ' + on + ' on' : ''));
+    tools.appendChild(fb);
+    shelfHead.appendChild(tools);
+
     var services = {};
     inList().forEach(function (t) { services[t.where || '-'] = 1; });
     var wh = Object.keys(services).sort().map(function (k) { return [k, k === '-' ? 'Not said' : k]; });
-    if (wh.length > 1) {
-      tools.appendChild(select('Where', W.where, [['', 'Anywhere']].concat(wh), function (v) { W.where = v; drawGrid(); }));
-    }
     var tg = tagsOf(inList());
-    if (tg.length) {
-      tools.appendChild(select('Tag', W.tag, [['', 'Any tag']].concat(tg.map(function (x) { return [x[0], x[0] + ' (' + x[1] + ')']; })),
-        function (v) { W.tag = v; drawGrid(); }));
+    if (W.filters) {
+      var panel = el('div', 'wl-filters');
+      panel.id = 'wlFilters';
+      panel.appendChild(choices('Kind', W.kind, [['', 'Everything'], ['film', 'Films'], ['show', 'Shows and series']],
+        function (v) { W.kind = v; draw(); }));
+      if (wh.length > 1) {
+        panel.appendChild(choices('Where', W.where, [['', 'Anywhere']].concat(wh), function (v) { W.where = v; draw(); }));
+      }
+      if (tg.length) {
+        panel.appendChild(choices('Tag', W.tag, [['', 'Any tag']].concat(tg.map(function (x) { return [x[0], x[0], x[1]]; })),
+          function (v) { W.tag = v; draw(); }));
+      }
+      panel.appendChild(choices('Sort', W.sort, SORTS[W.view], function (v) { W.sort = v; draw(); }));
+      into.appendChild(panel);
     }
-    tools.appendChild(select('Sort', W.sort, SORTS[W.view], function (v) { W.sort = v; drawGrid(); }));
-    into.appendChild(tools);
+    var chips = [];
+    if (W.kind) { chips.push([W.kind === 'film' ? 'Films' : 'Shows and series', function () { W.kind = ''; }]); }
+    if (W.where) { chips.push([W.where === '-' ? 'Where: not said' : W.where, function () { W.where = ''; }]); }
+    if (W.tag) { chips.push(['Tag: ' + W.tag, function () { W.tag = ''; }]); }
+    if (W.sort) {
+      var so = SORTS[W.view].filter(function (x) { return x[0] === W.sort; })[0];
+      if (so) { chips.push(['Sorted: ' + so[1].toLowerCase(), function () { W.sort = ''; }]); }
+    }
+    if (chips.length && !W.filters) {
+      var cr = el('ul', 'wl-chips');
+      cr.setAttribute('aria-label', 'Filters that are on');
+      chips.forEach(function (c) {
+        var li = el('li');
+        var b = button('wl-chip', '', function () { c[1](); draw(); }, 'Take off ' + c[0]);
+        b.appendChild(el('span', '', c[0]));
+        b.appendChild(icon(I.close, 14));
+        li.appendChild(b);
+        cr.appendChild(li);
+      });
+      into.appendChild(cr);
+    }
 
     var grid = el('div', 'wl-grid-wrap');
     grid.id = 'wlGrid';
@@ -723,7 +801,7 @@
         var an = alsoNote();
         if (an) { empty.appendChild(an); }
       } else if (W.view === 'watched') {
-        empty.appendChild(el('p', 'wl-lede', 'Nothing watched yet. Mark a title watched and it is kept here, with your rating.'));
+        empty.appendChild(el('p', 'wl-lede', 'Nothing finished yet. A film comes here when you mark it watched, a show when its last episode is seen.'));
       } else {
         empty.appendChild(el('p', 'wl-lede', counts().all ? 'Up next is empty: you have watched everything.'
           : 'Nothing on your list yet.'));
@@ -756,44 +834,102 @@
   }
 
   // All, My list and each shared list, with what is left to watch on each. Only once a list is shared.
+  // Step 202-05: one strip, always there for the owner: All lists, My list, each list, then New list.
+  // It never wraps; it scrolls inside itself, with a fade at the edge that has more.
   function drawLists(into) {
-    if (guest() || !lists().length) { return; }
+    if (guest()) { return; }
+    var wrap = el('div', 'wl-strip');
     var row = el('div', 'wl-lists');
     row.setAttribute('role', 'group');
     row.setAttribute('aria-label', 'Which list');
-    var opts = [['all', 'All lists', items()], ['0', 'My list', items().filter(function (t) { return !t.list; })]];
+    var none = !lists().length;
+    var opts = none ? [] : [['all', 'All lists', items()]];
+    opts.push(['0', 'My list', items().filter(function (t) { return !t.list; })]);
     lists().forEach(function (l) {
       opts.push([String(l.id), l.name, items().filter(function (t) { return t.list === l.id; }), l]);
     });
     opts.forEach(function (o) {
       var c = countOf(o[2]);
       var b = button('wl-list-b', '', function () { pickList(o[0]); });
-      b.setAttribute('aria-pressed', W.list === o[0] ? 'true' : 'false');
+      var on = none ? o[0] === '0' : W.list === o[0];
+      b.setAttribute('aria-pressed', on ? 'true' : 'false');
+      if (o[3] && o[3].people && o[3].people.length) {
+        var sh = icon(I.people, 14);
+        sh.setAttribute('aria-hidden', 'true');
+        b.appendChild(sh);
+      }
       b.appendChild(el('span', 'wl-list-name', o[1]));
       b.appendChild(el('span', 'wl-tab-n', c.all));
-      b.setAttribute('aria-label', o[1] + ', ' + counted(c.all, 'title', 'titles'));
+      b.setAttribute('aria-label', o[1] + ', ' + counted(c.all, 'title', 'titles') + (o[3] && o[3].people.length ? ', shared' : ''));
       row.appendChild(b);
     });
-    into.appendChild(row);
+    var nl = button('wl-list-b wl-list-new', '', function () { openSheet('list'); });
+    nl.id = 'wlNewList';
+    nl.setAttribute('aria-haspopup', 'dialog');
+    nl.appendChild(icon(I.plus, 14));
+    nl.appendChild(el('span', 'wl-list-name', 'New list'));
+    var line = el('div', 'wl-strip-line' + (none ? '' : ' has-lists'));
+    wrap.appendChild(row);
+    line.appendChild(wrap);
+    line.appendChild(nl);
+    if (!none && W.list === 'all') {
+      // Every list at once: Share a list sits on this row, so no line of its own is needed.
+      var sa = button('wl-list-b wl-list-new', '', function () { openSheet('new'); });
+      sa.id = 'wlShareBtn';
+      sa.setAttribute('aria-haspopup', 'dialog');
+      sa.appendChild(icon(I.people, 14));
+      sa.appendChild(el('span', 'wl-list-name', 'Share a list'));
+      line.appendChild(sa);
+    }
+    into.appendChild(line);
+    // The fade says there is more to the side; it goes once the strip is scrolled to that end.
+    var edge = function () {
+      wrap.classList.toggle('has-more-right', row.scrollLeft + row.clientWidth < row.scrollWidth - 2);
+      wrap.classList.toggle('has-more-left', row.scrollLeft > 2);
+    };
+    row.addEventListener('scroll', edge, { passive: true });
+    requestAnimationFrame(function () {
+      var on = row.querySelector('[aria-pressed="true"]');
+      if (on && (on.offsetLeft + on.offsetWidth > row.scrollLeft + row.clientWidth - 56 || (row.scrollLeft > 2 && on.offsetLeft < row.scrollLeft + 56))) {
+        row.scrollLeft = Math.max(0, on.offsetLeft - 60);
+      }
+      edge();
+    });
   }
 
   // Who is on the list shown: you, and each person, joined or only invited.
   function drawPeople(into) {
     var l = guest() ? (lists()[0] || null) : shownList();
-    if (!l) { return; }
     var row = el('div', 'wl-people');
+    if (!l) {
+      // My list, or every list at once (step 202-05): who sees it, and Share a list from here.
+      if (guest() || !items().length || (W.list === 'all' && lists().length)) { return; }
+      var mine = el('p', 'wl-person wl-only');
+      var mineAll = W.list === 'all' && lists().length;
+      mine.appendChild(el('span', 'wl-person-name', mineAll ? 'Every list at once' : 'Only you see My list'));
+      row.appendChild(mine);
+      var sa = button('ctl small wl-people-b', '', function () { openSheet('new'); });
+      sa.id = 'wlShareBtn';
+      sa.setAttribute('aria-haspopup', 'dialog');
+      sa.appendChild(icon(I.people, 14));
+      sa.appendChild(document.createTextNode('Share a list'));
+      row.appendChild(sa);
+      into.appendChild(row);
+      return;
+    }
     if (!guest() && !l.people.length) {
       // A list of his own (step 202-04): nobody else sees it until he shares it.
-      var only = el('p', 'wl-person');
-      only.appendChild(face('You'));
+      var only = el('p', 'wl-person wl-only');
       only.appendChild(el('span', 'wl-person-name', 'Only you'));
       only.appendChild(el('span', 'wl-dim', 'nobody else sees this list'));
       row.appendChild(only);
       var ra = el('div', 'wl-acts');
-      var shb = button('ctl small wl-people-b', 'Share this list', function () { openSheet('people', l.id); });
+      var shb = button('ctl small wl-people-b', '', function () { openSheet('people', l.id); });
       shb.setAttribute('aria-haspopup', 'dialog');
+      shb.appendChild(icon(I.people, 14));
+      shb.appendChild(document.createTextNode('Share this list'));
       ra.appendChild(shb);
-      var rd = button('ctl small', 'Rename or delete', function () { openSheet('people', l.id); });
+      var rd = button('ctl small wl-ghost', 'Rename or delete', function () { openSheet('people', l.id); });
       rd.setAttribute('aria-haspopup', 'dialog');
       ra.appendChild(rd);
       row.appendChild(ra);
@@ -817,6 +953,9 @@
     });
     if (all.length > most) { ul.appendChild(el('li', 'wl-person wl-dim', '+' + (all.length - most) + ' more')); }
     row.appendChild(ul);
+    if (guest() && W.data && W.data.read_only) {
+      row.appendChild(el('p', 'wl-hint wl-lookonly', 'You can look at this list; ' + (l.owner_name || 'its owner') + ' keeps it, so nothing here can be changed.'));
+    }
     if (guest() && !W.leaving) {
       row.appendChild(button('ctl small wl-people-b', 'Leave this list', function () { W.leaving = true; draw(); }));
     }
@@ -1038,7 +1177,7 @@
     form2.appendChild(roleChoice(S));
     form2.appendChild(letterBox(S));
     var a2 = el('div', 'wl-acts');
-    var go2 = el('button', 'ctl', S.busy ? 'Making the invite...' : 'Make the invite');
+    var go2 = el('button', 'ctl wl-primary', S.busy ? 'Making the invite...' : 'Make the invite');
     go2.type = 'submit'; go2.disabled = S.busy;
     a2.appendChild(go2);
     form2.appendChild(a2);
@@ -1054,7 +1193,7 @@
     var mine = items().filter(function (t) { return !t.list && t.status !== 'watched'; });
     if (!mine.length) { return null; }
     var fs = el('fieldset', 'wl-choice');
-    fs.appendChild(el('legend', 'wl-field-label', 'Bring titles over from My list (optional)'));
+    fs.appendChild(el('legend', 'wl-field-label', 'Move titles here from My list (optional): a ticked title leaves My list and goes to this list'));
     var ul = el('div', 'wl-bring');
     mine.forEach(function (t) {
       var lab = el('label', 'wl-check');
@@ -1071,9 +1210,10 @@
 
   // New list: a list of his own, shared with nobody until he invites someone (step 202-04).
   function drawNewList(box, S) {
-    box.appendChild(el('p', 'wl-hint', 'A list only you see, such as With the kids, until you share it; to group titles across lists, use tags.'));
+    box.appendChild(el('p', 'wl-hint', 'A list is who you watch with, such as the kids. Only you see it until you share it.'));
+    box.appendChild(el('p', 'wl-hint', 'Tags are different: short words on a title, like cosy, that work across every list. It is fine to make the list empty and add titles later.'));
     var form = el('form', 'wl-sheet-form');
-    form.appendChild(field('Name of the list', textInput('wlSheetFirst', 'text', S.listName, 'With the kids', function (v) { S.listName = v; })));
+    form.appendChild(field('Name of the list', textInput('wlSheetFirst', 'text', S.listName, 'For example: Weekend films', function (v) { S.listName = v; })));
     var bb = bringBox(S);
     if (bb) { form.appendChild(bb); }
     var acts = el('div', 'wl-acts');
@@ -1231,7 +1371,7 @@
       put(j.item);
       W.adding = false; W.addBusy = '';
       W.view = 'next';
-      toast(j.item.title + ' is on ' + (j.item.list ? listName(j.item.list) : W.list === 'all' && lists().length ? 'My list' : 'your watch list') + '.' + (j.said ? ' ' + j.said : ''));
+      toast('Added ' + j.item.title + ' to the end of Up next on ' + (j.item.list ? listName(j.item.list) : 'My list') + '. Here is its page.' + (j.said ? ' ' + j.said : ''));
       openDetail(j.item.number);
     }).catch(function (e) { W.addBusy = ''; toast(e.message); drawMatches(); });
   }
@@ -1247,13 +1387,17 @@
     box.appendChild(top);
     var f = el('label', 'wl-field');
     f.appendChild(el('span', 'wl-field-label', 'Film or show'));
+    var how = el('span', 'wl-hint', 'Type its name, then press the one you mean in the list that appears: that adds it.');
+    how.id = 'wlAddHow';
     var q = el('input', 'wl-in wl-add-in');
     q.id = 'wlAddQ';
     q.type = 'text';
     q.autocomplete = 'off';
     q.placeholder = 'Its name, as you heard it';
+    q.setAttribute('aria-describedby', 'wlAddHow');
     q.value = W.addQ;
     q.addEventListener('input', function () { W.addQ = q.value; lookUp(); });
+    f.appendChild(how);
     q.addEventListener('keydown', function (e) {
       if (e.key === 'Enter') {
         e.preventDefault();
@@ -1320,7 +1464,7 @@
         b.appendChild(poster({ title: x.title, poster: x.poster }, 'is-thumb'));
         var tx = el('span', 'wl-match-text');
         tx.appendChild(el('span', 'wl-match-title', x.title));
-        tx.appendChild(el('span', 'wl-match-facts', [x.years || x.year || '', x.kind_said].filter(Boolean).join(', ')));
+        tx.appendChild(el('span', 'wl-match-facts', [oneYear(x.years) || x.year || '', x.kind_said].filter(Boolean).join(', ')));
         if (x.cast) { tx.appendChild(el('span', 'wl-match-cast', x.cast)); }
         b.appendChild(tx);
         if (have) {
@@ -1336,8 +1480,8 @@
       });
       m.appendChild(ul);
     }
-    if (q && !own.length) {
-      var plain = button('ctl small wl-plain', W.addBusy === 'name' ? 'Adding...' : 'Add "' + q + '" by its name only',
+    if (q && !own.length && !W.matches.length && W.look !== 'looking') {
+      var plain = button('ctl small wl-plain', W.addBusy === 'name' ? 'Adding...' : 'Add "' + q + '" with just its name: you can press Look up its details on its page later',
         function () { addPick(null); });
       plain.disabled = !!W.addBusy;
       m.appendChild(plain);
@@ -1413,8 +1557,13 @@
 
   function refresh(t) {
     toast('Looking ' + t.title + ' up again...');
-    act(api('/') + t.number + '/refresh', {}, function (j) {
+    ask(api('/') + t.number + '/refresh', {}).then(function (j) {
+      if (j.item) { put(j.item); }
+      draw();
       toast(j.said || 'The details of ' + j.item.title + ' are up to date.');
+    }).catch(function () {
+      draw();
+      toast('No film or show called ' + t.title + ' was found to fill in its details. Press Edit the details to add them yourself, or try again later.');
     });
   }
 
@@ -1451,11 +1600,11 @@
     big.appendChild(bn); big.appendChild(bo); big.appendChild(bw);
     function show(v, hover) {
       if (v === chosen) { hover = false; }
-      bn.textContent = v ? String(v) : '-';
+      bn.textContent = v ? String(v) : '–';
       bo.style.visibility = v ? 'visible' : 'hidden';
       big.classList.toggle('is-hover', !!hover);
       bw.textContent = hover ? 'press to choose ' + v
-        : D ? (D.v ? 'not saved yet' : 'rating to be cleared') : (t.my_rating ? 'saved' : 'not rated yet');
+        : D ? (D.v ? 'not saved yet: press Save' : 'rating to be cleared: press Save') : (t.my_rating ? 'saved' : 'not rated yet');
     }
     show(chosen, false);
     box.appendChild(big);
@@ -1472,9 +1621,9 @@
         });
         b.setAttribute('aria-pressed', i === chosen ? 'true' : 'false');
         b.setAttribute('aria-label', i + ' out of 10');
-        b.addEventListener('pointerenter', function () { show(i, true); });
+        b.addEventListener('pointerenter', function (e) { if (e.pointerType === 'mouse') { show(i, true); } });
         b.addEventListener('pointerleave', function () { show(chosen, false); });
-        b.addEventListener('focus', function () { show(i, true); });
+        b.addEventListener('focus', function () { if (b.matches(':focus-visible')) { show(i, true); } });
         b.addEventListener('blur', function () { show(chosen, false); });
         nums.appendChild(b);
       })(i);
@@ -1482,11 +1631,11 @@
     box.appendChild(nums);
     var acts = el('div', 'wl-acts wl-pad-acts');
     var changed = D && D.v !== (t.my_rating || 0);
-    var sv = button(changed ? 'ctl wl-save-ready' : 'ctl', changed ? (D.v ? 'Save ' + D.v + '/10' : 'Save: no rating') : 'Save', function () {
+    var sv = button(changed ? 'ctl wl-primary wl-save-ready' : 'ctl', changed ? (D.v ? 'Save ' + D.v + '/10' : 'Save: no rating') : 'Save', function () {
       var v = W.rateDraft.v;
       act(api('/') + t.number, { my_rating: v || null }, function (j) {
         W.rateDraft = null;
-        toast(v ? 'Rated ' + j.item.title + ' ' + v + '/10.' : 'The rating of ' + j.item.title + ' is cleared.');
+        toast(v ? 'Saved: you rated ' + j.item.title + ' ' + v + '/10.' : 'The rating of ' + j.item.title + ' is cleared.');
       });
     });
     sv.id = 'wlRateSave';
@@ -1506,7 +1655,7 @@
   // Tags: free words of his own that cut across lists ("cosy", "with the kids"), filtered by on the list.
   function tagEditor(t) {
     var wrap = el('div', 'wl-field wl-tagedit');
-    wrap.appendChild(el('span', 'wl-field-label', 'Tags'));
+    wrap.appendChild(el('h4', 'wl-h', 'Tags'));
     var have = t.tags || [];
     var ul = el('ul', 'wl-tags');
     ul.setAttribute('aria-label', 'Tags on ' + t.title);
@@ -1524,7 +1673,8 @@
     var row = el('form', 'wl-tag-row');
     var inp = el('input', 'wl-in');
     inp.id = 'wlTagIn'; inp.type = 'text'; inp.autocomplete = 'off'; inp.value = W.tagDraft || '';
-    inp.placeholder = have.length ? 'Another tag' : 'cosy, with the kids';
+    inp.placeholder = have.length ? 'Another tag' : 'For example: cosy';
+    if (!have.length) { wrap.appendChild(el('p', 'wl-hint', 'Tags are your own short words, like cosy or with the kids, to find titles by later.')); }
     inp.setAttribute('aria-label', 'Add a tag');
     var dl = el('datalist');
     dl.id = 'wlTagList';
@@ -1553,9 +1703,13 @@
   /* ---- one title ---- */
 
   function openDetail(n) {
+    var body = $('watchBody');
+    if (!W.detail && body) { W.listScroll = body.scrollTop; }
     W.detail = n; W.editing = false; W.rateDraft = null; W.tagDraft = '';
     if (host().focus) { host().focus(String(n)); }
     draw();
+    // Step 202-05 (Vesela): on a phone the title takes the whole layer, so it opens at its top.
+    if (body && narrowNow()) { body.scrollTop = 0; }
     var d = $('wlDetail');
     if (d) { d.scrollTop = 0; var h = $('wlDetailTitle'); if (h) { h.focus({ preventScroll: true }); } }
   }
@@ -1564,12 +1718,20 @@
     W.detail = 0; W.editing = false;
     if (host().focus) { host().focus(''); }
     draw();
+    // Back on a phone goes to where the list was left, not the middle of it.
+    var body = $('watchBody');
+    if (body && narrowNow() && W.listScroll != null) { body.scrollTop = W.listScroll; }
     if (!quiet) {
       var back = document.querySelector('.wl-card[data-number="' + was + '"] .wl-open');
       if (back) { back.focus({ preventScroll: false }); }
     }
   }
 
+  // Step 202-05 (Vesela): a link that opens in a new tab says so, since nothing changes here.
+  document.addEventListener('click', function (e) {
+    var a = e.target && e.target.closest && e.target.closest('.wl-view a[target="_blank"]');
+    if (a) { toast('Opened in a new tab: ' + a.textContent.trim() + '.'); }
+  });
   function linkOut(href, text) {
     var a = el('a', 'wl-out');
     a.href = href;
@@ -1595,7 +1757,7 @@
   }
 
   function seasonsBlock(t) {
-    var wrap = el('section', 'wl-seasons');
+    var wrap = el('section', 'wl-seasons wl-sec');
     wrap.setAttribute('aria-labelledby', 'wlSeasonsH');
     var h = el('h4', 'wl-h', 'Seasons');
     h.id = 'wlSeasonsH';
@@ -1661,7 +1823,7 @@
     fields.kind = kind.querySelector('select');
     grid.appendChild(kind);
     add('year', 'Year', t.year, { type: 'number' });
-    add('end_year', 'Last year', t.end_year, { type: 'number' });
+    add('end_year', 'Year it ended (a show)', t.end_year, { type: 'number' });
     add('runtime', serial(t) ? 'Minutes an episode' : 'Minutes', t.runtime, { type: 'number' });
     add('genres', 'Genres', (t.genres || []).join(', '), { placeholder: 'Drama, History' });
     add('seasons', 'Episodes in each season', (t.seasons || []).map(function (s) { return s.episodes; }).join(', '),
@@ -1674,7 +1836,7 @@
     var go = el('button', 'ctl wl-primary', 'Save the details');
     go.type = 'submit';
     acts.appendChild(go);
-    acts.appendChild(button('ctl small', 'Cancel', function () { W.editing = false; draw(); }));
+    acts.appendChild(button('ctl small', 'Cancel', function () { W.editing = false; draw(); toast('Nothing was changed.'); }));
     form.appendChild(acts);
     form.addEventListener('submit', function (e) {
       e.preventDefault();
@@ -1703,7 +1865,7 @@
     var bar = el('div', 'wl-detail-bar');
     var back = button('ctl small wl-back', '', function () { closeDetail(); });
     back.appendChild(icon(I.back));
-    back.appendChild(document.createTextNode('Watch list'));
+    back.appendChild(document.createTextNode('Back to the list'));
     bar.appendChild(back);
     var saved = el('span', 'wl-saved', W.saved);
     saved.id = 'wlSaved';
@@ -1718,9 +1880,8 @@
     h.id = 'wlDetailTitle';
     h.tabIndex = -1;
     info.appendChild(h);
-    info.appendChild(el('p', 'wl-detail-facts', facts(t)));
+    info.appendChild(el('p', 'wl-detail-facts', facts(t) + (t.runtime ? ', ' + mins(t.runtime) + (serial(t) ? ' an episode' : '') : '')));
     var more = [];
-    if (t.runtime) { more.push(mins(t.runtime) + (serial(t) ? ' an episode' : '')); }
     if (serial(t) && t.seasons.length) { more.push(counted(t.seasons.length, 'season', 'seasons') + ', ' + counted(t.episodes, 'episode', 'episodes')); }
     if (more.length) { info.appendChild(el('p', 'wl-detail-facts', more.join(', '))); }
     if ((t.genres || []).length) {
@@ -1731,62 +1892,58 @@
     }
     if (t.rating) { info.appendChild(el('p', 'wl-detail-facts', t.rating.toFixed(1) + ' out of 10 on ' + (t.rating_from || 'the web'))); }
     if (t.cast) { info.appendChild(el('p', 'wl-detail-cast', t.cast)); }
+    if (lists().length && !guest()) { info.appendChild(el('p', 'wl-detail-on', 'On ' + listName(t.list))); }
     if (!t.looked_up) {
-      info.appendChild(el('p', 'wl-hint', 'Its details were not looked up yet.'));
+      var nl = el('div', 'wl-notlooked');
+      nl.appendChild(el('p', 'wl-hint', 'It has only its name so far.'));
+      var lu = button('ctl small', '', function () { refresh(t); });
+      lu.appendChild(icon(I.refresh, 14));
+      lu.appendChild(document.createTextNode('Look up its details'));
+      nl.appendChild(lu);
+      info.appendChild(nl);
     }
     hero.appendChild(info);
     d.appendChild(hero);
 
-    // Which list it is on, and Move to (the owner's).
-    if (lists().length && !guest()) {
-      var on = el('div', 'wl-onlist');
-      var here = String(t.list || 0);
-      var opts = [['0', 'My list']].concat(lists().map(function (l) { return [String(l.id), l.name]; }))
-        .map(function (o) { return [o[0], o[1] + (o[0] === here ? ' (on it now)' : '')]; });
-      on.appendChild(select('Move to', here, opts, function (v) { moveTo(t, parseInt(v, 10) || 0); }));
-      if (t.added_by_name) { on.appendChild(el('span', 'wl-dim', 'Added by ' + t.added_by_name)); }
-      d.appendChild(on);
-    } else if (t.added_by_name) {
-      d.appendChild(el('p', 'wl-dim wl-onlist', 'Added by ' + t.added_by_name + ', ' + day(t.added_at)));
-    }
-
-    // Status, and the one press that moves it on.
-    if (isShared(t.list)) { d.appendChild(el('h4', 'wl-h wl-together-h', 'Together')); }
-    var st = el('div', 'wl-seg wl-status-seg');
-    st.setAttribute('role', 'group');
-    st.setAttribute('aria-label', isShared(t.list) ? 'Status, together' : 'Status');
-    STATUS.forEach(function (s) {
-      var b = button('wl-seg-b', s[1], function () { setStatus(t, s[0]); });
-      b.setAttribute('aria-pressed', t.status === s[0] ? 'true' : 'false');
-      st.appendChild(b);
-    });
-    d.appendChild(st);
-    var p = progress(t, 'is-wide');
-    if (p) { d.appendChild(p); }
-    var acts = el('div', 'wl-acts');
+    // Step 202-05: the one next press first, with where to watch beside it; then the history, the status,
+    // the episodes, my rating, tags and notes; links and about; Move to and the rest under More.
+    var acts = el('div', 'wl-acts wl-detail-acts');
+    var lead = W.rateDraft && W.rateDraft.n === t.number ? 'ctl' : 'ctl wl-primary';
     if (t.status !== 'watched') {
       if (serial(t) && t.next) {
-        var main = button('ctl wl-primary', '', function () { stepOn(t); });
+        var main = button(lead, '', function () { stepOn(t); });
         main.appendChild(icon(I.check));
-        main.appendChild(document.createTextNode('Seen ' + epLabel(t.next)));
+        main.appendChild(document.createTextNode('Seen ' + epWords(t.next)));
+        main.setAttribute('aria-label', 'Mark season ' + t.next.season + ', episode ' + t.next.episode + ' seen');
         acts.appendChild(main);
       } else {
-        var w = button('ctl wl-primary', '', function () { markWatched(t); });
+        var w = button(lead, '', function () { markWatched(t); });
         w.appendChild(icon(I.check));
         w.appendChild(document.createTextNode('Watched it'));
         acts.appendChild(w);
       }
+    } else {
+      var ag = button(lead, '', function () { watchAgain(t); });
+      ag.appendChild(icon(I.again));
+      ag.appendChild(document.createTextNode('Watch again'));
+      acts.appendChild(ag);
+    }
+    if (t.where_url || (t.links && t.links.where_find)) {
+      var go = el('a', 'ctl wl-ghost');
+      go.href = t.where_url || t.links.where_find;
+      go.target = '_blank';
+      go.rel = 'noopener';
+      go.appendChild(icon(I.play));
+      go.appendChild(document.createTextNode(t.where_url && t.where ? 'Open ' + t.where : 'Where to watch'));
+      acts.appendChild(go);
+    }
+    if (t.status !== 'watched') {
       var front = button('ctl wl-ghost', '', function () {
         act(api('/') + t.number + '/front', {}, function (j) { toast(j.item.title + ' is first in Up next.'); });
       });
       front.appendChild(icon(I.up));
-      front.appendChild(document.createTextNode('Watch next'));
+      front.appendChild(document.createTextNode('Put first in Up next'));
       acts.appendChild(front);
-    } else {
-      var ag = button('ctl wl-primary', '', function () { watchAgain(t); });
-      ag.appendChild(icon(I.again));
-      ag.appendChild(document.createTextNode('Watch again'));
-      acts.appendChild(ag);
     }
     d.appendChild(acts);
     // Every time it was watched (step 202-04): a rewatch is never kept out of Up next.
@@ -1798,13 +1955,30 @@
       d.appendChild(hist);
     }
 
-    // Their own: rating, who told them, where, notes.
+    // Status, and the progress through a show.
+    var sts = el('section', 'wl-sec');
+    sts.appendChild(el('h4', 'wl-h', isShared(t.list) ? 'Status, together' : 'Status'));
+    var st = el('div', 'wl-seg wl-status-seg');
+    st.setAttribute('role', 'group');
+    st.setAttribute('aria-label', isShared(t.list) ? 'Status, together' : 'Status');
+    STATUS.forEach(function (s) {
+      var b = button('wl-seg-b', s[1], function () { setStatus(t, s[0]); });
+      b.setAttribute('aria-pressed', t.status === s[0] ? 'true' : 'false');
+      st.appendChild(b);
+    });
+    sts.appendChild(st);
+    var p = progress(t, 'is-wide');
+    if (p) { sts.appendChild(p); }
+    d.appendChild(sts);
+    if (serial(t) && t.seasons.length) { d.appendChild(seasonsBlock(t)); }
+
+    // Their own: rating, tags, who told them, where, notes.
     var mine = el('section', 'wl-mine');
     mine.setAttribute('aria-label', 'Yours');
-    var rate = el('div', 'wl-rate');
+    var rate = el('div', 'wl-rate wl-sec');
     rate.id = 'wlRate';
     var others = isShared(t.list) ? (t.others || []) : [];
-    rate.appendChild(el('span', 'wl-field-label', others.length ? 'My rating, out of 10' : 'My rating, out of 10'));
+    rate.appendChild(el('h4', 'wl-h', 'My rating, out of 10'));
     rate.appendChild(ratePad(t));
     if (others.length) {
       var ul = el('ul', 'wl-raters');
@@ -1820,7 +1994,11 @@
       rate.appendChild(ul);
     }
     mine.appendChild(rate);
-    mine.appendChild(tagEditor(t));
+    var tsec = el('div', 'wl-sec');
+    tsec.appendChild(tagEditor(t));
+    mine.appendChild(tsec);
+    var notes = el('div', 'wl-sec wl-notes');
+    notes.appendChild(el('h4', 'wl-h', isShared(t.list) ? 'My notes' : 'Notes'));
     if (isShared(t.list)) {
       var sb = el('label', 'wl-check');
       var cb = el('input');
@@ -1828,47 +2006,65 @@
       cb.addEventListener('change', function () { save(t, { seen_before: cb.checked }, cb.checked ? 'Marked: you have seen it before' : 'Saved'); });
       sb.appendChild(cb);
       sb.appendChild(el('span', '', 'I have seen it before, on my own'));
-      mine.appendChild(sb);
+      notes.appendChild(sb);
     }
-    mine.appendChild(textField('Recommended by', t.recommended_by, { placeholder: 'Who told you about it' },
+    var two = el('div', 'wl-two');
+    two.appendChild(textField('Recommended by', t.recommended_by, { placeholder: 'Who told you about it' },
       function (v) { save(t, { recommended_by: v }); }));
-    mine.appendChild(textField('Where to watch', t.where, { placeholder: 'Netflix, HBO Max, cinema...' },
+    two.appendChild(textField('Where to watch', t.where, { placeholder: 'Netflix, HBO Max, cinema...' },
       function (v) { save(t, { where: v }); }));
-    mine.appendChild(textField(isShared(t.list) ? 'My notes' : 'Notes', t.notes, { area: true, placeholder: 'Anything to remember about it' },
+    notes.appendChild(two);
+    notes.appendChild(textField(isShared(t.list) ? 'What I think' : 'Notes', t.notes, { area: true, placeholder: 'Anything to remember about it' },
       function (v) { save(t, { notes: v }); }));
+    mine.appendChild(notes);
     d.appendChild(mine);
 
+    var lk = el('section', 'wl-sec');
+    lk.appendChild(el('h4', 'wl-h', 'Links'));
     var outs = el('div', 'wl-outs');
     if (t.where_url) { outs.appendChild(linkOut(t.where_url, 'Open on ' + (t.where || 'its service'))); }
     outs.appendChild(linkOut(t.links.where_find, 'Where it streams in Bulgaria'));
     outs.appendChild(linkOut(t.links.trailer, 'Trailer'));
     if (t.links.imdb) { outs.appendChild(linkOut(t.links.imdb, 'IMDb')); }
     if (t.links.wiki) { outs.appendChild(linkOut(t.links.wiki, 'Wikipedia')); }
-    d.appendChild(outs);
+    lk.appendChild(outs);
+    d.appendChild(lk);
 
     if (t.overview) {
-      var ov = el('section', 'wl-about');
+      var ov = el('section', 'wl-about wl-sec');
       ov.appendChild(el('h4', 'wl-h', 'About it'));
       ov.appendChild(el('p', 'wl-about-text', t.overview));
       d.appendChild(ov);
     }
-    if (serial(t) && t.seasons.length) { d.appendChild(seasonsBlock(t)); }
 
-    if (W.editing) { d.appendChild(editForm(t)); }
+    // More: which list it is on and Move to (the owner's), edit, look up again, remove.
+    var more = el('section', 'wl-sec wl-more');
+    more.appendChild(el('h4', 'wl-h', 'More'));
+    if (lists().length && !guest()) {
+      var onl = el('div', 'wl-onlist');
+      var here = String(t.list || 0);
+      var opts = [['0', 'My list']].concat(lists().map(function (l) { return [String(l.id), l.name]; }))
+        .map(function (o) { return [o[0], o[1] + (o[0] === here ? ' (on it now)' : '')]; });
+      onl.appendChild(select('Move to another list (it leaves this one)', here, opts, function (v) { moveTo(t, parseInt(v, 10) || 0); }));
+      more.appendChild(onl);
+    }
+    if (W.editing) { more.appendChild(editForm(t)); }
     var tail = el('div', 'wl-tail');
     if (!W.editing) {
       tail.appendChild(button('ctl small', 'Edit the details', function () { W.editing = true; draw(); }));
     }
     var re = button('ctl small', '', function () { refresh(t); });
     re.appendChild(icon(I.refresh, 14));
-    re.appendChild(document.createTextNode('Look it up again'));
+    re.appendChild(document.createTextNode('Look up its details again'));
+    re.title = 'Fills in the poster, length, seasons and links again; your notes, rating and tags stay';
     tail.appendChild(re);
     if (t.can_remove !== false) { tail.appendChild(button('ctl small wl-remove', 'Remove from the list', function () { remove(t); })); }
-    d.appendChild(tail);
+    more.appendChild(tail);
     var when = ['Added ' + day(t.added_at) + (isShared(t.list) ? ' by ' + (t.added_by_name || 'you') : '')];
     if (t.started_at) { when.push('started ' + day(t.started_at)); }
     if (t.watched_at && t.times_watched < 2) { when.push('watched ' + day(t.watched_at)); }
-    d.appendChild(el('p', 'wl-dim wl-when', when.join(', ') + '.'));
+    more.appendChild(el('p', 'wl-dim wl-when', when.join(', ') + '.'));
+    d.appendChild(more);
     into.appendChild(d);
   }
 
@@ -1932,33 +2128,28 @@
       main.appendChild(el('p', 'wl-error', W.error));
       main.appendChild(button('ctl small', 'Try again', function () { load(); }));
     } else if (W.data) {
+      // Step 202-05: the sentence that counts the list, and Add a title shaped like the box it opens.
+      // New list sits at the end of the lists strip, Share on the line that says who sees the list.
       var top = el('div', 'wl-top');
-      top.appendChild(el('p', 'wl-headline', headline()));
-      var tacts = el('div', 'wl-acts');
+      top.appendChild(el('h2', 'wl-headline', headline()));
       if (!W.adding && !(W.data.read_only)) {
-        var add = button(counts().all ? 'ctl wl-add-btn' : 'ctl wl-primary wl-add-btn', '', startAdd);
+        var add = button(counts().all ? 'wl-addfield' : 'ctl wl-primary wl-add-btn', '', startAdd);
         add.id = 'wlAddBtn';
         add.appendChild(icon(I.plus));
-        add.appendChild(document.createTextNode('Add a title'));
-        tacts.appendChild(add);
+        add.appendChild(el('span', 'wl-addfield-text', 'Add a title'));
+        if (counts().all) { add.appendChild(el('span', 'wl-addfield-hint', 'film or show')); }
+        top.appendChild(add);
       }
-      if (!guest()) {
-        var nl = button('ctl wl-ghost wl-share-btn', '', function () { openSheet('list'); });
-        nl.id = 'wlNewList';
-        nl.setAttribute('aria-haspopup', 'dialog');
-        nl.appendChild(icon(I.plus));
-        nl.appendChild(document.createTextNode('New list'));
-        tacts.appendChild(nl);
+      if (counts().all) {
+        // Step 202-05 (Vesela): the search is one press from the top, where she looked for it.
+        var findb = button('ctl wl-findb', '', function () {
+          var si = $('wlSearch');
+          if (si) { si.scrollIntoView({ block: 'center' }); si.focus({ preventScroll: true }); }
+        });
+        findb.appendChild(icon(I.search));
+        findb.appendChild(document.createTextNode('Search'));
+        top.appendChild(findb);
       }
-      if (!guest() && !shownList()) {
-        var sh = button('ctl wl-ghost wl-share-btn', '', function () { openSheet('new'); });
-        sh.id = 'wlShareBtn';
-        sh.setAttribute('aria-haspopup', 'dialog');
-        sh.appendChild(icon(I.people));
-        sh.appendChild(document.createTextNode('Share a list'));
-        tacts.appendChild(sh);
-      }
-      top.appendChild(tacts);
       main.appendChild(top);
       drawLists(main);
       drawPeople(main);
@@ -1972,7 +2163,7 @@
         if (l) {
           empty.appendChild(el('p', 'wl-lede', guest()
             ? 'Nothing on this list yet, so Tonight has nothing to pick. Add the first title: ' + l.owner_name + ' sees it here too.'
-            : 'Nothing on ' + l.name + ' yet, so Tonight has nothing to pick. Add a title here, or open one on My list and use Move to.'));
+            : 'Nothing on ' + l.name + ' yet, so Tonight has nothing to pick. Add a title here, or open a title on My list and press Move to another list.'));
           if (!guest() && items().some(function (t) { return !t.list; })) {
             empty.appendChild(button('ctl small', 'Show My list', function () { pickList('0'); }));
           }

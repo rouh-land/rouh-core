@@ -1,0 +1,19 @@
+# Journeys: the watch list, redesigned whole
+
+Rouh's draft, from the owner's request and the screen as it is (steps 202-02 to 202-04). He corrects them on the step page if he wants.
+The owner, 28 November 2026: "can you redesign the entire watch list with our concept and make a testing run with vesela and fix everything you find there."
+Most frequent: 1 and 2.
+
+1. **What do we put on tonight?** (most frequent) Starts: the menu, Watch list. Question: "We have an hour, what is next?" Data: the show they are in the middle of and its next episode, else the first of Up next, its poster, length, where it streams; two or three after it. Action: Seen S2 E4 (or Watched it), or Something else, or the time they have. Target: the answer on the first screen without scrolling, desk and phone, 0 presses; the press 1 press, 5 s.
+2. **Mark it seen, and rate it** (most frequent). Starts: Tonight, a card, or a title's page. Question: "We finished it; how good was it?" Data: the next episode or the film, then the ten numbers 1 to 10 with the chosen one shown large. Action: Seen / Watched it, then Rate it, a number, Save. Target: seen in 1 press; rated from the toast in 3 more presses (Rate it, the number, Save), 10 s, no counting.
+3. **Add a title someone told me about.** Starts: the page. Question: "Put The Long Orbit on the list." Data: matches as it is typed, each with poster, year, kind and cast; a title already on the list says so and offers Watch again or Open. Action: pick the match. Target: 1 press to the field, type, 1 press on the match, 15 s; never a copy of one already there.
+4. **Find a title on my list.** Starts: the page. Question: "Where is that cosy film / what is on Netflix / what have we watched?" Data: Up next, Watched, All with counts; search over titles, people, notes and tags; filter by kind, service and tag; sort. Action: type, or pick a filter. Target: search in view without scrolling past Tonight on a desk, 0 presses to reach; a filter in 2 presses; what is filtered always shown with a way to clear it in 1 press.
+5. **Look at one title.** Starts: a card, Tonight, or a link /watch/<number>. Question: "Where do I watch it, which episode am I on, what did I note?" Data: poster, facts, the one next press, where to watch, episodes, my rating, tags, notes, history. Action: open where it streams, tick an episode, edit a note. Target: 1 press from a card; the next press and Where to watch without scrolling, desk and phone; back to the list in 1 press or Escape.
+6. **Switch list, or make a list of my own.** Starts: the page. Question: "Show only the kids' list" / "Keep the kids' films apart." Data: My list, every list, with counts. Action: pick a list; New list, its name, Make the list. Target: switch in 1 press; a new list in 3 steps, 15 s; nothing shared or sent.
+7. **Share a list with Maria, and see who is on it.** Starts: a list. Question: "Let Maria see this one" / "Has she opened it?" Data: email, name, Add and tick or Only look, the letter only if ticked, the link to copy; each person joined or invited. Action: Make the invite; Remove with Undo; Stop sharing (the list stays). Target: 4 steps to an invite; who is on it 0 presses on the list; nothing goes out unless the box is ticked.
+8. **The other person's page.** Starts: the shared link /shared/<token> on a phone. Question: "What is on Petar's list for us, and what is next?" Data: whose list it is, Tonight together, the titles, each person's own rating. Action: Seen, rate, add a title, or Leave this list. Target: the list and Tonight on the first screen, 0 presses; seen in 1 press.
+
+# Journeys of this step's page (index.html, workspace page)
+1. Petar opens the step: what changed and that it is live, with before and after pictures, on the first screen.
+2. He wants to know what Vesela ran into and what was fixed: one page, each problem with its fix.
+3. He wants to know his three titles are unchanged, and what is open.
