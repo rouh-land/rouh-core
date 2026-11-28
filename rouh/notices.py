@@ -44,6 +44,7 @@ from __future__ import annotations
 
 import asyncio
 import contextlib
+import contextvars
 import logging
 import re
 import time
@@ -249,6 +250,108 @@ def as_dict(row) -> dict:
     }
 
 
+# --- what a Clockwork item says -----------------------------------------------------------
+#
+# Petar, 28 November 2026: "scheduled stuff also go in reminders", and of a reminder's card that
+# had only a Chat button: "a notification is triggered by that, it should have a button to go to
+# the clockwork item - to see, to edit". So whatever is said while one of Clockwork's items is
+# being done - its own reminder line, what its turn sends the phone with `send_telegram`, a
+# browser hand-over, anything that writes a notice - is filed under Reminders when it is written,
+# and leads to that item on Clockwork as well as wherever else it leads. The timekeeper says which
+# item it is doing (`timekeeper.deliver`), and every task that work starts inherits it. Rouh's own
+# server jobs are not set here, and the heartbeat and the brief are never Clockwork's.
+
+#: The Clockwork item being done now, as (its id, until when), or None everywhere else. The time
+#: is how long its turn may take and some: a task its turn happens to start that lives on (a
+#: service started for the first time in it) must never file everything after it as this item's.
+CLOCKWORK: contextvars.ContextVar[tuple[str, float] | None] = contextvars.ContextVar(
+    "rouh_notice_clockwork_item", default=None)
+#: How long after an item starts what is said is still that item's.
+CLOCKWORK_FOR = 3600.0
+#: Kinds that keep their own place even when a Clockwork item said them: a decision waits on an
+#: answer under Decisions, and the heartbeat and the brief are their own things.
+KEEPS_KIND = frozenset({"decision", "heartbeat", "brief"})
+#: The `to` of a notice's link to its Clockwork item.
+TO_CLOCKWORK = "clockwork"
+
+
+def clockwork_href(item) -> str:
+    """Clockwork, open on one of its items (`address.js` reads `item`)."""
+    return f"/clockwork?item={item}"
+
+
+def clockwork_item() -> str:
+    """The Clockwork item being done in this task, or ""."""
+    got = CLOCKWORK.get()
+    if not got or time.time() > got[1]:
+        return ""
+    return got[0]
+
+
+@contextlib.contextmanager
+def from_clockwork(item):
+    """Everything said inside this, and in every task started inside it, is that item's."""
+    token = CLOCKWORK.set((str(item), time.time() + CLOCKWORK_FOR))
+    try:
+        yield
+    finally:
+        CLOCKWORK.reset(token)
+
+
+def _clockwork_places(item: str, kind: str, link: str, link_label: str, links) -> tuple:
+    """A notice an item said: under Reminders, and leading to the item beside its other places."""
+    if kind not in KEEPS_KIND:
+        kind = "reminder"
+    links = [dict(one) for one in (links or ()) if isinstance(one, dict)]
+    if link and not any(local_link(str(one.get("href") or "")) == link for one in links):
+        # The column draws the list alone when there is one, so where it led goes in it first.
+        links.insert(0, {"to": place_of(link), "label": link_label or label_for(link),
+                         "href": link})
+    links = [one for one in links if one.get("to") != TO_CLOCKWORK][:7]
+    links.append({"to": TO_CLOCKWORK, "label": "Clockwork", "href": clockwork_href(item),
+                  "title": "Open this item on Clockwork"})
+    if not link:
+        link, link_label = clockwork_href(item), "Open Clockwork"
+    return kind, link, link_label, links
+
+
+_ITEM = re.compile(r"^/clockwork\?item=(\d+)$")
+
+
+def _item_of(href: str) -> str:
+    got = _ITEM.match(str(href or ""))
+    return got.group(1) if got else ""
+
+
+def without_gone_items(who, items: list[dict]) -> list[dict]:
+    """These notices as drawn, each leading to its Clockwork item only while the item is there:
+    one deleted since is no button at all, never a link to nothing."""
+    wanted = {_item_of(one.get("href")) for n in items for one in (n.get("links") or ())
+              if isinstance(one, dict)} | {_item_of(n.get("link")) for n in items}
+    wanted.discard("")
+    if not wanted:
+        return items
+    user_id, org_id = _ids(who)
+    try:
+        from .models.rest import Reminder
+
+        there = {str(i) for i in Reminder.objects.filter(
+            user_id=user_id, org_id=org_id, id__in=[int(i) for i in wanted]
+        ).values_list("id", flat=True)}
+    except Exception:
+        log.exception("could not look up which Clockwork items are still there")
+        return items
+    gone = wanted - there
+    if not gone:
+        return items
+    for n in items:
+        n["links"] = [one for one in (n.get("links") or ())
+                      if not (isinstance(one, dict) and _item_of(one.get("href")) in gone)]
+        if _item_of(n.get("link")) in gone:
+            n["link"], n["link_label"] = "", ""
+    return items
+
+
 def _links(links) -> list[dict]:
     """Every place a notice leads, each as Rouh's own address where it is one, and only the
     ones with somewhere to go."""
@@ -279,6 +382,9 @@ def post(who, *, title: str, body: str = "", link: str = "", link_label: str = "
 
     user_id, org_id = _ids(who)
     link = local_link(link)
+    item = clockwork_item()
+    if item:
+        kind, link, link_label, links = _clockwork_places(item, kind, link, link_label, links)
     try:
         with transaction.atomic():
             row = _model().objects.create(
@@ -358,7 +464,7 @@ def listing(who) -> dict:
     # settles those first, so the rows read after it say so too.
     unread = unread_count(who)
     rows = list(week.exclude(state=DISMISSED).order_by("-created_at", "-id")[:LISTED])
-    items = [as_dict(r) for r in rows]
+    items = without_gone_items(who, [as_dict(r) for r in rows])
     return {"type": "notices", "items": items, "unread": unread, "grace": GRACE}
 
 
@@ -721,6 +827,7 @@ def browse(who, raw: dict | None = None, now: float | None = None) -> dict:
         one["to"] = sorted(light_row["places"])
         one["tasks"] = [{"id": f, "name": n} for f, n in light_row["tasks"].items()]
         items.append(one)
+    items = without_gone_items(who, items)
     user_id, org_id = _ids(who)
     everyone = _model().objects.filter(user_id=user_id, org_id=org_id)
     return {

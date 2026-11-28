@@ -319,7 +319,9 @@ function addrReadPlace(path, query) {
     return { kind: '', id: '', chat: chat, web: true };
   }
   if (parts.length === 1 && ('/' + parts[0] === ADDR_REMINDERS || '/' + parts[0] === ADDR_REMINDERS_OLD)) {
-    return { kind: '', id: '', chat: chat, clock: 'reminders' };
+    // `?item=<id>`, one item to open it on: where a notification an item said leads.
+    var item = /[?&]item=(\d+)/.exec(String(query || ''));
+    return { kind: '', id: '', chat: chat, clock: 'reminders', item: item ? item[1] : '' };
   }
   if (parts.length === 1 && '/' + parts[0] === ADDR_GOALS) {
     return { kind: '', id: '', chat: chat, clock: 'goals' };
@@ -1024,7 +1026,7 @@ function addrAsk() {
   if (want.clock) {
     ADDR.wanted = null;
     ADDR.asked = false;
-    if (want.clock === 'goals') goalsOpen(); else remindersOpen();
+    if (want.clock === 'goals') goalsOpen(); else remindersOpen('', want.item || '');
     if (want.chat) chatIsWanted();
     return;
   }

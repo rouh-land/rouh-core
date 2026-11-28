@@ -1035,7 +1035,8 @@
     "rouh/reminder_words.py",
     "rouh/timekeeper.py",
     "rouh/job_watch.py",
-    "rouh/management/commands/job_watch.py"
+    "rouh/management/commands/job_watch.py",
+    "rouh/selfcheck/clockwork_notices.py"
    ],
    "needed_by": [
     "brief",

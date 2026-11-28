@@ -16993,7 +16993,7 @@ function browserZone() {
 var CLOCK = { summary: null, reminders: null, goals: null, telegram: false, silos: [], rSilos: [],
               rOpen: false, gOpen: false,
               // The row lit for a moment because it was just added or changed.
-              flash: '',
+              flash: '', seek: '', flashFor: 0, lit: null,
               // A reminder or goal whose Delete is being asked about, on its row.
               confirming: '',
               // The reminder or goal the form is open on; 'new' for a new one.
@@ -17319,7 +17319,7 @@ var CLOCK_KEPT = 'Kept on this device: it goes to Rouh when you are back online.
 
 function remindersLoad() {
   return clockGet('/api/reminders', !remindersViewing()).then(function (data) {
-    if (data) remindersTake(data);
+    if (data) { remindersTake(data); clockSought(); }
   }).catch(function () {
     if (remindersViewing()) clockSay('reminders', 'Clockwork could not be read from the '
       + 'server. Try again in a moment.', 'bad');
@@ -17394,10 +17394,12 @@ function clockSay(which, text, kind, action) {
 
 /* ---- opening and closing ---- */
 
-function remindersOpen(flash) {
+function remindersOpen(flash, seek) {
   if (ORBX.open) orbExpand(false);
   CLOCK.rOpen = true;
   if (flash) CLOCK.flash = 'r' + flash;
+  // Opened on one item, from a notification it said (`/clockwork?item=<id>`, `notices.py`).
+  if (seek) { CLOCK.seek = String(seek); CLOCK.flash = 'r' + seek; CLOCK.flashFor = 9000; }
   showLayer('remindersView');
   sidebarDone();
   clockTries();
@@ -17829,16 +17831,46 @@ function clockToChat(chat) {
   if (narrow()) setPane('chat');
 }
 
-// The row just added or changed says so, in its own place, for a moment.
+// The item Clockwork was opened on, once the list is read from the server: lit in its place by
+// `clockFlash`, or said to be gone when it was deleted since its notification was written.
+function clockSought() {
+  if (!CLOCK.seek) return;
+  var id = CLOCK.seek;
+  CLOCK.seek = '';
+  var there = (CLOCK.reminders || []).some(function (v) { return String(v.id) === id; });
+  if (there) return;
+  if (CLOCK.flash === 'r' + id) CLOCK.flash = '';
+  if (CLOCK.lit && CLOCK.lit.key === 'r' + id) CLOCK.lit = null;
+  clockSay('reminders', 'The item that notification came from is not on Clockwork any more: '
+    + 'it was deleted.');
+}
+
+// The row just added or changed says so, in its own place, for a moment. The list is drawn
+// again as fresh rows arrive from the server, so the moment is kept across a redraw: the row is
+// lit again in its new place until its time is up.
 function clockFlash() {
-  if (!CLOCK.flash) return;
-  var key = CLOCK.flash;
-  var node = document.querySelector('[data-key="' + key + '"]');
+  if (CLOCK.flash) {
+    CLOCK.lit = { key: CLOCK.flash, lasts: CLOCK.flashFor || 2600, until: 0 };
+    CLOCK.flash = '';
+    CLOCK.flashFor = 0;
+  }
+  var lit = CLOCK.lit;
+  if (!lit) return;
+  var node = document.querySelector('[data-key="' + lit.key + '"]');
   if (!node) return;
-  CLOCK.flash = '';
+  var first = !lit.until;
+  if (first) lit.until = Date.now() + lit.lasts;
+  var left = lit.until - Date.now();
+  if (left <= 0) { CLOCK.lit = null; return; }
   node.classList.add('lit');
-  try { node.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); } catch (err) {}
-  setTimeout(function () { node.classList.remove('lit'); }, 2600);
+  if (first) {
+    // An item opened from its notification stays lit long enough to be found and read.
+    try { node.scrollIntoView({ block: lit.lasts > 2600 ? 'center' : 'nearest', behavior: 'smooth' }); } catch (err) {}
+  }
+  setTimeout(function () {
+    node.classList.remove('lit');
+    if (CLOCK.lit === lit && Date.now() >= lit.until) CLOCK.lit = null;
+  }, left);
 }
 
 /* ---- Reminders: the form ---- */

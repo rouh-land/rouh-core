@@ -49,7 +49,7 @@ from typing import Callable
 
 #: The groups, in the order they run, and the module each lives in.
 GROUPS = ("own", "landing", "security", "unrestricted", "undo_191", "tools_191", "protections_191", "shared_rooms",
-          "run_answers")
+          "run_answers", "clockwork_notices")
 
 #: What is known to be missing, said on every run and never failed: (name, why).
 KNOWN_GAPS = (
