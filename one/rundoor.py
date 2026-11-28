@@ -100,6 +100,9 @@ class Door:
         self._key = secrets.token_bytes(32)
         self._passwords: dict[str, str] = {}
         self._program_password = secrets.token_urlsafe(32)
+        #: The owner's chat's own, standing while the program runs, so the core can mark it free
+        #: before a command of the chat's starts rather than up to a sync later.
+        self._chat_password = secrets.token_urlsafe(32)
         self.started_at = time.time()
         self.port = _port()
         self.servers: list[asyncio.base_events.Server] = []
@@ -123,6 +126,8 @@ class Door:
     def password(self, run: str) -> str:
         if run == peers.PROGRAM:
             return self._program_password
+        if run == peers.CHAT:
+            return self._chat_password
         got = self._passwords.get(run)
         if got is None:
             got = self._passwords[run] = secrets.token_urlsafe(32)
@@ -151,9 +156,10 @@ class Door:
 
     def hashes(self) -> list[dict]:
         """What the core hands the key proxy: each live run's password hash, never the password."""
-        out = [{"run": "", "who": peers.PROGRAM, "hash": _hash(self._program_password)}]
+        out = [{"run": "", "who": peers.PROGRAM, "hash": _hash(self._program_password)},
+               {"run": peers.CHAT, "who": "chat", "hash": _hash(self._chat_password)}]
         holders = self._holders()
-        live = {run for run, _start in holders.values()}
+        live = {run for run, _start in holders.values()} - {peers.CHAT}
         for run in list(self._passwords):
             if run not in live:
                 self._passwords.pop(run, None)

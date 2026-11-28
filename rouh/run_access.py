@@ -526,6 +526,18 @@ async def entries(doors: list[dict]) -> dict:
         if d.get("who") == "program":
             out[h] = {"run": "", "kind": "program", "free": False}
             continue
+        if d.get("who") == "chat":
+            # The owner's own chat's commands (one/shell.py `run_free`): the program runs one only
+            # when the core asks for it from the owner's chat in Unrestricted, so the chat's
+            # identity is as free as the owner's mode, and a trip makes it Restricted with them.
+            entry = {"run": str(d.get("run") or "rouh-chat"), "kind": "owner",
+                     "free": bool(owner_mode.unrestricted)}
+            if entry["free"]:
+                entry["gets"] = list(ITEMS)
+                if owner_mode.until:
+                    entry["until"] = float(owner_mode.until)
+            out[h] = entry
+            continue
         run = str(d.get("run") or "")
         kind, free, _why = await free_now(run)
         entry = {"run": run, "kind": kind, "free": free}

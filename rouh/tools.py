@@ -12463,18 +12463,23 @@ class ToolRegistry:
     def _declare_run_command(self) -> None:
         self._own(
             "run_command",
-            "Run a read-only command on the server and read the answer straight "
-            "back, without starting a worker. For looking: disk space, services, "
-            "logs, what is in a directory. The commands: ls, cat, head, tail, wc, grep, "
+            "Run a command on the server and read the answer straight back, without starting a "
+            "worker. What it may run depends on the owner's Permissions mode, which your "
+            "instructions say. In Unrestricted, in the owner's own chat: any command, whole, "
+            "through bash - it may write, chain, redirect, pipe and use the network, the way the "
+            "owner's own runs do, and it is written into What Rouh did; only what deletes their "
+            "data for good, or gives an outsider access, waits for their yes. Do the work with it "
+            "yourself rather than offering to or starting a job for a one-line change. Otherwise "
+            "it is read-only, for looking: disk space, services, logs, what is in a directory. "
+            "The read-only commands: ls, cat, head, tail, wc, grep, "
             "rg, find (no -exec), jq, sort, uniq, cut, tr, diff, stat, tree, file, df, du, "
             "free, ps, uptime, systemctl status and its other reading verbs, journalctl, "
             "git's reading verbs (log, show, status, diff, blame, grep ...), ip and ss to "
             "look, dpkg -l/-L/-s/-S, openssl x509 -noout, nginx -t, piped together with | "
-            "(`grep -rn x /path | head -20`). Not awk, sed, curl or env, and no network. "
-            "It refuses anything that writes, and "
-            "that is not a limit on what you can do - if the job needs to change "
-            "something, use delegate_task, which starts a background job and "
-            "leaves a log. Every message Rouh sent to somebody other than ‹owner› - a "
+            "(`grep -rn x /path | head -20`). Not awk, sed, curl or env, and no network; "
+            "anything that writes goes to delegate_task or a job. timeout is in seconds "
+            "(Unrestricted only, default 60, at most 300). Every message Rouh sent to somebody "
+            "other than ‹owner› - a "
             "case's reply, acknowledgement or update, on Telegram or by email - is one "
             "JSON line, whole text, channel, recipient, the provider's message id and "
             f"the case key, in {os.path.join(getattr(self.cfg, 'logs_path', '') or '.', 'sent.log')} (grep "
@@ -12483,11 +12488,12 @@ class ToolRegistry:
             "containers, where commands run in the worker and cannot read it).",
             {
                 "type": "object",
-                "properties": {"command": {"type": "string"}},
+                "properties": {"command": {"type": "string"},
+                               "timeout": {"type": "number"}},
                 "required": ["command"],
             },
             self._run_command,
-            brief="Run a read-only command on the server",
+            brief="Run a command on the server",
         )
 
     def _declare_assistant_job(self) -> None:
@@ -17956,6 +17962,9 @@ class ToolRegistry:
         is whether the command reads. In the containers it is read in the
         worker, which holds no key, by the one program (`one/shell.py`).
         """
+        free = await self._run_command_free(args, emit)
+        if free is not None:
+            return free
         stages, refusal = plan_pipeline((args.get("command") or "").strip())
         if refusal:
             return refusal
@@ -17968,6 +17977,84 @@ class ToolRegistry:
                 return f"The worker is not answering, so nothing was read: {exc}"
             return str(got.get("text") or "")
         return await asyncio.to_thread(run_pipeline, stages)
+
+
+    async def _run_command_free(self, args, emit) -> str | None:
+        """The whole command, when this is the owner's own chat and their switch is Unrestricted,
+        or None for the read-only rules above.
+
+        Petar, 28 November 2026: "the purpose of unrestricted mode is not to have those
+        limitations and not have to have those conversations." So in their chat in Unrestricted it
+        runs whole, through bash: in the containers in the worker under the chat's own door
+        identity, which reaches as far as an owner's free run, the machine Rouh runs on and the
+        live workspace among it (one/shell.py `run_free`, `rouh/run_access.py`); on a server here.
+        What deletes for good or gives an outsider access still asks first
+        (`unrestricted.command_still_asks`), and every command is a row of What Rouh did."""
+        from .tenancy import SPEAKER
+
+        command = str(args.get("command") or "").strip()
+        who = SPEAKER.get()
+        try:
+            if not command or not await asyncio.to_thread(unrestricted.for_chat, who):
+                return None
+        except Exception:  # noqa: BLE001 - the read-only rules, as before
+            log.exception("whether run_command runs whole could not be read")
+            return None
+        try:
+            timeout = float(args.get("timeout") or 60)
+        except (TypeError, ValueError):
+            timeout = 60.0
+        timeout = max(1.0, min(timeout, 300.0))
+        said = worklabel.describe_step("run_command", {"command": command})
+        held = unrestricted.command_still_asks(command)
+        why = "Your own chat, in Unrestricted: the whole command ran."
+        if held:
+            said = {**said, "detail": f"{command}\n\nAsked even in Unrestricted: "
+                                      f"{unrestricted.STILL_ASKS[held]}."}
+            verdict = await self.gate.ask("run_command", said, emit, args={"command": command})
+            if verdict != permissions.ALLOW:
+                return untrusted.ours(self.gate.refusal("run_command", said, verdict))
+            why = (f"Your own chat, in Unrestricted, and you said yes: "
+                   f"{unrestricted.STILL_ASKS[held]}.")
+        if getattr(self.cfg, "shell_in_worker", False):
+            from .one_client import OneUnavailable
+
+            # Its own client, waiting as long as the command may run, and a little more.
+            slow = OneClient(self.one.socket_path, self.one.token_file, timeout=timeout + 15)
+            try:
+                got = await slow.ask("shell", free=True, command=command, timeout=timeout,
+                                     limit=8000)
+                out = str(got.get("text") or "")
+                ok = True
+            except (OneUnavailable, OneRefused) as exc:
+                out, ok = f"The worker did not run it, so nothing ran: {exc}", False
+        else:
+            out = await asyncio.to_thread(_run_whole, command, timeout)
+            ok = True
+        chat = self.memory.answering_chat() if self.memory is not None else ""
+        await asyncio.to_thread(
+            unrestricted.record, who, via="chat", where=chat, title="", tool="run_command",
+            args={"command": command}, what=(said.get("what") or f"Ran {command[:200]}"),
+            why=why, result=out, ok=ok)
+        return out
+
+
+def _run_whole(command: str, timeout: float) -> str:
+    """A whole command, through bash, on this server (not the containers), for the owner's chat in
+    Unrestricted (`ToolRegistry._run_command_free`)."""
+    import subprocess
+
+    try:
+        got = subprocess.run(["bash", "-c", command], capture_output=True, text=True,
+                             timeout=timeout, stdin=subprocess.DEVNULL)
+    except subprocess.TimeoutExpired as exc:
+        out = exc.stdout if isinstance(exc.stdout, str) else ""
+        return (out or "")[:8000] + f"\n... stopped after {int(timeout)} seconds."
+    except OSError as exc:
+        return f"{type(exc).__name__}: {exc}"
+    text = (got.stdout or "") + (got.stderr or "")
+    text = text[:8000] + "\n... cut off at 8000 characters." if len(text) > 8000 else text
+    return (text or "(no output)") + (f"\n(exit {got.returncode})" if got.returncode else "")
 
 
 def _lower_first(text: str) -> str:

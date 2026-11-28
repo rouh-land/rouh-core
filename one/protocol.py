@@ -509,11 +509,18 @@ class Client:
         return {"codex_api": self.p.api_key.available()}
 
     async def _do_shell(self, m):
-        """Rouh's read-only shell, in the containers only (one/shell.py)."""
+        """Rouh's shell, in the containers only (one/shell.py): read-only, or the owner's chat's whole one."""
         if os.environ.get("ONE_SHELL_FOR_ROUH") != "1":
             raise rules.Refused("this program does not run Rouh's shell")
         from . import shell
 
+        if m.get("free"):
+            # The owner's own chat, while their switch is Unrestricted: Rouh's core decided that
+            # (`rouh/tools.py`, `_run_command`), and only its connection may ask (rules "voice").
+            text = await asyncio.to_thread(
+                shell.run_free, str(m.get("command") or ""), holders=self.p.chat_holders,
+                timeout=float(m.get("timeout") or shell.FREE_TIMEOUT), limit=int(m.get("limit") or 8000))
+            return {"text": text}
         text = await asyncio.to_thread(shell.run, m.get("stages"), cwd=str(self.p.settings.workspace or ""),
                                        timeout=float(m.get("timeout") or 20), limit=int(m.get("limit") or 4000))
         return {"text": text}

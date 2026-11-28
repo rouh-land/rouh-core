@@ -13,12 +13,23 @@ the network closed by the kernel. In the worker that is Landlock, because Docker
 refuses bubblewrap its namespaces; the stack sets `ROUH_SANDBOX=required` there, so with no box
 nothing runs. The program looks once, as it starts, and writes what it found beside its socket
 (`sandbox.json`), where the core's server_health reads it (task 139, step 139-14).
+
+**The owner's chat in Unrestricted** (`run_free`). Petar, 28 November 2026: "the purpose of
+unrestricted mode is not to have those limitations and not have to have those conversations." So
+when Rouh's core says the command is the owner's own chat's while their switch is Unrestricted
+(`rouh/tools.py`, `_run_command`), the whole command runs, through bash, with no box: it may
+write, chain, redirect and use the network. Its way out is the run door under an identity of its
+own (`peers.CHAT`), which the key proxy lets as far as an owner's free run - any server, GitHub as
+the owner, and the owner's standing servers, the machine Rouh runs on with its sudo among them -
+only while Rouh's core says the switch is Unrestricted (`rouh/run_access.py`, `entries`).
 """
 from __future__ import annotations
 
 import json
 import os
+import signal
 import subprocess
+import time
 
 from rouh import sandbox
 
@@ -89,4 +100,72 @@ def run(stages, *, cwd: str, timeout: float = 20, limit: int = 4000) -> str:
         return f"{type(exc).__name__}: {exc}"
     text = out or err or "(no output)"
     limit = min(int(limit), 8000)
+    return text[:limit] + f"\n... cut off at {limit} characters." if len(text) > limit else text
+
+
+#: How long a command of the owner's chat may run, by default and at most: a turn waits for it.
+FREE_TIMEOUT = 60.0
+MOST_FREE_TIMEOUT = 300.0
+MOST_FREE_CHARACTERS = 16000
+
+
+def _free_env() -> dict:
+    """What a command of the owner's chat starts with: the worker's own tools, the run door, and
+    nothing of the program's own (its settings and sockets are not the chat's)."""
+    home = os.environ.get("HOME", "/tmp")
+    keep = ("HTTPS_PROXY", "HTTP_PROXY", "https_proxy", "http_proxy", "NO_PROXY", "no_proxy", "USER",
+            "LOGNAME", "TZ")
+    env = {k: os.environ[k] for k in keep if os.environ.get(k)}
+    env.update({"HOME": home, "LANG": "C.UTF-8", "LC_ALL": "C.UTF-8", "TERM": "dumb",
+                "PATH": f"{home}/.local/bin:/code/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:"
+                        "/sbin:/bin",
+                "ROUH_CHAT_COMMAND": "1"})
+    return env
+
+
+def run_free(command: str, *, holders: dict, timeout: float = FREE_TIMEOUT, limit: int = 8000,
+             cwd: str = "") -> str:
+    """The owner's chat's command, whole, through bash, with no box (see the top of this file).
+
+    ``holders`` is the program's {pid: start time} of the chat's commands now, which the run door
+    reads to know a connection is the chat's (`peers.CHAT`): this command's bash is one of them
+    while it runs, and what it starts is its by the kernel's process tree."""
+    from . import peers
+
+    command = str(command or "").strip()
+    if not command:
+        return "There was no command."
+    timeout = max(1.0, min(float(timeout or FREE_TIMEOUT), MOST_FREE_TIMEOUT))
+    limit = max(200, min(int(limit or 8000), MOST_FREE_CHARACTERS))
+    home = os.environ.get("HOME", "/tmp")
+    cwd = cwd if cwd and os.path.isdir(cwd) else home
+    try:
+        proc = subprocess.Popen(["bash", "-c", command], cwd=cwd, env=_free_env(), text=True,
+                                stdin=subprocess.DEVNULL, stdout=subprocess.PIPE,
+                                stderr=subprocess.STDOUT, start_new_session=True)
+    except OSError as exc:
+        return f"{type(exc).__name__}: {exc}"
+    holders[proc.pid] = peers.started(proc.pid)
+    started = time.monotonic()
+    try:
+        try:
+            out, _ = proc.communicate(timeout=timeout)
+        except subprocess.TimeoutExpired:
+            try:
+                os.killpg(proc.pid, signal.SIGKILL)
+            except OSError:
+                proc.kill()
+            out, _ = proc.communicate()
+            return (_cut(out or "", limit) + f"\n... stopped after {int(timeout)} seconds: it was still "
+                    "running. Give a longer timeout, or start long work as a job.")
+    finally:
+        holders.pop(proc.pid, None)
+    took = time.monotonic() - started
+    text = _cut(out or "", limit) or "(no output)"
+    if proc.returncode:
+        text += f"\n(exit {proc.returncode}, {took:.1f} s)"
+    return text
+
+
+def _cut(text: str, limit: int) -> str:
     return text[:limit] + f"\n... cut off at {limit} characters." if len(text) > limit else text

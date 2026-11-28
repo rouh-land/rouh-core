@@ -36,6 +36,11 @@ import struct
 OUTSIDE, PROGRAM, SYSTEM, ADMIN, UNKNOWN = "outside", "program", "system", "admin", "unknown"
 #: The answers that are not a run.
 NOT_RUNS = frozenset({OUTSIDE, PROGRAM, SYSTEM, ADMIN, UNKNOWN})
+#: The owner's own chat with Rouh, for the commands it runs in Unrestricted (one/shell.py
+#: `run_free`): a run-like identity of its own, never a run's and never the program's, so on the
+#: control socket and the program's web port it is held like a run, and at the door it gets only
+#: what Rouh's core says the chat gets (`rouh/run_access.py`, `entries`).
+CHAT = "rouh-chat"
 
 
 def _stat(pid: int) -> tuple[int, int] | None:

@@ -100,6 +100,9 @@ class Program:
         #: Each run's own way out and identity, which no other run can borrow (one/rundoor.py).
         self.door = Door(self.door_holders)
         self._holder_starts: dict[int, int] = {}
+        #: {pid: start time} of the commands the owner's chat runs now in Unrestricted (one/shell.py
+        #: `run_free`): each is a holder of `peers.CHAT` while it runs.
+        self.chat_holders: dict[int, int] = {}
         self.started_at = time.time()
         self._tree_dirty = True
         self._tree_sent: str | None = None
@@ -165,6 +168,8 @@ class Program:
             out[int(pid)] = (run_id, start)
         for pid in [p for p in self._holder_starts if p not in out]:
             self._holder_starts.pop(pid, None)
+        for pid, start in list(self.chat_holders.items()):
+            out[int(pid)] = (peers.CHAT, start)
         return out
 
     async def _open_door(self) -> None:

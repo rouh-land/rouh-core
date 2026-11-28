@@ -177,6 +177,37 @@ def still_asks(name: str, args: dict | None, who=None) -> str:
     return ""
 
 
+#: A whole command the owner's chat runs in Unrestricted (`tools._run_command`) that still waits
+#: for their yes, by what it does: each pattern, and the `STILL_ASKS` key it is. On the side of
+#: asking for what deletes for good, and nothing else: a command that writes, chains, redirects or
+#: reaches the network runs at once (Petar, 28 November 2026).
+_COMMAND_HELD = (
+    (r"\brm\b[^|;&]*\s-(?:[a-zA-Z]*[rR][a-zA-Z]*)\b|\brm\b[^|;&]*--recursive", DELETES_FOR_GOOD),
+    (r"\b(?:shred|wipefs|mkfs(?:\.\w+)?|blkdiscard)\b", DELETES_FOR_GOOD),
+    (r"\bdd\b[^|;&]*\bof=", DELETES_FOR_GOOD),
+    (r"\bfind\b[^|;&]*\s-delete\b", DELETES_FOR_GOOD),
+    (r"\bgit\b[^|;&]*\bpush\b[^|;&]*(?:\s--force\b|\s-f\b|\s--delete\b|\s:[\w/.-]+)", DELETES_FOR_GOOD),
+    (r"\bgit\b[^|;&]*\b(?:clean\s+-[a-zA-Z]*f|branch\s+-D|reset\s+--hard|stash\s+(?:drop|clear)|"
+     r"reflog\s+expire|gc\s+--prune)", DELETES_FOR_GOOD),
+    (r"\bdocker\b[^|;&]*\b(?:volume\s+(?:rm|prune)|system\s+prune|rm\b[^|;&]*\s-v\b|"
+     r"compose\b[^|;&]*\bdown\b[^|;&]*\s-v\b)", DELETES_FOR_GOOD),
+    (r"(?i)\b(?:drop\s+(?:table|database|schema)|truncate\s+table|delete\s+from)\b", DELETES_FOR_GOOD),
+    (r"\b(?:ssh-copy-id)\b|authorized_keys", OUTSIDER_ACCESS),
+)
+
+
+def command_still_asks(command: str) -> str:
+    """The `STILL_ASKS` key a whole command is, or "": what the owner's chat asks them first even
+    in Unrestricted (`tools._run_command`). Standard library only."""
+    import re
+
+    text = str(command or "")
+    for pattern, key in _COMMAND_HELD:
+        if re.search(pattern, text):
+            return key
+    return ""
+
+
 # --- the mode ---------------------------------------------------------------------------------
 
 
@@ -555,7 +586,46 @@ def told(who) -> str:
             "Cloudflare, commands on the server, changes to Rouh itself and deploys, mail, Slack "
             "and Drive actions run at once, with no decision and nobody asked, and each is written "
             "into What Rouh did with its undo. Do not say you cannot or need their permission for "
-            "these. Still asked in every mode: " + "; ".join(STILL_ASKS.values()) + ".")
+            "these. Act, do not offer: when the next step is yours to take, take it in this turn and "
+            "say what you did, and never end with \"shall I\", \"do you want me to\" or \"should I "
+            "start a job\" about it. " + command_told() +
+            " Still asked in every mode: " + "; ".join(STILL_ASKS.values()) + ".")
+
+
+def command_told() -> str:
+    """What the owner's chat is told run_command does in Unrestricted: where it runs and what it
+    reaches, from this installation's own standing access (`run_access.standing`)."""
+    import os
+    import socket
+
+    from .config import config
+
+    said = ("run_command runs any command, whole, through bash: it may write, chain, redirect, pipe and "
+            "use the network, as the owner's own runs do, and each is written into What Rouh did.")
+    if not getattr(config, "shell_in_worker", False):
+        return said + " It runs on this server, as Rouh."
+    try:
+        from . import run_access
+
+        host = (run_access.standing().get("servers") or {}).get("host")
+        alias = run_access._alias(host) if host else ""
+    except Exception:  # noqa: BLE001 - said without the host
+        alias = ""
+    said += " It runs in the worker container, where the jobs run, with the jobs' tools."
+    if alias:
+        core = socket.gethostname()
+        repo = str(getattr(config, "assistant_repo", "") or "")
+        try:
+            uid = os.stat(repo).st_uid if repo else os.getuid()
+        except OSError:
+            uid = os.getuid()
+        run_in = f"sudo -n docker exec -u {uid} {core}"
+        said += (f" The machine Rouh runs on is `ssh {alias}`, the owner's admin account, where `sudo -n` "
+                 f"is root: Rouh's own container there is `{core}`, and `ssh {alias} {run_in} <command>` "
+                 "runs in it as Rouh"
+                 + (f"; the live workspace Rouh serves is {repo} in it (`ssh {alias} {run_in} git -C "
+                    f"{repo} status`)" if repo else "") + ".")
+    return said
 
 
 def told_for_turn() -> str:
