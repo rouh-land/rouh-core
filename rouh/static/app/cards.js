@@ -4,9 +4,9 @@
  * code ran in the one file: app.js says why that matters.
  */
 import { actBtn, cardInAnswer, cardInLiveAnswer, copyFrom, dropEmpty, scrollDown, stopTheTurn, T,
-  turnIsRunning } from 'app/transcript.js';
+  putBackNow, turnIsRunning } from 'app/transcript.js';
 import { shared } from 'app/shared.js';
-import { $, clamp, el, esc, linkTo, siloChip, siloChips } from 'app/helpers.js';
+import { $, clamp, el, esc, linkTo, scrollerUnsettled, siloChip, siloChips } from 'app/helpers.js';
 import { load, store } from 'app/settings.js';
 import { notify } from 'app/notices.js';
 import { demoFrame } from 'app/demo.js';
@@ -7020,7 +7020,8 @@ function boxScrolls() {
    when the conversation is back and the reader goes up to it. */
 function boxLaidOut() {
   var host = streamEl();
-  return !!host && host.clientHeight > 0;
+  // Nor for the moment it is as tall as everything in it (`scrollerUnsettled`).
+  return !!host && !scrollerUnsettled(host);
 }
 
 // Whether the reader is within about a screenful of the oldest thing the page
@@ -7037,7 +7038,14 @@ function nearTheOldest() {
 (function () {
   var host = streamEl();
   if (!host || typeof fetch !== 'function') return;
-  var maybe = function () { if (boxLaidOut() && nearTheOldest()) loadOlderCards(); };
+  var maybe = function () {
+    if (!boxLaidOut()) return;
+    // A conversation just back on the screen is put where the reader left it
+    // first (`putBack`): measured before, it is at its top, and that read as
+    // the reader going up for the next page of cards.
+    putBackNow();
+    if (nearTheOldest()) loadOlderCards();
+  };
   host.addEventListener('scroll', maybe);
   // And when the conversation comes back on the screen, which is not always
   // a resize of the window: a column unfolding at a desk.

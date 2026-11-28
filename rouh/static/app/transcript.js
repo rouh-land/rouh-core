@@ -5,7 +5,7 @@
  */
 import { clipWords, num, setState } from 'app/orb.js';
 import { shared } from 'app/shared.js';
-import { $, browserTakes, el, linkTo, now } from 'app/helpers.js';
+import { $, browserTakes, el, linkTo, now, scrollerUnsettled } from 'app/helpers.js';
 import { cfg } from 'app/settings.js';
 import { notify } from 'app/notices.js';
 import { S, send } from 'app/socket.js';
@@ -13,6 +13,7 @@ import { ADDR } from 'app/address.js';
 import { PB, readAloud, stopPlayback } from 'app/playback.js';
 import { ANSWER_HELD, answerHeldGo, cardsUnpark, footnotes, goToAddress, renderBlock, resetCanvas, resetStreamCards, svgEl } from 'app/cards.js';
 import { copyText, growToLines } from 'app/runs.js';
+import { findShow } from 'app/search.js';
 import { CHATS, composerKey, forkBtnPaint, forkComeNow, forkKeys, forkMarksDraw, FORKS, sendKeys } from 'app/chats.js';
 import { screenHeight } from 'app/controls.js';
 import { drawTurnFiles, isDrawn } from 'app/attachments.js';
@@ -154,6 +155,50 @@ function olderFrom(chat, mark) {
   OLDER.before = mark || '';
   OLDER.loading = false;
   if (chat) OLDER.marks[chat] = OLDER.before;
+  olderHintSay();
+}
+
+/* The line at the top of what is on the screen, while there is more above
+   it. Petar, 28 November 2026, of General: it "shouldn't be loaded on screen
+   in full. Just the last 40 exchanges, the same ones we load for context.
+   Anything more you want to see backwards you can do with continuous scroll
+   backwards and a short note 'you can search with cmd+k'". The last forty
+   are what a chat opens on (`TRANSCRIPT_PAGE` in rouh/runtime.py, the same
+   forty General is sent with, `history_turns`), each page before them comes
+   as the reader scrolls up (`olderNear`), and this says so, with search one
+   press away. It goes once the beginning of the chat is on the screen. */
+function olderHintSay() {
+  var t = $('transcript');
+  if (!t) return;
+  var hint = $('streamHint');
+  var on = !!OLDER.before && OLDER.chat === CHATS.active;
+  if (!hint) {
+    if (!on) return;
+    hint = el('p', 'stream-hint', '');
+    hint.id = 'streamHint';
+    hint.hidden = true;
+    hint.appendChild(document.createTextNode('Scroll up for more, or '));
+    var go = /** @type {HTMLButtonElement} */ (el('button', 'stream-hint-find', 'search'));
+    go.type = 'button';
+    go.addEventListener('click', function () { findShow(true); });
+    hint.appendChild(go);
+    // The keys only where there is a keyboard to press them on.
+    if (window.matchMedia && window.matchMedia('(pointer: fine)').matches) {
+      var mac = /Mac|iPhone|iPad|iPod/.test(navigator.platform || navigator.userAgent || '');
+      hint.appendChild(document.createTextNode(' '));
+      hint.appendChild(el('kbd', '', mac ? '\u2318K' : 'Ctrl+K'));
+    }
+    hint.appendChild(document.createTextNode(' for anything older.'));
+    // Above the note that says older messages are coming, which is what
+    // everything read back is placed under, so it stays at the very top.
+    var older = $('streamOlder');
+    t.insertBefore(hint, older && older.parentNode === t ? older : t.firstChild);
+  }
+  if (hint.hidden === !on) return;
+  // Going up or down above the reader, measured from the end, so nothing moves under them.
+  var fromTheBottom = t.scrollHeight - t.scrollTop;
+  hint.hidden = !on;
+  if (!scrollerUnsettled(t)) t.scrollTop = t.scrollHeight - fromTheBottom;
 }
 
 // A chat back on the screen as it was left: it goes on from where it had got to.
@@ -171,6 +216,7 @@ function olderMoved(chat) {
   OLDER.chat = chat || '';
   OLDER.before = (chat && OLDER.marks[chat]) || '';
   OLDER.loading = false;
+  olderHintSay();
 }
 
 /** @param {string} chat @param {string} [mark] */
@@ -180,7 +226,7 @@ function olderLearn(chat, mark) {
 
 function olderNear() {
   var t = transcriptEl();
-  if (!t || HOST.el || !OLDER.before || OLDER.loading || !t.clientHeight) return;
+  if (!t || HOST.el || !OLDER.before || OLDER.loading || scrollerUnsettled(t)) return;
   if (t.scrollTop < OLDER_NEAR) olderLoad();
 }
 
@@ -215,6 +261,7 @@ function olderLoad() {
       OLDER.before = (data && data.older) || '';
       OLDER.marks[chat] = OLDER.before;
       OLDER.loading = false;
+      olderHintSay();
       // A short page that leaves the reader still at the top asks for the one before it.
       olderNear();
     })
@@ -288,13 +335,33 @@ function keepEnd() {
   var t = transcriptEl();
   if (!t) return;
   sizedAt = Date.now();
-  if (!t.clientHeight) { unseen = true; return; }
+  // Nor while it has no height of its own yet (`scrollerUnsettled`): a place
+  // put then is cut to the top, and the next measure takes the top for it.
+  if (scrollerUnsettled(t)) { unseen = true; return; }
   if (shared.stick) t.scrollTop = t.scrollHeight;
   else if (unseen) t.scrollTop = t.scrollHeight - t.clientHeight - fromEnd;
   unseen = false;
   lastTop = t.scrollTop;
   fromEnd = t.scrollHeight - t.scrollTop - t.clientHeight;
   updateJump();
+}
+
+/* A conversation put back on the screen as it was kept (`forkResume` in
+   app/chats.js): following its end if it was, and otherwise exactly as far
+   above its end as the reader had left it. Put as soon as the box has a
+   height of its own, which can be a moment after it is back
+   (`scrollerUnsettled`); until then nothing reads its top as the reader's. */
+/** @param {number} above @param {boolean} follow */
+function putBack(above, follow) {
+  shared.stick = !!follow;
+  fromEnd = Math.max(0, above || 0);
+  unseen = true;
+  keepEnd();
+}
+
+// The place `putBack` is still waiting to put, put now if the box can take it.
+function putBackNow() {
+  if (unseen) keepEnd();
 }
 
 /** What an empty conversation says: to speak or type, or only to type while there is no
@@ -2956,5 +3023,5 @@ export { actBtn, emptyWords, branchFocus, onTaskRefs, hideTyping, drawTranscript
   onSteerTaken, onTrace,
   onPermissionAsk, onPermissionDone, onRetract, onRetryStart, onStt, onToolEnd, onToolStart,
   onToolUpdate, onTranscriptScroll, onTurnEnd, onVersionPicked, openTheStream,
-  keepEnd, catchUp, seenMissed, seenSet, seenUpTo, olderBack, olderFrom, olderLearn, olderMoved, pickUpRunningTurn, readerHand, restoreTranscript, scrollDown, setBusy, showStop,
+  keepEnd, putBack, putBackNow, catchUp, seenMissed, seenSet, seenUpTo, olderBack, olderFrom, olderLearn, olderMoved, pickUpRunningTurn, readerHand, restoreTranscript, scrollDown, setBusy, showStop,
   stillSpeaking, stopTheTurn, T, transcriptEl, turnIsRunning, updateJump, watchTheTurn, wipeTranscript };

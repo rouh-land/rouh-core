@@ -230,4 +230,18 @@ function drawerLayout() {
   return true;
 }
 
-export { $, browserTakes, clamp, drawerLayout, el, esc, hexToRgb, inAppLink, linkFresh, linkTo, now, safeParse, siloChip, siloChips };
+/* Whether a box that scrolls has no height of its own yet, so where it is
+   scrolled to means nothing. Off the screen it measures 0. And for a moment
+   as a chat of a strip of forks is put back in its place, the conversation's
+   box is as tall as everything in it, taller than the window, and scrolls
+   not at all: a place put back then was cut to the very top, and the cards
+   read the top in view as the reader going up and read older pages in.
+   Petar, 28 November 2026: closing a fork of General left it "scrolled all
+   the way at the top" with "tons of old cards". */
+/** @param {HTMLElement | null} box */
+function scrollerUnsettled(box) {
+  if (!box || !box.clientHeight) return true;
+  return box.clientHeight > window.innerHeight + 2 && box.scrollHeight <= box.clientHeight + 2;
+}
+
+export { $, browserTakes, clamp, drawerLayout, el, esc, hexToRgb, inAppLink, linkFresh, linkTo, now, safeParse, scrollerUnsettled, siloChip, siloChips };

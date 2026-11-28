@@ -14,7 +14,7 @@ import { handleMessage, heldMoved, holdMessages, S, send } from 'app/socket.js';
 import { stopPlayback } from 'app/playback.js';
 import { setState } from 'app/orb.js';
 import { drawTranscriptInto, drawWords, editTurn, hideTyping, endTurnOnScreen, pickUpRunningTurn, restoreTranscript, setBusy,
-  catchUp, emptyWords, olderBack, olderFrom, olderLearn, olderMoved, seenSet, showStop, T, transcriptEl, turnIsRunning, updateJump, wipeTranscript } from 'app/transcript.js';
+  catchUp, emptyWords, olderBack, olderFrom, olderLearn, olderMoved, putBack, seenSet, showStop, T, transcriptEl, turnIsRunning, updateJump, wipeTranscript } from 'app/transcript.js';
 import { CARDS, cardsAdriftSay, cardWaysSay, frameLoad, projectSaidIt, resetCanvas,
   resetStreamCards, taskSaidIt, WORKSPACE_ROUTE } from 'app/cards.js';
 import { detachAsk, FIND, findAsk, findShow } from 'app/search.js';
@@ -1338,6 +1338,10 @@ function forkPark(id) {
     box: box,
     T: {}, S: {}, retry: shared.RETRY, versions: shared.VERSIONS, stick: shared.stick,
     scroll: t.scrollTop,
+    // And how far above its end that was, which is what is put back: older
+    // messages and cards read in above it while it is kept move its top, not
+    // its end (`putBack`).
+    above: Math.max(0, t.scrollHeight - t.scrollTop - t.clientHeight),
     // A page of its older cards on its way now is dropped, and asked for
     // again when it is back.
     cards: { oldest: CARDS.oldest, more: CARDS.loading ? true : CARDS.more },
@@ -1435,7 +1439,7 @@ function forkResume(m) {
   forkBtnPaint();
   showStop();
   updateJump();
-  t.scrollTop = kept.scroll;
+  putBack(kept.above, kept.stick);
   return kept.held;
 }
 
