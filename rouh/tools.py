@@ -3238,7 +3238,9 @@ class ToolRegistry:
             "by its last check, server, release, last backup and test restore, recent commands) and every server. "
             "how: the runbook for building and deploying an app on an apps server; read it before building one. "
             "check (app?): check one app, or all, by its address now. add (name, url, server or elsewhere, "
-            "what, repo): put an app that already runs somewhere on the list. edit (app, and the fields). "
+            "what, repo, data_at): put an app that already runs somewhere on the list. list also names the workspace "
+            "pages that keep data of their own on Rouh, which count as apps, and the plan for moving apps onto the "
+            "apps server; nothing is moved until ‹owner› says so. edit (app, and the fields). "
             "remove (app): off the list only, nothing on a server is stopped. command (app, verb, args): queue a "
             "command for the app's apps server, which takes it within a minute: new (args kind python or "
             "static, repo, branch, domain, memory, database) sets an app up on the standard, then deploy (ref?), "
@@ -3259,6 +3261,7 @@ class ToolRegistry:
                     "elsewhere": {"type": "string", "description": "For add: where it runs when not on an apps server."},
                     "what": {"type": "string", "description": "What the app is for, in a line."},
                     "repo": {"type": "string", "description": "Its git repository."},
+                    "data_at": {"type": "string", "description": "For add and edit: where its data is kept, for an app not on an apps server."},
                     "verb": {"type": "string", "enum": ["new", "deploy", "update", "rollback", "restart", "logs",
                                                         "backup", "restore-test", "check"]},
                     "args": {"type": "object", "description": "For command: the verb's arguments."},

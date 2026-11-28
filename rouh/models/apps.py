@@ -74,6 +74,9 @@ class HostedApp(models.Model):
     #: What the server last said of it (`CONTRACT.md`, a full report's app).
     report = models.JSONField(default=dict)
     made_at = models.FloatField(default=0)
+    #: Where its data is kept, in the person's words, for an app not on an apps server ("its own
+    #: PostgreSQL database, hunter, on the sites server"); an app on one is said by the standard.
+    data_at = models.TextField(default="")
     #: page, rouh, job or server (seen on a server's report before anybody listed it).
     made_by = models.TextField(default="page")
 

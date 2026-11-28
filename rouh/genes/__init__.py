@@ -240,7 +240,16 @@ NAV_KEYS = {"place", "order", "opens", "row", "press", "controls", "class", "mar
 #: within the anatomy section. No need for that, each subsection goes to the subpage".
 #: `handholding` is Handholding's sub-pages, as its data file lists them (`rouh/handholding.py`,
 #: `pages`), so a page is added, renamed or moved by editing that file alone.
-AS: tuple[str, ...] = ("anatomy", "handholding")
+#: `apps` is Apps (`rouh/apps_hosting.py`), in Work: its name, then its pages indented under it, Dashboard
+#: first (Petar, 28 November 2026: "under work in the navigation, let's have apps. and the first item there
+#: should be Dashboard"). `APPS_PAGES` lists them; one added there is drawn with no other change.
+AS: tuple[str, ...] = ("anatomy", "handholding", "apps")
+APPS_PAGES: tuple[dict, ...] = (
+    {"id": "dashboard", "name": "Dashboard", "route": "/apps",
+     "title": "Apps, Dashboard: your apps server and every app, with what to do to set it up",
+     "icon": "<rect x=\"4\" y=\"4\" width=\"7\" height=\"9\" rx=\"1.6\"/><rect x=\"13\" y=\"4\" width=\"7\" height=\"5\" rx=\"1.6\"/>"
+             "<rect x=\"13\" y=\"11\" width=\"7\" height=\"9\" rx=\"1.6\"/><rect x=\"4\" y=\"15\" width=\"7\" height=\"5\" rx=\"1.6\"/>"},
+)
 
 ID = re.compile(r"^[a-z][a-z0-9-]{1,40}$")
 ELEMENT = re.compile(r"^[A-Za-z][A-Za-z0-9_-]{0,60}$")
@@ -554,6 +563,11 @@ def as_links(m: dict, with_under: bool = True) -> list[dict]:
     each with the key its presses are counted under, its name, its glyph, its address and its
     row's id. Empty for a gene drawn as its own one link."""
     drawn = (m.get("nav") or {}).get("as")
+    if drawn == "apps":
+        head = {"id": "apps-section", "name": m["name"], "title": m.get("title") or m["name"], "icon": m["icon"],
+                "route": m["route"], "row_id": "nav-apps-section"}
+        return [head] + [{"id": f"apps-{p['id']}", "name": p["name"], "title": p["title"], "icon": p["icon"],
+                          "route": p["route"], "row_id": f"nav-apps-{p['id']}", "nested": True} for p in APPS_PAGES]
     if drawn == "handholding":
         from .. import handholding
 

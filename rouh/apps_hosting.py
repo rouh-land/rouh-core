@@ -240,7 +240,93 @@ def _app_dict(a, servers: dict, commands: list) -> dict:
             "test_url": rep.get("test_url", ""), "deploy_key": rep.get("deploy_key", ""),
             "memory_mb": rep.get("memory_mb"), "memory_limit": rep.get("memory_limit", ""),
             "last_error": rep.get("last_error") or "", "made_by": a.made_by,
+            "data_at": _data_at(a, server),
             "commands": [_command_dict(c) for c in mine[:6]]}
+
+
+def _data_at(a, server) -> str:
+    """Where an app's data is kept: the standard's own words on an apps server, else the person's."""
+    if server and server.get("standard"):
+        return f"Its own PostgreSQL database, app_{a.slug.replace('-', '_')}, and its files, on {server['name']}"
+    return a.data_at or ""
+
+
+def _page_name(rel: str) -> str:
+    """A workspace page's name: its own <title>, else its folder's words."""
+    from . import pages
+    from .config import config
+
+    try:
+        title = pages.title_of(pages.resolve(Path(config.assistant_repo), rel))
+    except Exception:  # noqa: BLE001 - a page that moved or went is named by its path
+        title = ""
+    if title:
+        return title
+    parts = [p for p in rel.split("/") if p and not p.endswith(".html")]
+    last = re.sub(r"^[\d-]+\.", "", parts[-1] if parts else rel).replace("-", " ")
+    return last[:1].upper() + last[1:]
+
+
+#: A person's settings on a page smaller than this are a remembered tab, not data of the page's own.
+SETTINGS_ARE_DATA = 512
+
+
+def data_pages(who) -> list[dict]:
+    """The workspace pages that keep data of their own on Rouh, so are apps in all but name.
+
+    Petar, 28 November 2026: "We have dynamic pages with functionalities and databases", running on
+    Rouh's own server. A page keeps data in two ways (`rouh/sharedlist.py`, `rouh/pagestate.py`): a
+    list everybody who may change the page shares, and each person's choices on it. Read here, never
+    moved."""
+    from .models import PageSharedList, PageState
+    from .pages import ROUTE as PAGES
+
+    found: dict[str, dict] = {}
+    for r in PageSharedList.objects.filter(org_id=str(who.org_id or "")).order_by("-updated_at")[:100]:
+        one = found.setdefault(r.rel, {"rel": r.rel, "lists": 0, "entries": 0, "settings_kb": 0, "updated_at": 0})
+        one["lists"] += 1
+        one["entries"] += len(r.items or [])
+        one["updated_at"] = max(one["updated_at"], r.updated_at or 0)
+    for r in PageState.objects.filter(**_ids(who)).order_by("-updated_at")[:400]:
+        size = len(json.dumps(r.settings or {}))
+        if size < SETTINGS_ARE_DATA and r.rel not in found:
+            continue
+        one = found.setdefault(r.rel, {"rel": r.rel, "lists": 0, "entries": 0, "settings_kb": 0, "updated_at": 0})
+        one["settings_kb"] = max(1, round(size / 1024))
+        one["updated_at"] = max(one["updated_at"], r.updated_at or 0)
+    out = []
+    for one in found.values():
+        kept = []
+        if one["lists"]:
+            kept.append(f"a list shared by everyone who may change the page ({one['entries']} "
+                        f"entr{'y' if one['entries'] == 1 else 'ies'})")
+        if one["settings_kb"]:
+            kept.append(f"your choices on the page (about {one['settings_kb']} KB)")
+        out.append({"rel": one["rel"], "name": _page_name(one["rel"]), "href": PAGES + one["rel"],
+                    "updated_at": one["updated_at"],
+                    "data_at": "Rouh's own database: " + " and ".join(kept)})
+    out.sort(key=lambda o: -o["updated_at"])
+    return out
+
+
+def move_plan(apps: list[dict], pages: list[dict], servers: list[dict]) -> dict:
+    """What moving everything onto the person's apps server means, one line each. Nothing is moved here."""
+    target = next((s["name"] for s in servers if s["standard"] and s["state"] in ("ready", "silent")), "")
+    steps = []
+    for a in apps:
+        if a["managed"]:
+            continue
+        steps.append({"kind": "app", "id": a["id"], "name": a["name"], "from": a["elsewhere"] or a["server"] or "elsewhere",
+                      "how": "Back up its database and files, set it up on the apps server on the standard, restore "
+                             "them there and test it, point its address at the new server, then stop the old one."})
+    for pg in pages:
+        steps.append({"kind": "page", "rel": pg["rel"], "name": pg["name"], "from": "Rouh's own server",
+                      "how": "Becomes a small app with a database of its own on the apps server, its data copied "
+                             "over; the page in the workspace stays and links to it."})
+    return {"target": target, "steps": steps,
+            "said": (f"Nothing has been moved. When you say so, Rouh moves them one at a time onto {target}."
+                     if target else "Nothing has been moved. Once your apps server is set up, Rouh can move "
+                     "them onto it one at a time, when you say so.")}
 
 
 def page(who, asked: str = "") -> dict:
@@ -282,7 +368,14 @@ def page(who, asked: str = "") -> dict:
                           "server": c.server_id,
                           "said": f"{VERB_SAID.get(c.verb, c.verb)} of {app['name'] if app else c.app or 'the server'} failed",
                           "since": c.done_at})
+    try:
+        pages = data_pages(who)
+    except Exception:  # noqa: BLE001 - the pages are a part of the page, never a reason for it to fail
+        log.exception("apps: the workspace pages with data could not be read")
+        pages = []
+    ready = any(s["standard"] and s["state"] in ("ready", "silent") for s in servers)
     return {"apps": apps, "servers": servers, "needs": needs, "hosts": HOSTS, "ideas": IDEAS,
+            "pages": pages, "plan": move_plan(apps, pages, servers), "ready": ready,
             "base": base, "reachable": reachable, "tokens": tokens, "now": now,
             "checked_at": max([a["checked_at"] for a in apps] or [0])}
 
@@ -325,7 +418,8 @@ def _server_of(who, server_id):
 
 
 def add_app(who, *, name: str, url: str = "", server_id=None, elsewhere: str = "", what: str = "",
-            slug: str = "", health_url: str = "", repo: str = "", kind: str = "", by: str = "page") -> dict:
+            slug: str = "", health_url: str = "", repo: str = "", kind: str = "", data_at: str = "",
+            by: str = "page") -> dict:
     """List an app: one that runs somewhere already, or one about to be set up on an apps server."""
     from django.db import IntegrityError
 
@@ -343,6 +437,7 @@ def add_app(who, *, name: str, url: str = "", server_id=None, elsewhere: str = "
                                        url=_clean_url(url), health_url=_clean_url(health_url),
                                        server=server, elsewhere="" if server else str(elsewhere or "").strip()[:120],
                                        repo=str(repo or "").strip()[:400], kind=str(kind or "")[:20],
+                                       data_at=str(data_at or "").strip()[:300],
                                        made_at=time.time(), made_by=by)
     except IntegrityError:
         raise Refused(f"An app called {slug} is already on the list.") from None
@@ -376,6 +471,8 @@ def edit_app(who, ident, **changes) -> dict:
         row.what = str(changes["what"] or "").strip()[:400]
     if "repo" in changes:
         row.repo = str(changes["repo"] or "").strip()[:400]
+    if "data_at" in changes:
+        row.data_at = str(changes["data_at"] or "").strip()[:300]
     if "server_id" in changes or "elsewhere" in changes:
         server = _server_of(who, changes.get("server_id", row.server_id))
         row.server = server
@@ -1012,7 +1109,13 @@ def _said_list(p: dict) -> str:
                 bits.append(f"deploy key {a['deploy_key']}")
         for c in a["commands"][:3]:
             bits.append(f"{c['said']} #{c['id']} {c['state']} {_when(c['done_at'] or c['asked_at'])}")
+        if a["data_at"]:
+            bits.append(f"data: {a['data_at']}")
         lines.append("; ".join(bits))
+    for pg in p["pages"]:
+        lines.append(f"Workspace page with its own data, {pg['name']} ({pg['rel']}): {pg['data_at']}; on Rouh's own server.")
+    if p["plan"]["steps"]:
+        lines.append(f"Moving plan: {len(p['plan']['steps'])} to move onto the apps server, none moved yet.")
     if not p["servers"]:
         lines.append("No apps server yet: new_server makes the line that sets one up.")
     for s in p["servers"]:
@@ -1050,11 +1153,11 @@ def tool(who, action: str, args: dict, by: str = "rouh") -> str:
     if action == "add":
         got = add_app(who, name=args.get("name") or args.get("app"), url=args.get("url"),
                       server_id=_server_named(who, args.get("server")), elsewhere=args.get("elsewhere"),
-                      what=args.get("what"), repo=args.get("repo"), by=by)
+                      what=args.get("what"), repo=args.get("repo"), data_at=args.get("data_at"), by=by)
         checked = check(who, got["id"])[0]
         return f"{got['name']} is on the list as {got['slug']} (id {got['id']}): {checked['state']}, {checked['said']}"
     if action == "edit":
-        fields = {k: args[k] for k in ("name", "url", "what", "repo", "elsewhere") if k in args}
+        fields = {k: args[k] for k in ("name", "url", "what", "repo", "elsewhere", "data_at") if k in args}
         if "server" in args:
             fields["server_id"] = _server_named(who, args.get("server"))
         got = edit_app(who, args.get("app"), **fields)

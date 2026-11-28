@@ -113,10 +113,10 @@
 .aps-form { display: grid; gap: 10px; padding: 14px; border: 1px solid var(--line); border-radius: 12px; background: var(--panel-2);
   grid-template-columns: repeat(auto-fit, minmax(min(240px, 100%), 1fr)); }
 .aps-form .aps-h5, .aps-form .aps-actions { grid-column: 1 / -1; }
-.aps-field { display: grid; gap: 4px; min-width: 0; }
+.aps-field { display: grid; gap: 4px; min-width: 0; align-content: start; }
 .aps-label { font-size: 12.5px; font-weight: 650; color: var(--dim); }
 .aps-hint { font-size: 12px; color: var(--dim); }
-.aps-input { min-height: 44px; padding: 6px 10px; border-radius: var(--radius-s); border: 1px solid var(--line); background: var(--bg-2);
+.aps-input { height: 44px; min-height: 44px; padding: 6px 10px; border-radius: var(--radius-s); border: 1px solid var(--line); background: var(--bg-2);
   color: var(--text); font: inherit; font-size: 14px; min-width: 0; width: 100%; box-sizing: border-box; }
 .aps-input:focus { border-color: var(--accent); outline: none; }
 
@@ -149,7 +149,8 @@
   border: 1px solid var(--line); border-radius: 8px; padding: 9px 11px; white-space: pre-wrap; overflow-wrap: anywhere; user-select: all; }
 .aps-fold summary { cursor: pointer; font-size: 13px; color: var(--accent); min-height: 32px; display: flex; align-items: center; }
 .aps-fold[open] summary { margin-bottom: 8px; }
-.aps-wait { margin: 0; display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--warn); }
+.aps-wait { margin: 0; display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--dim); }
+.aps-wait .aps-ico { color: var(--warn); }
 .aps-spin { animation: aps-turn 1.4s linear infinite; }
 @keyframes aps-turn { to { transform: rotate(360deg); } }
 @media (prefers-reduced-motion: reduce) { .aps-spin { animation: none; } .aps-chev { transition: none; } }
@@ -196,3 +197,18 @@
 @media (max-width: 640px), (pointer: coarse) {
   .aps-view .ctl, .aps-app-btn, .aps-open, .aps-fold summary { min-height: 44px; }
 }
+
+/* Why a server of its own, the pages that keep data, the moving plan, and the explanation folded away. */
+.aps-why { display: grid; gap: 8px; }
+.aps-why-list { margin: 0; padding-left: 20px; display: grid; gap: 6px; font-size: 14px; line-height: 1.5; color: var(--dim); max-width: 70ch; }
+.aps-pg-name { font-size: 15px; font-weight: 650; color: var(--text); text-decoration: none; min-height: 44px; display: inline-flex; align-items: center; }
+.aps-pg-name:hover { color: var(--accent); text-decoration: underline; }
+.aps-facts.aps-facts-flat { padding-left: 0; }
+.aps-facts-flat .aps-fact dd { white-space: normal; max-width: none; }
+.aps-plan { margin: 0; padding-left: 22px; display: grid; gap: 12px; }
+.aps-plan-step { display: grid; gap: 6px; }
+.aps-plan-top { display: flex; flex-wrap: wrap; gap: 4px 10px; align-items: baseline; }
+.aps-plan-name { font-size: 14px; font-weight: 650; }
+.aps-plan-how { margin: 0; font-size: 13px; color: var(--dim); max-width: 70ch; }
+.aps-plan-step .ctl { width: auto; justify-self: start; min-height: 36px; }
+.aps-about .aps-empty { padding-top: 10px; }

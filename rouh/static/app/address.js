@@ -782,7 +782,7 @@ function addrPlaceLink(place) {
 [['runsRow', ADDR_RUNS], ['briefRow', ADDR_BRIEF], ['controlRow', ADDR_CONTROL],
  ['synapseRow', ADDR_SYNAPSE], ['remindersRow', ADDR_REMINDERS], ['goalsRow', ADDR_GOALS],
  ['questsRow', ADDR_WORK], ['decisionsRow', ADDR_DECISIONS], ['actionsRow', ADDR_ACTIONS], ['crDecisions', ADDR_DECISIONS],
- ['receiptsRow', ADDR_RECEIPTS], ['appsRow', ADDR_APPS], ['homeBtn', ADDR_HOME], ['approvalsRow', ADDR_APPROVALS], ['thoughtsRow', ADDR_THOUGHTS],
+ ['receiptsRow', ADDR_RECEIPTS], ['nav-apps-dashboard', ADDR_APPS], ['homeBtn', ADDR_HOME], ['approvalsRow', ADDR_APPROVALS], ['thoughtsRow', ADDR_THOUGHTS],
  ['boxRow', ADDR_BOX], ['watchRow', ADDR_WATCH],
  ['webRow', ADDR_WEB]].forEach(function (row) {
   var a = $(row[0]);
@@ -832,7 +832,7 @@ function addrName() {
   if (actionsViewing()) return ACTS.id ? 'Action ' + ACTS.id + ' - Your part' : 'Your part';
   if (handholdingViewing()) return 'Guide';
   if (receiptsViewing()) return 'Receipts';
-  if (appsViewing()) return 'Apps';
+  if (appsViewing()) return 'Apps Dashboard';
   if (homeViewing()) return 'Home';
   if (memoryViewing()) {
     if (MEMORY.group === 'told') return 'What context/rules were included - Rules';

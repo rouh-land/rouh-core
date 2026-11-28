@@ -181,6 +181,13 @@ sudo rouh-app restart notes
 6. Once it answers on the new server, on the old one: `sudo rouh-app remove notes --yes`, which takes away its services and address and keeps its folder, renamed with the date, until it is no longer wanted. Add `--drop-database` only once the move is proved.
 7. Take the old deploy key off the repository.
 
+## Apps that are not on an apps server yet
+
+The Apps Dashboard in Rouh lists two kinds that are apps but do not run on an apps server, and a plan for moving each; nothing is moved until the person says so.
+
+- **An app that already runs elsewhere**, such as one made before Apps on a server of its own: it is listed with its address and where its data is kept, and checked by its address every five minutes. To move it, follow "Moving an app to another server" above: back up its database and files, `new` on the apps server, restore, test it on its test copy, point its address at the new server, then stop the old one.
+- **A workspace page that keeps data of its own on Rouh**: a page with a list shared by everyone who may change it, or a person's choices stored for it (`rouh/sharedlist.py`, `rouh/pagestate.py`), kept in Rouh's own database. To move one, make it a small app on the standard: its page becomes the app's front, its data becomes the app's own database (its rows in Rouh's `page_shared_lists` and `page_states`, found by the page's path, copied in by the app's first migration), the app is deployed with `new` and `deploy`, and the workspace page stays where it was, linking to the app's address.
+
 ## When an app grows big
 
 The apps on one server share its memory, processor and disk, and each has a memory limit so one cannot starve the rest.

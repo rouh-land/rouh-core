@@ -114,7 +114,7 @@ async def add(request: HttpRequest):
     def work(me, b):
         got = apps_hosting.add_app(me, name=b.get("name"), url=b.get("url"), server_id=b.get("server_id"),
                                    elsewhere=b.get("elsewhere"), what=b.get("what"), health_url=b.get("health_url"),
-                                   repo=b.get("repo"), by="page")
+                                   repo=b.get("repo"), data_at=b.get("data_at"), by="page")
         apps_hosting.check(me, got["id"])
         return {"said": f"{got['name']} is on the list.", **got}
 
@@ -126,7 +126,7 @@ async def edit(request: HttpRequest, ident: int):
     from rouh import apps_hosting
 
     def work(me, b):
-        fields = {k: b[k] for k in ("name", "url", "health_url", "what", "repo", "server_id", "elsewhere") if k in b}
+        fields = {k: b[k] for k in ("name", "url", "health_url", "what", "repo", "server_id", "elsewhere", "data_at") if k in b}
         got = apps_hosting.edit_app(me, ident, **fields)
         return {"said": f"{got['name']} is saved.", **got}
 

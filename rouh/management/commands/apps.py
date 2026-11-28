@@ -28,6 +28,7 @@ class Command(BaseCommand):
         parser.add_argument("--elsewhere", default="")
         parser.add_argument("--what", dest="about", default="")
         parser.add_argument("--repo", default="")
+        parser.add_argument("--data", default="", help="where its data is kept")
         parser.add_argument("--address", default="")
         parser.add_argument("--note", default="")
 
@@ -63,7 +64,7 @@ class Command(BaseCommand):
                 if not rest:
                     raise CommandError("Name the app.")
                 args = {"name": " ".join(rest), "url": o["url"], "what": o["about"], "repo": o["repo"],
-                        "elsewhere": o["elsewhere"]}
+                        "elsewhere": o["elsewhere"], "data_at": o["data"]}
                 if o["server"]:
                     args["server"] = o["server"]
                 self.stdout.write(apps_hosting.tool(who, "add", args, by="rouh"))

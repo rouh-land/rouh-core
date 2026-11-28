@@ -22,9 +22,8 @@
   "nav": {
     "place": "list",
     "order": 42,
-    "opens": "own",
-    "row": "appsRow",
-    "controls": "appsView"
+    "opens": "address",
+    "as": "apps"
   },
   "touches": {
     "permissions": [

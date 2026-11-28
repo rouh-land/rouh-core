@@ -2596,61 +2596,6 @@
      "glyph": "gear"
     },
     {
-     "id": "apps",
-     "title": "Have Rouh build you an app",
-     "minutes": 3,
-     "summary": [
-      "Rouh can build you an app of any kind: a travel companion, a wedding invitation with replies, a movie watch list, a small game, a work helper, an app that handles one kind of email for you.",
-      "You say what it should do, in your own words. Rouh writes it, puts it online at an address of yours, keeps it running and backed up, and changes it whenever you ask."
-     ],
-     "how": [
-      "Open Apps (menu, Work) and press Build a new app, or pick one of the ideas there.",
-      "Say what the app is for, who uses it and what they should be able to do. Rouh asks what it needs to know.",
-      "Rouh builds it in the background and tells you when it is ready, with its address.",
-      "To change it later, open its row in Apps and press Ask Rouh to change it."
-     ],
-     "says": [
-      "Build me a wedding invitation app: a page per guest, replies and meal choices.",
-      "Add a dark mode to my watch list app."
-     ],
-     "open": {
-      "label": "Apps",
-      "href": "/apps"
-     },
-     "detect": "app",
-     "talk": true,
-     "glyph": "layout"
-    },
-    {
-     "id": "apps-server",
-     "title": "Get your own apps server",
-     "tag": "Setup",
-     "minutes": 10,
-     "summary": [
-      "Your apps live on a small server of your own, about 5 to 10 euros a month, not on Rouh. A guest opening your wedding page never comes near your mail and passwords, and your apps keep running while Rouh updates.",
-      "Rouh sets the server up for you: a separate user, database and memory limit for each app, HTTPS addresses, nightly backups that are test-restored, and a way back for every update."
-     ],
-     "how": [
-      "Open Apps (menu, Work) and press Set up an apps server.",
-      "Pick your host. Hostinger is the easiest; Hetzner, DigitalOcean or any Linux server work too.",
-      "Buy a small server there with Ubuntu 24.04. Rouh never buys one for you.",
-      "Press Make my setup line, copy it, and paste it in the server's terminal. With a Hostinger API token, Rouh does this part with one press.",
-      "In about five minutes the server calls in and Apps shows it as ready."
-     ],
-     "says": [
-      "Set up my apps server on Hostinger.",
-      "How are my apps doing?"
-     ],
-     "open": {
-      "label": "Apps",
-      "href": "/apps"
-     },
-     "detect": "apps_server",
-     "optional": true,
-     "talk": true,
-     "glyph": "server"
-    },
-    {
      "id": "running",
      "title": "Check what is running",
      "minutes": 2,
@@ -2934,8 +2879,118 @@
    "topics": "Background work, decisions, goals, quests, the heartbeat"
   },
   {
-   "id": "yours",
+   "id": "apps",
    "n": 8,
+   "title": "Your apps",
+   "topics": "Apps Rouh builds for you, a server of your own, setting it up, changing and rolling back",
+   "lessons": [
+    {
+     "id": "apps",
+     "title": "Have Rouh build you an app",
+     "minutes": 3,
+     "summary": [
+      "Rouh can build you an app of any kind: a travel companion, a wedding invitation with replies, a movie watch list, a small game, a work helper, an app that handles one kind of email for you.",
+      "You say what it should do, in your own words. Rouh writes it, puts it online at an address of yours, keeps it running and backed up, and changes it whenever you ask."
+     ],
+     "how": [
+      "Open the menu, then Work, then Apps, Dashboard.",
+      "Press Build a new app, or one of the ideas there, and say in your own words what the app is for and who uses it.",
+      "Rouh asks what it needs to know, builds the app in the background, and tells you its address when it is ready.",
+      "It lives on your own apps server. If you have none yet, the Dashboard walks you through getting one first."
+     ],
+     "says": [
+      "Build me a wedding invitation app: a page per guest, replies and meal choices.",
+      "Add a dark mode to my watch list app."
+     ],
+     "open": {
+      "label": "Apps",
+      "href": "/apps"
+     },
+     "detect": "app",
+     "talk": true,
+     "glyph": "layout"
+    },
+    {
+     "id": "apps-why",
+     "title": "Why your apps live on a server of their own",
+     "minutes": 2,
+     "summary": [
+      "Rouh's own server holds the keys to your life: your mail, your passwords, your boxes. An app is opened by other people, like your wedding guests or your friends. They should never land on the machine that holds your keys.",
+      "Rouh also changes all the time: it updates, restarts and grows. Your apps must keep running while it does, and keep running if Rouh is ever moved to another computer.",
+      "So your apps get a small rented server of their own, which you own. Pages that only show something, like Rouh's explainers, can stay on Rouh."
+     ],
+     "how": [
+      "Nothing to do here: read it once, so the next tip makes sense.",
+      "The Apps Dashboard (menu, Work, Apps) says the same, at the top, until your apps server is set up."
+     ],
+     "open": {
+      "label": "Apps Dashboard",
+      "href": "/apps"
+     },
+     "glyph": "shield"
+    },
+    {
+     "id": "apps-server",
+     "title": "Get your own apps server",
+     "tag": "Setup",
+     "minutes": 10,
+     "summary": [
+      "Your apps live on a small server of your own, about 5 to 10 euros a month, not on Rouh. A guest opening your wedding page never comes near your mail and passwords, and your apps keep running while Rouh updates.",
+      "Rouh sets the server up for you: a separate user, database and memory limit for each app, HTTPS addresses, nightly backups that are test-restored, and a way back for every update."
+     ],
+     "how": [
+      "Open the menu, then Work, then Apps, Dashboard, and press Set up an apps server.",
+      "Pick your host. Hostinger is the easiest: buy a KVM VPS there, and pick Ubuntu 24.04 when it asks for the system. Hetzner, DigitalOcean or any Linux server work too, and the Dashboard shows the steps for each.",
+      "Press Make my setup line and press Copy.",
+      "At Hostinger, open your VPS and press Browser terminal, paste the line and press Enter. At Hetzner or DigitalOcean, paste the script into the Cloud config or User data box while you create the server.",
+      "Or, at Hostinger: make an API token in hPanel, Profile, API, paste it on the Dashboard, and press Set it up next to your new VPS. Rouh does the rest.",
+      "In about five minutes the server connects itself to Rouh, and the Dashboard shows it as ready. Rouh never buys a server for you: that part is yours."
+     ],
+     "says": [
+      "Set up my apps server on Hostinger.",
+      "How are my apps doing?"
+     ],
+     "open": {
+      "label": "Apps",
+      "href": "/apps"
+     },
+     "detect": "apps_server",
+     "optional": true,
+     "talk": true,
+     "glyph": "server"
+    },
+    {
+     "id": "apps-change",
+     "title": "Change, update and roll back an app",
+     "minutes": 2,
+     "summary": [
+      "Every app Rouh built keeps growing with you: ask for a change in plain words and Rouh makes it.",
+      "Each change goes to a test copy first and goes live only when the test copy works. If something still goes wrong, one press puts the version before back.",
+      "Every night your apps are backed up, and Rouh checks that each backup really can be restored."
+     ],
+     "how": [
+      "Open the menu, then Work, then Apps, Dashboard, and press the app's row to open it.",
+      "Ask Rouh to change it puts the start of a request in the message box: finish the sentence and send it.",
+      "Update brings the newest version Rouh made live, through the test copy. Roll back puts the version before back. Restart starts it again. Logs shows what it last wrote.",
+      "When an app stops answering, the Dashboard says so at the top and you get a notification, with Restart, Roll back and Ask Rouh to fix it right there."
+     ],
+     "says": [
+      "Add a dark mode to my watch list app.",
+      "My wedding app is not answering. Fix it.",
+      "Roll my game back to yesterday's version."
+     ],
+     "open": {
+      "label": "Apps Dashboard",
+      "href": "/apps"
+     },
+     "talk": true,
+     "glyph": "repeat"
+    }
+   ]
+  },
+  {
+   "id": "yours",
+   "n": 9,
    "title": "Make it yours",
    "lessons": [
     {
@@ -3136,7 +3191,7 @@
   },
   {
    "id": "security",
-   "n": 9,
+   "n": 10,
    "title": "Security",
    "lessons": [
     {
@@ -3556,7 +3611,7 @@
   },
   {
    "id": "power",
-   "n": 10,
+   "n": 11,
    "title": "Power user",
    "lessons": [
     {

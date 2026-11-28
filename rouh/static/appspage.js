@@ -187,13 +187,22 @@
       page.appendChild(s);
     }
     if (R.sheet === 'setup') { page.appendChild(setupSheet(d)); }
-    if (!d.apps.length && !d.servers.length && R.sheet !== 'setup' && R.sheet !== 'add') {
-      page.appendChild(empty(d));
-    } else {
-      if (d.apps.length) { page.appendChild(verdict(d)); }
-      if (d.needs.length) { page.appendChild(needs(d)); }
-      page.appendChild(appsSection(d));
-      page.appendChild(serversSection(d));
+    // Until an apps server is ready, what Apps is, why and the steps lead; then the apps do, and
+    // the explanation waits folded at the end (Petar, 28 November 2026).
+    if (!d.ready && R.sheet !== 'setup') { page.appendChild(intro(d)); }
+    if (d.apps.length) { page.appendChild(verdict(d)); }
+    if (d.needs.length) { page.appendChild(needs(d)); }
+    if (d.apps.length || d.ready || R.sheet === 'add') { page.appendChild(appsSection(d)); }
+    if (d.servers.length || d.ready) { page.appendChild(serversSection(d)); }
+    if (d.pages && d.pages.length) { page.appendChild(pagesSection(d)); }
+    if (d.plan && d.plan.steps.length) { page.appendChild(planSection(d)); }
+    if (d.ready) {
+      var fold = el('details', 'brown-toggle aps-about');
+      fold.appendChild(el('summary', '', 'What Apps is, and how it is set up'));
+      var fb = el('div', 'brown-toggle-body');
+      fb.appendChild(intro(d));
+      fold.appendChild(fb);
+      page.appendChild(fold);
     }
     body.querySelectorAll('input[data-keep], textarea[data-keep]').forEach(function (i) {
       var k = i.getAttribute('data-keep');
@@ -217,8 +226,9 @@
     m.textContent = plural(d.apps.length, 'app', 'apps') + ', ' + plural(d.servers.length, 'server', 'servers');
   }
 
-  /* With nothing yet: what Rouh builds, and why the apps want a home of their own. */
-  function empty(d) {
+  /* What Apps is, why the apps live on a server of their own, and the steps to set it up. It leads
+     the page until an apps server is ready, and waits folded at the end after. */
+  function intro(d) {
     var box = el('section', 'aps-empty');
     box.appendChild(el('h4', 'aps-hero', 'Rouh can build you any app.'));
     box.appendChild(el('p', 'aps-lead', 'Tell it what you want, in your own words. Rouh writes it, puts it online at an address of yours, ' +
@@ -227,24 +237,106 @@
     ideas.setAttribute('aria-label', 'Ideas to start from');
     d.ideas.forEach(function (idea) {
       var li = el('li');
-      var b = btn(idea.name, 'aps-idea', function () { say(idea.say); }, { title: 'Put this in the message box: ' + idea.say });
-      li.appendChild(b);
+      li.appendChild(btn(idea.name, 'aps-idea', function () { say(idea.say); }, { title: 'Put this in the message box: ' + idea.say }));
       ideas.appendChild(li);
     });
     box.appendChild(ideas);
-    var home = el('div', 'aps-home');
-    home.appendChild(svg('<rect x="3.5" y="4" width="17" height="6.5" rx="1.6"/><rect x="3.5" y="13.5" width="17" height="6.5" rx="1.6"/><path d="M7 7.2h.1M7 16.8h.1"/>', 'aps-home-ico'));
-    var words = el('div', 'aps-home-w');
-    words.appendChild(el('h4', 'aps-h', 'Your apps need a server of their own'));
-    words.appendChild(el('p', '', 'A small rented server, about 5 to 10 euros a month, that you own. Your apps live there, ' +
-      'not on Rouh, so a guest opening your wedding page never comes near your mail and passwords, and your apps keep running while Rouh updates.'));
-    var row = el('div', 'aps-actions');
-    row.appendChild(btn('Set up an apps server', 'aps-strong', function () { openSetup(); }, { keep: 'setup-open' }));
-    row.appendChild(btn('Add an app you already have', '', function () { R.sheet = 'add'; R.keep = 'add-name'; draw(); }));
-    words.appendChild(row);
-    home.appendChild(words);
-    box.appendChild(home);
+    var why = el('div', 'aps-why');
+    why.appendChild(el('h4', 'aps-h', 'Why your apps get a server of their own'));
+    var wl = el('ul', 'aps-why-list');
+    ['Rouh\u2019s server holds the keys to your life: your mail, passwords and boxes. A guest opening your wedding page should never come near it.',
+     'Rouh restarts and changes all the time. Your apps keep running while it does, and survive Rouh being moved or rebuilt.',
+     'The apps are yours: a small rented server, about 5 to 10 euros a month, that you own and can take anywhere.'
+    ].forEach(function (t) { wl.appendChild(el('li', '', t)); });
+    why.appendChild(wl);
+    box.appendChild(why);
+    if (!d.ready) {
+      var home = el('div', 'aps-home');
+      home.appendChild(svg('<rect x="3.5" y="4" width="17" height="6.5" rx="1.6"/><rect x="3.5" y="13.5" width="17" height="6.5" rx="1.6"/><path d="M7 7.2h.1M7 16.8h.1"/>', 'aps-home-ico'));
+      var words = el('div', 'aps-home-w');
+      words.appendChild(el('h4', 'aps-h', 'Set it up in three steps'));
+      var ol = el('ol', 'aps-steps');
+      ['Pick a host. Hostinger is the easiest; Hetzner, DigitalOcean or any Linux server work too.',
+       'Buy its smallest server with Ubuntu 24.04. Rouh never buys one for you.',
+       'Paste the one line Rouh gives you on the server, or let Rouh do it with a Hostinger token. The server connects itself to Rouh, and this page says Ready.'
+      ].forEach(function (t) { ol.appendChild(el('li', '', t)); });
+      words.appendChild(ol);
+      var row = el('div', 'aps-actions');
+      row.appendChild(btn('Set up an apps server', 'aps-strong', function () { openSetup(); }, { keep: 'setup-open' }));
+      if (!d.apps.length) {
+        row.appendChild(btn('Add an app you already have', '', function () { R.sheet = 'add'; R.keep = 'add-name'; draw(); }));
+      }
+      words.appendChild(row);
+      home.appendChild(words);
+      box.appendChild(home);
+    }
     return box;
+  }
+
+  /* The workspace pages that keep data of their own on Rouh: apps in all but name. */
+  function pagesSection(d) {
+    var sec = el('section', 'aps-sec');
+    sec.setAttribute('aria-labelledby', 'apsPagesH');
+    var head = el('div', 'aps-sec-head');
+    var h = el('h4', 'aps-h', 'Pages with their own data, on Rouh');
+    h.id = 'apsPagesH';
+    head.appendChild(h);
+    head.appendChild(el('span', 'aps-n', String(d.pages.length)));
+    sec.appendChild(head);
+    sec.appendChild(el('p', 'aps-note', 'Workspace pages that do more than show: they keep data, so they are apps too. They run on Rouh\u2019s own server for now.'));
+    var list = el('ul', 'aps-list');
+    d.pages.forEach(function (pg) {
+      var li = el('li', 'aps-app aps-pg');
+      var top = el('div', 'aps-app-top');
+      var a = el('a', 'aps-pg-name', pg.name);
+      a.href = pg.href;
+      top.appendChild(a);
+      li.appendChild(top);
+      var facts = el('dl', 'aps-facts aps-facts-flat');
+      [['Data', pg.data_at], ['Changed', ago(pg.updated_at)]].forEach(function (kv) {
+        var f = el('div', 'aps-fact');
+        f.appendChild(el('dt', '', kv[0]));
+        var dd = el('dd', '', kv[1]);
+        f.appendChild(dd);
+        facts.appendChild(f);
+      });
+      li.appendChild(facts);
+      list.appendChild(li);
+    });
+    sec.appendChild(list);
+    return sec;
+  }
+
+  /* What moving everything onto the apps server means. Nothing moves from here. */
+  function planSection(d) {
+    var sec = el('section', 'aps-sec');
+    sec.setAttribute('aria-labelledby', 'apsPlanH');
+    var head = el('div', 'aps-sec-head');
+    var h = el('h4', 'aps-h', 'Moving onto your apps server');
+    h.id = 'apsPlanH';
+    head.appendChild(h);
+    head.appendChild(el('span', 'aps-n', String(d.plan.steps.length)));
+    sec.appendChild(head);
+    sec.appendChild(el('p', 'aps-note', d.plan.said));
+    var ol = el('ol', 'aps-plan');
+    var said = {};
+    d.plan.steps.forEach(function (st) {
+      var li = el('li', 'aps-plan-step');
+      var top = el('div', 'aps-plan-top');
+      top.appendChild(el('span', 'aps-plan-name', st.name));
+      top.appendChild(el('span', 'aps-sub', 'Now on ' + st.from + '. Not moved.'));
+      li.appendChild(top);
+      li.appendChild(el('p', 'aps-plan-how', said[st.kind] ? 'The same way as ' + said[st.kind] + '.' : st.how));
+      if (!said[st.kind]) { said[st.kind] = st.name; }
+      if (d.ready) {
+        li.appendChild(btn('Ask Rouh to move it', '', function () {
+          say('Move ' + st.name + ' onto my apps server ' + d.plan.target + ', following the moving plan on the Apps dashboard.');
+        }));
+      }
+      ol.appendChild(li);
+    });
+    sec.appendChild(ol);
+    return sec;
   }
 
   function verdict(d) {
@@ -396,7 +488,7 @@
         (a.restore_test_at ? ', restore ' + (a.restore_test_ok === false ? 'failed ' : 'tested ') + ago(a.restore_test_at) : ', restore not tested yet')
       : 'Not by Rouh', a.backup_ok === false || a.restore_test_ok === false ? 'bad' : '');
     var pending = a.commands.filter(function (c) { return c.state === 'waiting' || c.state === 'sent' || c.state === 'running'; })[0];
-    if (pending) { fact('Now', pending.said + (pending.state === 'running' ? ' running' : ' sent ' + ago(pending.asked_at)), 'wait'); }
+    if (pending) { fact('Now', pending.said + (pending.state === 'running' ? ' running, asked ' : ' sent ') + ago(pending.asked_at), 'wait'); }
     li.appendChild(facts);
     if (R.row === a.id) { li.appendChild(appMore(a, d)); }
     return li;
@@ -448,6 +540,7 @@
       dl.appendChild(r);
     }
     row('Last check', a.checked_at ? ago(a.checked_at) + ': ' + (a.check_said || '') : 'Not yet');
+    row('Data', a.data_at || (a.managed ? '' : 'Not said yet'));
     row('Address', a.url || 'None');
     if (a.managed) {
       row('Release', a.release ? a.release + ', ' + ago(a.released_at) : 'Not deployed yet');
@@ -560,20 +653,22 @@
     var sec = el('section', 'aps-sec');
     sec.setAttribute('aria-labelledby', 'apServersH');
     var head = el('div', 'aps-sec-head');
-    var h = el('h4', 'aps-h', 'Your apps servers');
+    var h = el('h4', 'aps-h', 'Servers');
     h.id = 'apServersH';
     head.appendChild(h);
     head.appendChild(el('span', 'aps-n', String(d.servers.length)));
     sec.appendChild(head);
     if (!d.servers.some(function (s) { return s.standard; })) {
-      sec.appendChild(el('p', 'aps-none', 'No apps server yet. One small server of your own holds a dozen apps, kept apart from Rouh and from each other.'));
+      sec.appendChild(el('p', 'aps-none', d.servers.length
+        ? 'None of these is an apps server yet: their apps are checked by address only.'
+        : 'No apps server yet. One small server of your own holds a dozen apps, kept apart from Rouh and from each other.'));
     }
     var grid = el('ul', 'aps-servers');
     d.servers.forEach(function (s) { grid.appendChild(serverCard(s, d)); });
     if (d.servers.length) { sec.appendChild(grid); }
-    if (R.sheet !== 'setup') {
+    if (R.sheet !== 'setup' && d.ready) {
       var acts = el('div', 'aps-actions');
-      acts.appendChild(btn('Set up an apps server', d.servers.some(function (s) { return s.standard; }) ? '' : 'aps-strong',
+      acts.appendChild(btn(d.ready ? 'Set up another apps server' : 'Set up an apps server', '',
                            function () { openSetup(); }, { keep: 'setup-open' }));
       sec.appendChild(acts);
     }
