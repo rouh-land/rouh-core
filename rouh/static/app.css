@@ -372,6 +372,8 @@ button { font: inherit; color: inherit; }
   .canvas:has(> .cards > .card) > #canvasHide { top: calc(var(--top-air) + 1px); left: calc(var(--canvas-inset) + 9px); }
   .canvas:has(> .canvas-layer:not([hidden]):not(.under)) > #canvasHide { top: 11px; left: 12px; }
   .canvas:not(.covered):has(> .canvas-bar:not([hidden])) > #canvasHide { top: 4px; left: 4px; }
+  /* A bare canvas's one line starts after the Hide and on its middle. */
+  .app:not(.no-chat) .canvas #cardsEmpty { padding: 16px 0 0 calc(var(--canvas-corner) + 8px); }
 }
 
 /* Between 900 and 1180 the conversation gives ground first: the sidebar is
@@ -459,14 +461,16 @@ button { font: inherit; color: inherit; }
    because a frame round a column already against the screen is space to say
    nothing (the phone has had none since it had one pane). The orb floats
    over that edge, fixed to the bottom left corner of the window. Petar,
-   21 November 2026: "content should be flushed all the way left". */
+   21 November 2026: "content should be flushed all the way left".
+
+   It keeps its frame all the way round, though, its left edge and rounded
+   corners included: with that side open the chat read as running on off
+   the screen, and beside a fork's strip as a card with a side missing.
+   Petar, 28 November 2026: "somehow the chat feels open to the side, it is
+   not closed on one end. it gives me a sense that it goes off screen and
+   something is hiding." */
 @media (min-width: 900px) {
   .col-chat, .app.no-chat .rail-chat, .projects { margin-left: 0; }
-  .col-chat .panel-transcript, .col-chat .panel-ask, .col-chat .composer-box,
-  .col-chat > .chat-tabs, .app.no-chat .rail-chat {
-    border-left: 0;
-    border-top-left-radius: 0; border-bottom-left-radius: 0;
-  }
 }
 
 /* ---------- the projects, across both columns ---------- */
@@ -2878,8 +2882,11 @@ input[type="range"]::-moz-range-thumb { width: 15px; height: 15px; border: 0; bo
   right: calc(0px - var(--gutter) - var(--canvas-inset));
   width: calc(var(--gutter) + var(--canvas-inset));
 }
+/* The line is the chat's own height, top to bottom, so it reads as the
+   chat's edge and not as a stub beside it. Petar, 28 November 2026: "can
+   you make it the same height as the chat? it is awkwardly smaller". */
 #chatResize::after {
-  top: 14px; bottom: 8px;
+  top: 0; bottom: 0;
   left: calc(50% - 1.5px); width: 3px;
   background: color-mix(in srgb, var(--accent) 70%, transparent);
 }
@@ -8339,7 +8346,7 @@ a.att-name:hover { text-decoration: underline; }
   .card-tools .to-canvas .to-canvas-glyph { display: block; color: currentColor; }
   /* On the canvas the card has nothing on its head to press. The cross in
      the corner is the way back, and the card's own cross beside it would be
-     the two crosses a pane is never allowed (see `#tasksClose` below). */
+     the two crosses a pane is never allowed (see `.canvas-layer > .run-head > .layer-x` below). */
   .card.on-canvas .card-tools { display: none; }
   #cardsEmpty .at-desk { display: none; }
   #cardsEmpty .on-phone { display: inline; }
@@ -8496,7 +8503,7 @@ a.att-name:hover { text-decoration: underline; }
      bare canvas: opening anything else from the navigation puts it in place
      of what was there. Top left is the navigation's, on this pane as on the
      other. Escape still closes a layer for a keyboard, from the same table. */
-  #tasksClose, .canvas-layer > .run-head > .layer-x { display: none; }
+  .canvas-layer > .run-head > .layer-x { display: none; }
   /* Except on the top level. A card read by itself, a chat's cards,
      Settings and the public pages are looked at for a moment and closed, and
      closing one shows the content it lay over; the corner is a speech bubble,
@@ -10406,6 +10413,16 @@ a.att-name:hover { text-decoration: underline; }
   }
   .col-chat.stripped .chat-self:has(> .fork-x) .crumb,
   .fork-pane:has(> .fork-x) .crumb { padding-right: calc(10px + var(--top-chip) + 2px); }
+  /* While the chat can be hidden, its Hide is the last glyph of the head,
+     beside the line between the chat and the canvas, and the fork's cross
+     stands just before it, in a hole the Hide keeps (`#chatHide`). */
+  .app:not(.no-canvas):not(.no-chat) .col-chat.stripped .chat-self:has(> .fork-x) .crumb { padding-right: 10px; }
+  .app:not(.no-canvas):not(.no-chat) .col-chat.stripped .chat-self:has(> .fork-x) #chatHide {
+    margin-left: calc(var(--top-chip) + 2px);
+  }
+  .app:not(.no-canvas):not(.no-chat) .col-chat.stripped .chat-self > .fork-x {
+    right: calc(11px + var(--top-chip) + 2px);
+  }
 }
 
 /* The mark a detached fork leaves in the chat it came off: quieter than a

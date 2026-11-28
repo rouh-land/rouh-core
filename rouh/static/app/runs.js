@@ -7796,8 +7796,7 @@ function drawCrumb() {
   // would be left hanging under a bar that no longer says the same thing.
   crumbMenuClose();
   bar.textContent = '';
-  var strip = $('canvasBar'), shut = $('tasksClose');
-  if (shut) shut.hidden = !tasksViewing();
+  var strip = $('canvasBar');
   /* The whole row, not merely what is in it, belongs to what is loaded.
 
      With nothing loaded there is no breadcrumb to draw, so the row goes:
@@ -8071,7 +8070,6 @@ $('tasksView').addEventListener('keydown', function (e) {
     rows[i].addEventListener('click', tasksBrowse);
   }
 })();
-$('tasksClose').addEventListener('click', tasksClose);
 // The cross on a card being read by itself. The same one control every layer
 // has, and Escape does the same thing (`LAYER_CLOSE`).
 $('cardViewClose').addEventListener('click', function () { cardViewClose(); });

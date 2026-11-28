@@ -1735,12 +1735,10 @@ with {% asset %}, which gives it its hashed address.
                   data-icon="run" aria-haspopup="dialog">Start a run on this page</button>
         </div>
       </div>
-      {% comment %} There was a control here that gave the canvas the whole screen. It
-           has nothing left to do: the tasks take the conversation the moment
-           they are loaded, and the cross beside this gives it back. The
-           navigation they leave alone - it is the person's own fold. {% endcomment %}
-      <button id="tasksClose" class="layer-x" type="button" hidden
-              title="Back to the live work (Esc)" aria-label="Close what is loaded in the canvas">&times;</button>
+      {% comment %} There was a cross here, "Back to the live work (Esc)", that closed what
+           was loaded in the canvas. Petar, 28 November 2026: "it never really does anything for
+           me, just clears the content and I have blank screen. can we delete it?" Escape still
+           does it (`goNow`). {% endcomment %}
 
       {% comment %} The sharing panel, under the button that opens it.
 
