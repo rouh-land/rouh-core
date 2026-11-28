@@ -199,6 +199,10 @@ class Handling:
     #: The person's own words stored with the row that started it (`asked_of`): the only
     #: words on which this turn may give or take a trusted contact's authority.
     asked: list = field(default_factory=list)
+    #: The Clockwork item whose time started this turn, or "" for a turn a goal started. What the
+    #: turn sends to the phone is then that item's, filed under Reminders and leading back to
+    #: Clockwork, never under Rouh (`tools.ToolRegistry._send_telegram`).
+    item: str = ""
 
     def note(self, name: str, args, out) -> None:
         text = out if isinstance(out, str) else str(out or "")

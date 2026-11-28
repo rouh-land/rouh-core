@@ -786,7 +786,8 @@ class Timekeeper:
         # or take a contact's authority (`tools.ToolRegistry._delegate`). A trusted contact's
         # item has none, whatever its row says: its words are the contact's, never the
         # person's go-ahead (191-01 weak spot 13).
-        handling = reminders.Handling(asked=[] if theirs is not None else reminders.asked_of(row))
+        handling = reminders.Handling(asked=[] if theirs is not None else reminders.asked_of(row),
+                                      item=str(getattr(row, "id", "") or ""))
         handling_was = reminders.HANDLING.set(handling)
         # The reminder's own title and words are the person's, so automatic recall looks up what they name,
         # as it does for a message of theirs (Petar, 10 October 2026: "I think Clockwork should also use the

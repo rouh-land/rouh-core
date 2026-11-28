@@ -15480,7 +15480,14 @@ class ToolRegistry:
         if not args.get("straight_to_phone"):
             # On the owner's screen first, and on their phone if they leave it there
             # (`rouh/notices.py`).
-            if await notices.phone(text, kind="rouh") is not None:
+            # A turn a Clockwork item started is that item's: its message is a reminder, filed
+            # under Reminders and leading back to Clockwork, not one of Rouh's own (Petar,
+            # 28 November 2026: "why is this reminder under Rouh?").
+            handling = reminders.HANDLING.get()
+            item = getattr(handling, "item", "") if handling is not None else ""
+            kind = "reminder" if item else "rouh"
+            back = "/clockwork" if item and not notices.from_text(text).get("link") else ""
+            if await notices.phone(text, kind=kind, link=back) is not None:
                 if turn is not None:
                     turn.happened("told", text)
                 return ("Sent to ‹owner›: it is on ‹his› screen now as a notification, and goes "
