@@ -7,8 +7,11 @@ follow and clear (`rouh/notices.py`, `noticespage.js`).
                                      one not cleared), &when= today | week | month | older |
                                      custom (&since=, &until=, seconds), &today= the start of the
                                      person's day, seconds, &to= places it leads (comma separated),
-                                     &task= a task's folder, &sort= newest | oldest | kind | unread,
-                                     &offset=, &limit= (at most 200)
+                                     &task= a task's folder, &sub= groups of Jobs (comma separated:
+                                     failed, waiting, live, tasks, research, auto, other),
+                                     &sort= newest | oldest | kind | unread, &offset=, &limit= (at
+                                     most 200 cards). Every notification about one job, or one
+                                     task, is one card (`stack`: how many, their ids, the rest).
     POST /api/notifications/act      {act: read | unread | clear | restore | seen | later, ids?: [...],
                                      match?: {the same criteria as the query}}: on the ones picked,
                                      or on every one a view shows; answers what each changed one
@@ -42,8 +45,8 @@ async def listing(request: HttpRequest):
     if me is None:
         return refuse("Sign in first.", 401)
     asked = {k: request.GET.get(k, "") for k in (
-        "q", "kind", "show", "when", "since", "until", "today", "to", "task", "sort", "offset",
-        "limit")}
+        "q", "kind", "sub", "show", "when", "since", "until", "today", "to", "task", "sort",
+        "offset", "limit")}
     got = await asyncio.to_thread(notices.browse, me, asked)
     return answer(got, headers=NO_STORE)
 

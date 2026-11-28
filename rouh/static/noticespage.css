@@ -79,7 +79,11 @@
 
 /* The two columns. */
 .nf-cols { display: grid; grid-template-columns: 236px minmax(0, 1fr); gap: 20px; align-items: start; }
-.nf-filters { display: grid; gap: 16px; position: sticky; top: 0; align-content: start; min-width: 0; }
+.nf-filters { display: grid; gap: 16px; position: sticky; top: 0; align-content: start; min-width: 0;
+  /* Taller than the screen once Jobs has its groups: the column scrolls on its own, so every
+     filter can be reached while the list stays where it is. */
+  max-height: calc(100dvh - 150px); overflow-y: auto; overscroll-behavior: contain; padding: 2px 4px 12px 2px;
+  scrollbar-width: thin; }
 .nf-group { border: 0; margin: 0; padding: 0; min-width: 0; display: grid; gap: 6px; }
 .nf-group-h { padding: 0; font-size: 12px; font-weight: 650; color: var(--dim); }
 .nf-chips { display: grid; gap: 2px; }
@@ -142,6 +146,21 @@
 .nf-row.fresh { animation: nf-fresh 2.4s ease-out 1; }
 @keyframes nf-fresh { from { box-shadow: 0 0 0 2px var(--accent); } to { box-shadow: 0 0 0 0 transparent; } }
 .nf-row > .nf-pick { min-height: var(--nf-line); height: var(--nf-line); }
+
+/* A card for every one about one job or one task: two cards' edges show under it, so it reads
+   as a stack before a word of it is read. Opened, the edges go and the others are cards under it. */
+.nf-row.stacked { border-color: var(--line); margin-bottom: 10px;
+  box-shadow: 0 5px 0 -3px var(--panel-2), 0 5px 0 -2px var(--line), 0 10px 0 -6px var(--panel), 0 10px 0 -5px var(--line); }
+.nf-row.stacked.stack-open { margin-bottom: 0; box-shadow: none; border-color: var(--line); }
+.nf-stack-more { appearance: none; cursor: pointer; justify-self: start; display: inline-flex; align-items: center; gap: 6px;
+  min-height: 30px; margin-left: -9px; padding: 0 9px; border: 1px solid transparent; border-radius: 8px; background: transparent;
+  color: var(--accent); font: inherit; font-size: 12.5px; font-weight: 650; }
+.nf-stack-more:hover { background: var(--panel-2); border-color: var(--line); }
+.nf-stack-more:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+.nf-stack-rest { grid-column: 2 / -1; min-width: 0; display: grid; gap: 6px; margin-top: 10px; padding-top: 10px;
+  border-top: 1px solid var(--line-soft); }
+.nf-stack-rest .nf-row { padding-left: 0; }
+.nf-view-cards { color: var(--dim); }
 
 /* The icon's column, top to bottom: the icon on the title's line, the chevrons under it. */
 .nf-open { appearance: none; align-self: stretch; margin: -10px 0; padding: 10px 0; border: 0; border-radius: 10px;
@@ -240,13 +259,14 @@ button.nf-place { appearance: none; }
   .nf-icon, .nf-pick, .nf-toast-x { min-width: 44px; min-height: 44px; }
   .nf-row { --nf-line: 44px; }
   .nf-act { min-height: 44px; }
+  .nf-stack-more { min-height: 44px; }
 }
 
 /* Narrow: the filters fold into a sheet, opened by the toolbar's Filters. */
 @container nf (max-width: 760px) {
   .nf-cols { grid-template-columns: minmax(0, 1fr); gap: 12px; }
   .nf-filters-btn { display: inline-flex; min-height: 40px; }
-  .nf-filters { display: none; position: static; padding: 14px; border: 1px solid var(--line); border-radius: 14px;
+  .nf-filters { display: none; position: static; max-height: none; overflow: visible; padding: 14px; border: 1px solid var(--line); border-radius: 14px;
     background: var(--panel); }
   .sheet-open .nf-filters { display: grid; }
   .sheet-open .nf-sheet-done { display: inline-flex; justify-self: stretch; }
@@ -260,6 +280,7 @@ button.nf-place { appearance: none; }
   .nf-tools > .nf-menu > .nf-btn, .nf-filters-btn { padding: 0 12px; }
   .nf-row { grid-template-columns: 36px 40px minmax(0, 1fr); column-gap: 8px; padding-right: 10px; }
   .nf-day-h { margin-left: 8px; }
+  .nf-stack-rest { grid-column: 1 / -1; }
   .nf-empty { margin-left: 0; }
   .nf-pop { right: auto; left: 0; width: min(290px, calc(100vw - 48px)); }
   .nf-view-acts { margin-left: 0; }

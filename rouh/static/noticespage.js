@@ -39,11 +39,21 @@
   'use strict';
 
   var PAGE = 50;
+  /** What each group of Jobs holds, said on its chip (`notices.job_groups`). */
+  var SUB_TIPS = {
+    failed: 'Jobs whose run failed, or whose change reached main and is not live',
+    waiting: 'Jobs that said they need you, or are waiting on your answer',
+    live: 'Jobs that put a change to Rouh live',
+    tasks: 'Jobs about a task in your workspace, or that made a page of one',
+    research: 'Jobs about a task filed under research or buy',
+    auto: 'Jobs Rouh started on its own: nightly runs, Synapse, heartbeat follow-ups, Clockwork',
+    other: 'Jobs that fit none of the groups above'
+  };
   var TOAST_MS = 10000;
   /** A clear of more than this many asks once before it is done. */
   var ASK_OVER = 5;
 
-  var KEYS = ['q', 'kind', 'show', 'when', 'from', 'until', 'leads', 'task', 'sort'];
+  var KEYS = ['q', 'kind', 'sub', 'show', 'when', 'from', 'until', 'leads', 'task', 'sort'];
   var SORTS = [['newest', 'Newest first'], ['oldest', 'Oldest first'], ['unread', 'Unread first'],
                ['kind', 'By kind']];
   var SHOWS = [['', 'All'], ['unread', 'Unread'], ['read', 'Read'], ['cleared', 'Dismissed']];
@@ -54,7 +64,11 @@
     open: false,
     /** The view, as the address says it. */
     v: blank(),
-    items: [], total: 0, counts: null, totals: null,
+    /** The cards of the view (`total` is how many notifications, `cards` how many cards: every
+     *  one about one job, or one task, is one card, `n.stack`). */
+    items: [], total: 0, cards: 0, counts: null, totals: null,
+    /** The cards whose others are shown under them, by the card's key. */
+    stacksOpen: {},
     loading: false, error: '', seq: 0, more: false,
     /** The one opened in place, by id, or 0. */
     opened: 0,
@@ -78,7 +92,7 @@
     whole: null
   };
 
-  function blank() { return { q: '', kind: '', show: '', when: '', from: '', until: '', leads: '', task: '', sort: '' }; }
+  function blank() { return { q: '', kind: '', sub: '', show: '', when: '', from: '', until: '', leads: '', task: '', sort: '' }; }
   function host() { return window.RouhNoticesHost || {}; }
   function kit() { return window.RouhNoticesKit || {}; }
   function $(id) { return document.getElementById(id); }
@@ -139,7 +153,7 @@
   function list(s) { return s ? s.split(',').filter(Boolean) : []; }
   /** Whether the view is narrowed by anything at all, the search included. */
   function narrowed() {
-    return !!(P.v.q || P.v.kind || P.v.show || P.v.when || P.v.leads || P.v.task);
+    return !!(P.v.q || P.v.kind || P.v.sub || P.v.show || P.v.when || P.v.leads || P.v.task);
   }
   function dayStart(d) { var x = new Date(d); x.setHours(0, 0, 0, 0); return x.getTime() / 1000; }
   function dateAt(s, end) {
@@ -151,7 +165,7 @@
   }
   /** The view as the server's criteria. @param {any} v */
   function criteria(v) {
-    var c = { q: v.q, kinds: list(v.kind), show: v.show, when: v.when, to: list(v.leads), task: v.task,
+    var c = { q: v.q, kinds: list(v.kind), sub: list(v.sub), show: v.show, when: v.when, to: list(v.leads), task: v.task,
               today: dayStart(Date.now()) };
     if (v.when === 'custom') {
       c.since = dateAt(v.from, false);
@@ -164,6 +178,7 @@
     var q = new URLSearchParams();
     if (c.q) q.set('q', c.q);
     if (c.kinds.length) q.set('kind', c.kinds.join(','));
+    if (c.sub.length) q.set('sub', c.sub.join(','));
     if (c.show) q.set('show', c.show);
     if (c.when) q.set('when', c.when);
     if (c.since != null) q.set('since', String(c.since));
@@ -228,7 +243,7 @@
     });
   }
   function loadMore() {
-    if (P.loading || P.items.length >= P.total) return;
+    if (P.loading || P.items.length >= P.cards) return;
     var seq = ++P.seq;
     P.loading = true;
     drawBusy();
@@ -248,12 +263,14 @@
     (j.items || []).forEach(function (n) {
       if (!first && !P.known[n.id] && !append && n.state !== 'dismissed') P.fresh[n.id] = Date.now();
       P.known[n.id] = true;
+      stackRest(n).forEach(function (m) { P.known[m.id] = true; });
     });
     P.items = append ? P.items.concat(j.items || []) : (j.items || []);
     P.total = j.total || 0;
+    P.cards = j.cards != null ? j.cards : P.total;
     P.counts = j.counts || null;
     P.totals = j.totals || null;
-    if (P.opened && !P.items.some(function (n) { return n.id === P.opened; })) P.opened = 0;
+    if (P.opened && !everyLoaded().some(function (n) { return n.id === P.opened; })) P.opened = 0;
     draw();
   }
 
@@ -294,16 +311,23 @@
   function local(ids, what) {
     var to = { read: 'read', unread: 'later', clear: 'dismissed', restore: 'read' }[what];
     if (!to) return;
-    P.items.forEach(function (n) {
+    everyLoaded().forEach(function (n) {
       if (ids.indexOf(n.id) < 0) return;
       if (what === 'read' && n.state === 'dismissed') return;
       n.state = to;
     });
+    P.items.forEach(function (n) {
+      if (n.stack) n.stack.unread = [n].concat(stackRest(n)).filter(isUnread).length;
+    });
     if (what === 'clear' || what === 'restore') {
-      // Gone from this view, unless the view is the one it went to.
+      // Gone from this view, unless the view is the one it went to; a card goes when every
+      // one on it does.
       var stays = what === 'clear' ? P.v.show === 'cleared' : P.v.show !== 'cleared';
       if (!stays) {
-        P.items = P.items.filter(function (n) { return ids.indexOf(n.id) < 0; });
+        P.items = P.items.filter(function (n) {
+          if (n.stack) n.stack.rest = n.stack.rest.filter(function (m) { return ids.indexOf(m.id) < 0; });
+          return !idsOf(n).every(function (id) { return ids.indexOf(id) >= 0; });
+        });
         P.total = Math.max(0, P.total - ids.length);
       }
     }
@@ -420,7 +444,7 @@
     if (more) more.textContent = P.loading ? 'Loading…' : moreWords();
   }
   function moreWords() {
-    var left = P.total - P.items.length;
+    var left = P.cards - P.items.length;
     return 'Show ' + Math.min(PAGE, left) + ' more of ' + fmt(left);
   }
 
@@ -555,7 +579,7 @@
   }
 
   function filtersOn() {
-    return (P.v.kind ? list(P.v.kind).length : 0) + (P.v.show ? 1 : 0) + (P.v.when ? 1 : 0) +
+    return (P.v.kind ? list(P.v.kind).length : 0) + (P.v.sub ? list(P.v.sub).length : 0) + (P.v.show ? 1 : 0) + (P.v.when ? 1 : 0) +
       (P.v.leads ? list(P.v.leads).length : 0) + (P.v.task ? 1 : 0);
   }
 
@@ -638,7 +662,7 @@
 
   /* The filters: a column at a desk, a sheet under the toolbar on a narrow page. */
   function drawFilters() {
-    var c = P.counts || { show: {}, kinds: [], when: {}, to: [], task: [] };
+    var c = P.counts || { show: {}, kinds: [], sub: [], when: {}, to: [], task: [] };
     var side = el('aside', 'nf-filters');
     side.setAttribute('aria-label', 'Filters');
 
@@ -646,6 +670,20 @@
       return chip(s[1], c.show ? c.show[s[0]] : 0, P.v.show === s[0], function () { setView({ show: s[0] }); }, 'show:' + s[0], true);
     })));
 
+    // Jobs, by how each ended and who started it (`notices.job_groups`): one at a time to look
+    // at, or several, and "Dismiss these N" clears exactly that.
+    var subs = list(P.v.sub);
+    if (c.sub && c.sub.length) {
+      side.appendChild(group('Jobs', c.sub.map(function (g) {
+        var on = subs.indexOf(g.id) >= 0;
+        var b = chip(g.name, g.n, on, function () {
+          var now = on ? subs.filter(function (x) { return x !== g.id; }) : subs.concat([g.id]);
+          setView({ sub: now.join(',') });
+        }, 'sub:' + g.id, false);
+        b.title = SUB_TIPS[g.id] || g.name;
+        return b;
+      })));
+    }
     var whens = WHENS.map(function (w) {
       var n = w[0] === 'custom' ? null : (c.when ? c.when[w[0]] : 0);
       return chip(w[1], n, P.v.when === w[0], function () {
@@ -795,6 +833,8 @@
 
     var words = el('div', 'nf-view-words');
     words.appendChild(el('span', 'nf-view-n', P.loading && !P.counts ? 'Reading…' : (narrowed() ? 'Showing ' + fmt(P.total) : counted(P.total, 'notification'))));
+    // Every one about one job or one task is one card: said, so the list's length is not a puzzle.
+    if (P.counts && P.cards && P.cards < P.total) words.appendChild(el('span', 'nf-view-cards', 'on ' + counted(P.cards, 'card')));
     viewChips().forEach(function (c) { words.appendChild(c); });
     line.appendChild(words);
     if (narrowed() && P.total && P.v.show !== 'cleared') {
@@ -819,7 +859,7 @@
   /** Each filter that is on, as a chip whose press takes it off. */
   function viewChips() {
     var out = [];
-    var c = P.counts || { kinds: [], to: [], task: [] };
+    var c = P.counts || { kinds: [], sub: [], to: [], task: [] };
     function off(label, change, key) {
       var b = button('nf-on', '', function () { setView(change); });
       b.innerHTML = '<span>' + escapeHTML(label) + '</span>' + svg(GLYPH.x, 12);
@@ -837,6 +877,10 @@
     list(P.v.kind).forEach(function (k) {
       var got = (c.kinds || []).filter(function (x) { return x.id === k; })[0];
       off(got ? got.name : k, { kind: list(P.v.kind).filter(function (x) { return x !== k; }).join(',') }, 'kind:' + k);
+    });
+    list(P.v.sub).forEach(function (g) {
+      var got = (c.sub || []).filter(function (x) { return x.id === g; })[0];
+      off('Jobs: ' + (got ? got.name : g), { sub: list(P.v.sub).filter(function (x) { return x !== g; }).join(',') }, 'sub:' + g);
     });
     list(P.v.leads).forEach(function (p) {
       var got = (c.to || []).filter(function (x) { return x.id === p; })[0];
@@ -884,7 +928,7 @@
       sec.appendChild(ul);
       box.appendChild(sec);
     });
-    if (P.items.length < P.total) {
+    if (P.items.length < P.cards) {
       var more = button('nf-btn nf-more', P.loading ? 'Loading…' : moreWords(), loadMore);
       more.setAttribute('data-key', 'more');
       box.appendChild(more);
@@ -991,6 +1035,20 @@
       .map(function (x) { return x.p; });
   }
   function isUnread(n) { return n.state === 'new' || n.state === 'later'; }
+  /** The others on a card about one job or one task, newest first: [] for a card of its own.
+   *  @param {any} n */
+  function stackRest(n) { return n && n.stack && n.stack.rest ? n.stack.rest : []; }
+  /** Every notification a card stands for: its own, and on a stack every one on it, the ones
+   *  not drawn under it included. @param {any} n @returns {number[]} */
+  function idsOf(n) { return n && n.stack && n.stack.ids && n.stack.ids.length ? n.stack.ids : [n.id]; }
+  /** Every notification loaded, the ones under a card included. */
+  function everyLoaded() {
+    var out = [];
+    P.items.forEach(function (n) { out.push(n); stackRest(n).forEach(function (m) { out.push(m); }); });
+    return out;
+  }
+  /** Whether a card is unread: on a stack, any one on it. @param {any} n */
+  function cardUnread(n) { return n.stack ? n.stack.unread > 0 : isUnread(n); }
   /** Whether opening it shows more than the row already does: its details, or a decision. */
   function hasMore(n) { return !!(n.details || n.decision); }
 
@@ -1002,10 +1060,16 @@
   function rowFor(n) {
     var more = hasMore(n);
     var opened = more && P.opened === n.id;
-    var li = el('li', 'nf-row' + (isUnread(n) ? ' unread' : '') + (opened ? ' open' : '') +
-      (n.state === 'dismissed' ? ' cleared' : '') +
+    // A card for every one about one job or one task (`n.stack`): the newest drawn as any card
+    // is, and every press on it for all of them.
+    var st = n.stack && n.stack.n > 1 ? n.stack : null;
+    var all = st ? st.n : 1;
+    var stackOpen = !!(st && P.stacksOpen[st.key]);
+    var li = el('li', 'nf-row' + (cardUnread(n) ? ' unread' : '') + (opened ? ' open' : '') +
+      (n.state === 'dismissed' ? ' cleared' : '') + (st ? ' stacked' : '') + (stackOpen ? ' stack-open' : '') +
       (P.fresh[n.id] && Date.now() - P.fresh[n.id] < 8000 ? ' fresh' : '') + (isPicked(n) ? ' picked' : ''));
     li.setAttribute('data-id', String(n.id));
+    if (st) li.setAttribute('data-stack', st.key);
 
     var pick = el('label', 'nf-pick');
     var box = /** @type {HTMLInputElement} */ (el('input', 'nf-pick-in'));
@@ -1013,7 +1077,7 @@
     box.checked = isPicked(n);
     box.addEventListener('change', function () { pickOne(n, box.checked); });
     pick.appendChild(box);
-    pick.appendChild(el('span', 'nf-sr', 'Pick ' + n.title));
+    pick.appendChild(el('span', 'nf-sr', st ? 'Pick all ' + all + ' about ' + st.about + ': ' + n.title : 'Pick ' + n.title));
     li.appendChild(pick);
 
     var strip;
@@ -1045,13 +1109,16 @@
     main.appendChild(top);
 
     var tags = el('div', 'nf-tags');
-    if (isUnread(n)) {
+    if (cardUnread(n)) {
       var unread = el('span', 'nf-tag nf-tag-unread');
       unread.appendChild(el('span', 'nf-dot'));
-      unread.appendChild(document.createTextNode('Unread'));
+      unread.appendChild(document.createTextNode(st && st.unread > 1 ? fmt(st.unread) + ' unread' : 'Unread'));
       tags.appendChild(unread);
     }
     tags.appendChild(button('nf-tag nf-tag-btn', n.kind_name || n.kind || 'Rouh', function () { setView({ kind: n.kind || 'rouh' }); }, 'Only ' + (n.kind_name || n.kind)));
+    if (n.group && n.group_name) {
+      tags.appendChild(button('nf-tag nf-tag-btn', n.group_name, function () { setView({ sub: n.group }); }, 'Only the jobs in ' + n.group_name));
+    }
     (n.tasks || []).slice(0, 2).forEach(function (task) {
       tags.appendChild(button('nf-tag nf-tag-btn', 'Task ' + task.name, function () { setView({ task: task.id }); }, 'Only the ones about ' + task.id));
     });
@@ -1101,21 +1168,51 @@
       b.setAttribute('aria-label', label);
       return b;
     }
+    var on = { ids: idsOf(n), n: all };
+    var each = st ? ' all ' + all : '';
+    var about = st ? ' about ' + st.about : '';
     if (n.state === 'dismissed') {
-      own.appendChild(ownBtn('Restore', GLYPH.restore, function () { bulk('restore', { ids: [n.id], n: 1 }); },
-        'Restore: put it back in the list (e)', 'Restore ' + n.title));
+      own.appendChild(ownBtn('Restore' + each, GLYPH.restore, function () { bulk('restore', on); },
+        'Restore: put ' + (st ? 'them' : 'it') + ' back in the list', 'Restore' + each + about + ': ' + n.title));
     } else {
-      var u = isUnread(n);
+      var u = cardUnread(n);
       own.appendChild(ownBtn(u ? 'Mark read' : 'Mark unread', u ? GLYPH.read : GLYPH.unread, function () {
         if (!u && P.opened === n.id) P.opened = 0;
-        bulk(u ? 'read' : 'unread', { ids: [n.id], n: 1 });
-      }, (u ? 'Mark read' : 'Mark unread') + ' (u)', (u ? 'Mark read: ' : 'Mark unread: ') + n.title));
-      own.appendChild(ownBtn('Dismiss', GLYPH.x, function () { bulk('clear', { ids: [n.id], n: 1 }); },
-        'Dismiss: take it off the list. It is kept under Show: Dismissed, and can be restored (e)', 'Dismiss ' + n.title));
+        bulk(u ? 'read' : 'unread', on);
+      }, (u ? 'Mark read' : 'Mark unread') + (st ? ' every one' + about : ''), (u ? 'Mark read' : 'Mark unread') + each + about + ': ' + n.title));
+      own.appendChild(ownBtn('Dismiss' + each, GLYPH.x, function () {
+        if (st) clear(on, 'every notification' + about);
+        else bulk('clear', on);
+      }, 'Dismiss: take ' + (st ? 'them' : 'it') + ' off the list. Kept under Show: Dismissed, and can be restored',
+        'Dismiss' + each + about + ': ' + n.title));
     }
     row.appendChild(own);
     main.appendChild(row);
+
+    // The others on the card, a press away: each its own card under it, newest first.
+    if (st) {
+      var others = all - 1;
+      var tg = button('nf-stack-more', '', function () {
+        if (stackOpen) delete P.stacksOpen[st.key]; else P.stacksOpen[st.key] = true;
+        draw();
+      });
+      tg.setAttribute('aria-expanded', stackOpen ? 'true' : 'false');
+      tg.setAttribute('data-key', 'stack:' + st.key);
+      tg.innerHTML = svg(stackOpen ? GLYPH.fold : GLYPH.unfold, 15);
+      tg.appendChild(el('span', '', (stackOpen ? 'Hide the ' : 'Show the ') + (others === 1 ? 'other one' : fmt(others) + ' others') + about));
+      main.appendChild(tg);
+    }
     li.appendChild(main);
+    if (stackOpen) {
+      var rest = el('div', 'nf-stack-rest');
+      var ul = el('ul', 'nf-rows');
+      ul.setAttribute('aria-label', 'The others' + about);
+      stackRest(n).forEach(function (m) { ul.appendChild(rowFor(m)); });
+      rest.appendChild(ul);
+      var unshown = all - 1 - stackRest(n).length;
+      if (unshown > 0) rest.appendChild(el('p', 'nf-end', fmt(unshown) + ' older ones are not drawn here. The presses on the card above act on all ' + fmt(all) + '.'));
+      li.appendChild(rest);
+    }
     return li;
   }
   /** Opened: every word, or the decision it asks. @param {any} n */
@@ -1160,15 +1257,15 @@
     });
     return node;
   }
-  function isPicked(n) { return P.all ? true : !!P.picked[n.id]; }
+  function isPicked(n) { return P.all ? true : idsOf(n).every(function (id) { return !!P.picked[id]; }); }
   function pickOne(n, on) {
     if (P.all) {
       // From every one in the view to the loaded ones, less this one.
       P.all = false;
       P.picked = {};
-      P.items.forEach(function (x) { P.picked[x.id] = true; });
+      P.items.forEach(function (x) { idsOf(x).forEach(function (id) { P.picked[id] = true; }); });
     }
-    if (on) P.picked[n.id] = true; else delete P.picked[n.id];
+    idsOf(n).forEach(function (id) { if (on) P.picked[id] = true; else delete P.picked[id]; });
     draw();
   }
 
@@ -1201,7 +1298,7 @@
     if (document.visibilityState === 'hidden') return;
     // A new one drawn here has been seen, as one put away from the stack has: it waits as
     // unread, and its phone copy stays quiet.
-    var ids = P.items.filter(function (n) { return n.state === 'new' && !P.seen[n.id]; }).map(function (n) { return n.id; });
+    var ids = everyLoaded().filter(function (n) { return n.state === 'new' && !P.seen[n.id]; }).map(function (n) { return n.id; });
     if (!ids.length) return;
     ids.forEach(function (id) { P.seen[id] = true; });
     postJSON('/api/notifications/act', { act: 'later', ids: ids }).catch(function () {});

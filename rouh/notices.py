@@ -565,8 +565,10 @@ SHOWS = ("", "unread", "read", "cleared")
 SORTS = ("newest", "oldest", "kind", "unread")
 #: The date ranges, as the page names them; "custom" is `since` and `until` as given.
 WHENS = ("", "today", "week", "month", "older", "custom")
-#: The most a page of the list holds, and the most rows one press may change.
+#: The most a page of the list holds (cards), and the most rows one press may change.
 PAGE_MOST = 200
+#: The most of a card's others drawn under it when it is opened; a press still acts on all.
+STACK_DRAWN = 60
 BULK_MOST = 20000
 
 _TASK = re.compile(r"^/(?:task|project)/(.+?)(?:[?#].*)?$")
@@ -634,6 +636,150 @@ def _leads(row: dict) -> tuple[set, dict]:
     return places, tasks
 
 
+# --- Jobs, in groups, and one card a job ----------------------------------------------------
+#
+# Petar, 28 November 2026, with about 500 Jobs notifications kept, nearly all of them finished
+# jobs: Jobs in groups he can look at one at a time and dismiss whole ("Dismiss these N"), and
+# every notification about one job, or one task, one card showing the newest, with the rest a
+# press away. Nothing is stored for either: both are read from what each notification already
+# records, its key ("job:<id>:<what>"), its title, its `deployed`, where it leads, and the run
+# behind it (`Run.made_by`, its state; `RouhChange` for a run that landed a change to Rouh).
+# Nothing is deleted, muted or stopped: only how the page groups and draws them.
+
+#: The groups of Jobs, in the order the page lists them: (id, what it is called).
+JOB_GROUPS = (
+    ("failed", "Failed"),
+    ("waiting", "Waiting on you"),
+    ("live", "Rouh changes"),
+    ("tasks", "Workspace tasks"),
+    ("research", "Research"),
+    ("auto", "Nightly and automatic"),
+    ("other", "Other"),
+)
+JOB_GROUP_NAMES = dict(JOB_GROUPS)
+#: The categories of the workspace whose tasks are research: looked into, compared, weighed.
+#: Buying is researched there too ("which vacuum should I buy"), and filed under buy.
+RESEARCH_CATEGORIES = frozenset({"research", "buy"})
+
+_JOB_KEY = re.compile(r"^job:([^:]+):([^:]*)")
+
+
+def job_of(key: str) -> tuple[str, str]:
+    """The job a notification is about and what it said of it ("answer", "change", "page",
+    "files", "stuck"), from its key; ("", "") for one that is not a job's."""
+    got = _JOB_KEY.match(str(key or ""))
+    return (got.group(1), got.group(2)) if got else ("", "")
+
+
+def _needs_him(title: str) -> bool:
+    """A job's notice that said it needs him (`job_phone.stuck_text`): "Needs you: ..."."""
+    return "Needs you" in str(title or "")[:24]
+
+
+def _research(folder: str) -> bool:
+    return any(part in RESEARCH_CATEGORIES for part in str(folder or "").split("/")[:-1])
+
+
+def job_groups(who) -> dict[str, str]:
+    """Every job of the person's that has a notification, and the one group of Jobs it is in.
+
+    One group a job, whichever of its notifications is asked about, so a job's card and its
+    count are always in the same place. In this order, the first that holds:
+
+    1. **Failed**: its run failed, or its newest notification says a change of it reached main
+       and is not live.
+    2. **Waiting on you**: its newest notification says it needs him, or its run is waiting.
+    3. **Nightly and automatic**: Rouh started it on its own (`Run.made_by`, "process:...": a
+       night, Synapse's, a heartbeat's follow-up, a Clockwork item's).
+    4. **Rouh changes**: it put a change to Rouh live (a notice's `deployed`, or a change of
+       Rouh's code it landed, `RouhChange`).
+    5. **Research**: a task it is about is filed under research (or buy).
+    6. **Workspace tasks**: it is about a task, or made a page of one.
+    7. **Other**: none of those; never a guess.
+    """
+    user_id, org_id = _ids(who)
+    facts: dict[str, dict] = {}
+    for r in _model().objects.filter(user_id=user_id, org_id=org_id, kind="job").values(
+            "key", "title", "deployed", "created_at", "link", "links"):
+        job, what = job_of(r["key"])
+        if not job:
+            continue
+        f = facts.setdefault(job, {"at": -1.0, "newest": None, "live": False, "tasks": set(),
+                                   "page": False})
+        if r["created_at"] > f["at"]:
+            f["at"], f["newest"] = r["created_at"], (what, r["title"])
+        if r["deployed"]:
+            f["live"] = True
+        if what == "page":
+            f["page"] = True
+        f["tasks"].update(_leads(r)[1])
+    if not facts:
+        return {}
+    runs: dict[str, tuple[str, str]] = {}
+    landed: set[str] = set()
+    try:
+        from .models import Run
+        from .models.changes import RouhChange
+
+        ids = list(facts)
+        runs = {i: (m or "", s or "") for i, m, s in Run.objects.filter(id__in=ids).values_list(
+            "id", "made_by", "state")}
+        landed = set(RouhChange.objects.filter(org_id=org_id, run_id__in=ids, state="landed")
+                     .values_list("run_id", flat=True))
+    except Exception:  # noqa: BLE001 - without the runs, what the notices say still groups them
+        log.exception("could not read the runs behind the job notifications")
+    out = {}
+    for job, f in facts.items():
+        what, title = f["newest"] or ("", "")
+        made_by, state = runs.get(job, ("", ""))
+        if state == "failed" or (what == "change" and _needs_him(title)):
+            group = "failed"
+        elif _needs_him(title) or state == "waiting":
+            group = "waiting"
+        elif made_by.startswith("process:"):
+            group = "auto"
+        elif f["live"] or job in landed:
+            group = "live"
+        elif any(_research(t) for t in f["tasks"]):
+            group = "research"
+        elif f["tasks"] or f["page"]:
+            group = "tasks"
+        else:
+            group = "other"
+        out[job] = group
+    return out
+
+
+def _stack_of(row: dict) -> str:
+    """The card a light row is drawn on with others: its job's, else the task it is about's,
+    else "" for a card of its own."""
+    if row.get("job"):
+        return "job:" + row["job"]
+    if row.get("tasks"):
+        return "task:" + next(iter(row["tasks"]))
+    return ""
+
+
+def stacked(rows: list[dict]) -> list[list[dict]]:
+    """The rows in their order, each job's and each task's together: a card for each, where its
+    first row is, the newest of it on top."""
+    out: list[list[dict]] = []
+    by: dict[str, list[dict]] = {}
+    for r in rows:
+        key = r.get("stack") or ""
+        if key and key in by:
+            by[key].append(r)
+            continue
+        one = [r]
+        out.append(one)
+        if key:
+            by[key] = one
+    for one in out:
+        if len(one) > 1:
+            one.sort(key=lambda r: (-r["at"], -r["id"]))
+    return out
+
+
 def _criteria(raw: dict | None, now: float) -> dict:
     """What the page asked for, read safely: anything it may not ask is left out."""
     raw = raw or {}
@@ -651,6 +797,9 @@ def _criteria(raw: dict | None, now: float) -> dict:
     places = raw.get("to") or []
     if isinstance(places, str):
         places = places.split(",")
+    subs = raw.get("sub") or []
+    if isinstance(subs, str):
+        subs = subs.split(",")
     show = str(raw.get("show") or "")
     when = str(raw.get("when") or "")
     today = num("today")
@@ -664,6 +813,7 @@ def _criteria(raw: dict | None, now: float) -> dict:
         "when": when if when in WHENS else "",
         "since": num("since"), "until": num("until"), "today": today,
         "to": [str(p).strip()[:20] for p in places if str(p).strip()][:20],
+        "sub": [str(g).strip() for g in subs if str(g).strip() in JOB_GROUP_NAMES],
         "task": str(raw.get("task") or "").strip()[:400],
         "older_days": num("older_days"),
     }
@@ -701,6 +851,8 @@ def _passes(row: dict, c: dict, now: float, skip: str = "") -> bool:
             return False
     if skip != "kinds" and c["kinds"] and (row["kind"] or "rouh") not in c["kinds"]:
         return False
+    if skip != "sub" and c["sub"] and row.get("group") not in c["sub"]:
+        return False
     if skip != "when":
         since, until = _window(c, now)
         if since is not None and row["at"] < since:
@@ -726,11 +878,17 @@ def _light_rows(who, c: dict) -> list[dict]:
     for word in c["q"].split()[:8]:
         rows = rows.filter(Q(title__icontains=word) | Q(body__icontains=word)
                            | Q(details__icontains=word))
+    groups = job_groups(who)
     out = []
-    for r in rows.values("id", "kind", "state", "created_at", "link", "links", "decision_id"):
+    for r in rows.values("id", "kind", "key", "state", "created_at", "link", "links",
+                         "decision_id"):
         places, tasks = _leads(r)
-        out.append({"id": r["id"], "kind": r["kind"] or "rouh", "state": r["state"],
-                    "at": r["created_at"], "places": places, "tasks": tasks})
+        job = job_of(r["key"])[0] if r["kind"] == "job" else ""
+        one = {"id": r["id"], "kind": r["kind"] or "rouh", "state": r["state"],
+               "at": r["created_at"], "places": places, "tasks": tasks, "job": job,
+               "group": (groups.get(job) or "other") if r["kind"] == "job" else ""}
+        one["stack"] = _stack_of(one)
+        out.append(one)
     return out
 
 
@@ -787,6 +945,14 @@ def browse(who, raw: dict | None = None, now: float | None = None) -> dict:
     counts["kinds"] = [{"id": k, "name": kind_name(k), "n": n} for k, n in sorted(
         kinds.items(), key=lambda kv: (order.index(kv[0]) if kv[0] in order else len(order),
                                        kind_name(kv[0]).lower()))]
+    # Jobs' groups: how many each would show with the other filters on, every group listed,
+    # so the Jobs group's numbers add up to the Jobs kind's.
+    base = [r for r in light if _passes(r, c, now, skip="sub") and r["group"]]
+    subs = {g: 0 for g, _ in JOB_GROUPS}
+    for r in base:
+        subs[r["group"]] = subs.get(r["group"], 0) + 1
+    counts["sub"] = [{"id": g, "name": name, "n": subs[g]} for g, name in JOB_GROUPS] \
+        if base else []
     base = [r for r in light if _passes(r, c, now, skip="when")]
     windows = {}
     for key in ("today", "week", "month", "older"):
@@ -815,23 +981,50 @@ def browse(who, raw: dict | None = None, now: float | None = None) -> dict:
     if c["task"] and c["task"] not in tasks:
         counts["task"].append({"id": c["task"], "name": task_name(c["task"]), "n": 0, "at": 0})
 
-    page = shown[offset:offset + limit]
-    by_id = {r.id: r for r in _model().objects.filter(id__in=[r["id"] for r in page])}
-    items = []
-    for light_row in page:
+    # One card a job, or a task: a page is so many cards, each with every one of its own.
+    cards = stacked(shown)
+    page = cards[offset:offset + limit]
+    wanted = [r["id"] for card in page for r in card[:1 + STACK_DRAWN]]
+    by_id = {r.id: r for r in _model().objects.filter(id__in=wanted)}
+
+    def whole_row(light_row):
         row = by_id.get(light_row["id"])
         if row is None:
-            continue
+            return None
         one = as_dict(row)
         one["kind_name"] = kind_name(row.kind)
         one["to"] = sorted(light_row["places"])
         one["tasks"] = [{"id": f, "name": n} for f, n in light_row["tasks"].items()]
-        items.append(one)
+        if light_row["group"]:
+            one["group"] = light_row["group"]
+            one["group_name"] = JOB_GROUP_NAMES.get(light_row["group"], "")
+        return one
+
+    items = []
+    for card in page:
+        head = whole_row(card[0])
+        if head is None:
+            continue
+        if len(card) > 1:
+            key = card[0]["stack"]
+            if key.startswith("task:"):
+                about = "task " + (card[0]["tasks"].get(key[5:]) or task_name(key[5:]))
+            else:
+                about = "this job"
+            rest = [one for one in (whole_row(r) for r in card[1:1 + STACK_DRAWN]) if one]
+            head["stack"] = {
+                "key": key, "about": about, "n": len(card), "ids": [r["id"] for r in card],
+                "unread": sum(1 for r in card if r["state"] in (NEW, LATER)),
+                "dismissed": sum(1 for r in card if r["state"] == DISMISSED),
+                "rest": without_gone_items(who, rest),
+            }
+        items.append(head)
     items = without_gone_items(who, items)
     user_id, org_id = _ids(who)
     everyone = _model().objects.filter(user_id=user_id, org_id=org_id)
     return {
-        "items": items, "total": len(shown), "offset": offset, "limit": limit, "sort": sort,
+        "items": items, "total": len(shown), "cards": len(cards), "offset": offset,
+        "limit": limit, "sort": sort,
         "counts": counts,
         "totals": {"unread": unread, "kept": everyone.exclude(state=DISMISSED).count(),
                    "cleared": everyone.filter(state=DISMISSED).count()},
