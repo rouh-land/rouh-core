@@ -1,6 +1,6 @@
 # Handoff: the watch list, redesigned whole (direction "a-evening", step 202-05)
 
-Built straight into `rouh/static/watchlistpage.js` and `.css` (the prototype is the real script over `mock.js`, made-up titles and people only); the shared page's bar in `rouh/templates/rouh/watch_shared.html`.
+The one direction is "a-evening" (its states are the a-evening-* folders). Built straight into `rouh/static/watchlistpage.js` and `.css` (the prototype is the real script over `mock.js`, made-up titles and people only); the shared page's bar in `rouh/templates/rouh/watch_shared.html`.
 
 ## Journeys and targets
 The eight in `../journeys.md`. Most frequent: Tonight (answer 0 presses, act 1 press) and Seen then rate (1, then 3 from the toast).
