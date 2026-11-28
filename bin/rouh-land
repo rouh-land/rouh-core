@@ -170,10 +170,25 @@ def fit(a, path: str, target: str) -> dict:
         bare = scratch / "main.git"
         git("init", "-q", "--bare", str(bare), cwd=str(scratch))
         git("fetch", "-q", CODE, target, cwd=path)
-        made = git("push", "-q", str(bare), f"{target}:refs/heads/main", cwd=path)
+        # The scratch repository borrows the clone's own objects (alternates) and takes main by a
+        # fetch run inside it, never by a push. A push into a local repository receives into a
+        # quarantine folder (objects/incoming-*) and then moves each file into objects/pack, and a
+        # Landlock lock that does not allow "refer" refuses that move with EXDEV, "Invalid
+        # cross-device link" (run d291042c, 28 November 2026, under the graphics card's lock before
+        # 62edceb5). Borrowed objects are never moved, so land.sh's own pushes into it while
+        # fitting have nothing to send and nothing to move either.
+        common = git("rev-parse", "--path-format=absolute", "--git-common-dir", cwd=path).stdout.strip()
+        if common:
+            (bare / "objects" / "info").mkdir(parents=True, exist_ok=True)
+            (bare / "objects" / "info" / "alternates").write_text(str(Path(common) / "objects") + "\n")
+        made = git("fetch", "-q", "--no-tags", path, f"{target}:refs/heads/main", cwd=str(bare))
         if made.returncode:
+            why = made.stderr.strip()[:200]
+            if "cross-device" in why or "migrate objects" in why:
+                why += (" - this process is under a lock that refuses moving files between folders "
+                        "(Landlock without refer)")
             return {"state": "error", "reason": "the code that runs could not be put in a scratch repository: "
-                    + made.stderr.strip()[:200]}
+                    + why}
         git("remote", "remove", "fit", cwd=path)
         git("remote", "add", "fit", str(bare), cwd=path)
         # land.sh lands a branch of a job's own, never main: the work is fitted on one, and the
