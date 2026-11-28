@@ -46,7 +46,7 @@
   var KEYS = ['q', 'kind', 'show', 'when', 'from', 'until', 'leads', 'task', 'sort'];
   var SORTS = [['newest', 'Newest first'], ['oldest', 'Oldest first'], ['unread', 'Unread first'],
                ['kind', 'By kind']];
-  var SHOWS = [['', 'All'], ['unread', 'Unread'], ['read', 'Read'], ['cleared', 'Cleared']];
+  var SHOWS = [['', 'All'], ['unread', 'Unread'], ['read', 'Read'], ['cleared', 'Dismissed']];
   var WHENS = [['', 'Any time'], ['today', 'Today'], ['week', 'Past 7 days'], ['month', 'Past 30 days'],
                ['older', 'Older than 30 days'], ['custom', 'Between two dates']];
 
@@ -104,7 +104,9 @@
   var GLYPH = {
     search: '<circle cx="11" cy="11" r="6.5"/><path d="M20 20l-4.2-4.2"/>',
     filter: '<path d="M4 6h16M7 12h10M10 18h4"/>',
-    chev: '<path d="M7 6.5l5 5 5-5M7 12.5l5 5 5-5"/>',
+    /* Two chevrons pointing apart, to open; together, to fold (Petar, 28 November 2026). */
+    unfold: '<path d="M7 9.5l5-5 5 5M7 14.5l5 5 5-5"/>',
+    fold: '<path d="M7 4.5l5 5 5-5M7 19.5l5-5 5 5"/>',
     x: '<path d="M6 6l12 12M18 6L6 18"/>',
     go: '<path d="M7 17L17 7M9 7h8v8"/>',
     read: '<path d="M5 12.5l4.2 4.2L19 7"/>',
@@ -267,7 +269,7 @@
   function pickedCount() { return P.all ? P.total : Object.keys(P.picked).length; }
   function unpick() { P.all = false; P.picked = {}; }
 
-  var DONE_WORDS = { read: 'Marked read', unread: 'Marked unread', clear: 'Cleared', restore: 'Restored' };
+  var DONE_WORDS = { read: 'Marked read', unread: 'Marked unread', clear: 'Dismissed', restore: 'Restored' };
 
   /** One press on many. `on` is {ids} or {match}; `n` is how many it is about, for the words.
    *  @param {string} what @param {{ids?: number[], match?: any, n: number}} on @param {string} [words] */
@@ -313,10 +315,10 @@
   function clear(on, what) {
     if (!on.n) return;
     if (on.n <= ASK_OVER) { bulk('clear', on); return; }
-    confirmBox('Clear ' + counted(on.n, 'notification') + '?',
-      'They leave this list and wait under Show: Cleared, where they can be restored. ' +
-      (what ? 'This clears ' + what + '.' : ''),
-      'Clear ' + fmt(on.n), function () { bulk('clear', on); });
+    confirmBox('Dismiss ' + counted(on.n, 'notification') + '?',
+      'They leave this list and wait under Show: Dismissed, where they can be restored. ' +
+      (what ? 'This dismisses ' + what + '.' : ''),
+      'Dismiss ' + fmt(on.n), function () { bulk('clear', on); });
   }
   function markAllRead() {
     var n = P.totals ? P.totals.unread : 0;
@@ -326,6 +328,7 @@
 
   /** Opened in place, or closed. Opening one reads it. @param {any} n */
   function toggle(n) {
+    if (!hasMore(n)) return;
     P.opened = P.opened === n.id ? 0 : n.id;
     P.at = n.id;
     if (P.opened && (n.state === 'new' || n.state === 'later')) {
@@ -434,7 +437,7 @@
       ? counted(t.unread, 'unread', 'unread') + ' of ' + counted(t.kept, 'notification')
       : (t.kept ? 'All ' + counted(t.kept, 'notification') + ' read' : 'No notifications');
     meta.appendChild(line);
-    if (t.cleared) meta.appendChild(el('span', '', fmt(t.cleared) + ' cleared'));
+    if (t.cleared) meta.appendChild(el('span', '', fmt(t.cleared) + ' dismissed'));
     var all = $('nfAllRead');
     if (all) {
       all.hidden = !t.unread;
@@ -563,14 +566,14 @@
   function clearBy() {
     var box = el('div', 'nf-menu');
     var b = button('nf-btn', '', null);
-    b.innerHTML = '<span>Clear by…</span>' + svg(GLYPH.down, 14);
+    b.innerHTML = '<span>Dismiss by…</span>' + svg(GLYPH.down, 14);
     b.setAttribute('aria-haspopup', 'true');
     b.setAttribute('aria-expanded', 'false');
     b.setAttribute('data-key', 'clearby');
     var pop = el('div', 'nf-pop');
     pop.hidden = true;
     pop.setAttribute('role', 'group');
-    pop.setAttribute('aria-label', 'Clear by');
+    pop.setAttribute('aria-label', 'Dismiss by');
     function close() { pop.hidden = true; b.setAttribute('aria-expanded', 'false'); }
     function fill() {
       pop.textContent = '';
@@ -786,7 +789,7 @@
       } else {
         acts.appendChild(act('Mark read', GLYPH.read, function () { bulk('read', on); }, 'mark-read'));
         acts.appendChild(act('Mark unread', GLYPH.unread, function () { bulk('unread', on); }, 'mark-unread'));
-        acts.appendChild(act('Clear', GLYPH.x, function () { clear(on, P.all ? 'every one in this view' : 'the ones picked'); }, 'clear-picked'));
+        acts.appendChild(act('Dismiss', GLYPH.x, function () { clear(on, P.all ? 'every one in this view' : 'the ones picked'); }, 'clear-picked'));
       }
       acts.appendChild(act('Unpick', '', function () { unpick(); draw(); }, 'unpick', 'nf-btn nf-btn-quiet'));
       line.appendChild(acts);
@@ -798,7 +801,7 @@
     viewChips().forEach(function (c) { words.appendChild(c); });
     line.appendChild(words);
     if (narrowed() && P.total && P.v.show !== 'cleared') {
-      var these = act('Clear these ' + fmt(P.total), GLYPH.x, function () {
+      var these = act('Dismiss these ' + fmt(P.total), GLYPH.x, function () {
         clear({ match: criteria(P.v), n: P.total }, 'exactly what this view shows, and nothing else');
       }, 'clear-view');
       line.appendChild(these);
@@ -898,7 +901,7 @@
     var e = el('div', 'nf-empty');
     var t = P.totals || { kept: 0, cleared: 0 };
     if (narrowed()) {
-      e.appendChild(el('p', 'nf-empty-h', P.v.show === 'cleared' ? 'Nothing cleared matches this view.' :
+      e.appendChild(el('p', 'nf-empty-h', P.v.show === 'cleared' ? 'Nothing dismissed matches this view.' :
         P.v.show === 'unread' && !P.v.q && filtersOn() === 1 ? 'You are all caught up.' : 'Nothing matches this view.'));
       e.appendChild(el('p', 'nf-empty-p', P.v.show === 'unread' && filtersOn() === 1 && !P.v.q
         ? 'Every notification has been read.' : 'Take a filter off, or reset them all to see every notification.'));
@@ -906,9 +909,9 @@
       reset.setAttribute('data-key', 'reset-empty');
       e.appendChild(reset);
     } else if (t.cleared) {
-      e.appendChild(el('p', 'nf-empty-h', 'Nothing here: every notification is cleared.'));
-      e.appendChild(el('p', 'nf-empty-p', fmt(t.cleared) + ' are kept under Cleared, and can be restored.'));
-      var see = button('nf-btn nf-btn-go', 'Show cleared', function () { setView({ show: 'cleared' }); });
+      e.appendChild(el('p', 'nf-empty-h', 'Nothing here: every notification is dismissed.'));
+      e.appendChild(el('p', 'nf-empty-p', fmt(t.cleared) + ' are kept under Dismissed, and can be restored.'));
+      var see = button('nf-btn nf-btn-go', 'Show dismissed', function () { setView({ show: 'cleared' }); });
       see.setAttribute('data-key', 'see-cleared');
       e.appendChild(see);
     } else {
@@ -955,20 +958,53 @@
     return d.toLocaleDateString(undefined, { day: 'numeric', month: 'short' }) + ', ' + t;
   }
 
-  /** Every place a notification leads, each once. @param {any} n */
+  /** What a place is called on the row, in one word, by its address, in the order the row
+   *  says them: Run, Chat, Task and Page first (Petar, 28 November 2026). */
+  var PLACE_WORDS = [['/run/', 'Run'], ['/chat/', 'Chat'], ['/task/', 'Task'], ['/project/', 'Task'],
+                     ['/workspace/', 'Page'], ['/decisions', 'Decision'], ['/brief', 'Brief'], ['/mail/', 'Email'],
+                     ['/goal', 'Goal'], ['/quests', 'Quest'], ['/work', 'Quest'], ['/meeting', 'Meeting'],
+                     ['/clockwork', 'Clockwork'], ['/reminders', 'Clockwork'], ['/browser', 'Browser'],
+                     ['/web', 'Browser'], ['/files/', 'File']];
+  var PLACE_ORDER = ['Run', 'Chat', 'Task', 'Page'];
+  /** @param {string} href @param {string} to */
+  function placeWord(href, to) {
+    if (to === 'visual' || to === 'page') return 'Page';
+    if (href.charAt(0) !== '/' || href.charAt(1) === '/') {
+      try { return new URL(href).hostname.replace(/^www\./, '') || 'Link'; } catch (e) { return 'Link'; }
+    }
+    // A task's own page, drawn (`/task/<folder>/<step>/index.html`), is a page of it.
+    if (/^\/(task|project)\/.+\.html?(?:[?#]|$)/.test(href)) return 'Page';
+    var got = PLACE_WORDS.filter(function (w) { return href.indexOf(w[0]) === 0; })[0];
+    return got ? got[1] : 'Open';
+  }
+  /** Every place a notification leads, each once: Run, Chat, Task, Page, then the rest.
+   *  @param {any} n */
   function placesOf(n) {
-    var out = [];
-    (n.links || []).forEach(function (p) {
-      if (p && p.href && p.label) out.push({ href: p.href, label: p.label, title: p.title || '' });
-    });
-    if (!out.length && n.link) out.push({ href: n.link, label: n.link_label || 'Open it', title: '' });
-    return out;
+    var out = [], seen = {};
+    function add(href, label, title, to) {
+      if (!href || seen[href]) return;
+      seen[href] = true;
+      out.push({ href: href, word: placeWord(href, to || ''), title: title || label || '' });
+    }
+    (n.links || []).forEach(function (p) { if (p && p.href) add(p.href, p.label, p.title, p.to); });
+    if (n.link) add(n.link, n.link_label || 'Open it', '', '');
+    function rank(p) { var i = PLACE_ORDER.indexOf(p.word); return i < 0 ? PLACE_ORDER.length : i; }
+    return out.map(function (p, i) { return { p: p, i: i }; })
+      .sort(function (x, y) { return rank(x.p) - rank(y.p) || x.i - y.i; })
+      .map(function (x) { return x.p; });
   }
   function isUnread(n) { return n.state === 'new' || n.state === 'later'; }
+  /** Whether opening it shows more than the row already does: its details, or a decision. */
+  function hasMore(n) { return !!(n.details || n.decision); }
 
-  /** One notification's row. @param {any} n */
+  /** One notification's card, on one grid (Petar, 28 November 2026): the pick and the icon
+   *  centred on the title's line; the icon's whole column, top to bottom, the one way to open
+   *  and fold it, its two chevrons pointing apart to open and together to fold; the title plain
+   *  words; the meta line, the short version whole and the one row of actions all on the
+   *  title's left edge. @param {any} n */
   function rowFor(n) {
-    var opened = P.opened === n.id;
+    var more = hasMore(n);
+    var opened = more && P.opened === n.id;
     var li = el('li', 'nf-row' + (isUnread(n) ? ' unread' : '') + (opened ? ' open' : '') +
       (n.state === 'dismissed' ? ' cleared' : '') + (P.at === n.id ? ' at' : '') +
       (P.fresh[n.id] && Date.now() - P.fresh[n.id] < 8000 ? ' fresh' : '') + (isPicked(n) ? ' picked' : ''));
@@ -983,22 +1019,27 @@
     pick.appendChild(el('span', 'nf-sr', 'Pick ' + n.title));
     li.appendChild(pick);
 
-    var strip = button('nf-open', '', function () { toggle(n); });
-    strip.setAttribute('aria-expanded', opened ? 'true' : 'false');
-    strip.setAttribute('aria-label', (opened ? 'Show less of ' : 'Read all of ') + n.title);
-    strip.title = opened ? 'Show less' : 'Read all of it';
+    var strip;
+    if (more) {
+      strip = button('nf-open', '', function () { toggle(n); });
+      strip.setAttribute('aria-expanded', opened ? 'true' : 'false');
+      strip.setAttribute('aria-label', (opened ? 'Fold the details of ' : 'Show the details of ') + n.title);
+      strip.title = opened ? 'Fold the details' : 'Show the details';
+    } else {
+      strip = el('div', 'nf-open nf-open-none');
+    }
     strip.appendChild(iconFor(n.kind || 'rouh'));
-    var chev = el('span', 'nf-chev');
-    chev.innerHTML = svg(GLYPH.chev, 14);
-    strip.appendChild(chev);
+    if (more) {
+      var chev = el('span', 'nf-chev');
+      chev.innerHTML = svg(opened ? GLYPH.fold : GLYPH.unfold, 18);
+      strip.appendChild(chev);
+    }
     li.appendChild(strip);
 
     var main = el('div', 'nf-row-main');
     var top = el('div', 'nf-row-top');
-    var title = button('nf-title', '', function () { toggle(n); });
+    var title = el('h4', 'nf-title');
     marked(title, n.title);
-    title.setAttribute('aria-expanded', opened ? 'true' : 'false');
-    title.tabIndex = -1;
     top.appendChild(title);
     var t = el('time', 'nf-when', when(n.at));
     t.setAttribute('datetime', new Date(n.at * 1000).toISOString());
@@ -1008,95 +1049,76 @@
 
     var tags = el('div', 'nf-tags');
     if (isUnread(n)) {
-      var dot = el('span', 'nf-dot');
-      dot.appendChild(el('span', 'nf-sr', 'Unread'));
-      tags.appendChild(dot);
-      tags.appendChild(el('span', 'nf-tag nf-tag-unread', 'Unread'));
+      var unread = el('span', 'nf-tag nf-tag-unread');
+      unread.appendChild(el('span', 'nf-dot'));
+      unread.appendChild(document.createTextNode('Unread'));
+      tags.appendChild(unread);
     }
     tags.appendChild(button('nf-tag nf-tag-btn', n.kind_name || n.kind || 'Rouh', function () { setView({ kind: n.kind || 'rouh' }); }, 'Only ' + (n.kind_name || n.kind)));
     (n.tasks || []).slice(0, 2).forEach(function (task) {
       tags.appendChild(button('nf-tag nf-tag-btn', 'Task ' + task.name, function () { setView({ task: task.id }); }, 'Only the ones about ' + task.id));
     });
-    if (n.state === 'dismissed') tags.appendChild(el('span', 'nf-tag', 'Cleared'));
+    if (n.state === 'dismissed') tags.appendChild(el('span', 'nf-tag', 'Dismissed'));
     if (n.phone === 'sent') tags.appendChild(el('span', 'nf-tag', 'Sent to your phone'));
     main.appendChild(tags);
 
-    if (opened) {
-      main.appendChild(whole(n));
-    } else if (n.body) {
-      main.appendChild(marked(el('p', 'nf-peek'), kit().plain ? kit().plain(n.body) : n.body));
-    }
-    // Reading the whole of it here, rather than in the chat it came from: a press in words, not
-    // only the chevron at the row's start (Petar, 26 November 2026, "I want to be able to expand
-    // the whole message and read it there").
-    if (n.details || (n.body && n.body.length > 160)) {
-      var rd = button('nf-readmore', opened ? 'Show less' : (n.details ? 'Read the details' : 'Read it all'), function () { toggle(n); });
-      rd.setAttribute('aria-expanded', opened ? 'true' : 'false');
-      main.appendChild(rd);
-    }
+    // The short version, every word of it; opened, the details under it.
+    if (opened) main.appendChild(whole(n));
+    else if (n.body) main.appendChild(marked(el('p', 'nf-peek'), kit().plain ? kit().plain(n.body) : n.body));
 
-    var places = placesOf(n);
-    var reload = kit().reloadable && kit().reloadable(n);
-    if (places.length || reload || opened) {
-      var row = el('div', 'nf-places');
-      if (reload) {
-        row.appendChild(button('nf-place nf-place-go', 'Reload', function () {
-          postJSON('/api/notifications/act', { act: 'read', ids: [n.id] }).catch(function () {}).then(function () { location.reload(); });
-        }, 'Load the page again, as the build Rouh is serving now'));
-      }
-      places.forEach(function (p, i) {
-        var a = /** @type {HTMLAnchorElement} */ (el('a', 'nf-place' + (i === 0 && !reload && opened ? ' nf-place-go' : '')));
-        a.href = p.href;
-        a.innerHTML = svg(GLYPH.go, 12);
-        a.appendChild(document.createTextNode(p.label));
-        if (p.title) a.title = p.title;
-        var outside = p.href.charAt(0) !== '/' || p.href.charAt(1) === '/';
-        if (outside) { a.target = '_blank'; a.rel = 'noopener noreferrer'; }
-        if (p.href.indexOf('/files/') === 0) a.setAttribute('download', decodeURIComponent(p.href.split('/').pop() || ''));
-        a.addEventListener('click', function (e) {
-          if (e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
-          e.preventDefault();
-          follow(n, p.href);
-        });
-        row.appendChild(a);
+    // One row of actions: where it leads, then what can be done to it, each said in words.
+    var row = el('div', 'nf-acts');
+    var go = el('div', 'nf-places');
+    if (kit().reloadable && kit().reloadable(n)) {
+      var rl = button('nf-place nf-place-go', '', function () {
+        postJSON('/api/notifications/act', { act: 'read', ids: [n.id] }).catch(function () {}).then(function () { location.reload(); });
+      }, 'Load the page again, as the build Rouh is serving now');
+      rl.innerHTML = svg(GLYPH.restore, 13);
+      rl.appendChild(document.createTextNode('Reload'));
+      go.appendChild(rl);
+    }
+    placesOf(n).forEach(function (p) {
+      var a = /** @type {HTMLAnchorElement} */ (el('a', 'nf-place'));
+      a.href = p.href;
+      a.innerHTML = svg(GLYPH.go, 12);
+      a.appendChild(document.createTextNode(p.word));
+      a.title = p.title && p.title !== p.word ? p.title : 'Open the ' + p.word.toLowerCase();
+      a.setAttribute('aria-label', a.title + ': ' + n.title);
+      var outside = p.href.charAt(0) !== '/' || p.href.charAt(1) === '/';
+      if (outside) { a.target = '_blank'; a.rel = 'noopener noreferrer'; }
+      if (p.href.indexOf('/files/') === 0) a.setAttribute('download', decodeURIComponent(p.href.split('/').pop() || ''));
+      a.addEventListener('click', function (e) {
+        if (e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+        e.preventDefault();
+        follow(n, p.href);
       });
-      if (opened) {
-        var end = el('span', 'nf-places-end');
-        if (n.state === 'dismissed') {
-          end.appendChild(button('nf-btn nf-btn-quiet', 'Restore', function () { bulk('restore', { ids: [n.id], n: 1 }); }));
-        } else {
-          end.appendChild(button('nf-btn nf-btn-quiet', isUnread(n) ? 'Mark read' : 'Mark unread', function () {
-            var was = isUnread(n);
-            if (!was) P.opened = 0;
-            bulk(was ? 'read' : 'unread', { ids: [n.id], n: 1 });
-          }));
-          end.appendChild(button('nf-btn nf-btn-quiet', 'Clear', function () { bulk('clear', { ids: [n.id], n: 1 }); }));
-        }
-        row.appendChild(end);
-      }
-      main.appendChild(row);
-    }
-    li.appendChild(main);
+      go.appendChild(a);
+    });
+    if (go.childNodes.length) row.appendChild(go);
 
-    // The two presses every row has at its end, without opening it.
-    var quick = el('div', 'nf-quick');
+    var own = el('div', 'nf-own');
+    function ownBtn(words, glyph, run, tip, label) {
+      var b = button('nf-act', '', run, tip);
+      b.innerHTML = svg(glyph, 14);
+      b.appendChild(el('span', 'nf-act-w', words));
+      b.setAttribute('aria-label', label);
+      return b;
+    }
     if (n.state === 'dismissed') {
-      var rb = button('nf-icon', '', function () { bulk('restore', { ids: [n.id], n: 1 }); }, 'Restore');
-      rb.innerHTML = svg(GLYPH.restore, 15);
-      rb.setAttribute('aria-label', 'Restore ' + n.title);
-      quick.appendChild(rb);
+      own.appendChild(ownBtn('Restore', GLYPH.restore, function () { bulk('restore', { ids: [n.id], n: 1 }); },
+        'Restore: put it back in the list (e)', 'Restore ' + n.title));
     } else {
       var u = isUnread(n);
-      var mb = button('nf-icon', '', function () { bulk(u ? 'read' : 'unread', { ids: [n.id], n: 1 }); }, u ? 'Mark read (u)' : 'Mark unread (u)');
-      mb.innerHTML = svg(u ? GLYPH.read : GLYPH.unread, 15);
-      mb.setAttribute('aria-label', (u ? 'Mark read: ' : 'Mark unread: ') + n.title);
-      quick.appendChild(mb);
-      var xb = button('nf-icon', '', function () { bulk('clear', { ids: [n.id], n: 1 }); }, 'Clear (e)');
-      xb.innerHTML = svg(GLYPH.x, 15);
-      xb.setAttribute('aria-label', 'Clear ' + n.title);
-      quick.appendChild(xb);
+      own.appendChild(ownBtn(u ? 'Mark read' : 'Mark unread', u ? GLYPH.read : GLYPH.unread, function () {
+        if (!u && P.opened === n.id) P.opened = 0;
+        bulk(u ? 'read' : 'unread', { ids: [n.id], n: 1 });
+      }, (u ? 'Mark read' : 'Mark unread') + ' (u)', (u ? 'Mark read: ' : 'Mark unread: ') + n.title));
+      own.appendChild(ownBtn('Dismiss', GLYPH.x, function () { bulk('clear', { ids: [n.id], n: 1 }); },
+        'Dismiss: take it off the list. It is kept under Show: Dismissed, and can be restored (e)', 'Dismiss ' + n.title));
     }
-    li.appendChild(quick);
+    row.appendChild(own);
+    main.appendChild(row);
+    li.appendChild(main);
     return li;
   }
   /** Opened: every word, or the decision it asks. @param {any} n */

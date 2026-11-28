@@ -198,10 +198,50 @@ def _model():
     return Notice
 
 
+#: The most a notice's short version says before it is opened, in characters: whole lines, and
+#: whole sentences of a long first line, never a word cut with "...".
+SHORT = 280
+_SENTENCE = re.compile(r"(?<=[.!?])\s+(?=[\"'(\[]?[A-Z0-9])")
+
+
+def short_and_details(body: str, details: str = "") -> tuple[str, str]:
+    """A notice's short version and its details.
+
+    Petar, 28 November 2026: "the text should not be ellipsised ... show the full short
+    version and then by expanding - the details." A producer that says both (a finished job's
+    overview and details, the morning brief's) is kept as it said them. A notice that said only
+    a long body is read as both: its first whole lines, or the first whole sentences of a long
+    first line, up to `SHORT`, are the short version, and every word after them the details,
+    so nothing is cut and nothing is said twice. Always at least one whole sentence."""
+    body = str(body or "").strip()
+    details = str(details or "").strip()
+    if details or len(body) <= SHORT:
+        return body, details
+    lines = body.splitlines()
+    short, used = [], 0
+    for i, line in enumerate(lines):
+        if short and (used + len(line) > SHORT or not line.strip() and used):
+            return "\n".join(short).strip(), "\n".join(lines[i:]).strip()
+        if not short and len(line) > SHORT:
+            ends = [m.start() for m in _SENTENCE.finditer(line)] + [len(line)]
+            cut = ends[0]
+            for end in ends[1:]:
+                if end > SHORT:
+                    break
+                cut = end
+            after = "\n".join([line[cut:].strip()] + lines[i + 1:]).strip()
+            return line[:cut].strip(), after
+        short.append(line)
+        used += len(line) + 1
+    return body, ""
+
+
 def as_dict(row) -> dict:
+    short, details = (row.body or "", getattr(row, "details", "") or "") if row.decision_id \
+        else short_and_details(row.body, getattr(row, "details", ""))
     return {
-        "id": row.id, "kind": row.kind, "title": row.title, "body": row.body,
-        "details": getattr(row, "details", "") or "",
+        "id": row.id, "kind": row.kind, "title": row.title, "body": short,
+        "details": details,
         "link": row.link, "link_label": row.link_label, "links": list(row.links or []),
         "decision": row.decision_id,
         "state": row.state, "phone": row.phone, "at": row.created_at,

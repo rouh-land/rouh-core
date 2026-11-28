@@ -122,9 +122,13 @@
 .nf-day-h { margin: 0 0 2px 48px; font-size: 12.5px; font-weight: 650; color: var(--dim); }
 .nf-rows { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; min-width: 0; }
 
-.nf-row { display: grid; grid-template-columns: 40px 38px minmax(0, 1fr) auto; gap: 4px 8px; align-items: start;
-  padding: 8px 6px 8px 0; border: 1px solid transparent; border-radius: 12px; background: transparent; min-width: 0;
-  transition: background-color .15s, border-color .15s; scroll-margin: 64px 0 24px; }
+/* One card on one grid (Petar, 28 November 2026): the pick, the icon's column and the words.
+   The pick and the icon sit on the title's line (--nf-line tall); the icon's column runs the
+   whole height of the card and is the one way to open it; everything else starts on the
+   title's left edge. */
+.nf-row { --nf-line: 36px; display: grid; grid-template-columns: 40px 44px minmax(0, 1fr); column-gap: 10px;
+  align-items: start; padding: 10px 12px 10px 0; border: 1px solid transparent; border-radius: 12px;
+  background: transparent; min-width: 0; transition: background-color .15s, border-color .15s; scroll-margin: 64px 0 24px; }
 .nf-row:hover { background: color-mix(in srgb, var(--panel) 70%, transparent); }
 .nf-row.unread { background: var(--panel); border-color: var(--line-soft); }
 .nf-row.open { background: var(--panel); border-color: var(--line); }
@@ -133,62 +137,62 @@
 .nf-row.cleared { opacity: .8; }
 .nf-row.fresh { animation: nf-fresh 2.4s ease-out 1; }
 @keyframes nf-fresh { from { box-shadow: 0 0 0 2px var(--accent); } to { box-shadow: 0 0 0 0 transparent; } }
+.nf-row > .nf-pick { min-height: var(--nf-line); height: var(--nf-line); }
 
-.nf-open { appearance: none; cursor: pointer; border: 0; background: transparent; padding: 2px 0 4px; border-radius: 10px;
-  display: grid; justify-items: center; gap: 2px; min-height: 44px; color: var(--dimmer); }
-.nf-open:hover { color: var(--text); background: var(--panel-2); }
-.nf-chev { display: grid; transition: transform .2s; }
-.nf-row.open .nf-chev { transform: rotate(180deg); }
+/* The icon's column, top to bottom: the icon on the title's line, the chevrons under it. */
+.nf-open { appearance: none; align-self: stretch; margin: -10px 0; padding: 10px 0; border: 0; border-radius: 10px;
+  background: transparent; display: flex; flex-direction: column; align-items: center; gap: 4px; min-height: 44px;
+  color: var(--dimmer); font: inherit; }
+button.nf-open { cursor: pointer; }
+button.nf-open:hover { color: var(--text); background: var(--panel-2); }
+button.nf-open:focus-visible { outline: 2px solid var(--focus); outline-offset: -2px; }
+.nf-open > .nt-ico { flex: 0 0 auto; width: 36px; height: 36px; margin: calc((var(--nf-line) - 36px) / 2) 0; }
+.nf-chev { display: grid; place-items: center; }
+.nf-row.open .nf-chev, button.nf-open:hover .nf-chev { color: var(--accent); }
 
-.nf-row-main { min-width: 0; display: grid; gap: 4px; padding-top: 4px; }
-.nf-row-top { display: flex; align-items: baseline; gap: 10px; min-width: 0; }
-.nf-title { appearance: none; cursor: pointer; border: 0; background: none; padding: 0; margin: 0; text-align: left;
-  flex: 1 1 auto; min-width: 0; font: inherit; font-size: 14px; line-height: 1.4; color: var(--text); font-weight: 500;
-  overflow-wrap: anywhere; }
+.nf-row-main { min-width: 0; display: grid; gap: 6px; }
+.nf-row-top { display: flex; align-items: flex-start; gap: 12px; min-width: 0; min-height: var(--nf-line); }
+.nf-title { margin: 0; flex: 1 1 auto; min-width: 0; font-size: 14.5px; line-height: 1.35; color: var(--text);
+  font-weight: 550; overflow-wrap: anywhere; padding-top: calc((var(--nf-line) - 1.35em) / 2); }
 .nf-row.unread .nf-title { font-weight: 700; }
-.nf-title:hover { text-decoration: underline; text-decoration-color: var(--dimmer); }
-.nf-when { flex: 0 0 auto; font-size: 12px; color: var(--dim); white-space: nowrap; font-variant-numeric: tabular-nums; }
-.nf-tags { display: flex; flex-wrap: wrap; align-items: center; gap: 2px 14px; font-size: 12px; color: var(--dim); }
-.nf-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--accent); flex: 0 0 auto; }
+.nf-when { flex: 0 0 auto; padding-top: calc((var(--nf-line) - 1.4em) / 2); line-height: 1.4; font-size: 12px; color: var(--dim); white-space: nowrap; font-variant-numeric: tabular-nums; }
+.nf-tags { display: flex; flex-wrap: wrap; align-items: center; gap: 2px 14px; font-size: 12px; color: var(--dim);
+  margin-top: -4px; }
+.nf-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--accent); flex: 0 0 auto; }
 .nf-tag { font-size: 12px; color: var(--dim); }
-.nf-tag-unread { color: var(--accent); font-weight: 650; }
+.nf-tag-unread { display: inline-flex; align-items: center; gap: 6px; color: var(--accent); font-weight: 650; }
 .nf-tag-btn { appearance: none; cursor: pointer; border: 0; background: none; padding: 2px 0; font: inherit; font-size: 12px; color: var(--dim); }
 .nf-tag-btn:hover { color: var(--text); text-decoration: underline; }
 .nf-hit { background: color-mix(in srgb, var(--focus) 28%, transparent); color: var(--text); border-radius: 3px; padding: 0 1px; }
-.nf-peek { margin: 0; font-size: 13px; line-height: 1.5; color: var(--dim); white-space: pre-line; overflow-wrap: anywhere;
-  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+/* The short version, every word of it: never cut. */
+.nf-peek { margin: 0; font-size: 13.5px; line-height: 1.5; color: var(--dim); white-space: pre-line; overflow-wrap: anywhere; }
 
-.nf-places { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 4px; }
-.nf-place { display: inline-flex; align-items: center; gap: 5px; min-height: 32px; padding: 0 12px; border-radius: 999px;
+/* One row of actions: where it leads on the left, what can be done to it on the right. */
+.nf-acts { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; margin-top: 2px; }
+.nf-places { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.nf-place { display: inline-flex; align-items: center; gap: 5px; min-height: 30px; padding: 0 11px; border-radius: 999px;
   border: 1px solid var(--line); background: var(--panel-2); color: var(--text); font-size: 12.5px; font-weight: 600;
   text-decoration: none; white-space: nowrap; cursor: pointer; font-family: inherit; }
 button.nf-place { appearance: none; }
 .nf-place svg { color: var(--dim); }
 .nf-place:hover { border-color: var(--dim); }
+.nf-place:focus-visible, .nf-act:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
 .nf-place-go { border-color: color-mix(in srgb, var(--accent) 50%, var(--line)); background: var(--accent-soft); }
 .nf-place-go svg { color: var(--accent); }
-.nf-places-end { display: inline-flex; gap: 6px; margin-left: auto; }
-.nf-places-end .nf-btn { min-height: 32px; }
-
-.nf-quick { display: flex; gap: 2px; padding-top: 2px; opacity: 0; transition: opacity .15s; }
-.nf-row:hover .nf-quick, .nf-row:focus-within .nf-quick, .nf-row.at .nf-quick, .nf-row.open .nf-quick { opacity: 1; }
-.nf-icon { appearance: none; cursor: pointer; display: grid; place-items: center; width: 36px; height: 36px; border-radius: 50%;
-  border: 1px solid transparent; background: transparent; color: var(--dim); }
-.nf-icon:hover { color: var(--text); background: var(--panel-2); border-color: var(--line); }
+.nf-own { display: flex; align-items: center; gap: 2px; margin-left: auto; }
+.nf-act { appearance: none; cursor: pointer; display: inline-flex; align-items: center; gap: 5px; min-height: 30px;
+  padding: 0 9px; border-radius: 8px; border: 1px solid transparent; background: transparent; color: var(--dim);
+  font: inherit; font-size: 12.5px; white-space: nowrap; }
+.nf-act:hover { color: var(--text); background: var(--panel-2); border-color: var(--line); }
 
 /* Opened: every word, the decision it asks, and a long table scrolling in its own box. */
 .nf-whole { display: grid; gap: 10px; min-width: 0; padding: 6px 0 2px; }
 .nf-md { font-size: 13.5px; line-height: 1.55; color: var(--text); min-width: 0; overflow-wrap: anywhere; user-select: text; }
 .nf-md .md-table, .nf-md table { display: block; max-width: 100%; overflow-x: auto; }
 .nf-md pre { max-width: 100%; }
-/* The words under the overview, once opened (`details`), and the press that opens or closes them. */
+/* The words under the short version, once opened (`details`). */
 .nf-details { display: grid; gap: 6px; min-width: 0; padding-top: 10px; border-top: 1px solid var(--line); }
 .nf-details-head { margin: 0; font-size: 12px; font-weight: 650; letter-spacing: .02em; color: var(--dim); }
-.nf-readmore { appearance: none; justify-self: start; display: inline-flex; align-items: center; min-height: 44px;
-  margin: -6px 0 -8px; padding: 0 2px; border: 0; background: none; cursor: pointer; font: inherit;
-  font-size: 12.5px; font-weight: 600; color: var(--accent); }
-.nf-readmore:hover { text-decoration: underline; }
-.nf-readmore:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; border-radius: 4px; }
 .nf-said summary { cursor: pointer; font-size: 12.5px; color: var(--dim); min-height: 32px; display: flex; align-items: center; gap: 8px; list-style: none; }
 .nf-said summary::-webkit-details-marker { display: none; }
 .nf-said summary::after, .nf-said[open] summary::after { transform: rotate(-135deg) translateY(-1px); }
@@ -244,7 +248,8 @@ button.nf-place { appearance: none; }
   .nf-keys { display: none; }
   .nf-chip, .nf-btn, .nf-place, .nf-pop-item, .nf-on, .nf-select, .nf-search-in, .nf-date-in { min-height: 44px; }
   .nf-icon, .nf-pick, .nf-toast-x { min-width: 44px; min-height: 44px; }
-  .nf-quick { opacity: 1; }
+  .nf-row { --nf-line: 44px; }
+  .nf-act { min-height: 44px; }
 }
 
 /* Narrow: the filters fold into a sheet, opened by the toolbar's Filters. */
@@ -263,12 +268,9 @@ button.nf-place { appearance: none; }
   .nf-sort .nf-select { flex: 1 1 auto; min-width: 0; width: 100%; }
   .nf-tools { flex-wrap: wrap; }
   .nf-tools > .nf-menu > .nf-btn, .nf-filters-btn { padding: 0 12px; }
-  .nf-row { grid-template-columns: 40px 34px minmax(0, 1fr); padding-right: 8px; }
-  .nf-quick { grid-column: 3; opacity: 1; justify-self: start; margin-left: -8px; }
+  .nf-row { grid-template-columns: 36px 40px minmax(0, 1fr); column-gap: 8px; padding-right: 10px; }
   .nf-day-h { margin-left: 8px; }
   .nf-empty { margin-left: 0; }
   .nf-pop { right: auto; left: 0; width: min(290px, calc(100vw - 48px)); }
-  .nf-row-top { flex-wrap: wrap; gap: 2px 10px; }
-  .nf-places-end { margin-left: 0; }
   .nf-view-acts { margin-left: 0; }
 }

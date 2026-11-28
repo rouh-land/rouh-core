@@ -2245,41 +2245,55 @@ def zone_for_page(who, name):
 
 def phone_text(brief: dict, link: str) -> str:
     """A few lines for Telegram: the day, the weather, the first thing on it, the link."""
-    lines = [f"☀️ Your morning brief, {brief['day_words']}"]
+    short, more = notice_lines(brief)
+    lines = [f"☀️ Your morning brief, {brief['day_words']}", *short, *more]
+    if link:
+        lines.append(link)
+    return "\n".join(lines)
+
+
+def notice_lines(brief: dict) -> tuple[list[str], list[str]]:
+    """The brief's lines under its title, as a notice's short version and its details.
+
+    The short version is the day at a glance - the weather and the calendar - and the details
+    are the rest: the first world story, Synapse's night and the decisions it ran into (Petar,
+    28 November 2026: a short version shown whole, and the details by expanding)."""
+    short: list[str] = []
+    more: list[str] = []
     weather = brief.get("weather") or {}
     if weather.get("ok"):
         place = weather["place"].split(",")[0]
         rain = f", rain likely from {weather['rain_from']}" if weather.get("rain_from") else ""
-        lines.append(f"{weather['picture']} {place} {weather['low']}-{weather['high']}°, "
+        short.append(f"{weather['picture']} {place} {weather['low']}-{weather['high']}°, "
                      f"{weather['words'].lower()}{rain}")
     elif weather.get("no_place"):
-        lines.append("🌡️ No weather: no location is set in Settings.")
+        short.append("🌡️ No weather: no location is set in Settings.")
     cal = brief.get("calendar") or {}
     if cal.get("ok"):
         timed = [one for one in cal.get("today") or [] if not one["all_day"]]
         count = len(cal.get("today") or [])
         if not count:
-            lines.append("📅 Nothing on your calendar today.")
+            short.append("📅 Nothing on your calendar today.")
         elif timed:
-            lines.append(f"📅 {count} today, first at {timed[0]['start']}: {timed[0]['title']}")
+            short.append(f"📅 {count} today, first at {timed[0]['start']}: {timed[0]['title']}")
         else:
-            lines.append(f"📅 Today: {cal['today'][0]['title']}")
+            short.append(f"📅 Today: {cal['today'][0]['title']}")
     world = brief.get("world") or {}
     if world.get("ok") and world.get("stories"):
-        lines.append(f"📰 {world['stories'][0]['title']}")
+        more.append(f"📰 {world['stories'][0]['title']}")
     synapse = (brief.get("report") or {}).get("synapse") or {}
     if synapse.get("outcome_words"):
         idea = synapse.get("idea") or ""
-        lines.append(f"🧪 Synapse last night: {synapse['outcome_words']}"
-                     + (f", {idea[:1].lower() + idea[1:80]}" if idea else ""))
+        more.append(f"🧪 Synapse last night: {synapse['outcome_words']}"
+                    + (f", {idea[:1].lower() + idea[1:80]}" if idea else ""))
     for one in (brief.get("report") or {}).get("ran") or []:
         d = one.get("decision") or {}
         if d.get("number"):
-            lines.append(f"🌙 Decision {d['number']}: {d['title'][:90]}. "
-                         + " or ".join(o["label"] for o in d.get("options") or []) + "?")
-    if link:
-        lines.append(link)
-    return "\n".join(lines)
+            more.append(f"🌙 Decision {d['number']}: {d['title'][:90]}. "
+                        + " or ".join(o["label"] for o in d.get("options") or []) + "?")
+    if not short and more:
+        short.append(more.pop(0))
+    return short, more
 
 
 # --- every morning ----------------------------------------------------------
@@ -2397,8 +2411,11 @@ class Mornings:
         their phone if it is left there (`rouh/notices.py`)."""
         from . import notices
 
+        short, more = notice_lines(brief)
         said = await notices.phone(phone_text(brief, self.link()), kind="brief", who=who,
-                                   key=f"brief:{brief.get('day') or ''}")
+                                   key=f"brief:{brief.get('day') or ''}",
+                                   summary="\n".join(short) or "Today's brief is ready.",
+                                   details="\n".join(more))
         return said is not None
 
     @staticmethod
