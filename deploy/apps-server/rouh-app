@@ -1,0 +1,1289 @@
+#!/usr/bin/python3 -I
+"""rouh-app: puts small apps on a Rouh apps server, each on the standard of CONTRACT.md section 4.
+
+Run as root. `rouh-app help` is the runbook. Python's standard library only.
+"""
+
+import argparse
+import datetime
+import fcntl
+import ipaddress
+import json
+import os
+import pwd
+import re
+import secrets
+import shutil
+import subprocess
+import sys
+import time
+import urllib.error
+import urllib.request
+
+VERSION = "1"
+
+NAME_RE = re.compile(r"^[a-z][a-z0-9-]{1,27}$")
+DOMAIN_RE = re.compile(r"^(?=.{4,253}$)([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z][a-z0-9-]{0,61}[a-z0-9]$")
+REF_RE = re.compile(r"^[A-Za-z0-9._][A-Za-z0-9._/-]{0,99}$")
+MEMORY_RE = re.compile(r"^[1-9][0-9]{0,5}[MG]$")
+REPO_RE = re.compile(r"^(git@[A-Za-z0-9.-]+:[A-Za-z0-9._/-]+|(ssh|https)://[A-Za-z0-9@.:_/-]+|/[A-Za-z0-9._/-]+)$")
+KINDS = ("python", "static")
+
+ETC = os.environ.get("ROUH_APPS_ETC", "/etc/rouh-apps")
+APPS_ETC = os.path.join(ETC, "apps")
+REMOVED_ETC = os.path.join(ETC, "removed")
+ENV_ETC = os.path.join(ETC, "env")
+SRV = "/srv/apps"
+CADDY_APPS = "/etc/caddy/apps"
+CADDYFILE = "/etc/caddy/Caddyfile"
+UNITS = "/etc/systemd/system"
+LOCKS = "/run/rouh-apps"
+
+FIRST_PORT = 8100
+LAST_PORT = 8999
+TEST_OFFSET = 1000
+KEEP_RELEASES = 5
+KEEP_BACKUPS = 14
+HEALTH_WAIT = 30
+DEFAULT_MEMORY = "512M"
+
+
+class Refused(Exception):
+    """A plain sentence for the person, and a nonzero exit."""
+
+
+# ---- small pure helpers ----
+
+def check_name(name):
+    if not isinstance(name, str) or not NAME_RE.fullmatch(name):
+        raise Refused("%r is not an app name: use 2 to 28 small letters, digits and dashes, starting with a letter."
+                      % (name,))
+    return name
+
+
+def db_name(name):
+    return "app_" + name.replace("-", "_")
+
+
+def user_name(name):
+    return "app-" + name
+
+
+def sslip_host(name, ip, test=False):
+    """The default address of an app: <name>.<ip with dashes>.sslip.io, with test- before it for the test copy."""
+    address = ipaddress.ip_address(ip)
+    if address.version == 4:
+        dashed = str(address).replace(".", "-")
+    else:
+        dashed = address.exploded.replace(":", "-")
+    return "%s%s.%s.sslip.io" % ("test-" if test else "", name, dashed)
+
+
+def test_domain(domain):
+    return "test-" + domain
+
+
+def allocate_port(used):
+    """The lowest live port from 8100 whose test port (+1000) is free as well."""
+    used = set(used)
+    for port in range(FIRST_PORT, LAST_PORT + 1):
+        if port not in used and port + TEST_OFFSET not in used:
+            return port
+    raise Refused("There are no free ports left for another app on this server.")
+
+
+def releases_to_prune(releases, keep, protected):
+    """Release names to delete: all but the newest `keep`, never one that is protected (live, test, previous)."""
+    ordered = sorted(set(releases))
+    kept = set(ordered[-keep:]) if keep > 0 else set()
+    return [r for r in ordered if r not in kept and r not in protected]
+
+
+def backups_to_prune(stamps, keep):
+    ordered = sorted(set(stamps))
+    return ordered[:-keep] if len(ordered) > keep else []
+
+
+def parse_bool(value, default):
+    if value is None:
+        return default
+    if isinstance(value, bool):
+        return value
+    text = str(value).strip().lower()
+    if text in ("true", "yes", "1", "on"):
+        return True
+    if text in ("false", "no", "0", "off"):
+        return False
+    raise Refused("%r is not true or false." % (value,))
+
+
+def check_memory(value):
+    if not MEMORY_RE.fullmatch(value or ""):
+        raise Refused("%r is not a memory limit: write it like 512M or 1G." % (value,))
+    return value
+
+
+def check_domain(value):
+    value = (value or "").strip().lower().rstrip(".")
+    if not DOMAIN_RE.fullmatch(value):
+        raise Refused("%r is not an address this can serve: write it like notes.example.com." % (value,))
+    return value
+
+
+def check_ref(value):
+    if not REF_RE.fullmatch(value or "") or ".." in value:
+        raise Refused("%r is not a branch, tag or commit." % (value,))
+    return value
+
+
+def check_repo(value):
+    if not REPO_RE.fullmatch(value or "") or ".." in value:
+        raise Refused("%r is not a git address: write it like git@github.com:someone/notes.git." % (value,))
+    return value
+
+
+def parse_env_file(text):
+    env = {}
+    for line in text.splitlines():
+        line = line.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        key, value = line.split("=", 1)
+        key = key.strip()
+        if key.startswith("export "):
+            key = key[7:].strip()
+        value = value.strip()
+        if len(value) >= 2 and value[0] == value[-1] and value[0] in "'\"":
+            value = value[1:-1]
+        if re.fullmatch(r"^[A-Za-z_][A-Za-z0-9_]*$", key):
+            env[key] = value
+    return env
+
+
+def unpinned_lines(text):
+    out = []
+    for line in text.splitlines():
+        bare = line.split("#", 1)[0].strip()
+        if not bare or bare.startswith("-"):
+            continue
+        if "==" not in bare and "@" not in bare:
+            out.append(bare)
+    return out
+
+
+def read_app_config(text, kind):
+    """rouh-app.json, checked. Missing keys take the standard's defaults."""
+    try:
+        data = json.loads(text) if text is not None else {}
+    except ValueError as e:
+        raise Refused("rouh-app.json is not valid JSON: %s." % e)
+    if not isinstance(data, dict):
+        raise Refused("rouh-app.json must be one JSON object.")
+    config = {
+        "kind": data.get("kind", kind),
+        "start": data.get("start", ""),
+        "migrate": data.get("migrate", ""),
+        "health": data.get("health", "/healthz" if kind == "python" else "/"),
+        "memory": data.get("memory"),
+        "database": data.get("database"),
+        "root": data.get("root", ""),
+    }
+    if config["kind"] != kind:
+        raise Refused("rouh-app.json says the app is %r, but it was made as %r." % (config["kind"], kind))
+    for key in ("start", "migrate", "health", "root"):
+        if not isinstance(config[key], str) or "\n" in config[key] or len(config[key]) > 1000:
+            raise Refused("%s in rouh-app.json must be one line of text." % key)
+    if kind == "python" and not config["start"].strip():
+        raise Refused("rouh-app.json has no start command, so there is nothing to run.")
+    if not config["health"].startswith("/"):
+        raise Refused("health in rouh-app.json must be a path starting with /, like /healthz.")
+    if config["memory"] is not None:
+        check_memory(config["memory"])
+    if config["database"] is not None:
+        config["database"] = parse_bool(config["database"], False)
+    root = config["root"].strip("/")
+    if root and (".." in root.split("/") or not re.fullmatch(r"^[A-Za-z0-9._/-]+$", root)):
+        raise Refused("root in rouh-app.json must be a folder inside the code, like dist.")
+    config["root"] = root
+    return config
+
+
+def utc_stamp(now=None):
+    now = now or datetime.datetime.now(datetime.timezone.utc)
+    return now.strftime("%Y%m%d-%H%M%S")
+
+
+def caddy_site(host, kind, port, root):
+    if kind == "static":
+        body = "\troot * %s\n\tencode gzip\n\tfile_server\n" % root
+    else:
+        body = "\treverse_proxy 127.0.0.1:%d\n" % port
+    return "%s {\n%s}\n" % (host, body)
+
+
+def unit_text(name, slot, memory):
+    folder = os.path.join(SRV, name)
+    return """# managed by rouh-app
+[Unit]
+Description=App {name} ({slot})
+After=network-online.target postgresql.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User={user}
+Group={user}
+WorkingDirectory={folder}/{slot}
+EnvironmentFile=-{folder}/shared/.env
+EnvironmentFile={env_etc}/{name}-{slot}.env
+ExecStart=/bin/sh {folder}/{slot}/.rouh-start.sh
+Restart=on-failure
+RestartSec=3
+MemoryMax={memory}
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+ReadWritePaths={folder}/shared
+
+[Install]
+WantedBy=multi-user.target
+""".format(name=name, slot=slot, user=user_name(name), folder=folder, env_etc=ENV_ETC, memory=memory)
+
+
+# ---- the machine ----
+
+def say(text):
+    print(text, flush=True)
+
+
+def write_atomic(path, data, mode=0o644, uid=None, gid=None):
+    if isinstance(data, str):
+        data = data.encode()
+    folder = os.path.dirname(path) or "."
+    tmp = os.path.join(folder, ".%s.%s.tmp" % (os.path.basename(path), secrets.token_hex(4)))
+    fd = os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_EXCL, mode)
+    try:
+        with os.fdopen(fd, "wb") as f:
+            f.write(data)
+            f.flush()
+            os.fsync(f.fileno())
+        os.chmod(tmp, mode)
+        if uid is not None:
+            os.chown(tmp, uid, gid if gid is not None else -1)
+        os.replace(tmp, path)
+    except BaseException:
+        try:
+            os.unlink(tmp)
+        except OSError:
+            pass
+        raise
+
+
+def point_link(link, target):
+    """Points a symlink at target in one step."""
+    tmp = "%s.%s.tmp" % (link, secrets.token_hex(4))
+    os.symlink(target, tmp)
+    os.replace(tmp, link)
+
+
+def run(args, check=True, what=None, **kw):
+    kw.setdefault("stdout", subprocess.PIPE)
+    kw.setdefault("stderr", subprocess.STDOUT)
+    kw.setdefault("stdin", subprocess.DEVNULL)
+    kw.setdefault("timeout", 1200)
+    try:
+        proc = subprocess.run(args, **kw)
+    except FileNotFoundError:
+        raise Refused("%s is not installed on this server." % args[0])
+    except subprocess.TimeoutExpired:
+        raise Refused("%s took too long and was stopped." % (what or args[0]))
+    out = proc.stdout.decode(errors="replace") if isinstance(proc.stdout, bytes) else (proc.stdout or "")
+    if check and proc.returncode != 0:
+        tail = out.strip()[-3000:]
+        raise Refused("%s failed%s" % (what or " ".join(args[:2]), (":\n" + tail) if tail else "."))
+    return proc.returncode, out
+
+
+def as_user(name):
+    """subprocess keyword arguments that run a command as the app's own user."""
+    entry = pwd.getpwnam(user_name(name))
+    return {"user": entry.pw_uid, "group": entry.pw_gid, "extra_groups": []}
+
+
+def as_postgres():
+    entry = pwd.getpwnam("postgres")
+    return {"user": entry.pw_uid, "group": entry.pw_gid, "extra_groups": [], "cwd": "/"}
+
+
+def systemctl(*args, check=True):
+    return run(["systemctl"] + list(args), check=check, what="systemctl " + " ".join(args), timeout=120)
+
+
+class Lock:
+    def __init__(self, name):
+        os.makedirs(LOCKS, mode=0o755, exist_ok=True)
+        self.path = os.path.join(LOCKS, name + ".lock")
+        self.f = None
+
+    def __enter__(self):
+        self.f = open(self.path, "w")
+        try:
+            fcntl.flock(self.f, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except BlockingIOError:
+            say("Waiting for another rouh-app on the same app to finish.")
+            fcntl.flock(self.f, fcntl.LOCK_EX)
+        return self
+
+    def __exit__(self, *exc):
+        fcntl.flock(self.f, fcntl.LOCK_UN)
+        self.f.close()
+
+
+# ---- records ----
+
+def record_path(name):
+    return os.path.join(APPS_ETC, name + ".json")
+
+
+def load_record(name, must=True):
+    try:
+        with open(record_path(name)) as f:
+            return json.load(f)
+    except FileNotFoundError:
+        if must:
+            raise Refused("There is no app called %s on this server. `rouh-app list` names them." % name)
+        return None
+    except ValueError:
+        raise Refused("The record of %s in %s is damaged." % (name, record_path(name)))
+
+
+def save_record(record):
+    os.makedirs(APPS_ETC, mode=0o700, exist_ok=True)
+    write_atomic(record_path(record["name"]), json.dumps(record, indent=2, sort_keys=True) + "\n", 0o600)
+
+
+def all_records():
+    out = []
+    try:
+        names = sorted(os.listdir(APPS_ETC))
+    except FileNotFoundError:
+        return out
+    for entry in names:
+        if entry.endswith(".json") and NAME_RE.fullmatch(entry[:-5]):
+            try:
+                out.append(load_record(entry[:-5]))
+            except Refused as e:
+                print(str(e), file=sys.stderr)
+    return out
+
+
+def server_ip():
+    try:
+        with open(os.path.join(ETC, "server.json")) as f:
+            ip = json.load(f).get("ip")
+        if ip:
+            ipaddress.ip_address(ip)
+            return ip
+    except (OSError, ValueError, AttributeError):
+        pass
+    _, out = run(["ip", "-4", "-o", "route", "get", "1.1.1.1"], check=False)
+    m = re.search(r" src ([0-9.]+)", out)
+    if m:
+        return m.group(1)
+    raise Refused("Could not find this server's address; put it in %s as {\"ip\": \"...\"}." %
+                  os.path.join(ETC, "server.json"))
+
+
+def hosts_of(record):
+    if record.get("domain"):
+        return record["domain"], test_domain(record["domain"])
+    ip = server_ip()
+    return sslip_host(record["name"], ip), sslip_host(record["name"], ip, test=True)
+
+
+# ---- the pieces of an app ----
+
+def folder(name, *parts):
+    return os.path.join(SRV, name, *parts)
+
+
+def ensure_user(name):
+    user = user_name(name)
+    try:
+        pwd.getpwnam(user)
+    except KeyError:
+        run(["useradd", "--system", "--user-group", "--home-dir", folder(name), "--no-create-home",
+             "--shell", "/usr/sbin/nologin", "--comment", "Rouh app " + name, user], what="Making the user " + user)
+    return pwd.getpwnam(user)
+
+
+def ensure_folders(record):
+    name = record["name"]
+    entry = ensure_user(name)
+    uid, gid = entry.pw_uid, entry.pw_gid
+    os.makedirs(SRV, mode=0o755, exist_ok=True)
+    home = folder(name)
+    os.makedirs(home, exist_ok=True)
+    os.chown(home, uid, gid)
+    os.chmod(home, 0o711)
+    for sub, mode in (("releases", 0o755 if record["kind"] == "static" else 0o750),
+                      ("shared", 0o700), (".cache", 0o700)):
+        path = folder(name, sub)
+        os.makedirs(path, exist_ok=True)
+        os.chown(path, uid, gid)
+        os.chmod(path, mode)
+    backups = folder(name, "backups")
+    os.makedirs(backups, exist_ok=True)
+    os.chown(backups, 0, 0)
+    os.chmod(backups, 0o700)
+    return uid, gid
+
+
+def ensure_deploy_key(name, uid, gid):
+    key = folder(name, "shared", "deploy_key")
+    if not os.path.exists(key):
+        run(["ssh-keygen", "-q", "-t", "ed25519", "-N", "", "-C", "app-" + name, "-f", key],
+            what="Making the deploy key")
+    for path in (key, key + ".pub"):
+        os.chown(path, uid, gid)
+    os.chmod(key, 0o600)
+    with open(key + ".pub") as f:
+        return f.read().strip()
+
+
+def read_deploy_key(name):
+    try:
+        with open(folder(name, "shared", "deploy_key.pub")) as f:
+            return f.read().strip()
+    except OSError:
+        return ""
+
+
+def psql(sql, variables=None, database="postgres", check=True):
+    args = ["psql", "-X", "-q", "-At", "-v", "ON_ERROR_STOP=1", "-d", database]
+    for key, value in (variables or {}).items():
+        args += ["-v", "%s=%s" % (key, value)]
+    return run(args, input=sql.encode(), stdin=None, check=check, what="PostgreSQL", timeout=300, **as_postgres())
+
+
+def ensure_database(record, uid, gid):
+    name = record["name"]
+    db = db_name(name)
+    env_path = folder(name, "shared", ".env")
+    try:
+        with open(env_path) as f:
+            env_text = f.read()
+    except FileNotFoundError:
+        env_text = ""
+    env = parse_env_file(env_text)
+    url = env.get("DATABASE_URL", "")
+    m = re.fullmatch(r"^postgresql://%s:([A-Za-z0-9_-]+)@127\.0\.0\.1:5432/%s$" % (db, db), url)
+    password = m.group(1) if m else secrets.token_hex(24)
+    _, exists = psql("SELECT 1 FROM pg_roles WHERE rolname = :'role';\n", {"role": db})
+    if exists.strip() == "1":
+        psql("ALTER ROLE :\"role\" WITH LOGIN PASSWORD :'pw';\n", {"role": db, "pw": password})
+    else:
+        psql("CREATE ROLE :\"role\" WITH LOGIN PASSWORD :'pw';\n", {"role": db, "pw": password})
+    _, exists = psql("SELECT 1 FROM pg_database WHERE datname = :'db';\n", {"db": db})
+    if exists.strip() != "1":
+        run(["createdb", "-O", db, db], what="Making the database " + db, **as_postgres())
+    psql("REVOKE ALL ON DATABASE :\"db\" FROM PUBLIC;\n", {"db": db})
+    if not m:
+        line = "DATABASE_URL=postgresql://%s:%s@127.0.0.1:5432/%s" % (db, password, db)
+        lines = [l for l in env_text.splitlines() if not l.strip().startswith("DATABASE_URL=")]
+        write_atomic(env_path, "\n".join([line] + lines) + "\n", 0o600, uid, gid)
+    record["database"] = True
+
+
+def ensure_env_file(name, uid, gid):
+    env_path = folder(name, "shared", ".env")
+    if not os.path.exists(env_path):
+        write_atomic(env_path, "# The app's own settings, one KEY=value a line. Kept across releases.\n",
+                     0o600, uid, gid)
+
+
+def write_slot_env(record):
+    name = record["name"]
+    live_host, test_host = hosts_of(record)
+    os.makedirs(ENV_ETC, mode=0o755, exist_ok=True)
+    for slot, port, host in (("live", record["port"], live_host), ("test", record["test_port"], test_host)):
+        venv_bin = folder(name, slot, ".venv", "bin")
+        text = ("# written by rouh-app\nPORT=%d\nAPP_NAME=%s\nAPP_URL=https://%s\nAPP_SLOT=%s\n"
+                "PATH=%s:/usr/local/bin:/usr/bin:/bin\nPYTHONDONTWRITEBYTECODE=1\nPYTHONUNBUFFERED=1\n"
+                "HOME=%s\n" % (port, name, host, slot, venv_bin, folder(name)))
+        write_atomic(os.path.join(ENV_ETC, "%s-%s.env" % (name, slot)), text, 0o644)
+
+
+def app_env(record, slot):
+    """The environment a command of the app gets, as its service would."""
+    env = {}
+    for path in (folder(record["name"], "shared", ".env"), os.path.join(ENV_ETC, "%s-%s.env" % (record["name"], slot))):
+        try:
+            with open(path) as f:
+                env.update(parse_env_file(f.read()))
+        except FileNotFoundError:
+            pass
+    env.setdefault("LANG", "C.UTF-8")
+    return env
+
+
+def write_units(record):
+    if record["kind"] != "python":
+        return
+    changed = False
+    for slot in ("live", "test"):
+        unit = "app-%s%s.service" % (record["name"], "" if slot == "live" else "-test")
+        path = os.path.join(UNITS, unit)
+        text = unit_text(record["name"], slot, record.get("memory") or DEFAULT_MEMORY)
+        try:
+            with open(path) as f:
+                same = f.read() == text
+        except FileNotFoundError:
+            same = False
+        if not same:
+            write_atomic(path, text, 0o644)
+            changed = True
+    if changed:
+        systemctl("daemon-reload")
+
+
+def service(record, slot):
+    return "app-%s%s.service" % (record["name"], "" if slot == "live" else "-test")
+
+
+def write_caddy(record):
+    name = record["name"]
+    live_host, test_host = hosts_of(record)
+    root_sub = record.get("static_root") or ""
+    parts = []
+    for slot, host, port in (("live", live_host, record["port"]), ("test", test_host, record["test_port"])):
+        root = folder(name, slot, root_sub) if root_sub else folder(name, slot)
+        parts.append(caddy_site(host, record["kind"], port, root))
+    text = "# managed by rouh-app: %s\n" % name + "\n".join(parts)
+    os.makedirs(CADDY_APPS, mode=0o755, exist_ok=True)
+    path = os.path.join(CADDY_APPS, name + ".caddy")
+    try:
+        with open(path) as f:
+            old = f.read()
+    except FileNotFoundError:
+        old = None
+    if old == text:
+        return
+    write_atomic(path, text, 0o644)
+    code, out = run(["caddy", "validate", "--config", CADDYFILE, "--adapter", "caddyfile"], check=False, timeout=60)
+    if code != 0:
+        if old is None:
+            os.unlink(path)
+        else:
+            write_atomic(path, old, 0o644)
+        raise Refused("Caddy does not accept the address of %s, so it was left as it was:\n%s" % (name, out[-2000:]))
+    reload_caddy()
+
+
+def reload_caddy():
+    code, out = run(["systemctl", "reload", "caddy"], check=False, timeout=120)
+    if code != 0:
+        raise Refused("Caddy would not take the new addresses:\n" + out[-2000:])
+
+
+def health_ok(port, path, wait=HEALTH_WAIT):
+    class NoRedirect(urllib.request.HTTPRedirectHandler):
+        def redirect_request(self, *a, **k):
+            return None
+
+    opener = urllib.request.build_opener(NoRedirect)
+    url = "http://127.0.0.1:%d%s" % (port, path)
+    deadline = time.time() + wait
+    last = "it did not answer"
+    while True:
+        try:
+            with opener.open(url, timeout=5) as resp:
+                if resp.status < 400:
+                    return True, "%s answered %d" % (path, resp.status)
+                last = "%s answered %d" % (path, resp.status)
+        except urllib.error.HTTPError as e:
+            if 300 <= e.code < 400:
+                return True, "%s answered %d" % (path, e.code)
+            last = "%s answered %d" % (path, e.code)
+        except (urllib.error.URLError, OSError, ValueError) as e:
+            last = "it did not answer (%s)" % getattr(e, "reason", e)
+        if time.time() >= deadline:
+            return False, last
+        time.sleep(1)
+
+
+def git_env(name):
+    key = folder(name, "shared", "deploy_key")
+    known = folder(name, "shared", "known_hosts")
+    env = {
+        "HOME": folder(name),
+        "PATH": "/usr/local/bin:/usr/bin:/bin",
+        "LANG": "C.UTF-8",
+        "GIT_TERMINAL_PROMPT": "0",
+        "GIT_SSH_COMMAND": "ssh -i %s -o IdentitiesOnly=yes -o StrictHostKeyChecking=accept-new "
+                           "-o UserKnownHostsFile=%s -o BatchMode=yes" % (key, known),
+    }
+    return env
+
+
+def git(name, *args, what=None, timeout=600):
+    return run(["git", "--git-dir", folder(name, "repo.git")] + list(args), env=git_env(name), cwd=folder(name),
+               what=what or "git " + args[0], timeout=timeout, **as_user(name))
+
+
+def fetch(record):
+    name = record["name"]
+    repo = folder(name, "repo.git")
+    if not os.path.isdir(repo):
+        say("Fetching the code from %s." % record["repo"])
+        run(["git", "clone", "--bare", "--quiet", "--", record["repo"], repo], env=git_env(name), cwd=folder(name),
+            what="Fetching the code (is the deploy key added to the repository?)", timeout=600, **as_user(name))
+    else:
+        git(name, "remote", "set-url", "origin", record["repo"])
+        say("Fetching the newest code.")
+    git(name, "fetch", "--prune", "--quiet", "origin", "+refs/heads/*:refs/heads/*", "+refs/tags/*:refs/tags/*",
+        what="Fetching the code (is the deploy key added to the repository?)")
+
+
+def resolve(record, ref):
+    check_ref(ref)
+    code, out = run(["git", "--git-dir", folder(record["name"], "repo.git"), "rev-parse", "--verify", "--quiet",
+                     "--end-of-options", ref + "^{commit}"], check=False, env=git_env(record["name"]),
+                    stderr=subprocess.DEVNULL, **as_user(record["name"]))
+    sha = out.strip()
+    if code != 0 or not re.fullmatch(r"^[0-9a-f]{40,64}$", sha):
+        raise Refused("There is no branch, tag or commit called %s in %s." % (ref, record["repo"]))
+    return sha
+
+
+def release_names(name):
+    try:
+        return sorted(e for e in os.listdir(folder(name, "releases")) if re.fullmatch(r"^\d{8}-\d{6}-[0-9a-f]{7}$", e))
+    except FileNotFoundError:
+        return []
+
+
+def link_target(name, slot):
+    try:
+        return os.path.basename(os.readlink(folder(name, slot)))
+    except OSError:
+        return None
+
+
+def build_release(record, sha):
+    name = record["name"]
+    release = "%s-%s" % (utc_stamp(), sha[:7])
+    path = folder(name, "releases", release)
+    opts = as_user(name)
+    run(["mkdir", "-p", path], what="Making the release folder", **opts)
+    say("Unpacking %s into releases/%s." % (sha[:7], release))
+    archive = subprocess.Popen(["git", "--git-dir", folder(name, "repo.git"), "archive", "--format=tar", sha],
+                               stdout=subprocess.PIPE, stderr=subprocess.PIPE, env=git_env(name), **opts)
+    untar = subprocess.run(["tar", "-x", "-C", path], stdin=archive.stdout, stdout=subprocess.PIPE,
+                           stderr=subprocess.STDOUT, timeout=600, **opts)
+    archive.stdout.close()
+    archive_err = archive.stderr.read().decode(errors="replace")
+    archive.wait(timeout=60)
+    if archive.returncode != 0 or untar.returncode != 0:
+        raise Refused("Unpacking the code failed: %s%s" % (archive_err.strip(), untar.stdout.decode(errors="replace")))
+    try:
+        with open(os.path.join(path, "rouh-app.json")) as f:
+            text = f.read()
+    except FileNotFoundError:
+        text = None
+        if record["kind"] == "python":
+            raise Refused("The code has no rouh-app.json at its top, so there is no way to know how to start it.")
+    config = read_app_config(text, record["kind"])
+    if record["kind"] == "python":
+        say("Making the release's own Python environment.")
+        run(["python3", "-m", "venv", os.path.join(path, ".venv")], what="Making the virtual environment",
+            env={"HOME": folder(name), "PATH": "/usr/bin:/bin"}, cwd=path, **opts)
+        req = os.path.join(path, "requirements.txt")
+        if os.path.exists(req):
+            with open(req) as f:
+                loose = unpinned_lines(f.read())
+            if loose:
+                say("Warning: these packages are not pinned to one version with ==: %s." % ", ".join(loose[:10]))
+            say("Installing the packages in requirements.txt.")
+            run([os.path.join(path, ".venv", "bin", "pip"), "install", "--no-input", "--disable-pip-version-check",
+                 "--quiet", "-r", req], what="Installing the packages", cwd=path, timeout=1100,
+                env={"HOME": folder(name), "PATH": os.path.join(path, ".venv", "bin") + ":/usr/bin:/bin",
+                     "PIP_CACHE_DIR": folder(name, ".cache", "pip"), "LANG": "C.UTF-8"}, **opts)
+        else:
+            say("Warning: there is no requirements.txt, so no packages were installed.")
+        write_atomic(os.path.join(path, ".rouh-start.sh"),
+                     "#!/bin/sh\n# written by rouh-app from rouh-app.json\nexec %s\n" % config["start"], 0o644)
+    elif config["root"] and not os.path.isdir(os.path.join(path, config["root"])):
+        raise Refused("rouh-app.json says the site is in %s, but the code has no such folder." % config["root"])
+    return release, config
+
+
+def apply_config(record, config):
+    """What rouh-app.json says about memory, the database and the static folder, into the record."""
+    if config.get("memory") and not record.get("memory_set"):
+        record["memory"] = config["memory"]
+    if record["kind"] == "static":
+        record["static_root"] = config.get("root") or ""
+    record["health"] = config["health"]
+    record["migrate"] = config["migrate"]
+
+
+def migrate(record, release, command):
+    if not command.strip():
+        return
+    say("Running the migration: %s" % command)
+    env = app_env(record, "test")
+    env["PATH"] = os.path.join(folder(record["name"], "releases", release, ".venv", "bin")) + ":/usr/bin:/bin"
+    run(["/bin/sh", "-c", command], env=env, cwd=folder(record["name"], "releases", release),
+        what="The migration", timeout=900, **as_user(record["name"]))
+
+
+def check_slot(record, slot):
+    if record["kind"] == "static":
+        root = folder(record["name"], slot, record.get("static_root") or "")
+        return os.path.isdir(root), "the folder %s is there" % root
+    port = record["port"] if slot == "live" else record["test_port"]
+    return health_ok(port, record.get("health") or "/healthz")
+
+
+def restart_slot(record, slot):
+    if record["kind"] == "python":
+        systemctl("enable", "--quiet", service(record, slot), check=False)
+        systemctl("restart", service(record, slot))
+
+
+def prune(record):
+    name = record["name"]
+    protected = {link_target(name, "live"), link_target(name, "test"), record.get("previous_release")}
+    for release in releases_to_prune(release_names(name), KEEP_RELEASES, protected):
+        shutil.rmtree(folder(name, "releases", release), ignore_errors=True)
+
+
+# ---- the verbs ----
+
+def cmd_new(a):
+    name = check_name(a.name)
+    with Lock("all"), Lock(name):
+        record = load_record(name, must=False)
+        fresh = record is None
+        if fresh:
+            if a.kind not in KINDS:
+                raise Refused("--kind must be python or static.")
+            if not a.repo:
+                raise Refused("A new app needs --repo, the git address of its code.")
+            used = []
+            for other in all_records():
+                used += [other.get("port"), other.get("test_port")]
+            port = allocate_port([p for p in used if p])
+            record = {"name": name, "kind": a.kind, "port": port, "test_port": port + TEST_OFFSET,
+                      "branch": "main", "memory": DEFAULT_MEMORY, "memory_set": False, "domain": "",
+                      "database": False, "created_at": time.time(), "releases": [], "release": None,
+                      "previous_release": None, "version": VERSION}
+        elif a.kind and a.kind != record["kind"]:
+            raise Refused("%s is already a %s app; its kind cannot be changed." % (name, record["kind"]))
+        if a.repo:
+            record["repo"] = check_repo(a.repo)
+        if a.branch:
+            record["branch"] = check_ref(a.branch)
+        if a.domain is not None:
+            record["domain"] = check_domain(a.domain) if a.domain.strip() else ""
+        if a.memory:
+            record["memory"] = check_memory(a.memory)
+            record["memory_set"] = True
+        want_db = parse_bool(a.database, record["kind"] == "python") if (fresh or a.database is not None) \
+            else record.get("database")
+        say("%s %s, a %s app." % ("Making" if fresh else "Checking", name, record["kind"]))
+        uid, gid = ensure_folders(record)
+        key = ensure_deploy_key(name, uid, gid)
+        ensure_env_file(name, uid, gid)
+        if want_db:
+            say("Making its database %s with a login of its own." % db_name(name))
+            ensure_database(record, uid, gid)
+        save_record(record)
+        write_slot_env(record)
+        write_units(record)
+        write_caddy(record)
+        save_record(record)
+        live_host, test_host = hosts_of(record)
+        say("%s is ready at https://%s (test copy https://%s), and waits for its first deploy." %
+            (name, live_host, test_host))
+        say("Add this deploy key to %s as a read-only deploy key, then run rouh-app deploy %s:" %
+            (record["repo"], name))
+        say(key)
+
+
+def deploy(record, ref):
+    name = record["name"]
+    if not record.get("repo"):
+        raise Refused("%s has no repository; give it one with rouh-app new %s --repo <address>." % (name, name))
+    uid, gid = ensure_folders(record)
+    fetch(record)
+    sha = resolve(record, ref or record.get("branch") or "main")
+    release, config = build_release(record, sha)
+    apply_config(record, config)
+    if config.get("database") and not record.get("database"):
+        say("rouh-app.json asks for a database, so making %s." % db_name(name))
+        ensure_database(record, uid, gid)
+    save_record(record)
+    write_slot_env(record)
+    write_units(record)
+    write_caddy(record)
+    migrate(record, release, config["migrate"])
+
+    target = os.path.join("releases", release)
+    point_link(folder(name, "test"), target)
+    restart_slot(record, "test")
+    ok, why = check_slot(record, "test")
+    record["test_release"] = release
+    if not ok:
+        if record["kind"] == "python":
+            systemctl("stop", service(record, "test"), check=False)
+        record["last_deploy_error"] = "The test copy of %s failed its check: %s." % (release, why)
+        save_record(record)
+        raise Refused(record["last_deploy_error"] + " The live app was not touched.")
+    say("The test copy answers: %s." % why)
+
+    previous = link_target(name, "live")
+    point_link(folder(name, "live"), target)
+    restart_slot(record, "live")
+    ok, why = check_slot(record, "live")
+    if not ok:
+        if previous:
+            point_link(folder(name, "live"), os.path.join("releases", previous))
+            restart_slot(record, "live")
+        record["last_deploy_error"] = "The live copy of %s failed its check: %s." % (release, why)
+        save_record(record)
+        raise Refused(record["last_deploy_error"] + (" The live app is back on %s." % previous if previous
+                                                      else " There was no release before it to go back to."))
+    record["previous_release"] = previous if previous != release else record.get("previous_release")
+    record["release"] = release
+    record["released_at"] = time.time()
+    record["sha"] = sha
+    record["last_deploy_error"] = None
+    prune(record)
+    record["releases"] = release_names(name)
+    save_record(record)
+    live_host, _ = hosts_of(record)
+    say("%s is live on %s at https://%s (%s)." % (name, release, live_host, why))
+
+
+def cmd_deploy(a):
+    name = check_name(a.name)
+    if a.ref:
+        check_ref(a.ref)
+    with Lock(name):
+        deploy(load_record(name), a.ref)
+
+
+def cmd_update(a):
+    name = check_name(a.name)
+    with Lock(name):
+        record = load_record(name)
+        deploy(record, record.get("branch") or "main")
+
+
+def cmd_rollback(a):
+    name = check_name(a.name)
+    with Lock(name):
+        record = load_record(name)
+        current = link_target(name, "live")
+        releases = release_names(name)
+        target = record.get("previous_release")
+        if not target or target not in releases or target == current:
+            older = [r for r in releases if current and r < current]
+            target = older[-1] if older else None
+        if not target:
+            raise Refused("%s has no release before %s to go back to." % (name, current or "this one"))
+        say("Putting %s back on %s." % (name, target))
+        point_link(folder(name, "live"), os.path.join("releases", target))
+        restart_slot(record, "live")
+        ok, why = check_slot(record, "live")
+        if not ok:
+            if current:
+                point_link(folder(name, "live"), os.path.join("releases", current))
+                restart_slot(record, "live")
+            raise Refused("%s failed its check (%s), so %s stays on %s." % (target, why, name, current))
+        record["previous_release"] = current
+        record["release"] = target
+        record["released_at"] = time.time()
+        save_record(record)
+        say("%s is live on %s again (%s). The database was not changed back." % (name, target, why))
+
+
+def cmd_restart(a):
+    name = check_name(a.name)
+    with Lock(name):
+        record = load_record(name)
+        if record["kind"] == "static":
+            reload_caddy()
+            say("%s is a static site; Caddy was reloaded." % name)
+            return
+        if not link_target(name, "live"):
+            raise Refused("%s has never been deployed, so there is nothing to restart." % name)
+        restart_slot(record, "live")
+        ok, why = check_slot(record, "live")
+        if not ok:
+            raise Refused("%s was restarted but fails its check: %s. `rouh-app logs %s` says why." % (name, why, name))
+        say("%s was restarted and answers (%s)." % (name, why))
+
+
+def cmd_logs(a):
+    name = check_name(a.name)
+    record = load_record(name)
+    lines = max(1, min(int(a.lines or 200), 5000))
+    if record["kind"] == "static":
+        say("%s is a static site served by Caddy, so it has no log of its own." % name)
+        return
+    _, out = run(["journalctl", "-u", service(record, "live"), "-n", str(lines), "--no-pager", "-o", "short-iso"],
+                 check=False, timeout=60)
+    sys.stdout.write(out)
+
+
+def backup(record):
+    name = record["name"]
+    stamp = utc_stamp()
+    backups = folder(name, "backups")
+    os.makedirs(backups, mode=0o700, exist_ok=True)
+    made = []
+    try:
+        if record.get("database"):
+            dump = os.path.join(backups, stamp + ".dump")
+            with open(dump + ".part", "wb") as f:
+                os.chmod(dump + ".part", 0o600)
+                code, _ = run(["pg_dump", "-Fc", db_name(name)], check=False, stdout=f, stderr=subprocess.PIPE,
+                              timeout=3600, **as_postgres())
+            if code != 0:
+                raise Refused("pg_dump of %s failed." % db_name(name))
+            os.replace(dump + ".part", dump)
+            made.append(dump)
+        files = os.path.join(backups, stamp + "-files.tar.gz")
+        run(["tar", "-czf", files + ".part", "-C", folder(name), "shared"], what="Packing the app's files",
+            timeout=3600)
+        os.chmod(files + ".part", 0o600)
+        os.replace(files + ".part", files)
+        made.append(files)
+    except Refused:
+        record["backup_at"] = time.time()
+        record["backup_ok"] = False
+        save_record(record)
+        for leftover in (os.path.join(backups, stamp + ".dump.part"), os.path.join(backups, stamp + "-files.tar.gz.part")):
+            if os.path.exists(leftover):
+                os.unlink(leftover)
+        raise
+    stamps = sorted({m.group(1) for e in os.listdir(backups)
+                     for m in [re.fullmatch(r"^(\d{8}-\d{6})(\.dump|-files\.tar\.gz)$", e)] if m})
+    for old in backups_to_prune(stamps, KEEP_BACKUPS):
+        for suffix in (".dump", "-files.tar.gz"):
+            try:
+                os.unlink(os.path.join(backups, old + suffix))
+            except FileNotFoundError:
+                pass
+    record["backup_at"] = time.time()
+    record["backup_ok"] = True
+    save_record(record)
+    say("%s is backed up: %s." % (name, ", ".join(os.path.basename(m) for m in made)))
+
+
+def restore_test(record):
+    name = record["name"]
+    backups = folder(name, "backups")
+    try:
+        entries = os.listdir(backups)
+    except FileNotFoundError:
+        entries = []
+    dumps = sorted(e for e in entries if re.fullmatch(r"^\d{8}-\d{6}\.dump$", e))
+    tars = sorted(e for e in entries if re.fullmatch(r"^\d{8}-\d{6}-files\.tar\.gz$", e))
+    ok, said = False, []
+    try:
+        if not dumps and not tars:
+            raise Refused("%s has no backup yet to restore." % name)
+        if tars:
+            code, _ = run(["tar", "-tzf", os.path.join(backups, tars[-1])], check=False, timeout=1800)
+            if code != 0:
+                raise Refused("The newest file backup of %s, %s, cannot be read." % (name, tars[-1]))
+            said.append("%s reads back" % tars[-1])
+        if record.get("database"):
+            if not dumps:
+                raise Refused("%s has a database but no database backup." % name)
+            scratch = "restoretest_%s_%s" % (name.replace("-", "_"), secrets.token_hex(4))
+            run(["createdb", scratch], what="Making the throwaway database", **as_postgres())
+            try:
+                with open(os.path.join(backups, dumps[-1]), "rb") as f:
+                    code, out = run(["pg_restore", "--no-owner", "--no-privileges", "-d", scratch], check=False,
+                                    stdin=f, timeout=3600, **as_postgres())
+                if code != 0:
+                    raise Refused("%s did not restore cleanly:\n%s" % (dumps[-1], out[-2000:]))
+                _, count = psql("SELECT count(*) FROM information_schema.tables WHERE table_schema NOT IN "
+                                "('pg_catalog', 'information_schema');\n", database=scratch)
+                said.append("%s restored with %s tables" % (dumps[-1], count.strip()))
+            finally:
+                run(["dropdb", "--if-exists", scratch], check=False, **as_postgres())
+        ok = True
+    finally:
+        record["restore_test_at"] = time.time()
+        record["restore_test_ok"] = ok
+        save_record(record)
+    say("The restore test of %s passed: %s." % (name, "; ".join(said)))
+
+
+def cmd_backup(a):
+    name = check_name(a.name)
+    with Lock(name):
+        backup(load_record(name))
+
+
+def cmd_restore_test(a):
+    name = check_name(a.name)
+    with Lock(name):
+        restore_test(load_record(name))
+
+
+def cmd_backup_all(a):
+    failed = []
+    records = all_records()
+    for record in records:
+        with Lock(record["name"]):
+            for step in (backup, restore_test):
+                try:
+                    step(load_record(record["name"]))
+                except Refused as e:
+                    print(str(e), file=sys.stderr)
+                    failed.append("%s (%s)" % (record["name"], step.__name__.replace("_", " ")))
+    if failed:
+        raise Refused("These failed: %s." % ", ".join(failed))
+    say("Every app is backed up and test restored (%d)." % len(records))
+
+
+def app_report(record):
+    name = record["name"]
+    live = link_target(name, "live")
+    try:
+        live_host, test_host = hosts_of(record)
+    except Refused:
+        live_host = test_host = ""
+    memory_mb = None
+    if record["kind"] == "static":
+        state = "static" if live else "new"
+    elif not live:
+        state = "new"
+    else:
+        code, out = run(["systemctl", "show", service(record, "live"), "-p", "ActiveState", "-p", "MemoryCurrent"],
+                        check=False, timeout=30)
+        values = dict(l.split("=", 1) for l in out.splitlines() if "=" in l)
+        active = values.get("ActiveState", "")
+        state = {"active": "running", "activating": "running", "reloading": "running",
+                 "failed": "failed"}.get(active, "stopped")
+        if values.get("MemoryCurrent", "").isdigit():
+            memory_mb = int(values["MemoryCurrent"]) // (1024 * 1024)
+    return {
+        "name": name, "kind": record["kind"],
+        "url": "https://" + live_host if live_host else "",
+        "test_url": "https://" + test_host if test_host else "",
+        "state": state, "release": live, "released_at": record.get("released_at"),
+        "previous_release": record.get("previous_release"), "repo": record.get("repo", ""),
+        "branch": record.get("branch", ""), "deploy_key": read_deploy_key(name),
+        "memory_mb": memory_mb, "memory_limit": record.get("memory") if record["kind"] == "python" else None,
+        "backup_at": record.get("backup_at"), "backup_ok": record.get("backup_ok"),
+        "restore_test_at": record.get("restore_test_at"), "restore_test_ok": record.get("restore_test_ok"),
+        "last_error": record.get("last_deploy_error"),
+    }
+
+
+def cmd_status(a):
+    reports = []
+    for record in all_records():
+        try:
+            reports.append(app_report(record))
+        except Exception as e:  # one broken app must not hide the others
+            reports.append({"name": record.get("name"), "kind": record.get("kind"), "state": "failed",
+                            "last_error": "Its report failed: %s" % e})
+    if a.json:
+        print(json.dumps(reports))
+        return
+    if not reports:
+        say("There are no apps on this server yet.")
+    for r in reports:
+        say("%s: %s, %s, release %s, %s" % (r["name"], r["kind"], r["state"], r.get("release") or "none",
+                                            r.get("url") or ""))
+
+
+def cmd_list(a):
+    records = all_records()
+    if not records:
+        say("There are no apps on this server yet.")
+    for record in records:
+        say("%-28s %-7s port %-5s %s" % (record["name"], record["kind"], record.get("port"),
+                                         link_target(record["name"], "live") or "never deployed"))
+
+
+def cmd_remove(a):
+    name = check_name(a.name)
+    if not a.yes:
+        raise Refused("Removing %s needs --yes. Its folder and backups are kept either way." % name)
+    with Lock("all"), Lock(name):
+        record = load_record(name)
+        stamp = utc_stamp()
+        for slot in ("live", "test"):
+            unit = service(record, slot)
+            systemctl("disable", "--now", "--quiet", unit, check=False)
+            try:
+                os.unlink(os.path.join(UNITS, unit))
+            except FileNotFoundError:
+                pass
+        systemctl("daemon-reload", check=False)
+        try:
+            os.unlink(os.path.join(CADDY_APPS, name + ".caddy"))
+            reload_caddy()
+        except FileNotFoundError:
+            pass
+        for slot in ("live", "test"):
+            try:
+                os.unlink(os.path.join(ENV_ETC, "%s-%s.env" % (name, slot)))
+            except FileNotFoundError:
+                pass
+        kept = None
+        if os.path.isdir(folder(name)):
+            kept = "%s.removed-%s" % (folder(name), stamp)
+            os.rename(folder(name), kept)
+        if a.drop_database and record.get("database"):
+            run(["dropdb", "--if-exists", db_name(name)], what="Dropping the database", **as_postgres())
+            psql("DROP ROLE IF EXISTS :\"role\";\n", {"role": db_name(name)})
+            say("Its database %s is dropped." % db_name(name))
+        os.makedirs(REMOVED_ETC, mode=0o700, exist_ok=True)
+        record["removed_at"] = time.time()
+        record["kept_in"] = kept
+        write_atomic(os.path.join(REMOVED_ETC, "%s-%s.json" % (name, stamp)), json.dumps(record, indent=2) + "\n", 0o600)
+        os.unlink(record_path(name))
+        say("%s is removed: its services and address are gone.%s%s" % (
+            name, " Its code, files and backups are kept in %s." % kept if kept else "",
+            "" if a.drop_database or not record.get("database") else
+            " Its database %s is kept; --drop-database drops it." % db_name(name)))
+
+
+HELP = """rouh-app puts small apps on this server, each one on the same standard.
+
+The verbs (run as root, or with sudo as the user rouh):
+  rouh-app new NAME --kind python|static --repo GIT [--branch main] [--domain D] [--memory 512M] [--database true|false]
+      Makes the app: its Linux user app-NAME, /srv/apps/NAME, a database app_NAME with a login of its own
+      (python apps, unless --database false), its services and its HTTPS address in Caddy.
+      Prints the deploy key, to be added to the repository as a read-only deploy key.
+      Safe to run again; given again with new values, it changes them.
+  rouh-app deploy NAME [--ref REF]   The code at REF (default: its branch) as a new release: test copy first,
+      checked, then live, checked. If the live check fails the live app goes back to the release before.
+  rouh-app update NAME               deploy at the newest commit of its branch.
+  rouh-app rollback NAME             The live app back to the release before, restarted and checked.
+  rouh-app restart NAME              The live app restarted and checked.
+  rouh-app logs NAME [--lines 200]   The last lines of the live app's log.
+  rouh-app backup NAME               The database (pg_dump) and the shared/ folder, now. 14 are kept.
+  rouh-app restore-test NAME         The newest backup restored into a throwaway database, counted, dropped.
+  rouh-app backup-all                backup and restore-test of every app (the nightly timer runs it at 03:30).
+  rouh-app status [--json]           Every app and how it is.
+  rouh-app list                      The apps, their ports and live releases.
+  rouh-app remove NAME --yes [--drop-database]
+      Stops it and takes away its services and address. Its folder and backups are kept, renamed with the
+      date; the database is kept unless --drop-database.
+
+An app's code is a git repository with rouh-app.json at its top:
+  {"kind": "python", "start": "gunicorn -b 127.0.0.1:$PORT app:app", "migrate": "", "health": "/healthz",
+   "memory": "512M", "database": true}
+  start     the command that runs it; it must listen on 127.0.0.1:$PORT.
+  migrate   run once per release, before the test copy starts (empty for none).
+  health    a path that answers 200 when the app is well; checked for 30 seconds after every start.
+  memory    its limit (MemoryMax); a --memory given to new wins.
+  root      for static sites only: the folder inside the code to serve, like dist.
+Python apps pin every package in requirements.txt (name==version); each release gets its own virtual
+environment. A static site needs no rouh-app.json: its files are served as they are.
+
+Every app gets in its environment:
+  PORT          where to listen, on 127.0.0.1 (the test copy has its own)
+  DATABASE_URL  postgresql://app_NAME:...@127.0.0.1:5432/app_NAME, when it has a database
+  APP_NAME      its name
+  APP_URL       its own https address (the test copy's own address in the test copy)
+  APP_SLOT      live or test
+  and every KEY=value in /srv/apps/NAME/shared/.env, which is kept across releases.
+Only /srv/apps/NAME/shared is writable by the app: keep uploads there.
+
+Where things are:
+  /srv/apps/NAME/releases/STAMP-SHA, live and test (links), shared/, backups/, repo.git
+  /etc/rouh-apps/apps/NAME.json     the app's record
+  /etc/caddy/apps/NAME.caddy        its addresses
+  app-NAME.service, app-NAME-test.service    journalctl -u app-NAME for its log
+"""
+
+
+def cmd_help(a):
+    sys.stdout.write(HELP)
+
+
+def parser():
+    p = argparse.ArgumentParser(prog="rouh-app", add_help=False)
+    sub = p.add_subparsers(dest="verb")
+
+    def verb(name, func, with_name=True):
+        s = sub.add_parser(name, add_help=False)
+        if with_name:
+            s.add_argument("name")
+        s.set_defaults(func=func)
+        return s
+
+    s = verb("new", cmd_new)
+    s.add_argument("--kind", choices=KINDS)
+    s.add_argument("--repo")
+    s.add_argument("--branch")
+    s.add_argument("--domain")
+    s.add_argument("--memory")
+    s.add_argument("--database")
+    s = verb("deploy", cmd_deploy)
+    s.add_argument("--ref")
+    verb("update", cmd_update)
+    verb("rollback", cmd_rollback)
+    verb("restart", cmd_restart)
+    s = verb("logs", cmd_logs)
+    s.add_argument("--lines", type=int, default=200)
+    verb("backup", cmd_backup)
+    verb("restore-test", cmd_restore_test)
+    verb("backup-all", cmd_backup_all, with_name=False)
+    s = verb("status", cmd_status, with_name=False)
+    s.add_argument("--json", action="store_true")
+    verb("list", cmd_list, with_name=False)
+    s = verb("remove", cmd_remove)
+    s.add_argument("--yes", action="store_true")
+    s.add_argument("--drop-database", action="store_true")
+    verb("help", cmd_help, with_name=False)
+    return p
+
+
+def main(argv):
+    p = parser()
+    if not argv or argv[0] in ("-h", "--help"):
+        sys.stdout.write(HELP)
+        return 0
+    try:
+        a = p.parse_args(argv)
+    except SystemExit:
+        print("Run `rouh-app help` for what rouh-app takes.", file=sys.stderr)
+        return 2
+    if a.verb == "help":
+        cmd_help(a)
+        return 0
+    try:
+        if os.geteuid() != 0:
+            raise Refused("rouh-app needs root: run it with sudo.")
+        os.umask(0o022)
+        a.func(a)
+        return 0
+    except Refused as e:
+        print(str(e), file=sys.stderr)
+        return 1
+    except KeyboardInterrupt:
+        print("Stopped.", file=sys.stderr)
+        return 130
+    except Exception as e:  # a plain sentence, never a traceback the person has to read
+        print("rouh-app %s stopped on something it did not expect: %s: %s" % (a.verb, type(e).__name__, e),
+              file=sys.stderr)
+        return 1
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv[1:]))

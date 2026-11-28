@@ -1,0 +1,55 @@
+{
+  "id": "apps",
+  "name": "Apps",
+  "title": "Apps: the apps Rouh builds and runs for you, on an apps server of your own",
+  "aliases": [
+    "app",
+    "my apps",
+    "apps server",
+    "server",
+    "hosting",
+    "vps",
+    "hostinger",
+    "hetzner",
+    "digitalocean",
+    "deploy"
+  ],
+  "group": "work",
+  "route": "/apps",
+  "icon": "<rect x=\"4\" y=\"4\" width=\"6.5\" height=\"6.5\" rx=\"1.6\"/><rect x=\"13.5\" y=\"4\" width=\"6.5\" height=\"6.5\" rx=\"1.6\"/><rect x=\"4\" y=\"13.5\" width=\"6.5\" height=\"6.5\" rx=\"1.6\"/><path d=\"M16.75 13.5v6.5M13.5 16.75H20\"/>",
+  "attaches_to": [],
+  "maturity": "accepted",
+  "nav": {
+    "place": "list",
+    "order": 42,
+    "opens": "own",
+    "row": "appsRow",
+    "controls": "appsView"
+  },
+  "touches": {
+    "permissions": [
+      "checks each of the owner's apps by its address every five minutes",
+      "makes a one-line setup that turns a server the owner bought into an apps server; Rouh never buys one",
+      "with a Hostinger API token the owner pasted, lists their VPSs and sets up one they pick: a new one, or with its name typed back, an installed one, which it wipes",
+      "queues commands from a closed list (set up, deploy, update, roll back, restart, logs, back up, test restore) that the owner's apps server takes when it calls in"
+    ],
+    "accounts": [
+      "Hostinger (optional)"
+    ],
+    "tables": [
+      "app_servers",
+      "hosted_apps",
+      "app_commands",
+      "app_host_tokens"
+    ],
+    "jobs": [
+      "the check of every app by its address, every five minutes (rouh/apps_hosting.py watch_loop)"
+    ],
+    "remove": "Delete rouh/apps_hosting.py, rouh/web/apps_hosting.py, rouh/models/apps.py, appspage.*, deploy/apps-server/, the apps tool, its lines in urls.py, gate.py, runtime.py, address.js, runs.js, cards.js and index.html, and this manifest; a migration drops the four tables. The apps servers keep running and their apps with them."
+  },
+  "uses": {
+    "tools": [
+      "apps"
+    ]
+  }
+}

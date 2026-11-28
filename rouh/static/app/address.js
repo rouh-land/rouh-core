@@ -14,7 +14,7 @@ import { endTurnOnScreen, wipeTranscript } from 'app/transcript.js';
 import { CARDVIEW, cardViewing, clearTheCards, standingDown, WORKSPACE_ROUTE } from 'app/cards.js';
 import { JOBVIEW, jobViewing, taskRecs, webOpen, webViewing } from 'app/tasks.js';
 import { BRIEF, briefOpen, briefViewing, CANVAS, canvasDoc, controlOpen, controlViewing, CRUMB_HOME,
-  WORK, workOpen, workViewing, DECIDE, decisionsOpen, decisionsViewing, ACTS, actionsOpen, actionsViewing, HOLD, handholdingAddress, handholdingOpen, handholdingViewing, receiptsOpen,
+  WORK, workOpen, workViewing, DECIDE, decisionsOpen, decisionsViewing, ACTS, actionsOpen, actionsViewing, HOLD, handholdingAddress, handholdingOpen, handholdingViewing, receiptsOpen, appsOpen, appsViewing,
   receiptsViewing, homeOpen, homeViewing, APPROVALS, approvalsOpen, approvalsViewing, SOURCES, sourcesOpen, sourcesViewing, LIVE, liveOpen, liveViewing, THOUGHTS, thoughtsOpen, thoughtsViewing,
   NOTIFS, notificationsOpen, notificationsViewing,
   EVO, evolutionOpen, evolutionViewing,
@@ -215,6 +215,8 @@ var ADDR_HANDHOLDING = '/guide';
 var ADDR_HANDHOLDING_OLD = '/handholding';
 //: Receipts, every receipt and invoice in the mail by month (`addressing.RECEIPTS`).
 var ADDR_RECEIPTS = '/receipts';
+//: Apps (`addressing.APPS`): the person's apps and apps servers.
+var ADDR_APPS = '/apps';
 //: Home, the house's lights and devices (`addressing.HOME`).
 var ADDR_HOME = '/home';
 //: Agent instructions, what every agent Rouh starts is told first (`addressing.AGENT_INSTRUCTIONS`): rules since
@@ -384,6 +386,9 @@ function addrReadPlace(path, query) {
   }
   if (parts.length === 1 && '/' + parts[0] === ADDR_RECEIPTS) {
     return { kind: '', id: '', chat: chat, receipts: true };
+  }
+  if (parts.length === 1 && '/' + parts[0] === ADDR_APPS) {
+    return { kind: '', id: '', chat: chat, apps: true };
   }
   if (parts.length === 1 && '/' + parts[0] === ADDR_HOME) {
     return { kind: '', id: '', chat: chat, home: true };
@@ -623,6 +628,7 @@ function addrOnCanvas() {
   if (actionsViewing()) return ADDR_ACTIONS + (ACTS.id ? '/' + ACTS.id : '');
   if (handholdingViewing()) return handholdingAddress();
   if (receiptsViewing()) return ADDR_RECEIPTS;
+  if (appsViewing()) return ADDR_APPS;
   if (homeViewing()) return ADDR_HOME;
   if (memoryViewing()) return memoryAddress();
   if (approvalsViewing()) return APPROVALS.key ? ADDR_CASE + '/' + encodeURIComponent(APPROVALS.key) : ADDR_APPROVALS;
@@ -776,7 +782,7 @@ function addrPlaceLink(place) {
 [['runsRow', ADDR_RUNS], ['briefRow', ADDR_BRIEF], ['controlRow', ADDR_CONTROL],
  ['synapseRow', ADDR_SYNAPSE], ['remindersRow', ADDR_REMINDERS], ['goalsRow', ADDR_GOALS],
  ['questsRow', ADDR_WORK], ['decisionsRow', ADDR_DECISIONS], ['actionsRow', ADDR_ACTIONS], ['crDecisions', ADDR_DECISIONS],
- ['receiptsRow', ADDR_RECEIPTS], ['homeBtn', ADDR_HOME], ['approvalsRow', ADDR_APPROVALS], ['thoughtsRow', ADDR_THOUGHTS],
+ ['receiptsRow', ADDR_RECEIPTS], ['appsRow', ADDR_APPS], ['homeBtn', ADDR_HOME], ['approvalsRow', ADDR_APPROVALS], ['thoughtsRow', ADDR_THOUGHTS],
  ['boxRow', ADDR_BOX], ['watchRow', ADDR_WATCH],
  ['webRow', ADDR_WEB]].forEach(function (row) {
   var a = $(row[0]);
@@ -826,6 +832,7 @@ function addrName() {
   if (actionsViewing()) return ACTS.id ? 'Action ' + ACTS.id + ' - Your part' : 'Your part';
   if (handholdingViewing()) return 'Guide';
   if (receiptsViewing()) return 'Receipts';
+  if (appsViewing()) return 'Apps';
   if (homeViewing()) return 'Home';
   if (memoryViewing()) {
     if (MEMORY.group === 'told') return 'What context/rules were included - Rules';
@@ -1098,6 +1105,14 @@ function addrAsk() {
     ADDR.wanted = null;
     ADDR.asked = false;
     receiptsOpen();
+    if (want.chat) chatIsWanted();
+    return;
+  }
+  // And the apps.
+  if (want.apps) {
+    ADDR.wanted = null;
+    ADDR.asked = false;
+    appsOpen();
     if (want.chat) chatIsWanted();
     return;
   }

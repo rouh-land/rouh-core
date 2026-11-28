@@ -240,7 +240,8 @@ def _vocabulary(who) -> bool:
 
 def _checks(who) -> dict:
     """What each detector looks at: a few cheap reads, each on its own."""
-    from .models import (Artifact, Box, Decision, Reminder, Run, Task, Thought, TrustedContact)
+    from .models import (AppServer, Artifact, Box, Decision, HostedApp, Reminder, Run, Task, Thought,
+                         TrustedContact)
 
     me = {"user_id": str(who.user_id), "org_id": str(who.org_id or "")}
     return {
@@ -263,6 +264,9 @@ def _checks(who) -> dict:
                     "You have a trusted contact."),
         "rule": (lambda: _owner_rule(who), "You have given Rouh a rule of your own."),
         "vocabulary": (lambda: _vocabulary(who), "Rouh knows one of your words."),
+        "app": (lambda: HostedApp.objects.filter(**me).exists(), "You have an app on Apps."),
+        "apps_server": (lambda: AppServer.objects.filter(**me, state="ready").exists(),
+                        "Your apps server has called in."),
     }
 
 

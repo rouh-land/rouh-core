@@ -273,6 +273,9 @@ HANDHOLDING = "/handholding"
 #: Receipts (`rouh/receipts.py`): every receipt and invoice in the person's mail, by month,
 #: with one download for the accountant. Since 7 October 2026, behind the switch `receipts`.
 RECEIPTS = "/receipts"
+#: Apps (`rouh/apps_hosting.py`, `appspage.js`): the apps Rouh built and looks after, their servers, and
+#: setting up an apps server. Since 28 November 2026.
+APPS = "/apps"
 #: Home (`homepage.js`): the house itself - its lights first, through Philips Hue, and every
 #: other kind of device as a section of its own. Opened from the house in the navigation's head.
 #: Since 17 October 2026.

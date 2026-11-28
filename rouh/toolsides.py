@@ -149,7 +149,7 @@ WORDS: dict[str, str] = {
     "run_command": "runs a command", "server_health": "server health", "improve_myself": "changes Rouh's code",
     "read_rouh_log": "reads Rouh's log", "connection_status": "connection status",
     "deploy_myself": "deploys Rouh", "show_the_gaps": "what Rouh cannot do", "model_defaults": "which model answers",
-    "mcp_servers": "MCP servers", "update_rouh": "updates Rouh", "cloudflare": "Cloudflare",
+    "mcp_servers": "MCP servers", "update_rouh": "updates Rouh", "cloudflare": "Cloudflare", "apps": "your apps",
     "gene_offer": "offers a gene", "gene_draft": "drafts a gene", "incubator_list": "lists ideas",
     "incubator_read": "reads an idea", "incubator_add": "adds an idea", "incubator_edit": "edits an idea",
     "incubator_status": "an idea's status", "incubator_merge": "merges ideas", "incubator_link": "links ideas",

@@ -197,7 +197,7 @@ AREA_OF: dict[str, str] = {
     "run_command": "self", "server_health": "self", "improve_myself": "self",
     "read_rouh_log": "self", "connection_status": "self",
     "deploy_myself": "self", "show_the_gaps": "self", "code_execution": "self",
-    "model_defaults": "self", "mcp_servers": "self", "update_rouh": "self", "cloudflare": "self", "gene_offer": "self", "gene_draft": "self",
+    "model_defaults": "self", "mcp_servers": "self", "update_rouh": "self", "cloudflare": "self", "apps": "self", "gene_offer": "self", "gene_draft": "self",
     "incubator_list": "self", "incubator_read": "self", "incubator_add": "self", "incubator_edit": "self",
     "incubator_status": "self", "incubator_merge": "self", "incubator_link": "self", "trials": "self", "incubator_score": "self",
 }

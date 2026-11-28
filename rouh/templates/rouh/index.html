@@ -166,6 +166,7 @@ with {% asset %}, which gives it its hashed address.
 <link rel="stylesheet" href="{% asset "handholdingpage.css" %}">
 <link rel="stylesheet" href="{% asset "notices.css" %}">
 <link rel="stylesheet" href="{% asset "receiptspage.css" %}">
+<link rel="stylesheet" href="{% asset "appspage.css" %}">
 <link rel="stylesheet" href="{% asset "homepage.css" %}">
 <link rel="stylesheet" href="{% asset "homevacuum.css" %}">
 <link rel="stylesheet" href="{% asset "approvalspage.css" %}">
@@ -4266,6 +4267,26 @@ with {% asset %}, which gives it its hashed address.
       </div>
     </article>
 
+    {% comment %} Apps (`rouh/apps_hosting.py`, `appspage.js`): the apps Rouh built and looks after,
+         the apps servers they run on, and setting one up, at `/apps`. appspage.js draws
+         everything under the heading. {% endcomment %}
+    <article id="appsView" class="canvas-layer settings-view clock-view aps-view" hidden
+             tabindex="-1" aria-label="Apps">
+      <div class="run-head">
+        <div class="run-heading">
+          <h3>Apps</h3>
+          <div id="appsMeta" class="run-meta" aria-live="polite"></div>
+        </div>
+        <button id="appsBuild" class="ctl small" type="button"
+                title="Tell Rouh what app to build">Build a new app</button>
+        <button id="appsClose" class="layer-x" type="button"
+                title="Close (Esc)" aria-label="Close and go back to the canvas">&times;</button>
+      </div>
+      <div class="aps-wrap">
+        <div id="appsBody" class="aps-body" aria-busy="false"></div>
+      </div>
+    </article>
+
     {% comment %} Home (`homepage.js`, `rouh/web/home.py`): the house, at `/home`. Its
          lights first, through Philips Hue, and every other kind of device as a
          section of its own, each drawn into its own element by its own script
@@ -5819,6 +5840,7 @@ with {% asset %}, which gives it its hashed address.
 <script defer src="{% asset "actionspage.js" %}"></script>
 <script defer src="{% asset "handholdingpage.js" %}"></script>
 <script defer src="{% asset "receiptspage.js" %}"></script>
+<script defer src="{% asset "appspage.js" %}"></script>
 <script defer src="{% asset "homepage.js" %}"></script>
 <script defer src="{% asset "homevacuum.js" %}"></script>
 <script defer src="{% asset "approvalspage.js" %}"></script>

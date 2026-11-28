@@ -58,6 +58,7 @@ from .mode import PermissionMode, PermissionModeFlip, UnrestrictedAction
 from .hue import HueApp, HueConnection
 from .connections import ConnectionIncident, ConnectionTrouble
 from .mcp import McpServer
+from .apps import AppCommand, AppServer, HostedApp, HostToken
 from .youtube import YouTubeTranscript
 from .slack import (SlackConnection, SlackConversation, SlackMessage, SlackPerson, SlackPromise,
                     SlackTaskDecision, SlackTaskLink)
@@ -117,4 +118,5 @@ __all__ = [
     "InboxRead", "MailApproval", "MailAsk", "MailCase", "MailCaseAttempt", "MailCaseDryRun", "MailCaseEvent", "MailCaseFix", "MailCaseNote", "MailCaseTrace", "MailOutbox", "TelegramLink", "ChatAppLink", "TrustedAddress",
     "TrustedContact",
     "ConnectionIncident", "ConnectionTrouble",
+    "AppCommand", "AppServer", "HostedApp", "HostToken",
 ]

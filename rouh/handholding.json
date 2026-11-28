@@ -2596,6 +2596,61 @@
      "glyph": "gear"
     },
     {
+     "id": "apps",
+     "title": "Have Rouh build you an app",
+     "minutes": 3,
+     "summary": [
+      "Rouh can build you an app of any kind: a travel companion, a wedding invitation with replies, a movie watch list, a small game, a work helper, an app that handles one kind of email for you.",
+      "You say what it should do, in your own words. Rouh writes it, puts it online at an address of yours, keeps it running and backed up, and changes it whenever you ask."
+     ],
+     "how": [
+      "Open Apps (menu, Work) and press Build a new app, or pick one of the ideas there.",
+      "Say what the app is for, who uses it and what they should be able to do. Rouh asks what it needs to know.",
+      "Rouh builds it in the background and tells you when it is ready, with its address.",
+      "To change it later, open its row in Apps and press Ask Rouh to change it."
+     ],
+     "says": [
+      "Build me a wedding invitation app: a page per guest, replies and meal choices.",
+      "Add a dark mode to my watch list app."
+     ],
+     "open": {
+      "label": "Apps",
+      "href": "/apps"
+     },
+     "detect": "app",
+     "talk": true,
+     "glyph": "layout"
+    },
+    {
+     "id": "apps-server",
+     "title": "Get your own apps server",
+     "tag": "Setup",
+     "minutes": 10,
+     "summary": [
+      "Your apps live on a small server of your own, about 5 to 10 euros a month, not on Rouh. A guest opening your wedding page never comes near your mail and passwords, and your apps keep running while Rouh updates.",
+      "Rouh sets the server up for you: a separate user, database and memory limit for each app, HTTPS addresses, nightly backups that are test-restored, and a way back for every update."
+     ],
+     "how": [
+      "Open Apps (menu, Work) and press Set up an apps server.",
+      "Pick your host. Hostinger is the easiest; Hetzner, DigitalOcean or any Linux server work too.",
+      "Buy a small server there with Ubuntu 24.04. Rouh never buys one for you.",
+      "Press Make my setup line, copy it, and paste it in the server's terminal. With a Hostinger API token, Rouh does this part with one press.",
+      "In about five minutes the server calls in and Apps shows it as ready."
+     ],
+     "says": [
+      "Set up my apps server on Hostinger.",
+      "How are my apps doing?"
+     ],
+     "open": {
+      "label": "Apps",
+      "href": "/apps"
+     },
+     "detect": "apps_server",
+     "optional": true,
+     "talk": true,
+     "glyph": "server"
+    },
+    {
      "id": "running",
      "title": "Check what is running",
      "minutes": 2,

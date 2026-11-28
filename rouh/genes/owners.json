@@ -4732,6 +4732,20 @@
     "rouh/web/new_here.py",
     "rouh/static/app/new_here.js"
    ]
+  },
+  "apps": {
+   "name": "Apps",
+   "what": "The apps Rouh builds and runs for the person, the apps servers they run on, setting one up on Hostinger, Hetzner, DigitalOcean or any Linux server, and managing each app.",
+   "files": [
+    "rouh/apps_hosting.py",
+    "rouh/web/apps_hosting.py",
+    "rouh/models/apps.py",
+    "rouh/migrations/0283_apps_hosting.py",
+    "rouh/management/commands/apps.py",
+    "rouh/static/appspage.*",
+    "deploy/apps-server/**",
+    "rouh/genes/manifests/apps.json"
+   ]
   }
  }
 }

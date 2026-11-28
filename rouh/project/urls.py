@@ -158,6 +158,7 @@ handler404 = "rouh.web.views.not_found"
 handler500 = "rouh.web.views.server_error"
 
 from rouh.web import chat_apps as chat_apps_web  # noqa: E402
+from rouh.web import apps_hosting as apps_web  # noqa: E402
 
 urlpatterns = [
     # --- signing in -----------------------------------------------------------
@@ -599,6 +600,25 @@ urlpatterns = [
     path("api/chat-apps/<str:app>/link", chat_apps_web.link),
     path("api/chat-apps/<str:app>/unlink", chat_apps_web.unlink),
     path("hooks/whatsapp", chat_apps_web.whatsapp_hook),
+    # Apps: the person's apps, their servers, and setting one up (`rouh/web/apps_hosting.py`).
+    path("api/apps", apps_web.listing),
+    path("api/apps/check", apps_web.check),
+    path("api/apps/add", apps_web.add),
+    path("api/apps/agent", apps_web.agent),
+    path("api/apps/<int:ident>/edit", apps_web.edit),
+    path("api/apps/<int:ident>/remove", apps_web.remove),
+    path("api/apps/<int:ident>/do", apps_web.do),
+    path("api/apps/commands/<int:ident>", apps_web.command),
+    path("api/apps/servers/new", apps_web.server_new),
+    path("api/apps/servers/add", apps_web.server_add),
+    path("api/apps/servers/<int:ident>/setup", apps_web.server_setup),
+    path("api/apps/servers/<int:ident>/check", apps_web.server_check),
+    path("api/apps/servers/<int:ident>/remove", apps_web.server_remove),
+    path("api/apps/hostinger/token", apps_web.hostinger_token),
+    path("api/apps/hostinger/forget", apps_web.hostinger_forget),
+    path("api/apps/hostinger/vps", apps_web.hostinger_vps),
+    path("api/apps/hostinger/setup", apps_web.hostinger_setup),
+    re_path(r"^apps/join/(?P<code>[A-Za-z0-9_-]{20,100})$", apps_web.join),
     path("api/settings/keys", service_keys_web.page),
     path("api/settings/keys/save", service_keys_web.save),
     path("api/settings/keys/check", service_keys_web.check),
@@ -1025,6 +1045,7 @@ urlpatterns = [
             handholding_web.old_address),
     re_path(r"^" + addressing.QUESTS.lstrip("/") + r"/\d+$", views.index),
     path(addressing.RECEIPTS.lstrip("/"), views.index),
+    path(addressing.APPS.lstrip("/"), views.index),
     path(addressing.HOME.lstrip("/"), views.index),
     path(addressing.AGENT_INSTRUCTIONS.lstrip("/"), views.index),
     # The Rules page, and one of its groups or its What Rouh was told (`addressing.RULES`).

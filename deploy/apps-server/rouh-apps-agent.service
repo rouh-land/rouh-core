@@ -1,0 +1,16 @@
+[Unit]
+Description=Rouh apps agent: checks in with Rouh and runs the commands waiting
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/python3 -I /usr/local/lib/rouh-apps/rouh-apps-agent
+Restart=always
+RestartSec=10
+# A deploy that is running when the agent restarts is left to finish rather than cut in half.
+KillMode=process
+TimeoutStopSec=30
+
+[Install]
+WantedBy=multi-user.target

@@ -168,6 +168,8 @@ READ_ACTIONS = {
     # This Rouh's version and what is new; update and mode change it.
     "update_rouh": frozenset({"check"}),
     "contact_relationships": frozenset({"list"}),
+    # The owner's apps (`rouh/apps_hosting.py`): the list, the runbook, a check by address and a command's result.
+    "apps": frozenset({"list", "how", "check", "result"}),
 }
 #: Tools that only read unless one of these arguments is said, which spends or writes:
 #: meeting_people's research_now looks the guests up, at a cost, and keeps what it found on
@@ -212,6 +214,10 @@ OWN_ACTIONS = {
     # The owner's own watch list (`rouh/watchlist.py`): a title added, marked or noted, and nothing
     # sent anywhere. Taking one off, or opening the owner's screen, is risky.
     "watch_list": frozenset({"add", "mark", "progress", "rate", "note", "edit", "next"}),
+    # The owner's own apps on the owner's own apps servers: listed, and set up, deployed, updated, restarted,
+    # rolled back (one step, undone by deploying again) and backed up there. Taking one off the list, and a
+    # new server's join line, which gives a machine a way in, are not here: they are risky.
+    "apps": frozenset({"add", "edit", "command"}),
 }
 
 #: Tools that write only inside the job's own work when their arguments say so: a private

@@ -1,0 +1,466 @@
+#!/usr/bin/python3 -I
+"""rouh-apps-agent: checks in with Rouh every 30 seconds and runs the commands waiting (CONTRACT.md section 2).
+
+It never takes a connection, never runs a shell, and runs only `rouh-app <verb> <app> --key value`
+for the verbs and the args the contract names, each checked here and again by rouh-app.
+Python's standard library only.
+"""
+
+import json
+import os
+import pwd
+import re
+import shutil
+import signal
+import ssl
+import subprocess
+import sys
+import threading
+import time
+import urllib.error
+import urllib.parse
+import urllib.request
+
+VERSION = "1"
+
+CONFIG = os.environ.get("ROUH_APPS_AGENT_CONFIG", "/etc/rouh-apps/agent.json")
+ROUH_APP = os.environ.get("ROUH_APP_BIN", "/usr/local/bin/rouh-app")
+AUTHORIZED_KEYS = os.environ.get("ROUH_APPS_AUTHORIZED_KEYS", "/home/rouh/.ssh/authorized_keys")
+SSH_USER = "rouh"
+# For a test only: every wait is multiplied by this.
+SCALE = float(os.environ.get("ROUH_APPS_AGENT_SLEEP_SCALE", "1") or "1")
+
+NAME_RE = re.compile(r"^[a-z][a-z0-9-]{1,27}$")
+OUTPUT_LIMIT = 20000
+FULL_EVERY = 300
+UNAUTHORIZED_EVERY = 60
+MAX_BACKOFF = 300
+
+BEGIN = "# rouh-apps managed: begin"
+END = "# rouh-apps managed: end"
+SSH_KEY_RE = re.compile(r"^(ssh-ed25519|ssh-rsa|ecdsa-sha2-nistp(256|384|521)|sk-ssh-ed25519@openssh\.com|"
+                        r"sk-ecdsa-sha2-nistp256@openssh\.com) [A-Za-z0-9+/]{16,}={0,3}( [^\r\n\x00]{0,200})?$")
+
+
+def _text(pattern, limit):
+    rx = re.compile(pattern)
+
+    def check(value):
+        if isinstance(value, bool) or not isinstance(value, (str, int)):
+            return None
+        value = str(value).strip()
+        if not value or len(value) > limit or value.startswith("-") or not rx.fullmatch(value):
+            return None
+        return value
+    return check
+
+
+def _bool(value):
+    if isinstance(value, bool):
+        return "true" if value else "false"
+    if isinstance(value, str) and value.strip().lower() in ("true", "false"):
+        return value.strip().lower()
+    return None
+
+
+def _lines(value):
+    if isinstance(value, bool):
+        return None
+    try:
+        n = int(str(value).strip())
+    except (TypeError, ValueError):
+        return None
+    return str(n) if 1 <= n <= 5000 else None
+
+
+REF = _text(r"^[A-Za-z0-9._][A-Za-z0-9._/-]*$", 100)
+ARGS = {
+    "new": {
+        "kind": _text(r"^(python|static)$", 10),
+        "repo": _text(r"^(git@[A-Za-z0-9.-]+:[A-Za-z0-9._/-]+|(ssh|https)://[A-Za-z0-9@.:_/-]+)$", 300),
+        "branch": REF,
+        "domain": _text(r"^[a-z0-9.-]+\.[a-z0-9-]+$", 253),
+        "memory": _text(r"^[1-9][0-9]{0,5}[MG]$", 10),
+        "database": _bool,
+    },
+    "deploy": {"ref": REF},
+    "update": {},
+    "rollback": {},
+    "restart": {},
+    "logs": {"lines": _lines},
+    "backup": {},
+    "restore-test": {},
+    "check": {},
+}
+LONG = {"new", "deploy", "update"}
+
+
+def log(text):
+    print(text, flush=True)
+
+
+def sleep(seconds):
+    time.sleep(max(0.0, seconds * SCALE))
+
+
+def build_argv(command):
+    """The argument list for one command from Rouh, or a plain reason it is refused."""
+    if not isinstance(command, dict):
+        return None, "The command is not an object."
+    verb = command.get("verb")
+    if not isinstance(verb, str) or verb not in ARGS:
+        return None, "%r is not a verb this server takes." % (verb,)
+    app = command.get("app") or ""
+    if verb == "check":
+        return [], None
+    if not isinstance(app, str) or not NAME_RE.fullmatch(app):
+        return None, "%r is not an app name." % (app,)
+    args = command.get("args") or {}
+    if not isinstance(args, dict):
+        return None, "The args of the command are not an object."
+    argv = [ROUH_APP, verb, app]
+    for key, check in ARGS[verb].items():
+        if key not in args or args[key] is None or args[key] == "":
+            continue
+        value = check(args[key])
+        if value is None:
+            return None, "The value given for %s is not one this server takes." % key
+        argv += ["--" + key, value]
+    return argv, None
+
+
+def run_command(argv, verb):
+    """Runs rouh-app; returns (ok, output) with the last 20,000 characters of what it said."""
+    limit = 1200 if verb in LONG else 300
+    try:
+        proc = subprocess.Popen(argv, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                                start_new_session=True, env={"PATH": "/usr/local/sbin:/usr/local/bin:/usr/sbin:"
+                                                             "/usr/bin:/sbin:/bin", "LANG": "C.UTF-8"})
+    except OSError as e:
+        return False, "rouh-app could not be started: %s" % e
+    try:
+        out, _ = proc.communicate(timeout=limit)
+        text = out.decode(errors="replace")
+        ok = proc.returncode == 0
+    except subprocess.TimeoutExpired:
+        try:
+            os.killpg(proc.pid, signal.SIGTERM)
+            out, _ = proc.communicate(timeout=20)
+        except (subprocess.TimeoutExpired, OSError):
+            try:
+                os.killpg(proc.pid, signal.SIGKILL)
+            except OSError:
+                pass
+            out, _ = proc.communicate()
+        text = out.decode(errors="replace") + "\nIt took longer than %d minutes and was stopped." % (limit // 60)
+        ok = False
+    return ok, text[-OUTPUT_LIMIT:]
+
+
+def system_facts():
+    facts = {"os": "", "cpus": os.cpu_count() or 1}
+    try:
+        with open("/etc/os-release") as f:
+            for line in f:
+                if line.startswith("PRETTY_NAME="):
+                    facts["os"] = line.split("=", 1)[1].strip().strip('"')
+    except OSError:
+        pass
+    try:
+        mem = {}
+        with open("/proc/meminfo") as f:
+            for line in f:
+                key, value = line.split(":", 1)
+                mem[key] = int(value.split()[0])
+        facts["memory_mb"] = mem.get("MemTotal", 0) // 1024
+        facts["memory_free_mb"] = mem.get("MemAvailable", mem.get("MemFree", 0)) // 1024
+    except (OSError, ValueError):
+        pass
+    try:
+        disk = shutil.disk_usage("/")
+        facts["disk_gb"] = disk.total // 1024 ** 3
+        facts["disk_free_gb"] = disk.free // 1024 ** 3
+    except OSError:
+        pass
+    try:
+        facts["load"] = round(os.getloadavg()[0], 2)
+    except OSError:
+        pass
+    try:
+        with open("/proc/uptime") as f:
+            facts["uptime_s"] = int(float(f.read().split()[0]))
+    except (OSError, ValueError):
+        pass
+    return facts
+
+
+def apps_report():
+    """The apps list from rouh-app status --json, or None when it could not be had."""
+    try:
+        proc = subprocess.run([ROUH_APP, "status", "--json"], stdin=subprocess.DEVNULL, stdout=subprocess.PIPE,
+                              stderr=subprocess.PIPE, timeout=120)
+    except (OSError, subprocess.TimeoutExpired) as e:
+        log("The apps report could not be made: %s" % e)
+        return None
+    if proc.returncode != 0:
+        log("The apps report could not be made: %s" % (proc.stderr.decode(errors="replace").strip()[-500:]
+                                                         or "rouh-app status exited %d" % proc.returncode))
+        return None
+    try:
+        apps = json.loads(proc.stdout.decode(errors="replace"))
+    except ValueError:
+        log("rouh-app status --json did not give JSON.")
+        return None
+    return apps if isinstance(apps, list) else None
+
+
+def managed_keys(keys):
+    good = []
+    for key in keys if isinstance(keys, list) else []:
+        if isinstance(key, str) and SSH_KEY_RE.fullmatch(key.strip()) and key.strip() not in good:
+            good.append(key.strip())
+    return good
+
+
+def merge_authorized_keys(old_text, keys):
+    kept, inside = [], False
+    for line in old_text.splitlines():
+        if line.strip() == BEGIN:
+            inside = True
+        elif line.strip() == END:
+            inside = False
+        elif not inside:
+            kept.append(line)
+    while kept and not kept[-1].strip():
+        kept.pop()
+    return "\n".join(kept + [BEGIN] + keys + [END]) + "\n"
+
+
+def write_ssh_keys(keys):
+    keys = managed_keys(keys)
+    try:
+        with open(AUTHORIZED_KEYS) as f:
+            old = f.read()
+    except FileNotFoundError:
+        old = ""
+    new = merge_authorized_keys(old, keys)
+    if new == old:
+        return False
+    folder = os.path.dirname(AUTHORIZED_KEYS)
+    os.makedirs(folder, mode=0o700, exist_ok=True)
+    tmp = AUTHORIZED_KEYS + ".rouh-apps.tmp"
+    fd = os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+    with os.fdopen(fd, "w") as f:
+        f.write(new)
+    if os.geteuid() == 0:
+        try:
+            entry = pwd.getpwnam(SSH_USER)
+            os.chown(tmp, entry.pw_uid, entry.pw_gid)
+            os.chown(folder, entry.pw_uid, entry.pw_gid)
+        except KeyError:
+            pass
+    os.replace(tmp, AUTHORIZED_KEYS)
+    log("The SSH keys of the user %s are now the %d Rouh lists." % (SSH_USER, len(keys)))
+    return True
+
+
+def load_config():
+    with open(CONFIG) as f:
+        config = json.load(f)
+    rouh, key = config.get("rouh"), config.get("key")
+    if not isinstance(rouh, str) or not isinstance(key, str) or not key:
+        raise ValueError("it has no rouh or key")
+    parts = urllib.parse.urlsplit(rouh)
+    local = parts.hostname in ("127.0.0.1", "localhost", "::1")
+    if parts.scheme != "https" and not (parts.scheme == "http" and local):
+        raise ValueError("Rouh's address must start with https://")
+    return rouh.rstrip("/"), key
+
+
+class Unauthorized(Exception):
+    pass
+
+
+class Agent:
+    def __init__(self):
+        self.rouh, self.key = load_config()
+        self.every = 30
+        self.want_full = True
+        self.last_full = 0.0
+        self.queue = []
+        self.seen = []
+        self.taken = []
+        self.results = []
+        self.running = None
+        self.lock = threading.Lock()
+        self.wake = threading.Event()
+        self.context = ssl.create_default_context()
+
+    # -- talking to Rouh --
+
+    def post(self, body):
+        data = json.dumps(body).encode()
+        request = urllib.request.Request(self.rouh + "/api/apps/agent", data=data, method="POST", headers={
+            "Authorization": "Bearer " + self.key, "Content-Type": "application/json",
+            "User-Agent": "rouh-apps-agent/" + VERSION})
+        try:
+            with urllib.request.urlopen(request, timeout=60, context=self.context) as resp:
+                answer = json.loads(resp.read(5_000_000).decode())
+        except urllib.error.HTTPError as e:
+            if e.code == 401:
+                raise Unauthorized()
+            raise
+        if not isinstance(answer, dict):
+            raise ValueError("Rouh's answer is not an object")
+        return answer
+
+    def call(self):
+        with self.lock:
+            taken = list(self.taken)
+            results = list(self.results)
+        body = {"version": VERSION, "system": system_facts(), "taken": taken, "results": results}
+        full = self.want_full or time.time() - self.last_full >= FULL_EVERY
+        if full:
+            apps = apps_report()
+            if apps is not None:
+                body["apps"] = apps
+        answer = self.post(body)
+        with self.lock:
+            self.taken = [i for i in self.taken if i not in taken]
+            sent = {r["id"] for r in results}
+            self.results = [r for r in self.results if r["id"] not in sent]
+        if full:
+            # Asked for or due: tried once. If rouh-app could not say, it is tried again in a minute.
+            self.want_full = False
+            self.last_full = time.time() if "apps" in body else time.time() - FULL_EVERY + 60
+        self.take_answer(answer)
+
+    def take_answer(self, answer):
+        every = answer.get("every")
+        if isinstance(every, (int, float)) and not isinstance(every, bool):
+            self.every = max(5, min(600, int(every)))
+        if answer.get("full") is True:
+            self.want_full = True
+        if "ssh_keys" in answer and isinstance(answer.get("ssh_keys"), list):
+            try:
+                write_ssh_keys(answer["ssh_keys"])
+            except OSError as e:
+                log("The SSH keys could not be written: %s" % e)
+        commands = answer.get("commands")
+        if not isinstance(commands, list):
+            return
+        with self.lock:
+            for command in commands[:100]:
+                cid = command.get("id") if isinstance(command, dict) else None
+                if not isinstance(cid, int) or isinstance(cid, bool) or cid in self.seen:
+                    continue
+                self.seen.append(cid)
+                self.queue.append(command)
+            del self.seen[:-2000]
+
+    # -- running commands, one at a time --
+
+    def finish(self, cid, ok, output):
+        with self.lock:
+            self.results.append({"id": cid, "ok": ok, "output": output[-OUTPUT_LIMIT:], "finished_at": time.time()})
+            self.running = None
+        self.want_full = True
+        self.wake.set()
+
+    def start_next(self):
+        with self.lock:
+            if self.running is not None or not self.queue:
+                return False
+            command = self.queue.pop(0)
+            cid = command["id"]
+            self.taken.append(cid)
+            self.running = cid
+        argv, why = build_argv(command)
+        verb = command.get("verb")
+        if argv is None:
+            log("Command %d refused: %s" % (cid, why))
+            self.finish(cid, False, "Refused by the apps server: %s" % why)
+            return True
+        if not argv:
+            log("Command %d: a full report next call." % cid)
+            self.finish(cid, True, "A full report follows.")
+            return True
+        log("Command %d: %s" % (cid, " ".join(argv[1:])))
+
+        def work():
+            try:
+                ok, output = run_command(argv, verb)
+            except Exception as e:  # the thread must always report back
+                ok, output = False, "The apps server failed to run it: %s" % e
+            log("Command %d %s." % (cid, "finished" if ok else "failed"))
+            self.finish(cid, ok, output)
+
+        threading.Thread(target=work, daemon=True).start()
+        return True
+
+    # -- the loop --
+
+    def wait_unauthorized(self):
+        while True:
+            log("Rouh no longer takes this server's key (401), so the agent has stopped asking for work. "
+                "If the server was removed in Rouh that is expected; to join it again, run the setup line again.")
+            sleep(UNAUTHORIZED_EVERY)
+            try:
+                rouh, key = load_config()
+            except (OSError, ValueError):
+                continue
+            if key != self.key or rouh != self.rouh:
+                log("agent.json has a new key, so asking Rouh again.")
+                self.rouh, self.key = rouh, key
+                return
+
+    def loop(self):
+        backoff = 0
+        log("rouh-apps-agent %s checking in with %s." % (VERSION, self.rouh))
+        while True:
+            try:
+                self.call()
+                backoff = 0
+            except Unauthorized:
+                self.wait_unauthorized()
+                self.want_full = True
+                continue
+            except (urllib.error.URLError, OSError, ValueError) as e:
+                backoff = min(MAX_BACKOFF, max(5, backoff * 2))
+                if isinstance(e, ValueError):
+                    log("Rouh's answer could not be read (%s); trying again in %d seconds." % (e, backoff))
+                else:
+                    log("Could not reach Rouh (%s); trying again in %d seconds." % (getattr(e, "reason", e), backoff))
+                sleep(backoff)
+                continue
+            except Exception as e:  # never crash on what Rouh sends
+                backoff = min(MAX_BACKOFF, max(5, backoff * 2))
+                log("Something unexpected happened (%s: %s); trying again in %d seconds."
+                    % (type(e).__name__, e, backoff))
+                sleep(backoff)
+                continue
+            if self.start_next():
+                # Say at once that it is taken, then wait for it or for the next call.
+                continue
+            self.wake.clear()
+            if self.results or self.want_full:
+                continue
+            self.wake.wait(timeout=self.every * SCALE)
+
+
+def main():
+    while True:
+        try:
+            agent = Agent()
+            break
+        except (OSError, ValueError) as e:
+            log("%s cannot be read (%s); trying again in a minute." % (CONFIG, e))
+            sleep(60)
+    agent.loop()
+
+
+if __name__ == "__main__":
+    try:
+        main()
+    except KeyboardInterrupt:
+        sys.exit(0)

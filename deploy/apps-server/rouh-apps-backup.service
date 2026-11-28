@@ -1,0 +1,9 @@
+[Unit]
+Description=Rouh apps: back up every app and test the restore
+After=postgresql.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/python3 -I /usr/local/bin/rouh-app backup-all
+Nice=10
+IOSchedulingClass=idle

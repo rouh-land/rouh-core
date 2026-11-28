@@ -624,4 +624,5 @@ One thing is shared as files: `guard/policy/` (the stack check's allow-list and 
 `GOOGLE.md` the Google connection - organisations, tokens, and what the next stage of mail and Drive builds against -
 `APPLE.md` the Apple Contacts connection over iCloud's CardDAV,
 `docs/landing-architecture.md` why finished work was reported as unfinished and the one landing path designed to end it,
+`deploy/apps-server/README.md` Apps - the person's own apps server, the standard every app Rouh builds runs on, and the runbook for building, deploying, updating, rolling back, backing up and moving one (`rouh/apps_hosting.py`, `CONTRACT.md` beside it),
 and `SETUP.md` whose Rouh it is: the owner, the installation's own settings and a fresh installation.

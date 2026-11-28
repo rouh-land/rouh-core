@@ -115,8 +115,10 @@ log = logging.getLogger("rouh.gate")
 #: The projector's feed and its pictures (`rouh/web/projector.py`), where a Raspberry Pi behind the person's
 #: projector reads their Robot chat on a display key made for it on the setup page; the view checks the key
 #: and that it is a display's, and answers a sign-in too, for Preview it here.
+#: An apps server's agent (`rouh/web/apps_hosting.py`, `deploy/apps-server/CONTRACT.md`), on the key the
+#: server was given when it joined; the view checks it, and answers nothing to a sign-in.
 TOKEN_PATHS = frozenset({"/api/task", "/api/projector/feed", "/api/projector/image",
-                         "/api/projector/picture"})
+                         "/api/projector/picture", "/api/apps/agent"})
 
 OPEN_PATHS = frozenset({"/shared/in", "/shared/in/back", "/login", "/setup", "/setup/connect", "/setup/you", "/phone/in", "/login/forgot",
                         "/login/help", "/login/passkey/options", "/login/passkey/verify", "/logout", "/healthz",
@@ -137,6 +139,9 @@ OPEN_PATHS = frozenset({"/shared/in", "/shared/in/back", "/login", "/setup", "/s
                         "/.well-known/agent-card.json", "/.well-known/agent.json", "/link/in", "/link/a2a"})
 OPEN_PREFIXES = ("/a/", "/static/", "/internal/", "/login/reset/", "/login/link/", "/hooks/gmail/", "/.well-known/acme-challenge/",
                  "/hooks/stripe/",
+                 # A new apps server's one-line setup and its one call back (`rouh/apps_hosting.py`): the
+                 # join code in the address is the credential, made by the signed-in owner, for one server.
+                 "/apps/join/",
                  # A run's one question, opened on the phone by its own unguessable address, where
                  # Rouh passes the one program's pages on (`rouh/onebridge.py`, which lets nothing
                  # else of the program's through without a sign-in).

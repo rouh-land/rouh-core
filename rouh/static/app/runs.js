@@ -18882,6 +18882,69 @@ window.RouhReceiptsHost = { close: receiptsClose };
   }
 })();
 
+/* ------------------------------------------------------------------ apps
+
+   The apps Rouh built and looks after for the person, the apps servers they run on,
+   and setting one up (`rouh/apps_hosting.py`), at `/apps`, drawn by `appspage.js`.
+   This is the layer's side, as with the receipts: opening and closing it, its row
+   in the navigation, and putting a request in the message box. */
+
+var APPS = { open: false };
+
+function appsViewing() { return APPS.open; }
+
+function appsOpen() {
+  if (ORBX.open) orbExpand(false);
+  if (APPS.open) return;
+  APPS.open = true;
+  showLayer('appsView');
+  sidebarDone();
+  appsRow();
+  if (window.RouhApps) window.RouhApps.shown();
+  if (!narrow()) $('appsView').focus({ preventScroll: true });
+}
+
+function appsClose() {
+  if (!APPS.open) return;
+  APPS.open = false;
+  if (window.RouhApps) window.RouhApps.hidden();
+  showLayer(null);
+  appsRow();
+}
+
+function appsRow() {
+  var row = $('appsRow');
+  if (!row) return;
+  row.classList.toggle('on', APPS.open);
+  row.setAttribute('aria-expanded', APPS.open ? 'true' : 'false');
+}
+
+// What `appsPage.js` is handed: closing the layer, and a request put in the message box as if
+// typed, for the person to read, change and send (Build a new app, Ask Rouh to change it).
+window.RouhAppsHost = {
+  close: appsClose,
+  /** @param {string} text */
+  say: function (text) {
+    chatIsWanted();
+    if (narrow()) setPane('chat');
+    if (!input) return;
+    input.value = text;
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+    growInput();
+    input.focus();
+    input.selectionStart = input.selectionEnd = input.value.length;
+  }
+};
+
+(function () {
+  var row = $('appsRow');
+  if (row) {
+    row.addEventListener('click', function () {
+      if (APPS.open) appsClose(); else appsOpen();
+    });
+  }
+})();
+
 /* ------------------------------------------------------------------ handholding
 
    The guided way into Rouh for someone who has never seen it (`rouh/handholding.py`), at
@@ -19821,7 +19884,7 @@ window.RouhBeatsHost = {
 
 oneConnect();
 
-export { applyObjects, applyWorkspace, ASK, askDelete, askFromPage, askPageNow, BRIEF, briefClose, briefOpen,
+export { APPS, appsClose, appsOpen, appsViewing, applyObjects, applyWorkspace, ASK, askDelete, askFromPage, askPageNow, BRIEF, briefClose, briefOpen,
   WORK, workClose, workOpen, workViewing,
   DECIDE, decisionsClose, decisionsHeard, decisionsOpen, decisionsViewing, ACTS, actionsClose, actionsOpen, actionsViewing,
   HOLD, handholdingAddress, handholdingClose, handholdingOpen, handholdingViewing,

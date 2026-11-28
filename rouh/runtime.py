@@ -8329,6 +8329,10 @@ async def startup() -> None:
     asyncio.ensure_future(_offsite_loop())
     # Whether each scheduled job really ran and worked, said once a morning when not (`rouh/job_watch.py`).
     asyncio.ensure_future(_job_watch_loop())
+    # Every app of the person's checked by its address every five minutes (`rouh/apps_hosting.py`).
+    from . import apps_hosting as _apps_hosting
+
+    asyncio.ensure_future(_apps_hosting.watch_loop())
     # rouh-core's pull requests reviewed for the owner, on the Creator Rouh only (`rouh/contributions.py`).
     asyncio.ensure_future(_contributions_loop())
     # The private reasoning already in the model request log scrubbed, minutes after start-up

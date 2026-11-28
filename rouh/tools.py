@@ -3227,6 +3227,50 @@ class ToolRegistry:
             area="self", brief="Each connection's state and why it last failed; test one",
         )
 
+        # Apps (`rouh/apps_hosting.py`, 28 November 2026): the apps Rouh builds and looks after for the
+        # owner, the apps servers they run on, and the closed list of commands a server takes.
+        self._own(
+            "apps",
+            "‹Owner›'s apps and the apps servers they run on (the Apps page, /apps). Rouh builds apps of any "
+            "kind for ‹owner› - a travel companion, a wedding inviter, a watch list, a game, a work helper, an "
+            "email handler - and keeps them running, updated and backed up. Real apps live on an apps server of "
+            "‹his› own, never on Rouh's own server; finished pages stay on Rouh. list: every app (address, state "
+            "by its last check, server, release, last backup and test restore, recent commands) and every server. "
+            "how: the runbook for building and deploying an app on an apps server; read it before building one. "
+            "check (app?): check one app, or all, by its address now. add (name, url, server or elsewhere, "
+            "what, repo): put an app that already runs somewhere on the list. edit (app, and the fields). "
+            "remove (app): off the list only, nothing on a server is stopped. command (app, verb, args): queue a "
+            "command for the app's apps server, which takes it within a minute: new (args kind python or "
+            "static, repo, branch, domain, memory, database) sets an app up on the standard, then deploy (ref?), "
+            "update, rollback, restart, logs (lines?), backup, restore-test; result (id): that command's state "
+            "and output. new_server (host hostinger, hetzner, digitalocean or other; name?): the one line and "
+            "the first-boot script that turn a server ‹owner› bought into an apps server; Rouh never buys one, "
+            "that is ‹his› to do at the host. A Hostinger API token is pasted on the Apps page by ‹owner›, never "
+            "in a conversation.",
+            {
+                "type": "object",
+                "properties": {
+                    "action": {"type": "string", "enum": ["list", "how", "check", "add", "edit", "remove",
+                                                          "command", "result", "new_server"]},
+                    "app": {"type": "string", "description": "The app's name on the list, or its id."},
+                    "name": {"type": "string"},
+                    "url": {"type": "string", "description": "The app's address, such as https://notes.example.com."},
+                    "server": {"type": "string", "description": "For add and edit: the apps server's name, or elsewhere."},
+                    "elsewhere": {"type": "string", "description": "For add: where it runs when not on an apps server."},
+                    "what": {"type": "string", "description": "What the app is for, in a line."},
+                    "repo": {"type": "string", "description": "Its git repository."},
+                    "verb": {"type": "string", "enum": ["new", "deploy", "update", "rollback", "restart", "logs",
+                                                        "backup", "restore-test", "check"]},
+                    "args": {"type": "object", "description": "For command: the verb's arguments."},
+                    "id": {"type": "integer", "description": "For result: the command's id."},
+                    "host": {"type": "string", "enum": ["hostinger", "hetzner", "digitalocean", "other"]},
+                },
+                "required": ["action"],
+            },
+            self._apps,
+            area="self", brief="Your apps and apps servers: list, check, deploy, restart, roll back",
+        )
+
         # Cloudflare's zones (`rouh/cloudflare.py`). The owner types each zone's token into
         # Settings themself, so it never passes through a model; this says only whether one
         # is set, opens that page, and reads a zone by its name with the token kept for it.
@@ -17591,6 +17635,18 @@ class ToolRegistry:
         return (f"Shown on screen as card {card_id}. {tally['deployed']} of "
                 f"{tally['total']} are deployed, which is the only status that counts "
                 f"as done.\n{said}")
+
+    async def _apps(self, args, emit):
+        from . import apps_hosting
+
+        who = await self._whose_turn()
+        if who is None:
+            return "Whose apps? Nobody is signed in."
+        action = str(args.get("action") or "list").strip().lower()
+        try:
+            return await asyncio.to_thread(apps_hosting.tool, who, action, dict(args), "rouh")
+        except apps_hosting.Refused as exc:
+            return str(exc)
 
     async def _cloudflare(self, args, emit):
         from . import cloudflare
