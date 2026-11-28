@@ -49,6 +49,9 @@ function validPrefs(v) {
   for (k in DEFAULTS) out[k] = DEFAULTS[k];
   if (!v || typeof v !== 'object') return out;
   if (typeof v.nerve === 'boolean') out.nerve = v.nerve;
+  if (typeof v.names === 'boolean') out.names = v.names;
+  // Whether Show names was ever switched by the person: the wall draws names until they switch it off.
+  if (v.namesSaid === true) out.namesSaid = true;
   for (k in LIMITS) {
     if (typeof v[k] === 'number' && isFinite(v[k])) out[k] = Math.max(LIMITS[k][0], Math.min(LIMITS[k][1], v[k]));
   }
@@ -70,9 +73,13 @@ function toWire(p) {
   for (k in DEFAULTS) {
     if (p[k] === DEFAULTS[k]) continue;
     if (k === 'nerve') out.nerve = p.nerve ? 1 : 0;
+    else if (k === 'names') continue;
     else if (k === 'blinkDirection') out.blinkDown = p.blinkDirection === 'down' ? 1 : 0;
     else if (typeof p[k] === 'number') out[k] = p[k];
   }
+  // Show names goes up once the person has switched it, off as well as on, because the projector's wall
+  // reads a name that is not there as on (projector-orb.js): it had its names before the switch did.
+  if (p.namesSaid || p.names !== DEFAULTS.names) out.names = p.names ? 1 : 0;
   return out;
 }
 
@@ -80,6 +87,7 @@ function fromWire(w) {
   var out = {}, k;
   for (k in w) out[k] = w[k];
   if (typeof w.nerve === 'number') out.nerve = w.nerve !== 0;
+  if (typeof w.names === 'number') { out.names = w.names !== 0; out.namesSaid = true; }
   if (typeof w.blinkDown === 'number') out.blinkDirection = w.blinkDown ? 'down' : 'up';
   return out;
 }
@@ -205,7 +213,7 @@ function seeded(id) {
 var renderer, scene, camera, group, controls, composer, bloom, baseTarget, finalQuad;
 var keyLight, rimLight, coreSphere, coreLetter, coreHalo, coreMask, coreRadius = 0.028;
 var edgeUniform = { value: 1 };
-var canvas = null, host = null, labels = null;
+var canvas = null, host = null, labels = null, names = null;
 var REC = new Map();          // one record per node id that has a tube
 var growth = 0;               // the growth clock, in seconds, sped up by Growth speed
 var size = { w: 0, h: 0, ratio: 0, state: '' };
@@ -729,6 +737,59 @@ function paintLabels(mode) {
     n++;
   });
   while (labels.children.length > n) labels.removeChild(labels.lastChild);
+  paintNames(mode);
+}
+
+/* Show names (Petar, 28 November 2026: "a toggle on the full screen rouh orb ... that says "Show names" and this
+   way I can see what each tentacle is labeled like on the projector without hovering"). Each job's name at the
+   tip of its branch, on the open orb only, in the projector wall's look (projector-orb.js, 200-07): bold, on at
+   most two lines, a dark shadow and no box; right of a tip right of the core and left of one left of it, pushed
+   down rather than onto each other, and kept inside the orb's own box so none is cut at an edge. */
+var NAME_EDGE = 12;
+function paintNames(mode) {
+  if (!names) return;
+  var list = [];
+  if (mode === 'open' && prefs.names) {
+    var cx = size.w / 2;
+    REC.forEach(function (r) {
+      if (r.depth !== 1 || r.role !== 'branch' || r.reveal <= 0) return;
+      if (r.life && r.life.state === 'ghost') return;
+      var tip = r.centres[Math.min(SEGMENTS, Math.round(r.reveal * SEGMENTS))];
+      DPOS.copy(tip).applyMatrix4(group.matrixWorld).project(camera);
+      if (DPOS.z > 1) return;
+      var text = String(O3.nameOf(r.node) || '').replace(/\s+/g, ' ').trim();
+      if (!text) return;
+      list.push({ id: r.node.id, text: text, x: (DPOS.x + 1) / 2 * size.w, y: (1 - DPOS.y) / 2 * size.h,
+                  waiting: r.waiting, alpha: r.life ? Math.max(0.45, r.life.alpha) : 1 });
+      // Under the core's own centre line both sides are measured from the middle of the box.
+      list[list.length - 1].right = list[list.length - 1].x >= cx;
+    });
+  }
+  var n = 0;
+  [true, false].forEach(function (right) {
+    var mine = list.filter(function (l) { return l.right === right; }).sort(function (a, b) { return a.y - b.y; });
+    var lastBottom = -1e9;
+    mine.forEach(function (l) {
+      var el = names.children[n] || names.appendChild(document.createElement('div'));
+      n++;
+      if (el.textContent !== l.text) { el.textContent = l.text; el.dataset.w = ''; }
+      el.className = 'orb3d-name' + (right ? '' : ' left') + (l.waiting ? ' wait' : '');
+      el.hidden = false;
+      // Measured once per name, not every frame: the size only changes with the words.
+      if (!el.dataset.w) { el.dataset.w = String(el.offsetWidth); el.dataset.h = String(el.offsetHeight); }
+      var w = +el.dataset.w, h = +el.dataset.h;
+      // NEEDS YOU already stands at a waiting tip, so its name goes just under those words.
+      var y = l.waiting ? l.y + 10 : l.y - h / 2;
+      y = Math.max(y, lastBottom + 4);
+      var x = right ? l.x + 10 : l.x - 10 - w;
+      x = Math.max(NAME_EDGE, Math.min(size.w - w - NAME_EDGE, x));
+      y = Math.max(NAME_EDGE, Math.min(size.h - h - NAME_EDGE, y));
+      lastBottom = y + h;
+      el.style.opacity = String(l.alpha);
+      el.style.transform = 'translate(' + x.toFixed(1) + 'px,' + y.toFixed(1) + 'px)';
+    });
+  });
+  while (names.children.length > n) names.removeChild(names.lastChild);
 }
 
 /* The one call app/orb.js makes each frame it draws. `v` is what it worked
@@ -974,6 +1035,7 @@ async function orb3dStart(cv, hooks) {
     DEFAULTS = RULES.defaults; LIMITS = RULES.limits;
     loadPrefs();
     O3.kindOf = hooks.kindOf;
+    O3.nameOf = hooks.nameOf || function (n) { return n.label || ''; };
     slowMo = !!hooks.slowMo;
     canvas = cv; host = hooks.host;
     // `alpha`, so the corner's picture can be drawn on nothing should `--orb-disc` be transparent.
@@ -1036,6 +1098,10 @@ async function orb3dStart(cv, hooks) {
     labels.className = 'orb3d-labels';
     labels.setAttribute('aria-hidden', 'true');
     cv.insertAdjacentElement('afterend', labels);
+    names = document.createElement('div');
+    names.className = 'orb3d-names';
+    names.setAttribute('aria-hidden', 'true');
+    labels.insertAdjacentElement('afterend', names);
     cv.addEventListener('webglcontextlost', function (e) {
       e.preventDefault();
       O3.on = false;
@@ -1100,6 +1166,8 @@ var PANEL = [
   ]]
 ];
 
+var NAMES_ROW = ['names', 'Show names', 'Every job\u2019s name beside its branch, without pointing at it. The projector\u2019s wall follows it too.', 'toggle'];
+
 function moved(key) { return prefs[key] !== DEFAULTS[key]; }
 
 function valueWords(key, unit) {
@@ -1112,6 +1180,7 @@ function valueWords(key, unit) {
 
 function setPref(key, value, panelHost) {
   prefs[key] = value;
+  if (key === 'names') prefs.namesSaid = true;
   prefs = validPrefs(prefs);
   applyPrefs();
   savePrefs();
@@ -1124,6 +1193,7 @@ function markRow(key, panelHost) {
   /** @type {any} */
   var spec = null;
   PANEL.forEach(function (g) { g[1].forEach(function (r) { if (r[0] === key) spec = r; }); });
+  if (key === 'names') spec = NAMES_ROW;
   var v = row.querySelector('.v'), back = row.querySelector('.orb-back'), input = row.querySelector('input, select');
   if (v) v.textContent = valueWords(key, spec[3]);
   if (back) back.hidden = !moved(key);
@@ -1155,6 +1225,20 @@ function el(tag, cls, text) {
 
 function orb3dPanelPaint(panelHost) {
   panelHost.innerHTML = '';
+  // View first: Show names is what is reached for on a projector, so it is never below the fold.
+  var view = el('div', 'orb-grp');
+  view.setAttribute('data-orb-group', 'View');
+  var vh = el('div', 'orb-grp-head');
+  vh.appendChild(el('span', null, 'VIEW'));
+  view.appendChild(vh);
+  view.appendChild(panelRow(NAMES_ROW, panelHost));
+  var rc = el('button', 'orb3d-recenter', 'Recenter');
+  rc.type = 'button';
+  rc.id = 'orb3dRecenter';
+  rc.title = 'Turn and zoom back to the whole orb (R, or a double click on empty space)';
+  rc.addEventListener('click', recenter);
+  view.appendChild(rc);
+  panelHost.appendChild(view);
   PANEL.forEach(function (grp) {
     var box = el('div', 'orb-grp');
     box.setAttribute('data-orb-group', grp[0]);
@@ -1170,18 +1254,6 @@ function orb3dPanelPaint(panelHost) {
     grp[1].forEach(function (spec) { box.appendChild(panelRow(spec, panelHost)); });
     panelHost.appendChild(box);
   });
-  var view = el('div', 'orb-grp');
-  view.setAttribute('data-orb-group', 'View');
-  var vh = el('div', 'orb-grp-head');
-  vh.appendChild(el('span', null, 'VIEW'));
-  view.appendChild(vh);
-  var rc = el('button', 'orb3d-recenter', 'Recenter');
-  rc.type = 'button';
-  rc.id = 'orb3dRecenter';
-  rc.title = 'Turn and zoom back to the whole orb (R, or a double click on empty space)';
-  rc.addEventListener('click', recenter);
-  view.appendChild(rc);
-  panelHost.appendChild(view);
   var all = document.getElementById('orbResetAll');
   if (all) {
     var count = 0;
@@ -1239,6 +1311,8 @@ function panelRow(spec, panelHost) {
 
 function orb3dPutBack(keys, panelHost) {
   for (var i = 0; i < keys.length; i++) prefs[keys[i]] = DEFAULTS[keys[i]];
+  // Put back is the design: the wall draws its names again, as before anybody switched them.
+  if (keys.indexOf('names') >= 0) prefs.namesSaid = false;
   applyPrefs();
   savePrefs();
   if (panelHost) orb3dPanelPaint(panelHost);

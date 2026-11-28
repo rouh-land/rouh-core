@@ -143,6 +143,9 @@
         if (typeof SAVED.nerve === 'number') out.nerve = SAVED.nerve !== 0;
         if (typeof SAVED.blinkDown === 'number') out.blinkDirection = SAVED.blinkDown ? 'down' : 'up';
       }
+      // Show names, from the same cog (28 November 2026): the wall has drawn its names since 200-05, so only a
+      // person who switched them off there turns them off here. NEEDS YOU is drawn whatever it says.
+      out.names = !(SAVED && SAVED.names === 0);
       D = out;
       haloKey = '';
     }
@@ -612,8 +615,9 @@
       for (var i = 0; i < order.length; i++) {
         var r = order[i];
         var tip = drawTube(r, t);
-        if (tip && r.depth === 1 && r.role === 'branch' && r.kind !== 'self' && !(r.life && r.life.state === 'ghost') && e < 0.5) {
-          labels.push({ tip: tip, text: r.waiting ? 'NEEDS YOU · ' + tipName(r.node.label) : tipName(r.node.label),
+        if (tip && r.depth === 1 && r.role === 'branch' && r.kind !== 'self' && !(r.life && r.life.state === 'ghost') && e < 0.5 &&
+            (D.names || r.waiting)) {
+          labels.push({ tip: tip, text: r.waiting ? 'NEEDS YOU' + (D.names ? ' · ' + tipName(r.node.label) : '') : tipName(r.node.label),
                         warn: r.waiting, alpha: r.life ? Math.max(0.4, r.life.alpha) : 1 });
         }
       }
@@ -636,8 +640,9 @@
             var y = Math.max(l.tip[1], lastBottom + gap + half);
             lastBottom = y + half;
             var x = l.tip[0] + (rightSide ? fs * 0.2 : -fs * 0.2 - img.width);
-            // Clear of the wall's edges, which a projector may crop.
-            var edge = Math.min(W, H * 1.7778) / 100 * 2;
+            // Clear of the wall's edges, which a projector crops: 28 November 2026 a name at the top right still
+            // ran off the wall at 2%, so 4%.
+            var edge = Math.min(W, H * 1.7778) / 100 * 4;
             x = Math.max(edge, Math.min(W - img.width - edge, x));
             y = Math.max(img.height / 2 + edge, Math.min(H - img.height / 2 - edge, y));
             g.globalAlpha = l.alpha * (1 - e * 2);

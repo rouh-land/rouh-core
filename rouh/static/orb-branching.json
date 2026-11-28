@@ -89,6 +89,7 @@
   },
   "defaults": {
     "nerve": false,
+    "names": false,
     "glow": 0.23,
     "coreGlow": 80,
     "thickness": 1,

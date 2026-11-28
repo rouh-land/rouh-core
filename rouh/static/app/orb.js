@@ -761,7 +761,7 @@ function orbShow2d() {
 }
 
 if (orb3d) {
-  orb3dStart(orb3d, { kindOf: kindOf, slowMo: slowMo, host: $('orbBox'), onLost: orbShow2d })
+  orb3dStart(orb3d, { kindOf: kindOf, nameOf: function (n) { return jobTitleOf(n); }, slowMo: slowMo, host: $('orbBox'), onLost: orbShow2d })
     .then(function (ok) {
       if (!ok) { orbShow2d(); return; }
       orb.style.display = 'none';

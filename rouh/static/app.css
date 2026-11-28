@@ -1413,6 +1413,22 @@ button { font: inherit; color: inherit; }
   50% { transform: scale(1.6); opacity: 0.15; }
 }
 @media (prefers-reduced-motion: reduce) { .orb3d-wait i::after { animation: none; } }
+/* Show names, from the cog (app/orb3d.js, paintNames): each job's name at its tip, in the projector wall's
+   look (projector-orb.js): bold, at most two even lines, a dark shadow round the words and no box, so the
+   branches still show between them. The orb is always dark, so the words are light in either theme. */
+.orb3d-names { position: absolute; left: 0; top: 0; z-index: 1; pointer-events: none; }
+.orb3d-name {
+  position: absolute; left: 0; top: 0;
+  width: max-content; max-width: min(15em, 38vw);
+  font: 700 13px/1.25 var(--sans); color: #e6f6f8; letter-spacing: 0.005em;
+  text-wrap: balance; overflow-wrap: anywhere;
+  display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; overflow: hidden;
+  text-shadow: 0 0 5px rgba(0, 0, 0, 0.95), 0 1px 2px #000, 0 0 1px #000;
+  padding: 2px 3px;
+}
+.orb3d-name.left { text-align: right; }
+.orb3d-name.wait { color: var(--orb-wait); }
+.orb3d-name[hidden] { display: none; }
 /* 178-02's controls in the settings column, in the column's own rows. */
 .orb-panel .orb3d-help {
   margin: 3px 0 0; font: 400 10px/1.4 var(--mono); letter-spacing: 0; color: var(--orb-dim);
