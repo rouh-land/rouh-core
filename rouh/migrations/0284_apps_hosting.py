@@ -11,7 +11,7 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('rouh', '0282_notice_details'),
+        ('rouh', '0283_watch_items'),
     ]
 
     operations = [
