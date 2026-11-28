@@ -31,6 +31,7 @@ interface Window {
   RouhActionsHost: Record<string, any>;
   RouhHandholdingHost: Record<string, any>;
   RouhReceiptsHost: Record<string, any>;
+  RouhWatchHost: Record<string, any>;
   RouhHomeHost: Record<string, any>;
   RouhInstrHost: Record<string, any>;
   RouhApprovalsHost: Record<string, any>;
@@ -106,6 +107,8 @@ interface Window {
   RouhHelpSpots?: { on: boolean; sync(): void };
   /** The Receipts page (receiptspage.js). */
   RouhReceipts?: any;
+  /** The Watch list page (watchlistpage.js). */
+  RouhWatch?: any;
   /** The Home page (homepage.js), and the sections each kind of device adds to it. */
   RouhHome?: any;
   RouhHomeSections?: any[];

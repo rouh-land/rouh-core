@@ -41,7 +41,7 @@ KEPT = ("While this chat is open its messages are kept so it works; when it ends
         "the model, tokens, cost and time of each, never the words.")
 
 #: The tools that write to the person's memory or keep their words, refused in an incognito chat.
-WRITES = frozenset({"remember", "forget", "capture_thought", "synapse_add", "synapse_edit", "new_box",
+WRITES = frozenset({"remember", "forget", "capture_thought", "synapse_add", "synapse_edit", "new_box", "watch_list",
                     "make_a_task", "agent_instructions"})
 
 _LOCK = threading.Lock()

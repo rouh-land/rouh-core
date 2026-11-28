@@ -19,6 +19,7 @@ import { BRIEF, briefOpen, briefViewing, CANVAS, canvasDoc, controlOpen, control
   NOTIFS, notificationsOpen, notificationsViewing,
   EVO, evolutionOpen, evolutionViewing,
   BOX, boxOpen, boxViewing,
+  WATCH, watchOpen, watchViewing,
   crumbLevels, goalsOpen, goalsViewing, goNow, MEMORY, memoryAddress, memoryOpen, memoryViewing, ONE, remindersOpen,
   remindersViewing, renderThreads, runsOpen, RUNSVIEW, runsViewing, SETTINGS, settingsAddress, settingsGroupName, anatomyOnly,
   settingsOpen, settingsRead, settingsViewing, SYNAPSE, synapseOpen, synapseViewing, TASK_PREFIX, tasksOpen,
@@ -252,6 +253,8 @@ var ADDR_THOUGHTS = '/thoughts';
 var ADDR_NOTIFICATIONS = '/notifications';
 //: The box, what the person keeps from the model (`addressing.BOX`).
 var ADDR_BOX = '/box';
+//: The watch list, and one title on it (`addressing.WATCH`).
+var ADDR_WATCH = '/watch';
 //: What this device keeps for when there is no connection (`addressing.OFFLINE`).
 var ADDR_OFFLINE = '/offline';
 //: Feedback, a door rather than a place (`addressing.FEEDBACK`): the page with the panel open,
@@ -452,6 +455,12 @@ function addrReadPlace(path, query) {
   if (parts.length === 2 && '/' + parts[0] === ADDR_BOX && /^\d+$/.test(parts[1])) {
     return { kind: '', id: '', chat: chat, box: parts[1] };
   }
+  if (parts.length === 1 && '/' + parts[0] === ADDR_WATCH) {
+    return { kind: '', id: '', chat: chat, watch: '' };
+  }
+  if (parts.length === 2 && '/' + parts[0] === ADDR_WATCH && /^\d+$/.test(parts[1])) {
+    return { kind: '', id: '', chat: chat, watch: parts[1] };
+  }
   // Live: /live or /link, /link/accept?link= with a link to bring, and a live space.
   if (('/' + parts[0] === ADDR_LIVE || '/' + parts[0] === ADDR_LINK) && parts.length <= 3) {
     if (parts.length === 1) return { kind: '', id: '', chat: chat, live: { space: '', accept: '' } };
@@ -623,6 +632,7 @@ function addrOnCanvas() {
   if (thoughtsViewing()) return ADDR_THOUGHTS + (THOUGHTS.id ? '/' + THOUGHTS.id : '');
   if (notificationsViewing()) return ADDR_NOTIFICATIONS + (NOTIFS.query ? '?' + NOTIFS.query : '');
   if (boxViewing()) return ADDR_BOX + (BOX.id ? '/' + BOX.id : '');
+  if (watchViewing()) return ADDR_WATCH + (WATCH.id ? '/' + WATCH.id : '');
   if (offlineViewing()) return ADDR_OFFLINE;
   if (!tasksViewing()) return '';
   var place = addrPlace();
@@ -767,7 +777,7 @@ function addrPlaceLink(place) {
  ['synapseRow', ADDR_SYNAPSE], ['remindersRow', ADDR_REMINDERS], ['goalsRow', ADDR_GOALS],
  ['questsRow', ADDR_WORK], ['decisionsRow', ADDR_DECISIONS], ['actionsRow', ADDR_ACTIONS], ['crDecisions', ADDR_DECISIONS],
  ['receiptsRow', ADDR_RECEIPTS], ['homeBtn', ADDR_HOME], ['approvalsRow', ADDR_APPROVALS], ['thoughtsRow', ADDR_THOUGHTS],
- ['boxRow', ADDR_BOX],
+ ['boxRow', ADDR_BOX], ['watchRow', ADDR_WATCH],
  ['webRow', ADDR_WEB]].forEach(function (row) {
   var a = $(row[0]);
   if (a) linkTo(a, function () { return addrPlaceLink(row[1]); });
@@ -835,6 +845,7 @@ function addrName() {
   if (thoughtsViewing()) return THOUGHTS.id ? 'Thought ' + THOUGHTS.id + ' - Thoughts' : 'Thoughts';
   if (notificationsViewing()) return 'Notifications';
   if (boxViewing()) return BOX.id ? 'Box ' + BOX.id + ' - Boxes' : 'Boxes';
+  if (watchViewing()) return 'Watch list';
   if (offlineViewing()) return 'Offline';
   var rel = addrFolder();
   // The browser's own top, called what the breadcrumb already calls it.
@@ -1136,6 +1147,14 @@ function addrAsk() {
     ADDR.wanted = null;
     ADDR.asked = false;
     boxOpen(false, want.box);
+    if (want.chat) chatIsWanted();
+    return;
+  }
+  // And the watch list, or one title on it.
+  if (want.watch !== undefined) {
+    ADDR.wanted = null;
+    ADDR.asked = false;
+    watchOpen(want.watch);
     if (want.chat) chatIsWanted();
     return;
   }

@@ -120,6 +120,10 @@ def clean_env(*prefixes: str) -> dict[str, str]:
     # Settings in a world never reaches Slack, and Connect never sends anybody to Hue's sign-in.
     env["ROUH_SLACK_API"] = "http://127.0.0.1:1/no-slack"
     env["ROUH_HUE_API"] = "http://127.0.0.1:1/no-hue"
+    # And the public sources the watch list looks titles up in (`rouh/watchlist.py`): IMDb's search
+    # suggestions, TVmaze, Wikidata and Wikipedia, all at one address; ROUH_TEST_WATCH_LOOKUP points a
+    # world at `rouh/testing/fake_watch.py`.
+    env["ROUH_WATCH_LOOKUP"] = os.environ.get("ROUH_TEST_WATCH_LOOKUP", "http://127.0.0.1:1/no-watch-lookup")
     # And the Dreamehome cloud, so an email and password typed into Settings never reach Dreame.
     env["ROUH_DREAME_API"] = "http://127.0.0.1:1/no-dreame"
     # And GitHub, which a token typed into Keys, GitHub for your runs, is checked with

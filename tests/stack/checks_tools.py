@@ -133,6 +133,20 @@ def tool_box(s: Stack) -> None:
     expect("the stack test's sealed words" in text, f"open_box did not open the box the person named: {text[:400]}")
 
 
+@check("tool.watch-list")
+def tool_watch_list(s: Stack) -> None:
+    """A title put on the watch list from its page by its name alone, then Tonight picks it and
+    watch_list marks it watched, as the person would ask by voice."""
+    code, made = post(s, "/api/watch/new", {"title": "Stack Test Film", "lookup": False, "kind": "film"})
+    expect(code == 200 and made.get("ok"), f"the Watch list page could not add a title: {code} {made}")
+    got = fine("watch_list", s.tool("watch_list", {"action": "tonight"}))
+    expect("Stack Test Film" in got, f"watch_list tonight: {got[:400]}")
+    got = fine("watch_list", s.tool("watch_list", {"action": "mark", "title": "stack test film", "status": "watched"}))
+    expect("watched" in got.lower(), f"watch_list mark: {got[:400]}")
+    code, body, _ = s.get("/api/watch")
+    expect(code == 200 and '"watched":1' in body.replace(" ", ""), f"/api/watch after marking: {code} {body[:300]}")
+
+
 @check("tool.payments")
 def tool_payments(s: Stack) -> None:
     got = fine("payments", s.tool("payments", {"action": "status"}))

@@ -126,7 +126,7 @@ WORDS: dict[str, str] = {
     # Memory and Telegram
     "remember": "remembers a fact", "forget": "forgets a fact", "list_memory": "lists what it knows", "import_agent": "imports from OpenClaw or Hermes",
     "agent_instructions": "rules for jobs", "capture_thought": "keeps a thought", "thoughts": "your thoughts",
-    "new_box": "makes a box", "open_box": "opens a box", "send_telegram": "texts your phone",
+    "new_box": "makes a box", "open_box": "opens a box", "watch_list": "your watch list", "send_telegram": "texts your phone",
     "remember_for_contact": "remembers for a contact",
     # Slack
     "slack_channels": "lists channels", "slack_read": "reads Slack", "slack_search": "searches Slack",

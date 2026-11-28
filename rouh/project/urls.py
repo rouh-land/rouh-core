@@ -58,7 +58,7 @@ from rouh.web import (apple, assets, auth, boxes, brief, changes as changes_web,
                       definitions,
                       draftedits,
                       evolution as evolution_web, incubator as incubator_web, robotchat as robotchat_web, nightly_run as nightly_run_web, trials as trials_web, feedback as feedback_web, everychange as everychange_web, genelog as genelog_web, genepool as genepool_web, genes as genes_web,
-                      heartbeat, payments, quests, receipts, services, shipping, signups, stats, thoughts,
+                      heartbeat, payments, quests, receipts, services, watchlist as watchlist_web, shipping, signups, stats, thoughts,
                       google,
                       guests, highlights, location, reading, mail_alerts, mailboxes, mycard, offline, people, profile, relationships as relationships_web, reset,
                       rules,
@@ -757,6 +757,19 @@ urlpatterns = [
     path("api/box/new", boxes.add),
     path("api/box/<int:ident>", boxes.one),
     path("api/box/<int:ident>/delete", boxes.delete),
+    # The watch list: the films and shows the person keeps (`rouh/web/watchlist.py`).
+    path("api/watch", watchlist_web.listing),
+    path("api/watch/search", watchlist_web.search),
+    path("api/watch/tonight", watchlist_web.tonight),
+    path("api/watch/new", watchlist_web.add),
+    path("api/watch/restore", watchlist_web.restore),
+    path("api/watch/<int:number>", watchlist_web.one),
+    path("api/watch/<int:number>/tick", watchlist_web.tick),
+    path("api/watch/<int:number>/front", watchlist_web.front),
+    path("api/watch/<int:number>/move", watchlist_web.move),
+    path("api/watch/<int:number>/refresh", watchlist_web.refresh),
+    path("api/watch/<int:number>/delete", watchlist_web.delete),
+    path("api/watch/<int:number>/poster", watchlist_web.poster),
     # Payments: the card vault and Stripe (`rouh/web/payments.py`).
     path("api/settings/services", services.page),
     path("api/settings/services/state", services.state),
@@ -1046,6 +1059,9 @@ urlpatterns = [
     path(addressing.BOX.lstrip("/"), views.index),
     # One box in focus, by its number.
     re_path(r"^" + addressing.BOX.lstrip("/") + r"/\d+$", views.index),
+    # The watch list, and one title on it by its number.
+    path(addressing.WATCH.lstrip("/"), views.index),
+    re_path(r"^" + addressing.WATCH.lstrip("/") + r"/\d+$", views.index),
     # One thought in focus, by its number.
     re_path(r"^" + addressing.THOUGHTS.lstrip("/") + r"/\d+$", views.index),
     path(addressing.OFFLINE.lstrip("/"), views.index),

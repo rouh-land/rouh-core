@@ -101,6 +101,7 @@ A run has no Docker socket and cannot build or replace the containers. The Creat
 | `tool.incubator` | The Incubator's tools | untested | works | `incubator_add`, then `incubator_list` finds it and `incubator_status` parks it | not checked |
 | `tool.trials` | Trials' tool: trials and the list of problems | untested | works | `trials` lists the trials and the problems | not checked |
 | `tool.box` | Sealed boxes | untested | works | `new_box`, the person's words put in it through the Boxes page's API, then `open_box` by the number the person said hands them back | not checked |
+| `tool.watch-list` | The watch list of films and shows | untested | works | a title added on the Watch list page's `/api/watch/new`, then `watch_list` tonight picks it and mark makes it watched, which `/api/watch` counts | not checked |
 | `tool.payments` | The card vault and spending caps | untested | works | `payments`, and the Payments page's `/api/payments` | not checked |
 | `tool.shipping` | Shipping preferences | untested | works | `shipping`, and the Shipping page's `/api/shipping` | not checked |
 | `tool.look-into` | A helper that reads for Rouh | untested | works | `look_into`, its own loop answered by the stand-in model | not checked |

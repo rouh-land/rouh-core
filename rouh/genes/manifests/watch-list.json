@@ -1,0 +1,52 @@
+{
+  "id": "watch-list",
+  "name": "Watch list",
+  "title": "Watch list: the films and shows you want to watch, are watching and have watched, with tonight's pick",
+  "aliases": [
+    "watchlist",
+    "watch list",
+    "films",
+    "movies",
+    "shows",
+    "series",
+    "tv",
+    "to watch",
+    "what to watch",
+    "watched",
+    "netflix",
+    "documentaries"
+  ],
+  "group": "memory",
+  "route": "/watch",
+  "icon": "<rect x=\"3\" y=\"4.5\" width=\"18\" height=\"12.5\" rx=\"2.2\"/><polygon points=\"10.2,8 10.2,13.5 14.6,10.75\"/><path d=\"M8 20.5h8\"/>",
+  "attaches_to": [],
+  "maturity": "lab",
+  "nav": {
+    "place": "list",
+    "order": 15,
+    "opens": "own",
+    "row": "watchRow",
+    "controls": "watchView"
+  },
+  "touches": {
+    "permissions": [
+      "keeps the person's watch list of films and shows: each title's details, their progress through a show's seasons and episodes, their own rating, notes and who recommended it",
+      "looks a title up by its words or its IMDb number in public sources with no account: IMDb's search suggestions, TVmaze, Wikidata and Wikipedia; nothing about the person is sent",
+      "downloads each title's poster once into the data directory and serves it from Rouh's own address",
+      "adds, marks, ticks, rates, notes and moves titles when the person asks in a chat or by voice (watch_list), and takes one off only on their own words"
+    ],
+    "accounts": [
+      "IMDb search suggestions, TVmaze, Wikidata and Wikipedia (public, no account)"
+    ],
+    "tables": [
+      "watch_items"
+    ],
+    "jobs": [],
+    "remove": "Delete this manifest, rouh/watchlist.py, rouh/web/watchlist.py and its routes in rouh/project/urls.py, rouh/models/watchlist.py, watchlistpage.js and watchlistpage.css, the watchView layer in rouh/templates/rouh/index.html, its side in app/runs.js, app/address.js, app/cards.js and app/socket.js, the watchlist message in protocol.d.ts and PROTOCOL.md, addressing.WATCH, watch_list in tools.py, toolsearch.py, toolsides.py, incognito.py and job_policy.py, rouh/testing/fake_watch.py and ROUH_WATCH_LOOKUP in tests/e2e/conftest.py; drop the table watch_items with a migration and the posters in the data directory's watchlist folder."
+  },
+  "uses": {
+    "tools": [
+      "watch_list"
+    ]
+  }
+}

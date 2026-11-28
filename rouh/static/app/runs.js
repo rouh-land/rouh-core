@@ -19624,6 +19624,78 @@ window.RouhBoxHost = {
   }
 })();
 
+/* ------------------------------------------------------------------ watch list
+
+   The watch list (`rouh/watchlist.py`): the films and shows the person keeps, at
+   `/watch`, and one title at `/watch/<number>`, drawn by `watchlistpage.js`. The
+   owner, 28 November 2026: "I want the watch list to be a full feature in the
+   navigation." This is the layer's side: opening and closing it, its row, its
+   address, and the list changed by voice or on another screen (`watchlist`). */
+
+var WATCH = { open: false, id: '' };
+
+function watchViewing() { return WATCH.open; }
+
+/** @param {string} [id] one title's number, from `/watch/<n>`, or '' for the list */
+function watchOpen(id) {
+  if (ORBX.open) orbExpand(false);
+  var want = String(id || '');
+  var moved = WATCH.open && WATCH.id !== want;
+  WATCH.id = want;
+  if (window.RouhWatch) window.RouhWatch.shown(want);
+  if (WATCH.open) {
+    if (moved) addrTouch();
+    return;
+  }
+  WATCH.open = true;
+  showLayer('watchView');
+  sidebarDone();
+  watchRow();
+  if (!narrow()) $('watchView').focus({ preventScroll: true });
+}
+
+function watchClose() {
+  if (!WATCH.open) return;
+  WATCH.open = false;
+  if (window.RouhWatch) window.RouhWatch.hidden();
+  showLayer(null);
+  watchRow();
+}
+
+function watchRow() {
+  var row = $('watchRow');
+  if (!row) return;
+  row.classList.toggle('on', WATCH.open);
+  row.setAttribute('aria-expanded', WATCH.open ? 'true' : 'false');
+}
+
+// The list changed - a title added by voice, ticked on another screen - so an open page reads it
+// again; asked to show it in this conversation, the page opens, at one title when one is named.
+/** @param {import('./protocol').FromServer<'watchlist'>} m */
+function watchHeard(m) {
+  if (m && m.open && (!m.chat || !CHATS || m.chat === CHATS.active)) {
+    watchOpen(m.number ? String(m.number) : '');
+    return;
+  }
+  if (window.RouhWatch) window.RouhWatch.moved();
+}
+
+// What `watchlistpage.js` is handed: closing the layer, and the title in focus, for the address.
+window.RouhWatchHost = {
+  close: watchClose,
+  focus: function (id) { watchOpen(id); },
+  go: function (href) { return goToAddress(href); }
+};
+
+(function () {
+  var row = $('watchRow');
+  if (row) {
+    row.addEventListener('click', function () {
+      if (WATCH.open && !WATCH.id) watchClose(); else watchOpen('');
+    });
+  }
+})();
+
 // What `heartbeatpage.js`, `paymentspage.js` and `draftedits.js` are handed: an address in
 // Rouh, such as the Heartbeat chat or a quest's page.
 window.RouhHeartbeatHost = {
@@ -19761,6 +19833,7 @@ export { applyObjects, applyWorkspace, ASK, askDelete, askFromPage, askPageNow, 
   THOUGHTS, thoughtsClose, thoughtsHeard, thoughtsOpen, thoughtsShown, thoughtsViewing, settingsShown,
   NOTIFS, notificationsClose, notificationsOpen, notificationsViewing,
   BOX, boxClose, boxesHeard, boxOpen, boxShown, boxViewing,
+  WATCH, watchClose, watchHeard, watchOpen, watchViewing,
   briefViewing, BROWSE_ROOT, browseGo, browserZone, CANVAS, canvasChatsFollow, canvasDoc,
   canvasLeftBehind, canvasLoad, canvasMessage, canvasOn, canvasStep, canvasStepPage, canvasTask,
   cardWasFiled, CLOCK, clockHeard, clockLoad, clockPost, clockShown, controlClose, controlOpen,

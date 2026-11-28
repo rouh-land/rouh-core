@@ -2349,6 +2349,41 @@ class ToolRegistry:
             self._open_box,
             brief="Read a box, only when the person has just named it",
         )
+        # The watch list (`rouh/watchlist.py`, 28 November 2026): the films and shows the person keeps.
+        self._own(
+            "watch_list",
+            "The person's watch list of films and shows, on its own page (Watch list, in Memory). Use it whenever "
+            "they mention their watch list, a film or show to watch, what they are watching or have watched: "
+            "add (\"add Severance to my watch list\": its details, poster, seasons and where it streams are "
+            "looked up by themselves; say who recommended it when they do), mark (status to_watch, watching or "
+            "watched), progress (the season and episode they have seen up to), rate (1 to 5) and note, edit (any "
+            "detail by hand, such as where it streams), next (to the top of Up next), remove, list, read (one "
+            "title whole), tonight (\"what should I watch tonight\": the show they are in the middle of first, "
+            "then Up next, within minutes when they say how long they have), and show (open the page, at one "
+            "title when named). A title is named by its words or its number (#3).",
+            {"type": "object",
+             "properties": {
+                 "action": {"type": "string", "enum": ["add", "mark", "progress", "rate", "note", "edit", "next",
+                                                       "remove", "list", "read", "tonight", "show"]},
+                 "title": {"type": "string", "description": "The title as the person said it, or its number."},
+                 "year": {"type": "integer", "description": "For add: the year, when they said which one."},
+                 "kind": {"type": "string", "enum": ["film", "show", "miniseries", "documentary"],
+                          "description": "For add and edit: when they said which."},
+                 "status": {"type": "string", "enum": ["to_watch", "watching", "watched"]},
+                 "season": {"type": "integer"}, "episode": {"type": "integer",
+                                                            "description": "For progress: seen up to this one."},
+                 "my_rating": {"type": "integer", "minimum": 1, "maximum": 5},
+                 "notes": {"type": "string"},
+                 "recommended_by": {"type": "string", "description": "Who told them about it."},
+                 "where": {"type": "string", "description": "Where it streams, such as Netflix."},
+                 "minutes": {"type": "integer", "description": "For tonight: how long they have."},
+                 "only": {"type": "string", "enum": ["film", "show"], "description": "For tonight."},
+                 "filter": {"type": "string", "enum": ["to_watch", "watching", "watched"],
+                            "description": "For list: only these."}},
+             "required": ["action"]},
+            self._watch_list,
+            brief="Watch list of films and shows: add, mark, episodes, rate, tonight's pick",
+        )
         # A page as a printable PDF (night 11, gene page_pdf, `rouh/page_pdf.py`).
         self._own(
             "print_page",
@@ -13216,6 +13251,111 @@ class ToolRegistry:
         }, emit)
         return (f"The PDF is made: {pages} on {made['paper']} paper, kept as {made['doc']} in "
                 f"{made['rel']}, and its download is on the screen. Say so in one short sentence.")
+
+    async def _watch_list(self, args, emit):
+        """The person's watch list (`rouh/watchlist.py`): kept, changed and read from a chat or by voice."""
+        from . import signups, watchlist
+
+        who = await self._thought_who()
+        if who is None:
+            return "Nobody is signed in, so there is no watch list."
+        action = str(args.get("action") or "list")
+        title = str(args.get("title") or "").strip()
+        chat = self.memory.answering_chat() or ""
+
+        def _one():
+            return watchlist.find(who, title)
+
+        try:
+            if action == "list":
+                listed = await asyncio.to_thread(watchlist.for_model, who, str(args.get("filter") or ""))
+                c = await asyncio.to_thread(watchlist.counts, who)
+                head = (f"{c['to_watch']} to watch, {c['watching']} watching, {c['watched']} watched, in Up next's "
+                        "order:")
+                return head + "\n" + listed if listed else "The watch list is empty."
+            if action == "tonight":
+                picks = await asyncio.to_thread(lambda: watchlist.tonight(
+                    who, minutes=args.get("minutes"), kind=str(args.get("only") or "")))
+                if not picks:
+                    return ("Nothing on the watch list fits: everything is watched, or nothing is that short. Say so, "
+                            "and offer to add something.")
+                return ("Best first, each with why (say the first in a sentence, offer the next if they want "
+                        "something else, and that the Watch list page has them):\n" +
+                        "\n".join(f"{watchlist.line(p['item'])} - {p['why']}" for p in picks))
+            if action == "show":
+                number = None
+                if title:
+                    number = (await asyncio.to_thread(_one)).number
+                await watchlist.tell(who, number, opened=True, chat=chat)
+                return "The Watch list is open on their screen" + (f" at #{number}." if number else ".")
+            if not title:
+                return "Which title? Give its name or its number."
+            if action == "add":
+                fields = {k: args.get(k) for k in ("year", "kind", "notes", "recommended_by", "where", "my_rating")
+                          if args.get(k) not in (None, "")}
+                try:
+                    there = await asyncio.to_thread(_one)
+                    if watchlist._norm(there.title) == watchlist._norm(title):
+                        return (f"{watchlist.line(watchlist.view(there))} is already on the watch list. Say so; "
+                                "change it only if they asked for something else.")
+                except watchlist.NotFound:
+                    pass
+                item, said = await asyncio.to_thread(lambda: watchlist.add(
+                    who, title, via="chat", status=str(args.get("status") or "to_watch"), **fields))
+                await watchlist.tell(who, item["number"])
+                return (f"Added: {watchlist.line(item)}." + (f" {said}" if said else "") +
+                        (f" {item['overview'][:300]}" if item.get("overview") else "") +
+                        " Say in one short line that it is on the watch list, with what it is (year, kind, where).")
+            if action == "remove":
+                if not signups.PERSON_TURN.get():
+                    return "A title is taken off the watch list only when the person asks, in their own words."
+                n = (await asyncio.to_thread(_one)).number
+                was = await asyncio.to_thread(watchlist.delete, who, n)
+                await watchlist.tell(who)
+                return f"Taken off the watch list: {was['title']}. Say so in a few words."
+            item = await asyncio.to_thread(_one)
+            n = item.number
+            if action == "read":
+                v = watchlist.view(item)
+                seasons = ", ".join(f"S{s['n']} {s['episodes']} episodes" + (f" ({s['year']})" if s.get("year") else "")
+                                    for s in v["seasons"])
+                return "\n".join(x for x in [watchlist.line(v), seasons, ", ".join(v["genres"]),
+                                             (f"Rated {v['rating']}/10 on {v['rating_from']}" if v.get("rating") else ""),
+                                             v["overview"][:800], (f"Notes: {v['notes']}" if v["notes"] else "")] if x)
+            if action == "mark":
+                status = str(args.get("status") or "watched")
+                got = await asyncio.to_thread(lambda: watchlist.change(who, n, status=status))
+                if status == "watched" and got["kind"] in watchlist.SERIAL and got["seasons"]:
+                    last = got["seasons"][-1]
+                    got, _ = await asyncio.to_thread(watchlist.tick, who, n, last["n"], last["episodes"])
+                    got = await asyncio.to_thread(lambda: watchlist.change(who, n, status="watched"))
+                await watchlist.tell(who, n)
+                return f"Marked: {watchlist.line(got)}. Say so in a few words, and ask nothing."
+            if action == "progress":
+                if args.get("season") in (None, "") or args.get("episode") in (None, ""):
+                    got, finished = await asyncio.to_thread(watchlist.step, who, n)
+                else:
+                    got, finished = await asyncio.to_thread(watchlist.tick, who, n, args.get("season"), args.get("episode"))
+                await watchlist.tell(who, n)
+                return (f"{watchlist.line(got)}." + (" That was the last episode, so it is marked watched." if finished
+                                                      else ""))
+            if action in ("rate", "note", "edit"):
+                fields = {k: args.get(k) for k in ("my_rating", "notes", "recommended_by", "where", "kind", "year",
+                                                    "status") if args.get(k) not in (None, "")}
+                if not fields:
+                    return "Nothing to change was given."
+                got = await asyncio.to_thread(lambda: watchlist.change(who, n, **fields))
+                await watchlist.tell(who, n)
+                return f"Changed: {watchlist.line(got)}."
+            if action == "next":
+                got = await asyncio.to_thread(watchlist.to_front, who, n)
+                await watchlist.tell(who, n)
+                return f"{got['title']} is first in Up next now."
+        except watchlist.NotFound as exc:
+            return str(exc) + " Say so, and offer to add it."
+        except ValueError as exc:
+            return str(exc)
+        return f"There is no action {action!r}."
 
     async def _open_box(self, args, emit):
         """What is in one of the person's boxes, by its number, when their own words just named it

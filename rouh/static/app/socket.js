@@ -21,7 +21,7 @@ import { askSaid, cardFiled, cardsEarly, composeKept, composeSaid, contactNoteSa
 import { applyTaskList, forgetTasks, upsertTask, webFrame, webState, webViewing, webWatch } from 'app/tasks.js';
 import { applyObjects, applyWorkspace, browserZone, canvasLeftBehind, canvasMessage,
   cardWasFiled, clockHeard, clockLoad, clockShown, decisionsHeard, delPlanned, drawUnder, memoryHeard,
-  thoughtsHeard, thoughtsShown, incubatorHeard, settingsShown, boxShown, boxesHeard,
+  thoughtsHeard, thoughtsShown, incubatorHeard, settingsShown, boxShown, boxesHeard, watchHeard,
   modelsLoad, movedTell, runsOpen } from 'app/runs.js';
 import { applyChats, chatById, CHATS, forkHold, forkKeptStale, forkPark, forkRefused,
   forkBehind, forkPeeked, forkReplay, forkResume, FORKS, forkTip, forkWithin, onChatSwitched,
@@ -724,6 +724,10 @@ function handleMessage(m) {
     case 'boxes':
       // A box was saved, changed, deleted or given to Rouh (`rouh/boxes.py`).
       boxesHeard(m);
+      break;
+    case 'watchlist':
+      // The watch list changed, or Rouh was asked to show it (`rouh/watchlist.py`).
+      watchHeard(m);
       break;
     case 'clock':
       // A reminder or a goal changed, here or on another screen of the

@@ -340,6 +340,9 @@ LIVE = "/live"
 #: an env file, an idea held back until they give it to Rouh - at `/box`, and one of them at
 #: `/box/<its number>`. Since 13 October 2026.
 BOX = "/box"
+#: The watch list (`rouh/watchlist.py`): the films and shows the person keeps, at `/watch`, and one
+#: title at `/watch/<its number>`. Since 28 November 2026.
+WATCH = "/watch"
 #: Offline (`rouh/offline.py`): what this device keeps for when there is no connection, what
 #: it did offline and what became of it, and everything it holds to read, search and act on
 #: with no connection. Since 12 October 2026 (card 1457).

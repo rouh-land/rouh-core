@@ -182,7 +182,7 @@ AREA_OF: dict[str, str] = {
     # Memory and Telegram
     "remember": "memory", "forget": "memory", "list_memory": "memory", "import_agent": "memory",
     "agent_instructions": "memory",
-    "capture_thought": "memory", "thoughts": "memory", "new_box": "memory", "open_box": "memory",
+    "capture_thought": "memory", "thoughts": "memory", "new_box": "memory", "open_box": "memory", "watch_list": "memory",
     "send_telegram": "memory",
     # Slack
     "slack_channels": "slack", "slack_read": "slack", "slack_search": "slack", "slack_join": "slack",

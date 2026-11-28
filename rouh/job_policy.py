@@ -140,6 +140,7 @@ READS = frozenset({
 READ_ACTIONS = {
     "agent_instructions": frozenset({"list"}),
     "thoughts": frozenset({"list", "read"}),
+    "watch_list": frozenset({"list", "read", "tonight"}),
     "shipping": frozenset({"list"}),
     "link_person": frozenset({"show"}),
     # check writes back only the value it just read (`cloudflare._settings_edit`);
@@ -208,6 +209,9 @@ OWNS = frozenset({
 #: comment away - is `RISKY`.
 OWN_ACTIONS = {
     "page_comments": frozenset({"add", "reply", "edit", "resolve", "reopen"}),
+    # The owner's own watch list (`rouh/watchlist.py`): a title added, marked or noted, and nothing
+    # sent anywhere. Taking one off, or opening the owner's screen, is risky.
+    "watch_list": frozenset({"add", "mark", "progress", "rate", "note", "edit", "next"}),
 }
 
 #: Tools that write only inside the job's own work when their arguments say so: a private

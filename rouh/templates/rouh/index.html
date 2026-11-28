@@ -179,6 +179,7 @@ with {% asset %}, which gives it its hashed address.
 <link rel="stylesheet" href="{% asset "thoughtspage.css" %}">
 <link rel="stylesheet" href="{% asset "noticespage.css" %}">
 <link rel="stylesheet" href="{% asset "boxpage.css" %}">
+<link rel="stylesheet" href="{% asset "watchlistpage.css" %}">
 <link rel="stylesheet" href="{% asset "offline.css" %}">
 </head>
 <body data-voice="{% if VOICE_READY %}on{% else %}off{% endif %}">
@@ -4515,6 +4516,26 @@ with {% asset %}, which gives it its hashed address.
       </div>
     </article>
 
+    {% comment %} The watch list (`rouh/watchlist.py`, `watchlistpage.js`), at `/watch`,
+         and one title at `/watch/<number>`: the films and shows the person wants
+         to watch, is watching and has watched, with Tonight's pick. The owner,
+         28 November 2026: "I want the watch list to be a full feature in the
+         navigation." {% endcomment %}
+    <article id="watchView" class="canvas-layer settings-view clock-view wl-view" hidden
+             tabindex="-1" aria-label="Watch list">
+      <div class="run-head">
+        <div class="run-heading">
+          <h3>Watch list</h3>
+          <div id="watchMeta" class="run-meta" aria-live="polite"></div>
+        </div>
+        <button id="watchClose" class="layer-x" type="button"
+                title="Close (Esc)" aria-label="Close and go back to the canvas">&times;</button>
+      </div>
+      <div class="wl-wrap">
+        <div id="watchBody" class="wl-body" aria-busy="false"></div>
+      </div>
+    </article>
+
     {% comment %} The box (`rouh/boxes.py`, `boxpage.js`), at `/box`: an empty box at
          the top to type or paste into, and every box kept, none of them
          opened. Petar, 13 October 2026: "I want to be able to say give me a
@@ -5813,5 +5834,6 @@ with {% asset %}, which gives it its hashed address.
 <script defer src="{% asset "thoughtspage.js" %}"></script>
 <script defer src="{% asset "noticespage.js" %}"></script>
 <script defer src="{% asset "boxpage.js" %}"></script>
+<script defer src="{% asset "watchlistpage.js" %}"></script>
 </body>
 </html>

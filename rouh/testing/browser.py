@@ -490,6 +490,9 @@ def start(root, with_voice: bool = False, luna: bool = False, anthropic: bool = 
         # The Dreamehome cloud is a stand-in of this world's own, started below
         # (`rouh/testing/fake_dreame.py`): an email and password typed into Settings never reach Dreame.
         ROUH_DREAME_API="http://127.0.0.1:1/no-dreame",
+        # The public sources the watch list looks titles up in (`rouh/watchlist.py`): nowhere, unless
+        # ROUH_TEST_WATCH_LOOKUP points this world at `rouh/testing/fake_watch.py`.
+        ROUH_WATCH_LOOKUP=os.environ.get("ROUH_TEST_WATCH_LOOKUP", "http://127.0.0.1:1/no-watch-lookup"),
     )
     setup_url = ""
     if first_run:

@@ -98,6 +98,8 @@ export interface ServerMessages {
   box_open: { chat?: string; };
   /** A box of theirs was saved, changed, deleted or given to Rouh: how many they keep now (`rouh/boxes.py`). */
   boxes: { count: number; };
+  /** The watch list changed: its counts, the title that changed, and with `open` the page shown at it in `chat`'s tab (`rouh/watchlist.py`). */
+  watchlist: { counts: { to_watch: number; watching: number; watched: number; all: number; }; number?: number; open?: boolean; chat?: string; };
   tree: { tree: any; now: any; };
   chats: { chats: any[]; folders: any[]; active_chat: any; draft: any; forks: any; /** General's chat id. */ general?: string; /** The chats with a turn running. */ answering?: string[];
     /** The newest `ask` of this tab's the tab's chat and strip in this message were worked out after; older than the page's newest, they are behind it. */ asked?: number; };

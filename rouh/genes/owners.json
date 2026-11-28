@@ -1127,6 +1127,17 @@
     "rouh/static/boxpage.*"
    ]
   },
+  "watch-list": {
+   "files": [
+    "rouh/watchlist.py",
+    "rouh/web/watchlist.py",
+    "rouh/models/watchlist.py",
+    "rouh/migrations/0283_watch_items.py",
+    "rouh/management/commands/watchlist.py",
+    "rouh/testing/fake_watch.py",
+    "rouh/static/watchlistpage.*"
+   ]
+  },
   "silos": {
    "files": [
     "rouh/silos.py",
