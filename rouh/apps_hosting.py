@@ -99,20 +99,20 @@ def _hash(key: str) -> str:
 #: The hosts the page walks through, Hostinger first (Petar's word). Each takes the same first-boot script.
 HOSTS = [
     {"id": "hostinger", "name": "Hostinger", "recommended": True,
-     "why": "Cheap, quick to buy, a browser terminal, and an API token lets Rouh do the setup with one press.",
-     "plan": "A KVM 2 VPS (2 CPUs, 8 GB memory) holds a dozen small apps; KVM 1 is enough to start.",
+     "why": "Quick to rent, has a command window in the browser, and with its token Rouh sets the server up with one press.",
+     "plan": "Their smallest server plan (they call it KVM 1) is enough to start; KVM 2 holds about a dozen small apps.",
      "buy": "https://www.hostinger.com/vps-hosting",
      "token_url": "https://hpanel.hostinger.com/profile/api",
      "steps": [
-         "Buy a KVM VPS at Hostinger. Rouh never buys it for you.",
-         "When hPanel asks for the operating system, pick Ubuntu 24.04 (plain, without a panel).",
-         "Open the VPS in hPanel and press Browser terminal.",
+         "Rent a server at Hostinger (VPS, plan KVM 1 or KVM 2). Rouh never rents it for you.",
+         "When their control panel (hPanel) asks which system to put on it, pick Ubuntu 24.04, the plain one without a panel.",
+         "Open the server in hPanel and press Browser terminal: a command window opens.",
          "Paste the line below and press Enter. It takes about five minutes.",
      ],
      "boot": "Or, before you install it: in hPanel, VPS, Settings, Post-install script, paste the script below, "
              "then install Ubuntu 24.04. It runs by itself on the first start."},
     {"id": "hetzner", "name": "Hetzner",
-     "why": "The best price for the power in Europe; servers in Germany and Finland.",
+     "why": "The best price for what you get in Europe; servers in Germany and Finland.",
      "plan": "A CX22 or CAX11 is enough to start.",
      "buy": "https://console.hetzner.cloud/",
      "steps": [
@@ -133,7 +133,7 @@ HOSTS = [
      ],
      "boot": "Already have one? Log in to it and paste the line below."},
     {"id": "other", "name": "Any Linux server",
-     "why": "Any server with Ubuntu 22.04 or newer, or Debian 12, that you can log in to.",
+     "why": "A server you already have, with Ubuntu 22.04 or newer, or Debian 12, that you can log in to.",
      "plan": "At least 1 GB memory and 20 GB disk.",
      "buy": "",
      "steps": [
@@ -296,15 +296,19 @@ def data_pages(who) -> list[dict]:
         one["updated_at"] = max(one["updated_at"], r.updated_at or 0)
     out = []
     for one in found.values():
-        kept = []
+        kept, keeps = [], []
         if one["lists"]:
+            keeps.append(f"A shared list of {one['entries']} entr{'y' if one['entries'] == 1 else 'ies'}")
             kept.append(f"a list shared by everyone who may change the page ({one['entries']} "
                         f"entr{'y' if one['entries'] == 1 else 'ies'})")
         if one["settings_kb"]:
             kept.append(f"your choices on the page (about {one['settings_kb']} KB)")
+            keeps.append(("your" if keeps else "Your") + f" choices on the page (about {one['settings_kb']} KB)")
         out.append({"rel": one["rel"], "name": _page_name(one["rel"]), "href": PAGES + one["rel"],
                     "updated_at": one["updated_at"],
-                    "data_at": "Rouh's own database: " + " and ".join(kept)})
+                    "data_at": "Rouh's own database: " + " and ".join(kept),
+                    # The same, short, for the Apps page's row (designs/apps/HANDOFF.md).
+                    "keeps": ", and ".join(keeps)})
     out.sort(key=lambda o: -o["updated_at"])
     return out
 
@@ -774,7 +778,8 @@ def agent(server, body: dict) -> dict:
         if done.state == "failed" and done.verb != "logs":
             app = HostedApp.objects.filter(server=server, slug=done.app, **me).first()
             _say(who, title=f"{VERB_SAID.get(done.verb, done.verb)} of {app.name if app else done.app or server.name} failed",
-                 body=_last_line(done.output), key=f"apps-command-failed-{done.id}")
+                 body=_last_line(done.output), key=f"apps-command-failed-{done.id}",
+                 link=f"{ROUTE}/{app.slug}" if app else ROUTE)
     if isinstance(body.get("apps"), list):
         server.full_at = now
         _take_report(server, who, body["apps"])
@@ -881,13 +886,13 @@ def _check_row(row) -> dict:
         if ok:
             if was == "down" and row.down_since:
                 _say(Who(row.user_id, row.org_id), title=f"{row.name} is answering again",
-                     body=said, key=f"apps-up-{row.id}-{int(row.down_since)}", link=ROUTE)
+                     body=said, key=f"apps-up-{row.id}-{int(row.down_since)}", link=f"{ROUTE}/{row.slug}")
             row.down_since = 0
         elif was != "down":
             row.down_since = now
             _say(Who(row.user_id, row.org_id), title=f"{row.name} is not answering",
                  body=f"{said} Open Apps to restart it, look at its logs or ask Rouh to fix it.",
-                 key=f"apps-down-{row.id}-{int(now)}", link=ROUTE)
+                 key=f"apps-down-{row.id}-{int(now)}", link=f"{ROUTE}/{row.slug}")
     row.checked_at = now
     row.save(update_fields=["state", "check_said", "checked_at", "down_since"])
     return {"id": row.id, "name": row.name, "state": row.state, "said": row.check_said}

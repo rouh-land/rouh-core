@@ -89,3 +89,9 @@ Type: Rouh's system sans; 24 (verdict), 22 (a view's sentence), 18 (head), 15 (s
 - Thirty apps: fold a place past eight rows (a SHOULD, not drawn).
 - Rouh not reachable while the page is open: keep the last answer with a line saying so (a SHOULD, as today).
 - Light theme: Rouh has none yet; the tokens are here for it.
+
+## Built (28 November 2026, later)
+
+The owner said go: built into `rouh/static/appspage.js`, `appspage.css`, the `appsView` layer and `/apps/<view>` addresses (`rouh/project/urls.py`, `app/address.js`, `app/runs.js`); notices about one app link to `/apps/<its name>`; a page with data says what it keeps in short (`keeps`). Vesela's round and critic rounds 4 to 6 on the built page are in `loop-log.md`. Where the built page and the prototype differ, the built page is right.
+
+Still open, none of it a blocker: the Next card is long on a phone; one clock mark means both running and waiting to join; Rouh has no light theme, so the light tokens above are not used yet; thirty apps do not fold yet.

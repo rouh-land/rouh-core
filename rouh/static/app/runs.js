@@ -18921,20 +18921,35 @@ window.RouhReceiptsHost = { close: receiptsClose };
    This is the layer's side, as with the receipts: opening and closing it, its row
    in the navigation, and putting a request in the message box. */
 
-var APPS = { open: false };
+var APPS = { open: false, view: '' };
 
 function appsViewing() { return APPS.open; }
 
-function appsOpen() {
+/** The address of what Apps shows: the Dashboard, or one of its views (an app's name, setup,
+    plan, add), each its own address so a notice about one app opens it (designs/apps/ia.md).
+    @param {string} [view] */
+function appsOpen(view) {
   if (ORBX.open) orbExpand(false);
-  if (APPS.open) return;
+  var want = String(view || '');
+  if (APPS.open) {
+    if (want !== APPS.view) {
+      APPS.view = want;
+      if (window.RouhApps) window.RouhApps.go(want);
+      addrTouch();
+    }
+    return;
+  }
   APPS.open = true;
+  APPS.view = want;
   showLayer('appsView');
   sidebarDone();
   appsRow();
-  if (window.RouhApps) window.RouhApps.shown();
+  if (window.RouhApps) window.RouhApps.shown(want);
   if (!narrow()) $('appsView').focus({ preventScroll: true });
+  addrTouch();
 }
+
+function appsAddress() { return '/apps' + (APPS.view ? '/' + APPS.view : ''); }
 
 function appsClose() {
   if (!APPS.open) return;
@@ -18955,6 +18970,13 @@ function appsRow() {
 // typed, for the person to read, change and send (Build a new app, Ask Rouh to change it).
 window.RouhAppsHost = {
   close: appsClose,
+  /** The page moved to another of its views: the address follows.
+      @param {string} view */
+  view: function (view) {
+    if (!APPS.open || APPS.view === (view || '')) return;
+    APPS.view = view || '';
+    addrTouch();
+  },
   /** @param {string} text */
   say: function (text) {
     chatIsWanted();
@@ -19916,7 +19938,7 @@ window.RouhBeatsHost = {
 
 oneConnect();
 
-export { APPS, appsClose, appsOpen, appsViewing, applyObjects, applyWorkspace, ASK, askDelete, askFromPage, askPageNow, BRIEF, briefClose, briefOpen,
+export { APPS, appsAddress, appsClose, appsOpen, appsViewing, applyObjects, applyWorkspace, ASK, askDelete, askFromPage, askPageNow, BRIEF, briefClose, briefOpen,
   WORK, workClose, workOpen, workViewing,
   DECIDE, decisionsClose, decisionsHeard, decisionsOpen, decisionsViewing, ACTS, actionsClose, actionsOpen, actionsViewing,
   HOLD, handholdingAddress, handholdingClose, handholdingOpen, handholdingViewing,

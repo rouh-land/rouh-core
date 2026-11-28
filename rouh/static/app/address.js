@@ -14,7 +14,7 @@ import { endTurnOnScreen, wipeTranscript } from 'app/transcript.js';
 import { CARDVIEW, cardViewing, clearTheCards, standingDown, WORKSPACE_ROUTE } from 'app/cards.js';
 import { JOBVIEW, jobViewing, taskRecs, webOpen, webViewing } from 'app/tasks.js';
 import { BRIEF, briefOpen, briefViewing, CANVAS, canvasDoc, controlOpen, controlViewing, CRUMB_HOME,
-  WORK, workOpen, workViewing, DECIDE, decisionsOpen, decisionsViewing, ACTS, actionsOpen, actionsViewing, HOLD, handholdingAddress, handholdingOpen, handholdingViewing, receiptsOpen, appsOpen, appsViewing,
+  WORK, workOpen, workViewing, DECIDE, decisionsOpen, decisionsViewing, ACTS, actionsOpen, actionsViewing, HOLD, handholdingAddress, handholdingOpen, handholdingViewing, receiptsOpen, appsAddress, appsOpen, appsViewing,
   receiptsViewing, homeOpen, homeViewing, APPROVALS, approvalsOpen, approvalsViewing, SOURCES, sourcesOpen, sourcesViewing, LIVE, liveOpen, liveViewing, THOUGHTS, thoughtsOpen, thoughtsViewing,
   NOTIFS, notificationsOpen, notificationsViewing,
   EVO, evolutionOpen, evolutionViewing,
@@ -390,7 +390,10 @@ function addrReadPlace(path, query) {
     return { kind: '', id: '', chat: chat, receipts: true };
   }
   if (parts.length === 1 && '/' + parts[0] === ADDR_APPS) {
-    return { kind: '', id: '', chat: chat, apps: true };
+    return { kind: '', id: '', chat: chat, apps: true, appsView: '' };
+  }
+  if (parts.length === 2 && '/' + parts[0] === ADDR_APPS && /^[a-z0-9-]{1,40}$/.test(parts[1])) {
+    return { kind: '', id: '', chat: chat, apps: true, appsView: parts[1] };
   }
   if (parts.length === 1 && '/' + parts[0] === ADDR_HOME) {
     return { kind: '', id: '', chat: chat, home: true };
@@ -630,7 +633,7 @@ function addrOnCanvas() {
   if (actionsViewing()) return ADDR_ACTIONS + (ACTS.id ? '/' + ACTS.id : '');
   if (handholdingViewing()) return handholdingAddress();
   if (receiptsViewing()) return ADDR_RECEIPTS;
-  if (appsViewing()) return ADDR_APPS;
+  if (appsViewing()) return appsAddress();
   if (homeViewing()) return ADDR_HOME;
   if (memoryViewing()) return memoryAddress();
   if (approvalsViewing()) return APPROVALS.key ? ADDR_CASE + '/' + encodeURIComponent(APPROVALS.key) : ADDR_APPROVALS;
@@ -1114,7 +1117,7 @@ function addrAsk() {
   if (want.apps) {
     ADDR.wanted = null;
     ADDR.asked = false;
-    appsOpen();
+    appsOpen(want.appsView || '');
     if (want.chat) chatIsWanted();
     return;
   }

@@ -1053,6 +1053,9 @@ urlpatterns = [
     re_path(r"^" + addressing.QUESTS.lstrip("/") + r"/\d+$", views.index),
     path(addressing.RECEIPTS.lstrip("/"), views.index),
     path(addressing.APPS.lstrip("/"), views.index),
+    # One app, setting up a server, the moving plan and adding an app, each its own address
+    # (designs/apps/ia.md), so a notice about one app opens it.
+    re_path(r"^" + addressing.APPS.lstrip("/") + r"/(?P<rest>[a-z0-9-]{1,40})$", views.index),
     path(addressing.HOME.lstrip("/"), views.index),
     path(addressing.AGENT_INSTRUCTIONS.lstrip("/"), views.index),
     # The Rules page, and one of its groups or its What Rouh was told (`addressing.RULES`).
