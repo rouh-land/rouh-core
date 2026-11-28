@@ -19,6 +19,10 @@ has the shape of each.
   With answers in progress, new turns still start for ``GRACE`` seconds, so a busy chat is not
   made to wait for nothing; after that new turns are held back, the last answers finish, and Rouh
   says it is ready. From then until it is stopped, nothing new starts.
+- **Held briefly.** While answers still run, new turns are held for at most ``HOLD_WAIT`` seconds;
+  then they go on, and the deploy waits for them too (Petar, 28 November 2026: one answer that ran
+  for minutes had held every new message for the deploy's whole ten minutes, with nothing on the
+  screen but "Sending"). Once Rouh is ready, the restart comes within seconds, and that hold stays.
 - **Held, not refused.** A turn held back waits where it is. What the person typed or said on a
   screen is also written down (``held.json``), so if the restart comes first the Rouh that starts
   next answers it, in the same chat, as the same person. Turns of Rouh's own software (an email, a
@@ -61,6 +65,9 @@ EXPIRE = float(os.environ.get("ROUH_ANSWER_EXPIRE", "300"))
 GRACE = float(os.environ.get("ROUH_DEPLOY_GRACE", "20"))
 #: How long Rouh holds new turns after saying it is ready, if the restart never comes.
 HOLD_MAX = float(os.environ.get("ROUH_DEPLOY_HOLD_MAX", "300"))
+#: How long new turns are held while answers still run (before Rouh is ready). After it they go
+#: on, and the deploy waits for them too, up to its cap.
+HOLD_WAIT = float(os.environ.get("ROUH_DEPLOY_HOLD_WAIT", "45"))
 #: The longest the deploy's waiter waits (guard/rouh_guard/deploywait.py, the same setting).
 CAP = float(os.environ.get("ROUH_DEPLOY_WAIT_CAP", "600"))
 #: How often the state is written.
@@ -80,7 +87,7 @@ _lock = threading.Lock()
 _answers: dict[str, dict] = {}
 _dropped: set[str] = set()
 _state = {"ask": "", "asked_at": 0.0, "holding": False, "hold_since": 0.0, "ready_for": "", "ready_at": 0.0,
-          "stopping": False, "calls_said": 0, "calls_seen": {}}
+          "stopping": False, "calls_said": 0, "calls_seen": {}, "gave_way": ""}
 
 
 def folder() -> Path:
@@ -353,10 +360,18 @@ def catch_stop() -> None:
             pass
 
 
+def _give_way(now: float, why: str) -> None:
+    """New turns go on again while a deploy still waits: this ask holds nothing more until Rouh
+    is ready, the moment no answer is in progress, when the restart comes within seconds."""
+    log.info("new turns go on again after %.1f s, and the deploy waits for them too: %s",
+             now - _state["hold_since"], why)
+    _state.update(holding=False, hold_since=0.0, gave_way=_state["ask"])
+
+
 def _release(now: float, why: str) -> None:
     if _state["holding"]:
         log.info("new turns go on again after %.1f s: %s", now - _state["hold_since"], why)
-    _state.update(holding=False, hold_since=0.0, ready_for="", ready_at=0.0, ask="", asked_at=0.0)
+    _state.update(holding=False, hold_since=0.0, ready_for="", ready_at=0.0, ask="", asked_at=0.0, gave_way="")
 
 
 def step(now: float | None = None) -> dict:
@@ -399,7 +414,15 @@ def step(now: float | None = None) -> dict:
                 log.info("no answer and no model call in progress: ready to be restarted, %.1f s after the ask%s",
                          now - _state["asked_at"],
                          f"; waited for {len(seen)} model call(s): {_calls_said(seen)}" if seen else "")
-            elif now - _state["asked_at"] >= GRACE:
+            elif (_state["holding"] and not _state["stopping"]
+                  and now - _state["hold_since"] >= HOLD_WAIT):
+                # Petar, 28 November 2026: "I only get Sending and then sending disappears and no
+                # answer comes back." One answer that ran on for minutes held every new message
+                # in every chat for the deploy's whole ten minutes. New turns are held only
+                # briefly; after that they go on, and the deploy waits for them as well.
+                _give_way(now, f"{len(answers)} answer(s) and {len(calls)} model call(s) still in "
+                               f"progress after holding {int(HOLD_WAIT)} s")
+            elif now - _state["asked_at"] >= GRACE and _state["gave_way"] != ident:
                 _hold(now, f"{len(answers)} answer(s) and {len(calls)} model call(s) still in progress "
                            f"after {int(GRACE)} s")
             if calls and not _state["calls_said"] and _state["ready_for"] != ident:

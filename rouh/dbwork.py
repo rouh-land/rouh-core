@@ -34,6 +34,7 @@ import logging
 import os
 import queue
 import threading
+import time
 
 #: Seconds a pool thread waits with nothing to run before it gives its connection back.
 IDLE = 0.05
@@ -117,6 +118,8 @@ _foreground = 0
 _foreground_lock = threading.Lock()
 _quiet = threading.Event()
 _quiet.set()
+#: When the person's work began without a pause (`time.monotonic`), 0.0 while there is none.
+_busy_since = 0.0
 
 
 @contextlib.contextmanager
@@ -129,8 +132,10 @@ def foreground():
     pages for the offline copy still took two thirds of Python's one lock, and a "hi" sent
     just after the page opened took thirteen seconds where it takes two. Work already
     running in the lane runs on to its end; nothing new starts while the person waits."""
-    global _foreground
+    global _foreground, _busy_since
     with _foreground_lock:
+        if _foreground <= 0:
+            _busy_since = time.monotonic()
         _foreground += 1
         _quiet.clear()
     try:
@@ -140,15 +145,34 @@ def foreground():
             _foreground -= 1
             if _foreground <= 0:
                 _foreground = 0
+                _busy_since = 0.0
                 _quiet.set()
 
 
+def _quiet_left() -> float:
+    """How much longer work in the lane waits for the person's own work: what is left of
+    `QUIET_LONGEST` counted from when that work began, never from when this item came.
+
+    Until 28 November 2026 each item waited its own `QUIET_LONGEST`, on one of the lane's
+    two threads. A chat answer that ran for minutes kept the person's work going, so every
+    item in the lane sat thirty seconds on a thread doing nothing, two at a time, and the
+    reminders, decisions and offline copy a page asks for were answered after two minutes or
+    not at all (Cloudflare's 524)."""
+    since = _busy_since
+    if not since:
+        return 0.0
+    return max(0.0, since + QUIET_LONGEST - time.monotonic())
+
+
 def _after_quiet(fn, args, kwargs):
-    _quiet.wait(QUIET_LONGEST)
+    left = _quiet_left()
+    if left > 0:
+        _quiet.wait(left)
     return fn(*args, **kwargs)
 
 
 _lane: "Executor | None" = None
+_now_lane: "Executor | None" = None
 _lane_lock = threading.Lock()
 
 
@@ -158,6 +182,18 @@ def _later_lane() -> "Executor":
         if _lane is None:
             _lane = Executor(max_workers=LATER_THREADS, thread_name_prefix="rouh-later")
         return _lane
+
+
+def _later_now_lane() -> "Executor":
+    """The lane for `later(wait=False)`, the lists after a page's handshake: threads of its own,
+    so they never queue behind work in the other lane that is waiting for the person's own
+    work to finish. On 28 November 2026 they did, and a page opened while a long answer was
+    running drew its chats, tasks and decisions after two minutes."""
+    global _now_lane
+    with _lane_lock:
+        if _now_lane is None:
+            _now_lane = Executor(max_workers=LATER_THREADS, thread_name_prefix="rouh-later-now")
+        return _now_lane
 
 
 class Executor(concurrent.futures.ThreadPoolExecutor):
@@ -181,7 +217,7 @@ class Executor(concurrent.futures.ThreadPoolExecutor):
         lane = _LATER.get() if self.lends else ""
         if lane and not threading.current_thread().name.startswith("rouh-later"):
             if lane == "now":
-                return _later_lane().submit(fn, *args, **kwargs)
+                return _later_now_lane().submit(fn, *args, **kwargs)
             return _later_lane().submit(_after_quiet, fn, args, kwargs)
         if self._lazy:
             return super().submit(fn, *args, **kwargs)
