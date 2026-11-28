@@ -184,7 +184,7 @@ function orb3dKeeps(n, tnow) {
 function lifecycle(age, c, still) {
   var level = 1 + (c.end - 1) * Math.min(1, Math.max(0, age) / c.seconds);
   if (age >= c.seconds + c.hold + c.ghost) return { state: 'removed', alpha: 0, level: c.end };
-  if (age >= c.seconds + c.hold) return { state: 'ghost', alpha: Math.max(c.end, RULES.glass.ghostFloor || 0.35), level: c.end };
+  if (age >= c.seconds + c.hold) return { state: 'ghost', alpha: Math.max(c.end, RULES.glass.ghostFloor || 0.5), level: c.end };
   if (age >= c.seconds) return { state: 'holding', alpha: c.end, level: c.end };
   var flashing = !still && age >= 1 / c.rate && (age % (1 / c.rate)) < c.length;
   return { state: 'fading', alpha: flashing ? (c.direction === 'up' ? 1 : 0) : level, level: level };
@@ -763,7 +763,7 @@ function paintNames(mode) {
       var text = String(O3.nameOf(r.node) || '').replace(/\s+/g, ' ').trim();
       if (!text) return;
       list.push({ id: r.node.id, text: text, x: (DPOS.x + 1) / 2 * size.w, y: (1 - DPOS.y) / 2 * size.h,
-                  waiting: r.waiting, alpha: r.life ? Math.max(0.45, r.life.alpha) : 1 });
+                  waiting: r.waiting, alpha: r.life ? Math.max(r.life.state === 'ghost' ? 0.8 : 0.45, r.life.alpha) : 1 });
       // Under the core's own centre line both sides are measured from the middle of the box.
       list[list.length - 1].right = list[list.length - 1].x >= cx;
     });

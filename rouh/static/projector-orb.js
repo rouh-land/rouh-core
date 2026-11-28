@@ -289,7 +289,7 @@
                 hold: D.holdMinutes * 60, ghost: D.ghostSeconds, direction: D.blinkDirection };
       var level = 1 + (c.end - 1) * Math.min(1, Math.max(0, age) / c.seconds);
       if (age >= c.seconds + c.hold + c.ghost) return { state: 'removed', alpha: 0 };
-      if (age >= c.seconds + c.hold) return { state: 'ghost', alpha: Math.max(c.end, RULES.glass.ghostFloor || 0.35) };
+      if (age >= c.seconds + c.hold) return { state: 'ghost', alpha: Math.max(c.end, RULES.glass.ghostFloor || 0.5) };
       if (age >= c.seconds) return { state: 'holding', alpha: c.end };
       var flashing = !reduced && age >= 1 / c.rate && (age % (1 / c.rate)) < c.length;
       return { state: 'fading', alpha: flashing ? (c.direction === 'down' ? 0 : 1) : level };

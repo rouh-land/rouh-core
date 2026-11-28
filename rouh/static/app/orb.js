@@ -3468,6 +3468,36 @@ document.addEventListener('visibilitychange', function () {
 window.addEventListener('pagehide', stopOrb);
 startOrb();
 
+/* The full-screen orb is left open as a display, and a display is never reloaded by hand: Petar,
+   28 November 2026, "they seem to linger longer but they are invisible", on a page still drawing
+   finished branches with the build from before the fix that made them grey and named. So while the
+   orb is open over the whole screen and the page is behind the build Rouh serves (app/notices.js,
+   `noteBuild`), the page loads again by itself and comes back with the orb open - only when nothing
+   would be lost: no words in the text box, no microphone open, no cog panel or costs open. Checked
+   when it falls behind, and every 20 s while the page stays behind. */
+var ORB_REOPEN = 'rouh.orb.reopen';
+var orbBehind = false, orbCaughtUp = 0;
+function orbCatchUp() {
+  if (!orbBehind || !ORBX.open || document.hidden) return;
+  // Never a loop: a page still behind straight after its own reload waits ten minutes before another.
+  if (Date.now() - orbCaughtUp < 600000) return;
+  var input = /** @type {HTMLTextAreaElement|null} */ ($('input'));
+  if (input && input.value.trim()) return;
+  if (A.stream || MIC.opening) return;
+  if (orbPanelOpen() || orbUsageOpen()) return;
+  try { sessionStorage.setItem(ORB_REOPEN, String(Date.now())); } catch (e) { return; }
+  location.reload();
+}
+window.addEventListener('rouh:behind', function () { orbBehind = true; orbCatchUp(); });
+setInterval(orbCatchUp, 20000);
+(function () {
+  var at = 0;
+  try { at = +(sessionStorage.getItem(ORB_REOPEN) || 0); } catch (e) {}
+  orbCaughtUp = at;
+  // Only straight after its own reload: a tab restored hours later opens as any page does.
+  if (at && Date.now() - at < 60000) setTimeout(function () { orbExpand(true); }, 0);
+})();
+
 /* --------------------------------------------------- level meter + readouts */
 
 function dbPct(v) {

@@ -1120,6 +1120,8 @@ function noteBuild(theirs) {
   if (BUILD.behind || !theirs || !BUILD.mine || theirs === BUILD.mine) return;
   BUILD.behind = true;
   BUILD.commit = pageCommit();
+  // The full-screen orb, left open as a display, takes the new build by itself (app/orb.js, `orbCatchUp`).
+  window.dispatchEvent(new Event('rouh:behind'));
   // A run's notice already in the list may be the one that left this page behind.
   merge();
   if (NT.mode !== 'list') NT.mode = fresh().length ? 'stack' : 'off';

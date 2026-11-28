@@ -12,7 +12,7 @@
     "api": "#729dff",
     "other": "#8993a7",
     "wait": "#ff3655",
-    "ghost": "#596170",
+    "ghost": "#b9c1cf",
     "self": "#cfd9ee",
     "core": "#ffffff"
   },
@@ -79,8 +79,8 @@
       "emission": 3,
       "radius": 0.3
     },
-    "ghostFloor": 0.35,
-    "ghostEmission": 0.6
+    "ghostFloor": 0.5,
+    "ghostEmission": 1.2
   },
   "growth": {
     "tipSeconds": 1,
