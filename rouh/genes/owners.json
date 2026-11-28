@@ -1143,7 +1143,8 @@
     "rouh/templates/rouh/watch_shared.html",
     "rouh/management/commands/watchlist.py",
     "rouh/testing/fake_watch.py",
-    "rouh/static/watchlistpage.*"
+    "rouh/static/watchlistpage.*",
+    "designs/watch-list/**"
    ]
   },
   "silos": {
