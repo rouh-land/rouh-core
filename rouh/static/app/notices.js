@@ -392,12 +392,14 @@ function drawStack(list) {
     ? 'Put these ' + all.length + ' away for later' : 'Put this away for later');
   var more = $('ntMore');
   more.hidden = all.length < 2;
-  more.textContent = all.length > 1 ? 'See all' : '';
+  more.textContent = all.length > 1 ? 'List recent' : '';
+  $('ntAll').hidden = false;
 }
 
 /** @param {HTMLElement} list */
 function drawList(list) {
   $('ntMore').hidden = true;
+  $('ntAll').hidden = true;
   tally();
   var got = listed();
   if (!got.recent.length && !got.earlier.length) {
@@ -1152,6 +1154,16 @@ function noteBuild(theirs) {
   }
   var more = $('ntMore');
   if (more) more.addEventListener('click', function () { openList(0); });
+  // See All, beside List recent: the page of every notification, as the column's own link goes.
+  var everyOne = $('ntAll');
+  if (everyOne) {
+    linkTo(/** @type {HTMLAnchorElement} */ (everyOne), '/notifications');
+    everyOne.addEventListener('click', function (e) {
+      if (e.button || e.metaKey || e.ctrlKey || e.shiftKey) return;
+      e.preventDefault();
+      goToAddress('/notifications');
+    });
+  }
   document.addEventListener('keydown', function (e) {
     if (e.key === 'Escape' && NT.mode === 'list') { e.preventDefault(); closeList(); }
   });

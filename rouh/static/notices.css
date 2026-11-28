@@ -327,14 +327,16 @@
 
 .nt-foot { display: flex; justify-content: center; gap: 8px; margin-top: 8px; }
 .notices[data-mode="list"] .nt-foot { display: none; }
-/* See all, which opens the column, and Later, which puts the stack away the way pushing
+/* List recent, which opens the column, See All, which opens the page of every notification,
+   and Later, which puts the stack away the way pushing
    it up does: frosted like the cards, so they read as part of them and not as something
    on the page under them, and as tall as the page's other buttons (`.ctl`), so they are
    easy to press. */
 .nt-pill {
   appearance: none; cursor: pointer;
   display: inline-flex; align-items: center; justify-content: center; gap: 6px;
-  min-height: 38px; min-width: 96px; padding: 0 18px;
+  min-height: 38px; min-width: 84px; padding: 0 14px;
+  text-decoration: none; white-space: nowrap;
   background: color-mix(in srgb, var(--panel-2) 88%, transparent);
   -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px);
   color: var(--dim); border: 1px solid var(--line); border-radius: 999px;
