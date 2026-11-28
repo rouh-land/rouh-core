@@ -1910,6 +1910,7 @@
    "files": [
     "guard/**",
     "deploy/grants/**",
+    "deploy/host/model-drops/**",
     "bin/rouh-github",
     "rouh/checkface.py",
     "rouh/guardface.py"

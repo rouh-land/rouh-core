@@ -109,6 +109,9 @@ class Door:
         self.seen: dict[str, float] = {}
         #: Attempts to use another run's identity, for the core's tripwire (`attempts`).
         self._attempts: list[dict] = []
+        #: Every connection through the door now, so its END line and, when the program stops, the
+        #: line naming each one the stop cuts can say whose it was (task 197, step 197-04).
+        self.open: dict[int, dict] = {}
 
     # --- identity ------------------------------------------------------------------------------
 
@@ -201,6 +204,16 @@ class Door:
         for server in self.servers:
             server.close()
         self.servers.clear()
+        # Every connection still open dies with this process: each run's model answer streaming
+        # now is cut ("API Error: Connection lost mid-response"). Said once, by name, so a drop
+        # can be put to the restart that caused it.
+        now = time.monotonic()
+        cut = sorted(self.open.values(), key=lambda c: c["started"])
+        if cut:
+            log.warning("run door CUT %d open by this stop: %s", len(cut), "; ".join(
+                f"{c['run']} {c['target']} {now - c['started']:.0f}s down={c['down']}" for c in cut))
+        else:
+            log.info("run door CUT 0 open by this stop")
 
     async def _tcp(self, reader, writer) -> None:
         peer = writer.get_extra_info("peername")
@@ -241,7 +254,17 @@ class Door:
                 return
             up_writer.write(("\r\n".join(kept) + "\r\n\r\n").encode("latin-1"))
             await up_writer.drain()
-            await asyncio.gather(_pipe(reader, up_writer), _pipe(up_reader, writer))
+            method, _, rest = lines[0].partition(" ")
+            target = rest.rpartition(" ")[0] if method == "CONNECT" else urlsplit(rest.rpartition(" ")[0]).netloc
+            flow = {"run": whose, "target": target, "started": time.monotonic(), "up": 0, "down": 0,
+                    "first": "", "how": ""}
+            self.open[id(flow)] = flow
+            try:
+                await asyncio.gather(_pipe(reader, up_writer, flow, "run"),
+                                     _pipe(up_reader, writer, flow, "keyproxy"))
+            finally:
+                self.open.pop(id(flow), None)
+                _ended(flow)
             with contextlib.suppress(Exception):
                 up_writer.close()
         except Exception:  # noqa: BLE001
@@ -255,13 +278,33 @@ def _hash(password: str) -> str:
     return hashlib.sha256(password.encode()).hexdigest()
 
 
-async def _pipe(reader, writer) -> None:
+def _ended(flow: dict) -> None:
+    """One line per connection: whose, where, how long, bytes each way, which side ended first
+    ("run" is the run's own process, "keyproxy" the far side) and how. A warning when it was an
+    error, so those are easy to find."""
+    how = flow["how"] or "closed"
+    level = logging.INFO if how in ("eof", "closed") else logging.WARNING
+    log.log(level, "run door END %s %s after=%.1fs up=%d down=%d first=%s how=%s", flow["run"],
+            flow["target"], time.monotonic() - flow["started"], flow["up"], flow["down"],
+            flow["first"] or "door", how)
+
+
+async def _pipe(reader, writer, flow: dict | None = None, side: str = "") -> None:
     try:
         while data := await reader.read(65536):
+            if flow is not None:
+                flow["up" if side == "run" else "down"] += len(data)
             writer.write(data)
             await writer.drain()
-    except (ConnectionError, OSError, asyncio.IncompleteReadError):
-        pass
+        if flow is not None and not flow["first"]:
+            flow["first"], flow["how"] = side, "eof"
+    except (ConnectionError, OSError, asyncio.IncompleteReadError) as exc:
+        if flow is not None and not flow["first"]:
+            flow["first"], flow["how"] = side, f"{type(exc).__name__}: {str(exc)[:120]}"
+    except asyncio.CancelledError:
+        if flow is not None and not flow["first"]:
+            flow["first"], flow["how"] = side, "cancelled"
+        raise
     finally:
         with contextlib.suppress(Exception):
             if writer.can_write_eof():

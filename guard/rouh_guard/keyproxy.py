@@ -412,11 +412,16 @@ _logins_cache: dict = {}
 class Who:
     """Whose request this is, by the run password the run door added (or none)."""
 
-    def __init__(self, kind: str = "none", run: str = "", free: bool = False, gets=()) -> None:
+    def __init__(self, kind: str = "none", run: str = "", free: bool = False, gets=(),
+                 note: str = "") -> None:
         self.kind, self.run, self.free, self.gets = kind, run, free, frozenset(gets)
+        #: For the log only, never for access: why a run is "unknown", with the run it says it is.
+        self.note = note
 
     def label(self) -> str:
-        return f"run {self.run}" if self.run else self.kind
+        if self.run:
+            return f"run {self.run}"
+        return f"{self.kind}, {self.note}" if self.note else self.kind
 
     def owners(self) -> bool:
         return self.kind in OWNER_KINDS
@@ -503,7 +508,7 @@ def identify(headers, now: float | None = None) -> Who:
         pair = base64.b64decode(rest.strip(), validate=False).decode("utf-8", "replace")
     except ValueError:
         return Who("unknown")
-    password = pair.partition(":")[2]
+    name, _, password = pair.partition(":")
     moment = time.time() if now is None else now
     try:
         fresh = float(data.get("until") or 0) > moment
@@ -511,7 +516,7 @@ def identify(headers, now: float | None = None) -> Who:
         fresh = False
     entry = (data.get("runs") or {}).get(_hash(password)) if fresh and password else None
     if not isinstance(entry, dict):
-        return Who("unknown")
+        return Who("unknown", note=_why_unknown(name, data, fresh, moment))
     # Only ever the owner's own run, whatever the file says: a second lock on the core's word.
     free = bool(entry.get("free")) and str(entry.get("kind")) == "owner" and not tripped()
     try:
@@ -521,6 +526,21 @@ def identify(headers, now: float | None = None) -> Who:
         free = False
     return Who(str(entry.get("kind") or "unknown"), str(entry.get("run") or ""), free,
                [g for g in entry.get("gets") or [] if g in ITEMS] if free else ())
+
+
+def _why_unknown(name: str, data: dict, fresh: bool, moment: float) -> str:
+    """Why a password is not a run's, for the log line only: the run the door's user name says it
+    is (``run-<id>``, which the door writes and nothing checks) and what the runs file lacked. An
+    old runs file means Rouh's core stopped writing it (a restart); a fresh one without the run, a
+    run newer than the core's last write (every 15 s) or one the program started again."""
+    said = re.sub(r"[^A-Za-z0-9_.\-]", "", name)[:40] or "no name"
+    try:
+        age = moment - float(data.get("written") or 0)
+    except (TypeError, ValueError):
+        age = -1.0
+    if not fresh:
+        return f"says {said}, runs file stale ({age:.0f}s old)"
+    return f"says {said}, not in the runs file ({age:.0f}s old)"
 
 
 def standing_servers() -> list[dict]:
@@ -707,28 +727,112 @@ async def answer(writer: asyncio.StreamWriter, status: str, body: dict | str) ->
         await writer.drain()
 
 
-async def pipe(reader: asyncio.StreamReader, writer: asyncio.StreamWriter) -> None:
+class Flow:
+    """One tunnel or relayed request, for its END line: whose, where, how long, the bytes each way,
+    and which side ended first and how ("client eof", "upstream ConnectionResetError: ..."). No
+    header, no key, nothing of what was sent."""
+
+    def __init__(self, kind: str, target: str, who: "Who") -> None:
+        self.kind, self.target, self.who = kind, target, who
+        self.started = time.monotonic()
+        self.up = self.down = 0
+        self.first = ""
+        self.how = ""
+
+    def ended(self, side: str, how: str) -> None:
+        if not self.first:
+            self.first, self.how = side, how
+
+    def line(self) -> tuple[int, str]:
+        """(level, text): a warning when a side ended by an error, so those are easy to find."""
+        first, how = self.first or "proxy", self.how or "closed"
+        level = logging.INFO if how in ("eof", "closed") else logging.WARNING
+        return level, (f"END {self.kind} {self.target} ({self.who.label()}) "
+                       f"after={time.monotonic() - self.started:.1f}s up={self.up} down={self.down} "
+                       f"first={first} how={how}")
+
+
+#: Every open flow by the id of the task serving it, so the asyncio error "Task was destroyed but
+#: it is pending" (a tunnel both of whose sockets went away without an end reaching it) can say
+#: which tunnel it was (`_loop_errors`). Plain data only: it holds no task, so nothing changes in
+#: when one is collected.
+FLOWS: dict[int, Flow] = {}
+
+
+def _track(flow: Flow) -> None:
+    task = asyncio.current_task()
+    if task is not None:
+        FLOWS[id(task)] = flow
+
+
+def _done(flow: Flow) -> None:
+    task = asyncio.current_task()
+    if task is not None and FLOWS.get(id(task)) is flow:
+        del FLOWS[id(task)]
+    level, text = flow.line()
+    log.log(level, "%s", text)
+
+
+def _how(exc: BaseException) -> str:
+    text = re.sub(r"\s+", " ", str(exc))[:120]
+    return f"{type(exc).__name__}: {text}" if text else type(exc).__name__
+
+
+def _loop_errors(loop, context: dict) -> None:
+    """asyncio's own errors, with the tunnel named when it is one of ours."""
+    task = context.get("task")
+    flow = FLOWS.pop(id(task), None) if task is not None else None
+    if flow is not None and "destroyed but it is pending" in str(context.get("message", "")):
+        flow.ended("both", "lost: asyncio destroyed its task while pending, no end reached it")
+        log.warning("%s", flow.line()[1])
+        return
+    loop.default_exception_handler(context)
+
+
+async def pipe(reader: asyncio.StreamReader, writer: asyncio.StreamWriter, flow: Flow | None = None,
+               side: str = "") -> None:
+    """One way of a tunnel: `side` is whose reader this is ("client" or "upstream")."""
     try:
         while True:
             data = await reader.read(65536)
             if not data:
+                if flow is not None:
+                    flow.ended(side, "eof")
                 break
+            if flow is not None:
+                if side == "client":
+                    flow.up += len(data)
+                else:
+                    flow.down += len(data)
             writer.write(data)
             await writer.drain()
-    except (ConnectionError, asyncio.IncompleteReadError, OSError):
-        pass
+    except (ConnectionError, asyncio.IncompleteReadError, OSError) as exc:
+        if flow is not None:
+            # A write that failed is the other side's end: it was the one that went away.
+            flow.ended(side, _how(exc))
+    except asyncio.CancelledError:
+        if flow is not None:
+            flow.ended(side, "cancelled")
+        raise
     finally:
         with contextlib.suppress(Exception):
             if writer.can_write_eof():
                 writer.write_eof()
 
 
-async def splice(a_reader, a_writer, b_reader, b_writer) -> None:
-    """Both ways at once, until both sides are done."""
-    await asyncio.gather(pipe(a_reader, b_writer), pipe(b_reader, a_writer))
-    for w in (a_writer, b_writer):
-        with contextlib.suppress(Exception):
-            w.close()
+async def splice(a_reader, a_writer, b_reader, b_writer, flow: Flow | None = None) -> None:
+    """Both ways at once, until both sides are done. `a` is the client, `b` the upstream."""
+    if flow is not None:
+        _track(flow)
+    try:
+        await asyncio.gather(pipe(a_reader, b_writer, flow, "client"),
+                             pipe(b_reader, a_writer, flow, "upstream"))
+    finally:
+        for w in (a_writer, b_writer):
+            with contextlib.suppress(Exception):
+                w.close()
+        if flow is not None:
+            _done(flow)
 
 
 async def tunnel(reader, writer, target: str, who: Who = NOBODY) -> None:
@@ -750,7 +854,7 @@ async def tunnel(reader, writer, target: str, who: Who = NOBODY) -> None:
         return await answer(writer, "502 Bad Gateway", f"could not reach {host}:{port}\n")
     writer.write(b"HTTP/1.1 200 Connection established\r\n\r\n")
     await writer.drain()
-    await splice(reader, writer, up_reader, up_writer)
+    await splice(reader, writer, up_reader, up_writer, Flow("CONNECT", f"{host.lower()}:{port}", who))
 
 
 async def forward_plain(reader, writer, first: str, headers, url: str, who: Who = NOBODY) -> None:
@@ -778,10 +882,11 @@ async def forward_plain(reader, writer, first: str, headers, url: str, who: Who 
         return await answer(writer, "502 Bad Gateway", f"could not reach {host}:{port}\n")
     up_writer.write(build_head(f"{method} {path} {version}", kept))
     await up_writer.drain()
-    await splice(reader, writer, up_reader, up_writer)
+    await splice(reader, writer, up_reader, up_writer, Flow("HTTP", f"{host.lower()}:{port}", who))
 
 
-async def with_key(reader, writer, first: str, headers, prefix: str, route: dict) -> None:
+async def with_key(reader, writer, first: str, headers, prefix: str, route: dict,
+                   who: Who = NOBODY) -> None:
     """``/anthropic/...`` or ``/openai/...``: to that company's API, with the key added."""
     key = read_key(route["file"])
     if not key:
@@ -797,18 +902,33 @@ async def with_key(reader, writer, first: str, headers, prefix: str, route: dict
     kept += [("Host", upstream.netloc), route["header"](key), ("Connection", "close")]
     secure = upstream.scheme == "https"
     await relay(reader, writer, build_head(f"{method} {path} {version}", kept), upstream.hostname,
-                upstream.port or (443 if secure else 80), secure, route["name"])
+                upstream.port or (443 if secure else 80), secure, route["name"], who=who)
 
 
 async def relay(reader, writer, head: bytes, host: str, port: int, secure: bool, name: str,
-                note: tuple[str, str] | None = None) -> None:
+                note: tuple[str, str] | None = None, who: Who = NOBODY) -> None:
     """One request, its head already made, to host:port, and its answer back with
     Connection: close (and `note`, a header of this proxy's own, when given)."""
+    method, _, rest = head.split(b"\r\n", 1)[0].decode("latin-1").partition(" ")
+    flow = Flow(name, f"{method} {urlsplit(rest.rpartition(' ')[0]).path}", who)
+    _track(flow)
+    try:
+        await _relay(reader, writer, head, host, port, secure, name, note, flow)
+    except BaseException as exc:
+        flow.ended("proxy", "cancelled" if isinstance(exc, asyncio.CancelledError) else _how(exc))
+        raise
+    finally:
+        _done(flow)
+
+
+async def _relay(reader, writer, head: bytes, host: str, port: int, secure: bool, name: str,
+                 note: tuple[str, str] | None, flow: Flow) -> None:
     try:
         up_reader, up_writer = await asyncio.wait_for(asyncio.open_connection(
             host, port, ssl=ssl.create_default_context() if secure else None,
             server_hostname=host if secure else None), 20)
-    except (OSError, asyncio.TimeoutError, ssl.SSLError):
+    except (OSError, asyncio.TimeoutError, ssl.SSLError) as exc:
+        flow.ended("upstream", "unreachable " + _how(exc))
         return await answer(writer, "502 Bad Gateway", {
             "type": "error", "error": {"type": "unreachable", "message": f"Could not reach {name}."}})
     up_writer.write(head)
@@ -816,7 +936,7 @@ async def relay(reader, writer, head: bytes, host: str, port: int, secure: bool,
     # The answer's head is read so it can say Connection: close: a client that
     # kept the connection for a second request would send it to a socket this
     # proxy has already handed back.
-    body = asyncio.create_task(pipe(reader, up_writer))
+    body = asyncio.create_task(pipe(reader, up_writer, flow, "client"))
     try:
         while True:
             reply_first, reply_headers = parse_head(await read_head(up_reader))
@@ -827,15 +947,16 @@ async def relay(reader, writer, head: bytes, host: str, port: int, secure: bool,
                 await writer.drain()
                 continue
             break
-    except (asyncio.IncompleteReadError, asyncio.LimitOverrunError, ValueError, ConnectionError):
+    except (asyncio.IncompleteReadError, asyncio.LimitOverrunError, ValueError, ConnectionError) as exc:
         body.cancel()
+        flow.ended("upstream", "before its answer's head " + _how(exc))
         return await answer(writer, "502 Bad Gateway", "the API closed the connection\n")
     reply_headers = [(n, v) for n, v in reply_headers if n.lower() not in ("connection", "keep-alive")]
     if note:
         reply_headers.append(note)
     writer.write(build_head(reply_first, reply_headers + [("Connection", "close")]))
     await writer.drain()
-    await pipe(up_reader, writer)
+    await pipe(up_reader, writer, flow, "upstream")
     body.cancel()
     for w in (writer, up_writer):
         with contextlib.suppress(Exception):
@@ -879,8 +1000,9 @@ async def github(reader, writer, method: str, host: str, path: str, version: str
         up = urlsplit(GITHUB_UPSTREAM)
         secure = up.scheme == "https"
         return await relay(reader, writer, build_head(f"{method} {path} {version}", kept), up.hostname,
-                           up.port or (443 if secure else 80), secure, "GitHub", note)
-    await relay(reader, writer, build_head(f"{method} {path} {version}", kept), host, 443, True, "GitHub", note)
+                           up.port or (443 if secure else 80), secure, "GitHub", note, who)
+    await relay(reader, writer, build_head(f"{method} {path} {version}", kept), host, 443, True, "GitHub",
+                note, who)
 
 
 def host_name(value: str) -> str:
@@ -927,7 +1049,7 @@ async def handle(reader: asyncio.StreamReader, writer: asyncio.StreamWriter) -> 
         for prefix, route in ROUTES.items():
             if target == prefix or target.startswith(prefix + "/"):
                 log.info("%s %s%s", method, route["name"], urlsplit(target).path[len(prefix):])
-                return await with_key(reader, writer, first, headers, prefix, route)
+                return await with_key(reader, writer, first, headers, prefix, route, who)
         return await answer(writer, "404 Not Found", "not a path this proxy serves\n")
     except Exception:
         log.exception("a request failed")
@@ -937,6 +1059,7 @@ async def handle(reader: asyncio.StreamReader, writer: asyncio.StreamWriter) -> 
 
 
 async def main() -> None:
+    asyncio.get_running_loop().set_exception_handler(_loop_errors)
     server = await asyncio.start_server(handle, "0.0.0.0", PORT, limit=HEAD_LIMIT * 2)
     log.info("key proxy listening on %d; keys from %s", PORT, KEYS_DIR)
     async with server:
