@@ -4592,6 +4592,135 @@
     "rouh/web/easy_start.py",
     "rouh/static/app/easy_start.js"
    ]
+  },
+  "n57-screen-errors": {
+   "name": "A run's brief carries the screen's errors too",
+   "what": "Each script error of Rouh's page in the person's browser, and each request Rouh's server answered with a failure, is kept for two hours, secrets taken out, and handed to every run of Rouh's own code at the end of its brief.",
+   "switch": "screen_errors",
+   "signals": {
+    "events": {
+     "briefed": "A run of Rouh's code you started was handed what had broken on your screen lately"
+    }
+   },
+   "files": [
+    "rouh/build_more.py",
+    "rouh/web/build_more.py",
+    "rouh/static/app/build_more.js"
+   ]
+  },
+  "n57-request-broke": {
+   "name": "A failed request says so",
+   "what": "A request of Rouh's page that the server answered with a failure (500 and over) is said once as a notice, with Fix it, which opens Start a run on Rouh's code with the request, its answer and the screen written, or Copy the details.",
+   "switch": "request_broke",
+   "signals": {
+    "events": {
+     "opened": "You pressed Fix it on a notice that a request had failed",
+     "copied": "You pressed Copy the details on a notice that a request had failed"
+    }
+   },
+   "files": [
+    "rouh/build_more.py",
+    "rouh/web/build_more.py",
+    "rouh/static/app/build_more.js"
+   ]
+  },
+  "n57-screen-trouble": {
+   "name": "What went wrong here",
+   "what": "The menu's What went wrong here lists every script error and failed request the screen had since it was opened, with Fix them in one run and Copy the details.",
+   "switch": "screen_trouble",
+   "signals": {
+    "events": {
+     "opened": "You pressed What went wrong here in the menu",
+     "fixed": "You pressed Fix them in one run under What went wrong here"
+    }
+   },
+   "files": [
+    "rouh/build_more.py",
+    "rouh/web/build_more.py",
+    "rouh/static/app/build_more.js",
+    "rouh/genes/manifests/n57-screen-trouble.json"
+   ]
+  },
+  "n57-brief-check": {
+   "name": "What a good brief says, as you write it",
+   "what": "Under Start a run's brief, on Rouh's code, four marks (Where, What is wrong, What it should do, How to see it) are ticked as their words are typed, with a line of what is still to say.",
+   "switch": "brief_check",
+   "signals": {
+    "events": {
+     "complete": "You typed a brief for Rouh's code that says all four: where, what is wrong, what it should do and how to see it"
+    }
+   },
+   "files": [
+    "rouh/build_more.py",
+    "rouh/web/build_more.py",
+    "rouh/static/app/build_more.js"
+   ]
+  },
+  "n57-key-kept": {
+   "name": "A refused key stays in its box",
+   "what": "On the Models page an AI key Rouh refused stays in the box it was typed in, with the reason under that company's row and the cursor in the box, instead of being emptied with the reason at the top of the page.",
+   "switch": "key_kept",
+   "signals": {
+    "events": {
+     "kept": "An AI key you typed on the Models page was refused, and stayed in its box with the reason under it",
+     "saved": "You put a refused AI key right in its box and it was saved"
+    }
+   },
+   "files": [
+    "rouh/new_here.py",
+    "rouh/web/new_here.py",
+    "rouh/static/app/new_here.js",
+    "rouh/static/app/runs.js"
+   ]
+  },
+  "n57-caps-lock": {
+   "name": "Caps Lock is on",
+   "what": "Every password box of the pages in front of the sign-in says Caps Lock is on under it while it is.",
+   "switch": "caps_lock",
+   "signals": {
+    "events": {
+     "warned": "You were told Caps Lock was on while typing your password, and then signed in"
+    }
+   },
+   "files": [
+    "rouh/new_here.py",
+    "rouh/web/new_here.py",
+    "rouh/static/app/new_here.js",
+    "rouh/static/new_here_signin.js",
+    "rouh/templatetags/rouh_new_here.py"
+   ]
+  },
+  "n57-show-password": {
+   "name": "Show the password",
+   "what": "Every password box of the pages in front of the sign-in has Show, which shows what was typed, and Hide again.",
+   "switch": "show_password",
+   "signals": {
+    "events": {
+     "shown": "You pressed Show in a password box, and then signed in"
+    }
+   },
+   "files": [
+    "rouh/new_here.py",
+    "rouh/web/new_here.py",
+    "rouh/static/app/new_here.js",
+    "rouh/static/new_here_signin.js",
+    "rouh/templatetags/rouh_new_here.py"
+   ]
+  },
+  "n57-tap-choices": {
+   "name": "Answer with a press",
+   "what": "When Rouh's newest answer asks which of a short list you want, each choice is a button under it, and a press sends it as your answer.",
+   "switch": "tap_choices",
+   "signals": {
+    "events": {
+     "tapped": "You pressed one of the choices under Rouh's answer, and it was sent as your answer"
+    }
+   },
+   "files": [
+    "rouh/new_here.py",
+    "rouh/web/new_here.py",
+    "rouh/static/app/new_here.js"
+   ]
   }
  }
 }

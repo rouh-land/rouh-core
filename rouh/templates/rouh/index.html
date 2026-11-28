@@ -523,10 +523,14 @@ with {% asset %}, which gives it its hashed address.
         {{ FIRST_WEEK|json_script:"rouhFirstWeek" }}
         {{ BUILD_FLOW|json_script:"rouhBuildFlow" }}
         {{ EASY_START|json_script:"rouhEasyStart" }}
+        {{ BUILD_MORE|json_script:"rouhBuildMore" }}
+        {{ NEW_HERE|json_script:"rouhNewHere" }}
         {# Change something here, pressed by its link in the menu (`rouh/build_proof.py`, point_change). #}
         <button id="pointChangeBtn" type="button" hidden>Change something here</button>
         {# See it on a phone, pressed by its link in the menu (`rouh/build_flow.py`, phone_view). #}
         <button id="phoneViewBtn" type="button" hidden>See it on a phone</button>
+        {# What went wrong here, pressed by its link in the menu (`rouh/build_more.py`, screen_trouble). #}
+        <button id="screenTroubleBtn" type="button" hidden>What went wrong here</button>
         {{ PLAINER|json_script:"rouhPlainer" }}
         <script>
         /* The group to show before anything is painted: the one holding the page

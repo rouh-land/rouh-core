@@ -4140,3 +4140,44 @@ print(json.dumps({"page": sorted(page["on"]), "slash": [x["id"] for x in page["s
            and '"state": ["on", "ready"]' in out and '"file": true' in out
            and '"counted": true' in out and '"refused": false' in out,
            f"the easy start genes did not do what they should: {out[-600:]}")
+
+
+@check("gene.build-more")
+def build_more(s: Stack) -> None:
+    """The page is told which are on; a screen's failure is kept with a key taken out and handed to a
+    run of Rouh's code only; a use is counted while a wrong one is refused."""
+    out = core_py(s, _owner_py("""
+from rouh import build_more
+page = build_more.for_page(who)
+kept = build_more.report(who, "request", "POST /api/x was answered 500: sk-abcdefghijklmnop", "/api/x", "/models")
+code = build_more.for_code_run({"space": "rouh"}, "", who.org_id)
+other = build_more.for_code_run({"space": "assistant"}, "", who.org_id)
+print(json.dumps({"page": sorted(page["on"]), "kept": kept,
+    "brief": "Failed request, on /models" in code and "[taken out]" in code and "sk-abcd" not in code,
+    "other": other, "counted": build_more.used(who, "screen_trouble", "opened", "0 on /"),
+    "refused": build_more.used(who, "screen_errors", "briefed", "x")}))
+"""))
+    expect('"brief_check", "request_broke", "screen_errors", "screen_trouble"' in out and '"kept": true' in out
+           and '"brief": true' in out and '"other": ""' in out
+           and '"counted": true' in out and '"refused": false' in out,
+           f"the build more genes did not do what they should: {out[-600:]}")
+
+
+@check("gene.new-here")
+def new_here(s: Stack) -> None:
+    """The page is told which are on; the sign-in page loads Caps Lock and Show; a use is counted while
+    a wrong one is refused."""
+    out = core_py(s, _owner_py("""
+from rouh import new_here
+page = new_here.for_page(who)
+print(json.dumps({"page": sorted(page["on"]), "signin": sorted(new_here.for_signin()),
+    "counted": new_here.used(who, "tap_choices", "tapped", "A quiet start"),
+    "refused": new_here.used(who, "caps_lock", "shown", "x")}))
+"""))
+    expect('"caps_lock", "key_kept", "show_password", "tap_choices"' in out
+           and '"signin": ["caps_lock", "show_password"]' in out
+           and '"counted": true' in out and '"refused": false' in out,
+           f"the new here genes did not do what they should: {out[-600:]}")
+    code, body, _ = s.get("/login", cookie=False)
+    expect(code == 200 and "rouhNewHereSignin" in body and "new_here_signin.js" in body,
+           "the sign-in page does not load Caps Lock is on and Show the password")

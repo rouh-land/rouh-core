@@ -7,6 +7,7 @@ import { subscriptionsLoad } from "app/subscriptions.js";
 import { ago, byStart, JOBVIEW, jobViewing, markSeen, railPaint, renderTasks, runsShowing,
   SHOW_ARCHIVED, since, taskCard, taskRecs } from 'app/tasks.js';
 import { shared } from 'app/shared.js';
+import { newHereOn, newHereUsed } from 'app/new_here.js';
 import { $, browserTakes, el, esc, linkTo, safeParse, siloChip } from 'app/helpers.js';
 import { anatomyGroups, anatomyMoved, navNowCount } from 'app/navgroups.js';
 import { drop, load, store } from 'app/settings.js';
@@ -10737,8 +10738,14 @@ function providersDraw(d, locked) {
           if (!input.value.trim()) return;
           // The key leaves the page with this one request and is not kept in it.
           var typed = input.value;
-          input.value = '';
-          keySave(p.id, typed, null);
+          // A refused key stays in its box with the reason under it (`rouh/new_here.py`, key_kept);
+          // it is still never kept anywhere but the box it was typed in.
+          if (newHereOn('key_kept')) {
+            keySave(p.id, typed, keyKeptDone(form, input, p.name), keyKeptRefused(form, input, p.name));
+          } else {
+            input.value = '';
+            keySave(p.id, typed, null);
+          }
           typed = '';
         });
         drop.addEventListener('click', function () { keySave(p.id, '', null); });
@@ -10853,7 +10860,46 @@ function serverSave(sent) {
   });
 }
 
-function keySave(provider, key, then) {
+/** key_kept: what a refused key's row says, under its box, and the box ready to be put right.
+ * @param {HTMLElement} form @param {HTMLInputElement} input @param {string} name */
+function keyKeptRefused(form, input, name) {
+  return function (/** @type {string} */ why) {
+    // Under the row, not inside its form, so the box keeps its place beside the company's name.
+    var row = /** @type {HTMLElement} */ (form.parentNode);
+    var said = /** @type {HTMLElement | null} */ (row.querySelector('.prov-refused'));
+    if (!said) {
+      said = el('p', 'prov-refused');
+      said.id = 'provRefused-' + Math.random().toString(36).slice(2, 8);
+      said.setAttribute('role', 'alert');
+      row.insertBefore(said, form.nextSibling);
+    }
+    said.textContent = why;
+    input.setAttribute('aria-invalid', 'true');
+    input.setAttribute('aria-describedby', said.id);
+    form.setAttribute('data-refused', '1');
+    input.focus();
+    input.select();
+    newHereUsed('key_kept', 'kept', name);
+  };
+}
+
+/** key_kept: a key saved, so the box is emptied, and a refusal before it is forgotten.
+ * @param {HTMLElement} form @param {HTMLInputElement} input @param {string} name */
+function keyKeptDone(form, input, name) {
+  return function () {
+    input.value = '';
+    input.removeAttribute('aria-invalid');
+    input.removeAttribute('aria-describedby');
+    var said = form.parentNode ? /** @type {HTMLElement} */ (form.parentNode).querySelector('.prov-refused') : null;
+    if (said) said.remove();
+    if (form.getAttribute('data-refused')) newHereUsed('key_kept', 'saved', name);
+    form.removeAttribute('data-refused');
+  };
+}
+
+/** @param {string} provider @param {string} key @param {(() => void) | null} then
+ *  @param {((why: string) => void) | null} [refused] said beside the box instead of at the top */
+function keySave(provider, key, then, refused) {
   if (MODELS.saving) return;
   MODELS.saving = true;
   modelsDraw();
@@ -10866,7 +10912,8 @@ function keySave(provider, key, then) {
     MODELS.saving = false;
     if (answer.out && answer.out.tiers) MODELS.data = answer.out;
     modelsDraw();
-    if (!answer.ok) settingsSay(answer.out.error || 'That was not saved.', 'bad');
+    if (!answer.ok && refused) refused(answer.out.error || 'That key was not saved.');
+    else if (!answer.ok) settingsSay(answer.out.error || 'That was not saved.', 'bad');
     else {
       // A key that was another company's was kept as that company's (key_clean): say so.
       if (answer.out && answer.out.said) settingsSay(answer.out.said, 'good');

@@ -488,6 +488,12 @@ async def start(*, brief: str, title: str = "", preset: str = "",
     asked = brief
     if errors:
         brief = brief + "\n\n" + errors
+    # And what broke on the person's own screen lately (`rouh/build_more.py`, screen_errors).
+    from . import build_more
+
+    seen = await asyncio.to_thread(build_more.for_code_run, where, preset, org_id or None)
+    if seen:
+        brief = brief + "\n\n" + seen
     # The task this run is for, when it is one task's: its record follows the
     # agent instructions every run starts with (`rouh/agent_instructions.py`).
     in_play = await asyncio.to_thread(_task_in_play, chat, owner)

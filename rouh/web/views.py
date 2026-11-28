@@ -1081,6 +1081,28 @@ def _easy_start(request: HttpRequest) -> dict:
         return {"on": []}
 
 
+def _build_more(request: HttpRequest) -> dict:
+    """Which of night 57's four genes for building Rouh faster are on here (`rouh/build_more.py`)."""
+    from rouh import build_more
+
+    try:
+        return build_more.for_page(who(request))
+    except Exception:
+        log.warning("build_more: not read for the page", exc_info=True)
+        return {"on": []}
+
+
+def _new_here(request: HttpRequest) -> dict:
+    """Which of night 57's four genes for somebody new are on here (`rouh/new_here.py`)."""
+    from rouh import new_here
+
+    try:
+        return new_here.for_page(who(request))
+    except Exception:
+        log.warning("new_here: not read for the page", exc_info=True)
+        return {"on": []}
+
+
 def _newcomer(request: HttpRequest) -> dict:
     """Which of night 51's four genes for a newcomer are on here, and what they need (`rouh/newcomer.py`)."""
     from rouh import newcomer
@@ -1187,6 +1209,8 @@ def _page_for(request: HttpRequest) -> HttpResponse:
         "BUILD_FLOW": _build_flow(request),
         # Chat ready once a key is saved, the home screen, Save this chat, Type / (`rouh/easy_start.py`).
         "EASY_START": _easy_start(request),
+        "BUILD_MORE": _build_more(request),
+        "NEW_HERE": _new_here(request),
         # Say it more simply, under an answer (`rouh/say_plainer.py`).
         "PLAINER": _plainer(request),
         # The open orb's music: Rouh's own, or the Cornfield Chase arrangement where its switch is on.

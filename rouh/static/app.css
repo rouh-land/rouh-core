@@ -12631,3 +12631,38 @@ html.fw-ts-biggest #transcript, html.fw-ts-biggest #input { zoom: 1.3; }
 /* Save this chat as a file, at the foot of Chat Options (`rouh/easy_start.py`, chat_save). */
 .reading-sec.es-save { padding-top: 10px; border-top: 1px solid var(--line); }
 .es-save-btn { min-height: 44px; padding: 0 14px; }
+
+/* What went wrong here (`rouh/build_more.py`, screen_trouble): this screen's errors since it opened. */
+.trouble-dialog { width: min(560px, calc(100vw - 32px)); }
+.trouble-list { list-style: none; margin: 10px 0 0; padding: 0; display: grid; gap: 8px; max-height: 50vh; overflow: auto; }
+.trouble-item { display: grid; gap: 2px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 10px;
+  background: var(--panel-2); min-width: 0; }
+.trouble-kind { font-size: 12px; font-weight: 600; color: var(--warn); }
+.trouble-what { font-size: 14px; line-height: 1.45; color: var(--text); overflow-wrap: anywhere; }
+.trouble-when { font-size: 12px; color: var(--dim); overflow-wrap: anywhere; }
+.trouble-say { margin: 8px 0 0; font-size: 14px; line-height: 1.45; color: var(--text); }
+.trouble-none { margin: 6px 0 0; font-size: 13px; line-height: 1.45; color: var(--dim); }
+.trouble-dialog .one-actions .ctl { min-height: 44px; }
+/* What a good brief says, under Start a run's brief (`rouh/build_more.py`, brief_check). */
+#oneStartForm .brief-check { margin: 6px 0 0; display: grid; grid-template-columns: minmax(0, 1fr); gap: 6px; }
+#oneStartForm .brief-check[hidden] { display: none; }
+.brief-check-marks { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 6px 14px; }
+.brief-check-mark { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; color: var(--dim); }
+.brief-check-tick { width: 15px; height: 15px; border-radius: 50%; border: 1.5px solid var(--dimmer);
+  display: inline-grid; place-items: center; flex: none; transition: background .15s, border-color .15s; }
+.brief-check-mark.met { color: var(--text); }
+.brief-check-mark.met .brief-check-tick { background: var(--good); border-color: var(--good); }
+.brief-check-mark.met .brief-check-tick::before { content: ""; width: 6px; height: 3px; margin-top: -2px;
+  border: solid var(--bg); border-width: 0 0 2px 2px; transform: rotate(-45deg); }
+.brief-check-say { margin: 0; font-size: 13px; line-height: 1.45; color: var(--dim); }
+@media (prefers-reduced-motion: reduce) { .brief-check-tick { transition: none; } }
+/* A refused key, kept in its box with the reason under it (`rouh/new_here.py`, key_kept). */
+.prov-refused { flex-basis: 100%; margin: 6px 0 0; font-size: 13px; line-height: 1.45; color: var(--bad); }
+.prov-key[aria-invalid="true"] { border-color: var(--bad); }
+/* Answer with a press (`rouh/new_here.py`, tap_choices): the choices Rouh's answer offers. */
+.tap-choices { display: flex; flex-wrap: wrap; gap: 8px; margin: 8px 0 4px; }
+.tap-choice { min-height: 44px; padding: 8px 14px; border-radius: 999px; border: 1px solid var(--line);
+  background: var(--panel-2); color: var(--text); font: inherit; font-size: 14px; line-height: 1.3;
+  cursor: pointer; text-align: left; max-width: 100%; overflow-wrap: anywhere; }
+.tap-choice:hover { border-color: var(--accent); color: var(--accent); }
+.tap-choice:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }

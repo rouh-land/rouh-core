@@ -1,0 +1,40 @@
+{
+  "id": "n57-screen-trouble",
+  "name": "What went wrong here",
+  "title": "What went wrong here: every script error and failed request this screen had, with Fix them in one run",
+  "aliases": [
+    "what went wrong here",
+    "what went wrong",
+    "errors on this screen",
+    "what broke",
+    "screen errors"
+  ],
+  "group": "evolution",
+  "route": "/metabolism",
+  "icon": "<path d=\"M12 3l9 16H3z\"/><path d=\"M12 10v4\"/><path d=\"M12 17h.01\"/>",
+  "attaches_to": [],
+  "maturity": "lab",
+  "switch": "screen_trouble",
+  "signals": {
+    "events": {
+      "opened": "You pressed What went wrong here in the menu",
+      "fixed": "You pressed Fix them in one run under What went wrong here"
+    }
+  },
+  "nav": {
+    "place": "list",
+    "opens": "press",
+    "press": "screenTroubleBtn",
+    "order": 47
+  },
+  "touches": {
+    "permissions": [],
+    "accounts": [],
+    "tables": [],
+    "jobs": [],
+    "remove": "Turn the switch screen_trouble off on its row in Evolution, Mutations, and What went wrong here is gone from the menu; to remove it for good revert night 57's commit (rouh/build_more.py, rouh/web/build_more.py, rouh/static/app/build_more.js, #screenTroubleBtn in rouh/templates/rouh/index.html, the trouble styles in rouh/static/app.css, this manifest)."
+  },
+  "uses": {
+    "tools": []
+  }
+}
