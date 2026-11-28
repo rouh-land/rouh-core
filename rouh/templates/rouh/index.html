@@ -848,17 +848,6 @@ with {% asset %}, which gives it its hashed address.
            named. {% endcomment %}
       <div class="crumb">
         <h2 class="sr-only">Transcript</h2>
-        {% comment %} Hide the chat, at the outer end of its own head, its chevron
-             pointing the way it goes; the canvas has the same at the outer end
-             of its own (`#canvasHide`). Only at a desk, and only while the
-             canvas is there to take the room. {% endcomment %}
-        <button id="chatHide" class="crumb-act panel-hide" type="button"
-                aria-controls="chatCol" aria-label="Hide the chat" title="Hide the chat">
-          <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" fill="none"
-               stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
-            <rect x="3.5" y="3.5" width="17" height="17" rx="2.5"/><path d="M9 3.5v17"/><path d="m15.5 15-3-3 3-3"/>
-          </svg>
-        </button>
         {% comment %} Where this chat stands on its strip of forks, at a desk: back to
              the chat it came off, the count (its place and how many there
              are, which opens the whole path), and on to the fork from it.
@@ -1020,6 +1009,19 @@ with {% asset %}, which gives it its hashed address.
             <button type="button" class="cot-btn danger" id="incogAskGo">Delete and close</button>
           </div>
         </div>
+        {% comment %} Hide the chat, at the inner end of its own head, after the
+             acts and beside the blue line, its chevron pointing the way it
+             goes; the canvas has the same at the inner end of its own
+             (`#canvasHide`). Petar, 28 November 2026: "move the hide icons on
+             the inside, next to the blue line". Only at a desk, and only while the
+             canvas is there to take the room. {% endcomment %}
+        <button id="chatHide" class="crumb-act panel-hide" type="button"
+                aria-controls="chatCol" aria-label="Hide the chat" title="Hide the chat">
+          <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" fill="none"
+               stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="3.5" y="3.5" width="17" height="17" rx="2.5"/><path d="M9 3.5v17"/><path d="m15.5 15-3-3 3-3"/>
+          </svg>
+        </button>
         {% comment %} The one menu every three dots open (`menu.js`, `menu.css`): an
              icon and a short word on each item, because the menu is already
              on the chat and "this chat" after every verb said it five times.
@@ -1629,7 +1631,7 @@ with {% asset %}, which gives it its hashed address.
          job. Hidden in the markup as well as by `drawCrumb`, so the row is
          never drawn for the moment between the page arriving and the script
          running: it opens on the bare canvas, where it does not belong. {% endcomment %}
-    {% comment %} Hide the canvas, at the outer end of whatever heads it: a card's
+    {% comment %} Hide the canvas, at the inner end of whatever heads it, beside the blue line: a card's
          head, the breadcrumb, a page's or a run's head, each of which keeps
          the room for it (`--canvas-corner` in app.css). {% endcomment %}
     <button id="canvasHide" class="crumb-act panel-hide" type="button"

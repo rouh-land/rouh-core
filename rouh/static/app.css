@@ -294,9 +294,11 @@ button { font: inherit; color: inherit; }
 
 /* ---------- Chat and Canvas: each hides itself, and leaves a rail ----------
 
-   At a desk only. Each panel hides itself from the outer end of its own head
-   (`.panel-hide`: `#chatHide` at the start of the conversation's head,
-   `#canvasHide` at the end of whatever heads the canvas), and a panel put
+   At a desk only. Each panel hides itself from the inner end of its own head,
+   right beside the blue line between them (`.panel-hide`: `#chatHide` at the
+   end of the conversation's head, `#canvasHide` at the start of whatever
+   heads the canvas; Petar, 28 November 2026: "move the hide icons on the
+   inside, next to the blue line"), and a panel put
    away is a narrow rail at its own side of the screen, its glyph over its
    name, which brings it back (`.panel-rail`). The one panel left open has
    no Hide. Petar's mockups of 24 October 2026 (fr_5b66b98dfb63); until then
@@ -354,21 +356,22 @@ button { font: inherit; color: inherit; }
 @media (prefers-reduced-motion: reduce) { .panel-rail { transition: none; animation: none; } }
 
 /* The canvas's Hide is the canvas's own and not any one head's, so it sits
-   in the canvas's top right corner, level with the end of the head under
-   it, and every head the canvas can have keeps `--canvas-corner` clear at
-   its end: a card's (the first, which is the one at the top), the
-   breadcrumb, and the head of each page, run or panel laid over the canvas. */
-#canvasHide { position: absolute; z-index: 5; top: 8px; right: 8px; }
+   in the canvas's top left corner, beside the line between the panels and
+   level with the start of the head under it, and every head the canvas can
+   have keeps `--canvas-corner` clear at its start: a card's (the first,
+   which is the one at the top), the breadcrumb, and the head of each page,
+   run or panel laid over the canvas. */
+#canvasHide { position: absolute; z-index: 5; top: 8px; left: 8px; }
 @media (min-width: 900px) {
   .canvas { --canvas-corner: 32px; }
-  .app:not(.no-chat) .cards > .card:not(.card ~ .card) > .card-head { padding-right: calc(10px + var(--canvas-corner)); }
-  .app:not(.no-chat) .canvas > .canvas-bar { padding-right: calc(8px + var(--canvas-corner)); }
-  .app:not(.no-chat) .canvas-layer > .run-head { padding-right: calc(4px + var(--canvas-corner)); }
-  /* Level with the end of the first card's head, which is at the top of the
-     canvas (`.card.on-canvas > .card-head`). */
-  .canvas:has(> .cards > .card) > #canvasHide { top: calc(var(--top-air) + 1px); right: calc(var(--canvas-inset) + 9px); }
-  .canvas:has(> .canvas-layer:not([hidden]):not(.under)) > #canvasHide { top: 11px; right: 12px; }
-  .canvas:not(.covered):has(> .canvas-bar:not([hidden])) > #canvasHide { top: 4px; right: 4px; }
+  .app:not(.no-chat) .cards > .card:not(.card ~ .card) > .card-head { padding-left: calc(10px + var(--canvas-corner)); }
+  .app:not(.no-chat) .canvas > .canvas-bar { padding-left: calc(8px + var(--canvas-corner)); }
+  .app:not(.no-chat) .canvas-layer > .run-head { padding-left: calc(4px + var(--canvas-corner)); }
+  /* Level with the start of the first card's head, which is at the top of
+     the canvas (`.card.on-canvas > .card-head`). */
+  .canvas:has(> .cards > .card) > #canvasHide { top: calc(var(--top-air) + 1px); left: calc(var(--canvas-inset) + 9px); }
+  .canvas:has(> .canvas-layer:not([hidden]):not(.under)) > #canvasHide { top: 11px; left: 12px; }
+  .canvas:not(.covered):has(> .canvas-bar:not([hidden])) > #canvasHide { top: 4px; left: 4px; }
 }
 
 /* Between 900 and 1180 the conversation gives ground first: the sidebar is
@@ -2877,7 +2880,7 @@ input[type="range"]::-moz-range-thumb { width: 15px; height: 15px; border: 0; bo
 }
 #chatResize::after {
   top: 14px; bottom: 8px;
-  left: calc(50% - 2px); width: 4px;
+  left: calc(50% - 1.5px); width: 3px;
   background: color-mix(in srgb, var(--accent) 70%, transparent);
 }
 #chatResize:hover::after, #chatResize.dragging::after, #chatResize:focus-visible:not(.pointed)::after {

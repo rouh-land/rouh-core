@@ -852,7 +852,7 @@ function accountMenuPlace(menu, button) {
 /* ------------------------------------- the two panels: Chat and Canvas
 
    Petar, 24 October 2026 (fr_5b66b98dfb63), from his mockups: each panel
-   hides itself from the outer end of its own head (`#chatHide`,
+   hides itself from the inner end of its own head (`#chatHide`,
    `#canvasHide`), and a panel put away leaves a narrow rail at its own side
    of the screen, its glyph and its name, which brings it back (`#railChat`,
    `#railCanvas`). The one panel still open cannot be turned off: an empty
