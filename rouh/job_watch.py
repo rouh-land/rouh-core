@@ -155,9 +155,10 @@ def _said_failed(entry: dict) -> dict:
 
 
 def _base_patch(who, entry: dict) -> dict:
-    """The nightly base patch check: a level that passed and waits for the owner's approval to
-    publish is said as that, never as a failure (Petar, 28 November 2026: 1.0.12, 1.0.22 and 1.0.23
-    were said to have failed while each one waited for his yes); a level that failed is a failure."""
+    """The nightly base patch check: a level that passed and is merged but not yet published is
+    said as that, never as a failure (Petar, 28 November 2026: 1.0.12, 1.0.22 and 1.0.23 were said
+    to have failed while each one waited for his yes; since that day nothing waits for it, and a
+    level publishes by itself); a level that failed is a failure."""
     from . import base_patches
 
     rec = base_patches.record()

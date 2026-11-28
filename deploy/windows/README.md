@@ -8,7 +8,7 @@ Task 186. `deploy/container/INSTALL-WINDOWS.md` is the whole account; this is wh
 | Its build | `wsl/build.sh` | `docker build` and `docker export` as a `.wsl` file, without the container's own files |
 | Its check on Linux | `wsl/check-image.sh` | the file, then booted with systemd and Rouh installed in it from the live release |
 | Its signed record | `wsl_image.py` | each file's SHA-256, signed with Rouh's release key; rouh.land serves it at `/windows/wsl/stable.json` |
-| Built at GitHub | `../../.github/workflows/wsl-image.yml` | x64 and Arm; on main, released as `wsl-<version>` and signed (the release-signing environment's Approve) |
+| Built at GitHub | `../../.github/workflows/wsl-image.yml` | x64 and Arm; on main, released as `wsl-<version>` and signed in the release-signing environment, with nobody asked |
 | The installer | rouh-land `rouhit/install/install.ps1` | `irm https://rouh.land/install.ps1 \| iex` |
 | The tray app | `rouh-land/rouh-windows` | Tauri, `.msi`, carries the installer |
 | The release check | `release-check/` | what a real Windows computer proves before rouh.land offers Windows |

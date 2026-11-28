@@ -13,8 +13,8 @@
 # Runs for every push to main that touches deploy/windows/, for a branch proof/wsl-*, and by hand.
 # On main (or by hand with publish), when both check out: the GitHub Release wsl-<version> with
 # both files and their SHA-256s, then the record signed with Rouh's release key in the
-# release-signing environment, which waits for its reviewer's Approve as a base release does, and
-# sent to rouh.land, /windows/wsl/stable.json. A proof branch publishes nothing; its results are
+# release-signing environment, which has no required reviewer (Petar, 28 November 2026: nothing
+# waits on his signoff), and sent to rouh.land, /windows/wsl/stable.json. A proof branch publishes nothing; its results are
 # pushed to proof/wsl-results-<run> (artifacts cannot be read from a Rouh's worker).
 
 name: WSL image
@@ -26,7 +26,7 @@ on:
   workflow_dispatch:
     inputs:
       publish:
-        description: Publish the release and its signed record (needs the release-signing environment's Approve)
+        description: Publish the release and its signed record (signed in the release-signing environment, with nobody asked)
         type: boolean
         default: false
       install:

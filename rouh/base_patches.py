@@ -24,20 +24,23 @@ and this job keeps it patched:
    ``base-<level>``, and publish it as a signed release of format 2 that moves rouh.land's
    /mac/release/stable.json - "latest" - to it, with its records on the GitHub Release
    ``base-<level>``. A failed one stays open on GitHub, saying what failed.
-   The publish job runs in the environment release-signing, which waits for the owner's yes on
-   GitHub (its Review deployments button). Nobody but the owner gives it, and nothing here goes
-   round it.
+   The publish job runs in the environment release-signing, which holds the release key and has
+   no required reviewer: a level that passed is published by itself, with nobody asked (Petar,
+   28 November 2026: "I don't want it to wait on me. why does it have to wait on my signoff?").
+   Until that day it waited for his Review deployments press, and 1.0.21 to 1.0.23 waited days.
 3. **Say how it went.** This reads git only, as its key allows: the tag ``base-<level>`` is a
    published level; the ref ``refs/base-failed/<level>``, an annotated tag the workflow writes,
    is a failed one, with which job and step in its message. It watches for up to three hours, and
    again the next night, and a failure is told to the owner once: which update, which step, the
-   pull request. A level that passed and is merged into main but has no tag yet is **waiting for
-   the owner's approval** to publish, never failed: main holds only a level whose checks passed,
-   and the merge job leaves the tag ``base-waiting-<level>`` saying which run waits (the run
-   whose Review deployments page is the one press there is to make). That is told once a level,
-   with that link, and the level pushed after it is said to be queued behind it (base.yml's runs
-   are one at a time, so it does not start until the one ahead is done), not timed out; it is
-   not pushed again every night, which only cancelled the one in the queue and queued another.
+   pull request. A level that passed and is merged into main but has no tag yet is **being
+   published**, never failed: main holds only a level whose checks passed, and the merge job
+   leaves the tag ``base-waiting-<level>`` saying which run publishes it. Nothing is asked of the
+   owner. Only when it is still not published three hours later is the owner told, once a level,
+   with that run's link, that it is merged and not published and that the next night's level
+   carries it; a publish that failed is told as a failure. The level pushed after it is said to
+   be queued behind it (base.yml's runs are one at a time, so it does not start until the one
+   ahead is done), not timed out; it is not pushed again every night, which only cancelled the
+   one in the queue and queued another.
    Until 28 November 2026 a waiting level was told as "failed its checks" after three hours, with
    a pull request link that found nothing (1.0.12, 1.0.22, 1.0.23). A level that says nothing in
    three hours is said on its Clockwork line, never as a failure and never as a notice: only a
@@ -107,16 +110,18 @@ STATE = Path("deploy") / "container" / "base"
 BRANCH = "base-patch/{level}"
 #: Where base.yml says a level failed (an annotated tag object: which job and step).
 FAILED = "refs/base-failed/{level}"
-#: Where base.yml says a level passed and is merged, its publish waiting for the owner's yes
-#: (an annotated tag: which run waits). Under refs/tags/base-*, which the protected core fetches.
+#: Where base.yml says a level passed and is merged, and is being published (an annotated tag:
+#: which run publishes it). Under refs/tags/base-*, which the protected core fetches.
 WAITING = "refs/tags/base-waiting-{level}"
 #: rouh-core's main, as the Creator Rouh's protected core keeps it fetched into /code.
 UPSTREAM = "refs/upstream/heads/main"
 GITHUB = f"https://github.com/{github_org.org()}/rouh-core"
 #: The Base image workflow's runs on GitHub.
 RUNS = f"{GITHUB}/actions/workflows/base.yml"
-#: Its runs waiting for a reviewer, read unsigned (public), when no tag says which run waits.
-WAITING_API = "https://api.github.com/repos/{org}/rouh-core/actions/workflows/base.yml/runs?status=waiting&per_page=20"
+#: The runs of one level's branch, read unsigned (public), when no tag says which run publishes it.
+#: (Until 28 November 2026 this asked for runs waiting for a reviewer, with "{org}" left unfilled.)
+RUNS_API = (f"https://api.github.com/repos/{github_org.org()}/rouh-core/actions/workflows/base.yml/runs"
+            "?branch=base-patch%2F{level}&per_page=5")
 #: How long a pushed level is watched for its result before the next night takes it up.
 WATCH_FOR = 3 * 3600
 WATCH_EVERY = 300
@@ -318,14 +323,14 @@ def main_level(repo: Path) -> str:
 
 
 def _waiting_run(repo: Path, level: str) -> str:
-    """The run whose publish of `level` waits for the owner's yes: from the tag the merge job
-    leaves, else from GitHub's public list of waiting runs, else ""."""
+    """The run that publishes `level`: from the tag the merge job leaves, else the newest run of
+    its branch in GitHub's public list, else ""."""
     words = _ref_words(repo, WAITING.format(level=level)) or ""
     run = next((ln[len("The run: "):].strip() for ln in words.splitlines() if ln.startswith("The run: ")), "")
     if run:
         return run
     try:
-        doc = github_org.read_json(WAITING_API, headers={"Accept": "application/vnd.github+json",
+        doc = github_org.read_json(RUNS_API.format(level=level), headers={"Accept": "application/vnd.github+json",
                                                          "User-Agent": "Rouh base patches"}, timeout=20)
     except Exception:  # noqa: BLE001 - unsigned reads are often refused (60 an hour); tried again later
         return ""
@@ -336,8 +341,8 @@ def _waiting_run(repo: Path, level: str) -> str:
 
 
 def held(repo: Path, rec: dict) -> dict | None:
-    """The level main holds when it passed its checks and is not published yet: its publish is
-    waiting for the owner's approval. Kept in the record as ``waiting``; None (and taken out of the
+    """The level main holds when it passed its checks and is not published yet: it is being
+    published, with nobody asked. Kept in the record as ``waiting``; None (and taken out of the
     record) when main's level is published, failed, or not to be read."""
     level = main_level(repo)
     got = _result(repo, level) if level else {"ok": True}
@@ -356,13 +361,22 @@ def held(repo: Path, rec: dict) -> dict | None:
 
 
 def waiting_link(waiting: dict) -> str:
-    """Where the owner approves it: the run's page, whose Review deployments button it is."""
-    return waiting.get("run") or f"{RUNS}?query=is%3Awaiting"
+    """The run that publishes it."""
+    return waiting.get("run") or _runs_of(waiting["level"])
+
+
+def stuck(waiting: dict) -> bool:
+    """Merged three hours ago or more and still not published."""
+    return time.time() - waiting.get("since", time.time()) >= WATCH_FOR
 
 
 def waiting_line(waiting: dict, queued: str = "") -> str:
-    """The Clockwork line, and the scheduled-jobs check's, for a level waiting for its approval."""
-    line = f"base {waiting['level']} passed its checks and is waiting for your approval to publish"
+    """The Clockwork line, and the scheduled-jobs check's, for a level merged and not yet published."""
+    if stuck(waiting):
+        line = (f"base {waiting['level']} passed its checks and is merged, but is not published after three "
+                "hours; the next night's level carries it")
+    else:
+        line = f"base {waiting['level']} passed its checks, is merged and is being published"
     return line + (f"; {queued} is queued behind it" if queued else "") + f" ({waiting_link(waiting)})"
 
 
@@ -384,26 +398,26 @@ def _runs_of(level: str) -> str:
 
 
 async def _tell_waiting(who, rec: dict, waiting: dict, queued: str) -> None:
-    """One notice for one level waiting for the owner's approval, never twice."""
+    """One notice for one level merged and still not published three hours later, never twice.
+    Nothing is asked of the owner: a level publishes by itself, and the next night's level, made
+    on top of main, carries everything this one brings."""
     from . import notices
 
     level = waiting["level"]
     told = set(rec.get("told_waiting") or [])
-    if level in told:
+    if level in told or not stuck(waiting):
         return
     link = waiting_link(waiting)
     now_on = (rec.get("published") or {}).get("level") or ""
-    body = (f"Base {level} passed its checks on Intel and Arm and is merged into main"
+    body = (f"Base {level} passed its checks on Intel and Arm and is merged into main, but it is still not "
+            f"published three hours later, and nothing says its publish failed"
             + (f"; base {queued} is queued behind it" if queued else "")
-            + f". Its last step, Publish {level}, waits for your yes in GitHub's release-signing environment: "
-            f"open the run, press Review deployments, tick release-signing and approve. Until then every Rouh "
-            f"stays on {'base ' + now_on if now_on else 'the base it has'}"
-            + (f", and base {queued} starts as soon as this one is done" if queued else "")
+            + f". Nothing is asked of you: the next night's level carries everything {level} brings and is "
+            f"published by itself. Until then every Rouh stays on {'base ' + now_on if now_on else 'the base it has'}"
             + f". The run: {link}")
-    phone = (f"Rouh's base {level} passed its checks and is waiting for your approval to publish"
-             + (f"; {queued} is queued behind it" if queued else "") + f". {link}")
-    await notices.notify(title=f"Base {level} is waiting for your approval to publish", body=body, link=link,
-                         link_label="Review deployments", kind="base_patch", key=f"base-waiting-{level}",
+    phone = f"Rouh's base {level} is merged but not published after three hours; the next night's level carries it. {link}"
+    await notices.notify(title=f"Base {level} is merged but not published yet", body=body, link=link,
+                         link_label="The run", kind="base_patch", key=f"base-waiting-{level}",
                          phone_text=phone, who=who)
     told.add(level)
     rec["told_waiting"] = sorted(told)[-40:]
@@ -430,8 +444,16 @@ async def _settle(who, rec: dict, repo: Path, *, tell: bool = True) -> str:
     was = (rec.get("waiting") or {}).get("level")
     waiting = held(repo, rec)
     pending = rec.get("pending")
+    if was and not waiting and (rec.get("published") or {}).get("level") != was:
+        got = _result(repo, was)
+        if got is not None and not got.get("ok"):
+            # Merged, and then its publish failed: told once, as a failure.
+            await _tell(who, rec, was, _failure_words(got, None), got.get("run") or _runs_of(was))
+            said = f"base {was} is merged but its publish failed; the owner was told"
+            pending = rec.get("pending")
+            return said + ("; " + await _settle_pending(who, rec, repo, pending) if pending else "")
     if was and not waiting and (rec.get("published") or {}).get("level") == was:
-        done = f"base {was} was approved and is published"
+        done = f"base {was} is published"
         if not pending:
             return done
         return done + "; " + await _settle_pending(who, rec, repo, pending)
@@ -526,8 +548,8 @@ async def night(who, *, trying: bool = False) -> str:
         repo = await asyncio.to_thread(_state)
     except Exception as e:  # noqa: BLE001 - said on the row
         return f"could not look: {e}"
-    # A level waiting for approval is told after tonight's push, if any, so the notice can say what
-    # is queued behind it.
+    # A level merged and long unpublished is told after tonight's push, if any, so the notice can
+    # say what is queued behind it.
     settled = await _settle(who, rec, repo, tell=False)
     _keep(rec)
     pending = rec.get("pending")

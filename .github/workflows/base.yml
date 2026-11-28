@@ -51,7 +51,8 @@
 #   4. publish  that commit tagged base-<level>; the packages are checked to be pullable with no
 #               sign-in; the image tags move to the digests that were checked; the release is
 #               signed (the secret ROUH_MAC_STACK_SIGNING_KEY of the environment release-signing,
-#               after its reviewer's yes), held to the tagged commit by
+#               which has no required reviewer, so a level that passed publishes by itself), held
+#               to the tagged commit by
 #               mac_release.py release-matches, and sent to rouh.land, whose
 #               /mac/release/stable.json and /mac/release/<line>.json then name this level. Its
 #               records - how the check went on each platform, what was published, the signed
@@ -61,9 +62,14 @@
 #               failed, and is labelled "base: failed"; the run keeps it as an artifact; and the
 #               ref refs/base-failed/<level> (an annotated tag object: which job and step) tells
 #               the Creator Rouh's patch job, which reads git only, so that it tells Petar once.
-#               Between merge and publish the tag base-waiting-<level> names the run whose
-#               publish waits for the release-signing reviewer, so the patch job says it waits
-#               for approval, with that run's link, rather than that it failed.
+#               Between merge and publish the tag base-waiting-<level> names the run that is
+#               publishing it, so the patch job can link that run if a merged level stays
+#               unpublished, rather than calling it failed.
+#
+# Nobody approves a release. Petar, 28 November 2026: "I don't want it to wait on me. why does it
+# have to wait on my signoff?" Until then release-signing had him as its required reviewer, and
+# 1.0.21 to 1.0.23 waited days for a press nobody made; now only its branch rule is left (main,
+# base-patch/* and base-* tags), which is what keeps the key away from any other branch.
 #
 # Signed in with the workflow's own GITHUB_TOKEN; no personal token anywhere, except that main
 # itself is moved with the deploy key MAIN_PUSH_KEY (tools/github/main-push-remote.sh), because
@@ -412,9 +418,9 @@ jobs:
             echo "merged=true" >> "$GITHUB_OUTPUT"
             echo "main is now ${COMMIT:0:12}, base $LEVEL, the commit that was tested${PR:+; pull request #$PR is merged}"
             git push -q origin ":refs/heads/$BRANCH" || true
-            # For the Creator Rouh, which reads git only: this level passed and its publish now waits
-            # for the release-signing reviewer, in this run. Taken away once it is published or failed.
-            git tag -f -a "base-waiting-$LEVEL" "$COMMIT" -m "base $LEVEL passed and is merged; its publish waits for approval" \
+            # For the Creator Rouh, which reads git only: this level passed and is being published,
+            # in this run. Taken away once it is published or failed.
+            git tag -f -a "base-waiting-$LEVEL" "$COMMIT" -m "base $LEVEL passed and is merged; this run publishes it" \
               -m "The run: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID" \
               -m "The pull request: ${PR:+$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/pull/$PR}"
             git push -q -f origin "refs/tags/base-waiting-$LEVEL" || true
@@ -438,8 +444,8 @@ jobs:
     needs: [prepare, build, merge]
     if: needs.merge.outputs.merged == 'true'
     # The release key is in this environment only (S12, step 139-11): no other job, branch or
-    # pull request can read it, and a release waits here until Petar, its required reviewer,
-    # presses Approve on the run.
+    # pull request can read it. It has no required reviewer (Petar, 28 November 2026), so a level
+    # that passed is published here by itself, with nobody asked.
     environment: release-signing
     runs-on: ubuntu-24.04
     timeout-minutes: 20
