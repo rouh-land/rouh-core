@@ -289,7 +289,7 @@
                 hold: D.holdMinutes * 60, ghost: D.ghostSeconds, direction: D.blinkDirection };
       var level = 1 + (c.end - 1) * Math.min(1, Math.max(0, age) / c.seconds);
       if (age >= c.seconds + c.hold + c.ghost) return { state: 'removed', alpha: 0 };
-      if (age >= c.seconds + c.hold) return { state: 'ghost', alpha: 0 };
+      if (age >= c.seconds + c.hold) return { state: 'ghost', alpha: Math.max(c.end, RULES.glass.ghostFloor || 0.35) };
       if (age >= c.seconds) return { state: 'holding', alpha: c.end };
       var flashing = !reduced && age >= 1 / c.rate && (age % (1 / c.rate)) < c.length;
       return { state: 'fading', alpha: flashing ? (c.direction === 'down' ? 0 : 1) : level };
@@ -507,7 +507,7 @@
       var G = RULES.glass, P = RULES.path;
       var ghost = r.life && r.life.state === 'ghost';
       var col = PAL[ghost ? 'ghost' : r.waiting ? 'wait' : r.kind] || PAL.other;
-      var alpha = r.life ? (ghost ? 1 : r.life.alpha) : 1;
+      var alpha = r.life ? r.life.alpha : 1;
       var last = Math.max(1, Math.min(SEGMENTS, Math.round(r.reveal * SEGMENTS)));
       var pts = [], rads = [], twig = r.role === 'twig';
       // A twig is thin: half the points draw it as smoothly, and it is most of what is drawn on a busy night.
@@ -519,11 +519,6 @@
         var p = project(r.centres[i]);
         pts.push(p);
         rads.push(Math.max(0.6, rad * p[2]));
-      }
-      if (ghost) {
-        g.globalAlpha = 0.22; g.strokeStyle = rgba(col, 1); g.lineWidth = Math.max(1, rads[0] * 0.6);
-        poly(pts); g.stroke();
-        return pts[pts.length - 1];
       }
       // The two edges: the centre line moved out by the tube's radius, across the screen.
       var left = [], right = [];
@@ -615,7 +610,7 @@
       for (var i = 0; i < order.length; i++) {
         var r = order[i];
         var tip = drawTube(r, t);
-        if (tip && r.depth === 1 && r.role === 'branch' && r.kind !== 'self' && !(r.life && r.life.state === 'ghost') && e < 0.5 &&
+        if (tip && r.depth === 1 && r.role === 'branch' && r.kind !== 'self' && e < 0.5 &&
             (D.names || r.waiting)) {
           labels.push({ tip: tip, text: r.waiting ? 'NEEDS YOU' + (D.names ? ' · ' + tipName(r.node.label) : '') : tipName(r.node.label),
                         warn: r.waiting, alpha: r.life ? Math.max(0.4, r.life.alpha) : 1 });

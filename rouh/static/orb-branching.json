@@ -79,8 +79,8 @@
       "emission": 3,
       "radius": 0.3
     },
-    "ghostAlpha": 0.025,
-    "ghostEmission": 0.15
+    "ghostFloor": 0.35,
+    "ghostEmission": 0.6
   },
   "growth": {
     "tipSeconds": 1,

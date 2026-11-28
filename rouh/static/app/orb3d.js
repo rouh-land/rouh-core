@@ -176,11 +176,15 @@ function orb3dKeeps(n, tnow) {
    smoothly from 100% to the end level over the fade time, with a brief flash
    to 100% (or to nothing) a few times a second; then it holds steady, then it
    is a grey trace, then it is gone. Asking for less movement keeps the fade
-   and drops the flashes. */
+   and drops the flashes.
+   The grey trace is a whole grey branch at the end level, never fainter than
+   the rules' ghostFloor, with its name: Petar, 28 November 2026, "surely it does
+   not stay on screen for 35 seconds after it has stopped blinking". It was drawn
+   at 2.5% and nameless, so his 35 s of grey trace looked like nothing at all. */
 function lifecycle(age, c, still) {
   var level = 1 + (c.end - 1) * Math.min(1, Math.max(0, age) / c.seconds);
   if (age >= c.seconds + c.hold + c.ghost) return { state: 'removed', alpha: 0, level: c.end };
-  if (age >= c.seconds + c.hold) return { state: 'ghost', alpha: 0, level: c.end };
+  if (age >= c.seconds + c.hold) return { state: 'ghost', alpha: Math.max(c.end, RULES.glass.ghostFloor || 0.35), level: c.end };
   if (age >= c.seconds) return { state: 'holding', alpha: c.end, level: c.end };
   var flashing = !still && age >= 1 / c.rate && (age % (1 / c.rate)) < c.length;
   return { state: 'fading', alpha: flashing ? (c.direction === 'up' ? 1 : 0) : level, level: level };
@@ -540,7 +544,7 @@ function updateRecord(r, n, tnow, t, mode) {
   if (life) {
     moving = true;
     if (life.state === 'ghost') {
-      alpha = G.ghostAlpha; emission = G.ghostEmission; nerveEmission = 0.08;
+      alpha = life.alpha; emission = G.ghostEmission; nerveEmission = 0.08;
     } else alpha = life.alpha;
   }
   if (waiting) {
@@ -552,7 +556,7 @@ function updateRecord(r, n, tnow, t, mode) {
   }
   r.mat.opacity = Math.min(1, G.alpha * alpha * (small ? 2.6 : 1));
   r.mat.emissiveIntensity = emission;
-  r.nmat.opacity = G.nerve.alpha * (life && life.state === 'ghost' ? G.ghostAlpha : alpha);
+  r.nmat.opacity = G.nerve.alpha * alpha;
   r.nmat.emissiveIntensity = nerveEmission;
   r.mesh.renderOrder = life && life.state === 'ghost' ? -1 : r.depth;
   r.mesh.visible = reveal > 0;
@@ -753,7 +757,6 @@ function paintNames(mode) {
     var cx = size.w / 2;
     REC.forEach(function (r) {
       if (r.depth !== 1 || r.role !== 'branch' || r.reveal <= 0) return;
-      if (r.life && r.life.state === 'ghost') return;
       var tip = r.centres[Math.min(SEGMENTS, Math.round(r.reveal * SEGMENTS))];
       DPOS.copy(tip).applyMatrix4(group.matrixWorld).project(camera);
       if (DPOS.z > 1) return;
@@ -1162,7 +1165,7 @@ var PANEL = [
     ['blinkLength', 'Blink length', 'How long each flash lasts.', 'ms'],
     ['blinkDirection', 'Blink', 'Flash up to full, or down to nothing.', 'choice'],
     ['holdMinutes', 'Stay before going grey', 'Minutes held steady at that level, without blinking.', 'min'],
-    ['ghostSeconds', 'Grey trace time', 'Seconds the grey trace stays before it goes.', 's']
+    ['ghostSeconds', 'Grey trace time', 'Seconds it stays as a grey branch, with its name, after the hold. Then it goes.', 's']
   ]]
 ];
 
