@@ -165,7 +165,14 @@ def fit(a, path: str, target: str) -> dict:
     land = Path(path) / "land.sh"
     if not land.is_file():
         return {"state": "error", "reason": "this clone has no land.sh to fit the work with"}
-    scratch = Path(tempfile.mkdtemp(prefix="rouh-fit-"))
+    # The scratch repository sits inside the clone's own git folder, so it is on the same
+    # filesystem as the objects it borrows and the files land.sh writes; the system's temporary
+    # folder may be another mount. Only if that folder cannot take it does it go there.
+    common = git("rev-parse", "--path-format=absolute", "--git-common-dir", cwd=path).stdout.strip()
+    try:
+        scratch = Path(tempfile.mkdtemp(prefix="rouh-fit-", dir=common or None))
+    except OSError:
+        scratch = Path(tempfile.mkdtemp(prefix="rouh-fit-"))
     try:
         bare = scratch / "main.git"
         git("init", "-q", "--bare", str(bare), cwd=str(scratch))
@@ -177,11 +184,16 @@ def fit(a, path: str, target: str) -> dict:
         # cross-device link" (run d291042c, 28 November 2026, under the graphics card's lock before
         # 62edceb5). Borrowed objects are never moved, so land.sh's own pushes into it while
         # fitting have nothing to send and nothing to move either.
-        common = git("rev-parse", "--path-format=absolute", "--git-common-dir", cwd=path).stdout.strip()
+        alternates = bare / "objects" / "info" / "alternates"
         if common:
-            (bare / "objects" / "info").mkdir(parents=True, exist_ok=True)
-            (bare / "objects" / "info" / "alternates").write_text(str(Path(common) / "objects") + "\n")
+            alternates.parent.mkdir(parents=True, exist_ok=True)
+            alternates.write_text(str(Path(common) / "objects") + "\n")
         made = git("fetch", "-q", "--no-tags", path, f"{target}:refs/heads/main", cwd=str(bare))
+        if made.returncode and alternates.exists():
+            # Borrowing would not do (a clone whose objects are themselves borrowed from a folder
+            # gone since): the objects are copied in instead, by the same fetch, written in place.
+            alternates.unlink()
+            made = git("fetch", "-q", "--no-tags", path, f"{target}:refs/heads/main", cwd=str(bare))
         if made.returncode:
             why = made.stderr.strip()[:200]
             if "cross-device" in why or "migrate objects" in why:

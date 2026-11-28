@@ -298,6 +298,7 @@
    "files": [
     "rouh/workspace_follow.py",
     "bin/rouh-land",
+    "rouh/selfcheck/landing.py",
     "land.sh",
     "rouh/hostguard.py",
     "rouh/hostpaths.json",

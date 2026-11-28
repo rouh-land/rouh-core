@@ -1534,6 +1534,8 @@ class Runs(_RunInteraction):
             result = {"landed": False, "reason": "nothing new to land"}
         if result.get("landed"):
             self.fix_tries.pop(run_id, None)
+            self.stranded_tries.pop(run.get("cwd") or "", None)
+            self._landing_works()
             if self.s.space(run["space"]).follow:
                 await self._follow()
             body = {"sha": result.get("sha"), "files": result.get("files") or [],
@@ -1617,7 +1619,9 @@ class Runs(_RunInteraction):
             # conflict card, out loud and on their phone (rouh/conflicts.py),
             # which carries both sides and the four choices. A second, plainer
             # line saying the same thing would be the same question twice.
-            self.p.tell(run_id, f"{run['title']}: its work could not be saved to main. {reason}",
+            again = (" It is landed again by itself, and at once when the next landing goes through."
+                     if self.technical(result) else "")
+            self.p.tell(run_id, f"{run['title']}: its work could not be saved to main. {reason}{again}",
                         reason="not-landed")
         return None
 
@@ -1635,11 +1639,25 @@ class Runs(_RunInteraction):
 
     #: The space whose checkout a workspace run makes beside its own (`briefs.CODE_ELSEWHERE`).
     BESIDE_SPACE = "rouh"
-    #: How many times stranded work is landed again, and the wait before each try, doubled.
-    STRANDED_TRIES = 6
+    #: The wait before stranded work is landed again, doubled after each try up to the longest.
+    #: There is no last try (Petar, 28 November 2026: "I want it to not happen again"): six tries
+    #: and a stop left work off main for good whenever the cause outlasted them, and the count,
+    #: kept in memory, only came back at a restart. And when any landing goes through, the cause
+    #: is gone, so everything waiting is tried again at once (``_landing_works``).
     STRANDED_WAIT = 600.0
+    STRANDED_WAIT_MOST = 2 * 3600.0
     #: Only runs that ended within this long are looked at.
-    STRANDED_WITHIN = 3 * 24 * 3600.0
+    STRANDED_WITHIN = 14 * 24 * 3600.0
+
+    def _stranded_wait(self, tries: int) -> float:
+        """How long after its ``tries``-th failed try stranded work is tried again."""
+        return min(self.STRANDED_WAIT * (2 ** max(tries - 1, 0)), self.STRANDED_WAIT_MOST)
+
+    def _landing_works(self) -> None:
+        """A landing just went through: whatever stopped the stranded ones may have gone with it,
+        so each is tried again at the next sweep rather than after its wait."""
+        for path, (tries, _after) in list(self.stranded_tries.items()):
+            self.stranded_tries[path] = (tries, 0.0)
 
     def _beside(self, run: dict[str, Any]) -> str:
         """The checkout of Rouh's code a run made beside its own (``<cwd>-code``), or ""."""
@@ -1698,6 +1716,8 @@ class Runs(_RunInteraction):
         if result.get("landed") or reason == "nothing new to land":
             self.beside_done[path] = head
             self.stranded_tries.pop(path, None)
+            if result.get("landed"):
+                self._landing_works()
             if result.get("landed") and not result.get("already") and not result.get("pushed_itself"):
                 self.list.append("beside.landed", run=run_id, body={
                     "path": path, "sha": result.get("sha"), "files": (result.get("files") or [])[:200],
@@ -1707,7 +1727,7 @@ class Runs(_RunInteraction):
         tries, _ = self.stranded_tries.get(path, (0, 0.0))
         tries += 1
         technical = self.technical(result)
-        self.stranded_tries[path] = (tries, time.monotonic() + self.STRANDED_WAIT * (2 ** (tries - 1)))
+        self.stranded_tries[path] = (tries, time.monotonic() + self._stranded_wait(tries))
         self.list.append("beside.not-landed", run=run_id, body={
             "path": path, "reason": reason[:600], "technical": technical, "try": tries,
             "files": (result.get("files") or [])[:200]})
@@ -1734,7 +1754,7 @@ class Runs(_RunInteraction):
                 tries, after = self.stranded_tries.get(beside, (0, 0.0))
                 # Never tried since this program started (tries 0) is tried too: a run that
                 # ended before it lands what it left the first time it is looked at.
-                if tries < self.STRANDED_TRIES and now >= after:
+                if now >= after:
                     await self._land_beside(run)
             # Its own checkout, kept with commits not on main, after a landing that failed for a
             # technical reason (`technical`): landed again the same way its turn's end lands it.
@@ -1745,9 +1765,9 @@ class Runs(_RunInteraction):
                                         "conflict": run.get("conflict"),
                                         "needs_person": run.get("conflict_needs_person")})):
                 tries, after = self.stranded_tries.get(cwd, (0, 0.0))
-                if tries >= self.STRANDED_TRIES or now < after:
+                if now < after:
                     continue
-                self.stranded_tries[cwd] = (tries + 1, now + self.STRANDED_WAIT * (2 ** tries))
+                self.stranded_tries[cwd] = (tries + 1, now + self._stranded_wait(tries + 1))
                 await self._land(run, driving=False)
 
     async def what_is_left(self, run: dict[str, Any]) -> dict[str, Any]:

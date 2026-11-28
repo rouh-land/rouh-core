@@ -1862,6 +1862,30 @@ are never this owner's new genes. There is no 15-minute read of the history any
 more; the switch `gene_log` stops the trigger and the catch-up alike.
 GENES.md, "The gene log", has the whole of it.
 
+**A landing never depends on moving a file between folders** (Petar, 28 November
+2026, task 197, step 197-06: "I don't want a one time fix, I want it to not
+happen again"). Run d291042c's work sat off main because the graphics card's
+lock on runs (`one/hardware.py`) refused a move into another folder, which a
+`git push` into a local repository makes (objects/incoming-* to objects/pack),
+and the kernel says "Invalid cross-device link". Three things now keep it from
+coming back:
+
+- `bin/rouh-land`'s fitting step makes its scratch repository inside the clone's
+  own git folder (one filesystem), borrows the clone's objects and takes main by
+  a fetch, so land.sh's pushes into it send and move nothing; a fetch that fails
+  is tried again with the objects copied.
+- `rouh/selfcheck/landing.py`, one of the checks the protected core runs on every
+  change of Rouh's code, runs a real fitting with the real land.sh in a process
+  locked exactly as a run is, with the code that runs, the clone and the
+  temporary folder on different filesystems where the machine has them, plus a
+  plain push into a local repository. A change to the lock, the sandbox or the
+  landing tool that brings the failure back is refused before it goes live.
+- The program lands again, without a last try, any finished work a technical
+  failure kept off main (`land_stranded`, the wait doubling from ten minutes to
+  two hours), and the moment any landing goes through it tries every waiting one
+  at once. Telling the run that its landing failed says so; it is never a
+  question for the person.
+
 ## The one program
 
 `one/` is a separate program, from task 30's step 07, running beside Rouh on
