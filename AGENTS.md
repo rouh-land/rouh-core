@@ -69,7 +69,7 @@ Integration and functional checks are the same: yours to write, yours to run, no
 
 ### What is never asked of you
 
-- **No suite is run before a commit.** There is none to run, and none is to be written back into this repository. The page's type check, below under "The page's types", the mail replay, below under "The mail replay", and the LLM service check (`python -m rouh.llmguard`, under "Every call to a model") are not suites: `land.sh` runs each only on work that touches what it checks. The stack test (`tests/stack/`, below under "Every feature in the containers") is the same: `land.sh` hands it to GitHub only for work that touches the containers' side, and waits for it.
+- **No suite is run before a commit.** There is none to run, and none is to be written back into this repository. The page's type check, below under "The page's types", the mail replay, below under "The mail replay", and the LLM service check (`python -m rouh.llmguard`, under "Every call to a model") are not suites: each is one of the checks before a change goes live, below under "One build process", run only on work that touches what it checks. The stack test (`tests/stack/`, below under "Every feature in the containers") is the same: `land.sh` hands it to GitHub only for work that touches the containers' side, and waits for it.
 - **No suite is run before a deploy.** The deploy checks that the new code imports and that the service answers, and that is the whole of it.
 - **Nothing you did not change is re-checked.** Regression testing, and testing the whole system, are not done here. That is a decision, not an oversight.
 - **A test file is never added to `rouh/`, `one/tests/` or `tests/e2e/`.** If you want one while you work, write it, run it, and let it go with your checkout.
@@ -77,6 +77,20 @@ Integration and functional checks are the same: yours to write, yours to run, no
   The second is `rouh/selfcheck/`, below under "What every Rouh checks before it moves to a newer base", which Petar asked for on 23 October 2026.
   The third is the protected core's frozen security checks and stack-file fixtures, `guard/frozen/` and `guard/policy/fixtures/`, which came with the protected core on 24 October 2026 (`guard/README.md`): a Rouh is held to them and cannot edit them.
   The fourth is the stack test, `tests/stack/` with its list `CONTAINERS.md`, which Petar asked for on 29 October 2026: every feature must work in the containers every Rouh instance runs, and a change that breaks one must fail. It runs at GitHub on Intel and Arm, from "Tests on main" and, for work touching the containers' side, from `land.sh` before it pushes (`stack_guard`); a new feature adds its row to `CONTAINERS.md` and its check to `tests/stack/smoke.py` in the commit that adds it.
+
+### One build process
+
+Petar, 28 November 2026: "everything needs to be streamlined through one build process, yes?"
+The checks a change passes before it goes live are written once, in `rouh/buildchecks.py`: no box's secret committed, one number for one task, the page's types, the mail replay, the LLM service, the old server's layout, the gene contract, every file owned by a gene, the design standard, and how each gene says it was used (`python -m rouh.buildchecks list`).
+Every route that can make a change live only calls it:
+
+- `land.sh` runs every check before it pushes (`build_checks`), from the commit's own copy.
+- `bin/rouh-land`, a run's landing in the containers, runs every check in the worker before it hands the change over, fitted or not, and sends the design record with it.
+- `rouh/codechanges.py`, in the core, runs the checks that read only the history (and the page's types, which only read files) for every proposal, whoever handed it, `guard/bin/rouh-propose` included, with the code that runs: nothing of a proposed change is executed in the core.
+- `rouh/code_evolution.py` runs the same before it asks the protected core to take an adapted master change; only the design check is left out there, with its reason in the code.
+- Inside the protected core's sandbox, `rouh/selfcheck/own.py` runs every check that runs the change's own code, whatever the change touches.
+
+Before this, the containers ran only the design check (in `bin/rouh-land`), the fit inside `bin/rouh-land` turned every one of `land.sh`'s guards off, and `rouh-propose` reached the protected core with no check. A new check is added to `CHECKS` in `rouh/buildchecks.py` and nowhere else.
 
 ### The definition of done
 
@@ -378,7 +392,7 @@ Petar, 7 November 2026 (task 169): every build, gene therapy included, designs w
 
 - **Two tiers, chosen by the agent, never asked.** The full tier is for a new or reworked screen: journeys first (`journeys.md`, in the person's words, always derived and never asked for), then the page structure, the full brief and the must-keep list, one direction built after reading the guide, the skill's `shoot.mjs` at 1440 and 390 px, critic rounds of the corrected critic prompt until no blocker is left (at most 3), and a handoff with tokens. Aim: about 45 to 60 minutes and about 15 dollars a screen, measured. The small tier is for a label, a button, a field or a fix: the same instructions in full, with no critic loop.
 - **The skill is the workspace's, at `.claude/skills/bb-local-design/`, and nowhere else.** `python3 tools/design/record.py skill` finds it. Anthropic's `craft.md` and the design rules of its Design type have no published licence: they are read where they are at run time and are never committed here, in a gene, or in anything the Gene Pool sends. Without them a run uses the Apache-licensed frontend-design skill and Rouh's own rules, and says so.
-- **The record, and the check before landing.** A run keeps its design record with `tools/design/record.py` in `.design/` (never committed). A full-tier design is committed with its code, in `designs/<screen>/` (brief, journeys, structure, states, critic log, handoff and the prototype, made-up data only), and its prototype is checked before the screen's code is touched: Petar, 28 November 2026, after the Apps screens landed with their designs only in a vanished `.design/`, written after the code. A new screen file is always the full tier. `screens` signs in to a test world and checks each changed screen at 1440 and 390 px, dark and light, for the faults `shoot.mjs` finds. `land.sh` (`design_guard`), and in the containers `bin/rouh-land` before it hands the work to the protected core (`design_check`), does not push a change to `rouh/static/`, `rouh/templates/` or `one/static/` without a record that passes: every journey met, no fault, and on the full tier a critic round with no blocker left, a clean prototype check, the `designs/<screen>/` folder committed whole, and no screen file changed before the prototype was first checked. A commit that changes those files and shows nothing new says so with a line `Design: none - <why>` in its own message, which covers only that commit's files.
+- **The record, and the check before landing.** A run keeps its design record with `tools/design/record.py` in `.design/` (never committed). A full-tier design is committed with its code, in `designs/<screen>/` (brief, journeys, structure, states, critic log, handoff and the prototype, made-up data only), and its prototype is checked before the screen's code is touched: Petar, 28 November 2026, after the Apps screens landed with their designs only in a vanished `.design/`, written after the code. A new screen file is always the full tier. `screens` signs in to a test world and checks each changed screen at 1440 and 390 px, dark and light, for the faults `shoot.mjs` finds. `land.sh` (`rouh/buildchecks.py`, `design`), and in the containers `bin/rouh-land` before it hands the work to the protected core (`design_check`), does not push a change to `rouh/static/`, `rouh/templates/` or `one/static/` without a record that passes: every journey met, no fault, and on the full tier a critic round with no blocker left, a clean prototype check, the `designs/<screen>/` folder committed whole, and no screen file changed before the prototype was first checked. A commit that changes those files and shows nothing new says so with a line `Design: none - <why>` in its own message, which covers only that commit's files.
 - **Ask AI and the comment pass** change a page in one model call, so they are told the small tier (`FOR_PAGE_EDITS`) and cannot check widths in a browser.
 
 ## The screenshot comparisons
@@ -413,7 +427,7 @@ How a job may reach the live database safely is the owner's Decision 422; until 
 
 Two checks keep this from failing quietly again (Petar, 5 November 2026):
 
-- **No code tied to the old server without saying why.** `python -m rouh.hostguard` fails on a mention of systemd, `/var/www/rouh` or `with-rouh-env.sh` in `rouh/`, `one/` or `bin/` that `rouh/hostpaths.json` does not list with why it is right in the containers too. The protected core runs it with Rouh's own checks on every change (`rouh/selfcheck/own.py`), and `land.sh` before pushing (`host_guard`).
+- **No code tied to the old server without saying why.** `python -m rouh.hostguard` fails on a mention of systemd, `/var/www/rouh` or `with-rouh-env.sh` in `rouh/`, `one/` or `bin/` that `rouh/hostpaths.json` does not list with why it is right in the containers too. The protected core runs it with Rouh's own checks on every change (`rouh/selfcheck/own.py`), and `land.sh` before pushing (`rouh/buildchecks.py`, `host`).
 - **Every scheduled job checked against what it left behind.** `rouh/job_watch.py` looks every half hour at each of Rouh's server jobs on Clockwork, the job's own record (the Synapse attempt, the refactoring night) and the backups, keeps the answer for `server_health` (`scheduled_jobs`), and says the failures once a morning as one notice. `python manage.py job_watch` says it in a shell of the core.
 
 A row of `CONTAINERS.md` says works only when its check proves the job does its work, not that it starts.
@@ -441,7 +455,7 @@ TypeScript is a tool for whoever changes the page, pinned in `tools/typecheck/pa
 tools/typecheck/check.sh     # tsc --noEmit over tsconfig.json; installs the pinned TypeScript once, into ~/.cache
 ```
 
-`land.sh` runs it before it pushes anything that touches those files, and refuses to land work that does not pass, saying the first error (`types_guard`).
+`land.sh` runs it before it pushes anything that touches those files, and refuses to land work that does not pass, saying the first error (`rouh/buildchecks.py`, `types`).
 That is one of the two checks run before landing, on Petar's instruction of the same day, and it takes a few seconds; the other is the mail replay, below.
 
 The types that matter most are in `rouh/static/app/protocol.d.ts`: every WebSocket message both ways, by its `type`, and every card block, by its `block`.
@@ -460,7 +474,7 @@ python3 -m rouh.mail_replay     # every kept case, ask by ask, and the outbox gu
 
 It judges every case in `rouh/testing/mail_replay.json` with the very code a run uses (`mail_ledger.judge`) and compares each ask with the outcome it must have, and it fails if any module but `rouh/mail_outbox.py` can send to a contact.
 It needs nothing but the standard library.
-`land.sh` runs it before it pushes anything that touches the mail code (`mail_guard`, `MAIL_PATHS`), and refuses to land work that does not pass, saying the first case that failed.
+`land.sh` runs it before it pushes anything that touches the mail code (`rouh/buildchecks.py`, `mail`, `MAIL_PATHS`), and refuses to land work that does not pass, saying the first case that failed.
 When a change is meant to change an outcome, change that case's expected statuses in the same commit and say why in the message.
 A new kind of case that went wrong live is added to the file as a case of its own.
 
@@ -567,7 +581,7 @@ So a new place in Rouh that asks a model does two things, and is not done until 
    That alone puts it on the page, in Rouh's `model_defaults` tool and in `manage.py model_defaults --use`, and its calls into what Rouh learns about which model succeeds (`rouh/modeloutcomes.py`).
 
 A model id in the code is only ever in the list of models there are to pick (`config.MODEL_CHOICES`) and the tables of their facts (prices, context sizes), and a model added there needs its level in the standard too.
-`python -m rouh.llmguard` fails on a model asked past the LLM service, a client made past `rouh/llmlog.py`, or a model named in code; `land.sh` runs it before every push that touches Rouh's Python (`llm_guard`), and the deploy runs it too.
+`python -m rouh.llmguard` fails on a model asked past the LLM service, a client made past `rouh/llmlog.py`, or a model named in code; `land.sh` runs it before every push that touches Rouh's Python (`rouh/buildchecks.py`, `llm`), and the deploy runs it too.
 Two things are not on the Models page, and say so: Synapse's embeddings, which belong to a dataset's stored vectors, and the picture models, picked in the picture editor.
 
 ## Every change names its gene
@@ -577,7 +591,7 @@ So Rouh keeps a gene log (`rouh/genelog.py`, GENES.md "The gene log"), and it wr
 
 **Every file belongs to a gene.** Petar, 19 October 2026: "there is no plumbing that is not gene".
 `rouh/genes/owners.json` maps every file of this repository but `workspace/` to the gene or genes it is part of, the shared parts underneath included (the turn loop, Synapse, mail, the screen, model calls, the one program, landing).
-`land.sh` refuses a change that adds or changes a file no gene owns, naming the file (`owners_guard`), so a new file goes into the map in the same commit: under the gene it is part of, and under a new gene only when Rouh gains a new ability.
+`land.sh` refuses a change that adds or changes a file no gene owns, naming the file (`rouh/buildchecks.py`, `owners`), so a new file goes into the map in the same commit: under the gene it is part of, and under a new gene only when Rouh gains a new ability.
 Every landed change is then one version in the history of each gene whose files it touched, with where it was asked for, read from the run that landed it.
 A gene marked `core` in the map is one Rouh breaks without: it has versions, history and sharing like any gene, and no off switch.
 `python -m rouh.genes.owners check` holds the whole map, and `python -m rouh.genes.owners who <path>` says whose a file is.

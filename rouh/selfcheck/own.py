@@ -71,23 +71,24 @@ def migrations_agree() -> None:
         expect(not e.code, "a model has changes no migration makes (makemigrations --check)")
 
 
-@check("own", "every model call goes through the LLM service",
-       "nothing asks a model past rouh/llm.py, so every call is written down and picked on the Models page")
-def llm_service() -> None:
-    from rouh import llmguard
+@check("own", "the checks every change passes, that run its code",
+       "the checks of rouh/buildchecks.py that run the change's own code, on this copy of it: the page's "
+       "types, the mail replay, every model call through the LLM service, nothing tied to the old server "
+       "without saying why, the gene contract and the use signals. The same list land.sh and bin/rouh-land "
+       "run before a change is handed over; the ones that read only git are rouh/codechanges.py's, before "
+       "the protected core is asked (Petar, 28 November 2026: one build process)")
+def build_checks() -> None:
+    got = subprocess.run([sys.executable, "-m", "rouh.buildchecks", "run", "--tree", str(CODE), "--kinds", "code"],
+                         cwd=str(CODE), capture_output=True, text=True, timeout=900)
+    from rouh import buildchecks
 
-    strays = llmguard.strays()
-    expect(not strays, "; ".join(strays[:6]))
-
-
-@check("own", "no code is tied to the old server without saying why",
-       "every mention of systemd, /var/www/rouh or with-rouh-env.sh in Rouh's code is listed with why it is "
-       "right in the containers too (rouh/hostguard.py)")
-def host_layout() -> None:
-    from rouh import hostguard
-
-    bad = hostguard.problems()
-    expect(not bad, "; ".join(bad[:4]))
+    answer = buildchecks.answer(got.stdout)
+    expect(answer is not None, "rouh/buildchecks.py said nothing readable: " + (got.stderr or got.stdout)[-400:])
+    failed = answer.get("failed") or {}
+    expect(answer.get("ok"), f"{failed.get('name', 'a check')}: {failed.get('why', '')}"[:600])
+    for key, note in (answer.get("notes") or {}).items():
+        if note:
+            print(f"  {key}: {note}")
 
 
 @check("own", "a new Rouh hands research and real work to a job",

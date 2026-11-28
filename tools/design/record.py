@@ -5,7 +5,7 @@ Every change that a person sees follows one design standard (`rouh/design_standa
 journeys first, one direction, the guide read at run time, a self-check at 1440 and 390 px, and on
 the full tier critic rounds until no blocker is left. This tool writes what was done into
 `.design/record.json` in the checkout (never committed: `/.design/` is in .gitignore), and
-`land.sh` reads it (`design_guard`) before it pushes a change to the screen.
+`land.sh` reads it (`rouh/buildchecks.py`, `design`) before it pushes a change to the screen.
 
     python3 tools/design/record.py skill                        where the design skill is, and the guide
     python3 tools/design/record.py start --tier full|small --what "what is built"

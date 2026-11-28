@@ -69,7 +69,7 @@ x452's old plan and every decision made before the ledger were superseded (migra
 **D9, one engine for Test, Redo and the replay.**
 Test grants on the case page, the Redo and `python -m rouh.mail_replay` all go through `ledger.judge`.
 The replay set, `rouh/testing/mail_replay.json`, is one invented case for each shape the live cases had up to 11 October 2026, with the expected status of each ask, the 22 guards of task 74's ten cases, five Clockwork guards (12 October), the forward check, a check that a contact's Clockwork item stops when a grant it needs is taken away, and the outbox guard.
-`land.sh` runs it before it pushes anything that touches the mail code (`mail_guard`), and refuses to land a regression.
+`land.sh` runs it before it pushes anything that touches the mail code (`rouh/buildchecks.py`, `mail`), and refuses to land a regression.
 Its people, companies, places and quoted words are all made up, so that no real person's mail is in the repository, and where the decisions below quote a case they quote those invented words.
 Sam's itinerary comes out with every ask allowed, given Memory, Clockwork and Shared task, and with a true status part.
 

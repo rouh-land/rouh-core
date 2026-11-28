@@ -11,7 +11,7 @@ or more genes, and
 * `python -m rouh.genes.owners check` holds the whole map: every tracked file has an owner, every gene
   it names is a gene, a core gene has no switch;
 * `python -m rouh.genes.owners changed --repo R --before A --after B` is what `land.sh` asks before it
-  pushes (`owners_guard`): a change that touches a file no gene owns is refused, naming the file.
+  pushes (`rouh/buildchecks.py`, `owners`): a change that touches a file no gene owns is refused, naming the file.
 
 **A pattern.** A path relative to the repository's top, where `*` is any part of one name, `**` any
 number of folders and `?` one letter. When several patterns match a file, the most exact wins: a

@@ -23,7 +23,7 @@ event written out (the switch may be the module's `SWITCH`), so this check can r
 `python -m rouh.genes.signals` fails, naming each problem, when a gene with a switch declares no
 event, a declaration is not this shape, a declared event or run is never reported anywhere in
 Rouh's code, or the code reports an event its gene does not declare. `land.sh` runs it before it
-pushes Rouh's Python or the gene registry (`signals_guard`). At run time an undeclared event is
+pushes Rouh's Python or the gene registry (`rouh/buildchecks.py`, `signals`). At run time an undeclared event is
 logged as a fault and not counted (`evolution.used`).
 
 Standard library only, so a landing can run it from a bare copy of the commit it is about to push.

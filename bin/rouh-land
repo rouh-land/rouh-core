@@ -49,8 +49,11 @@ TECHNICAL = (" This is a technical failure, not a question for the person: leave
 def say(**answer) -> int:
     answer.setdefault("landed", False)
     reason = str(answer.get("reason") or "")
-    if (answer.get("state") == "error" and not answer.get("design") and "did not take it" not in reason
-            and TECHNICAL.strip() not in reason):
+    # A check that did not pass (rouh/buildchecks.py, the design check among them) is the run's to fix,
+    # never a technical failure the program retries. `design` is False on a design refusal, which the
+    # earlier `not answer.get("design")` read as "not a design refusal" and marked technical.
+    if (answer.get("state") == "error" and "design" not in answer and not answer.get("checks_refused")
+            and "did not take it" not in reason and TECHNICAL.strip() not in reason):
         answer["technical"] = True
         answer["reason"] = reason + TECHNICAL
     # The sentence a run reads, as land.sh ends with one, and the JSON the one program reads.
@@ -281,16 +284,23 @@ def land_code(a, path: str, tries: int = 3) -> int:
         if got.get("already"):
             return say(state="nothing", reason="its commits are already in the code that runs")
         head = git("rev-parse", "HEAD", cwd=path).stdout.strip()
-    # The design standard (rouh/design_standard.py, task 169): a change to the screen goes on only with a
-    # clean design record. The record is in the run's own checkout (.design/record.json, never
-    # committed), so it is read here, in the worker, before the change leaves it; land.sh's
-    # design_guard is the same check where land.sh pushes itself.
-    refused = design_check(path, target)
+    # The checks every change passes (rouh/buildchecks.py, one list for every route: Petar, 28 November
+    # 2026, "everything needs to be streamlined through one build process"). Run here, in the worker,
+    # on the fitted and the unfitted path alike, before the change leaves it: until then this ran only
+    # the design check, and land.sh's fit ran none (ROUH_LAND_FIT_ONLY). The core runs the checks that
+    # read only git again for every proposal (rouh/codechanges.py) and the protected core the ones that
+    # run code (rouh/selfcheck/own.py), so this is the early answer, not the only one.
+    refused, flag = build_checks(path, target)
     if refused:
-        return say(state="error", sha=head, deployed=False, design=False, reason="Nothing was handed on: " + refused)
+        key, _, value = (flag or "checks=false").partition("=")
+        return say(state="error", sha=head, deployed=False, checks_refused=True, **{key: value != "false"},
+                   reason="Nothing was handed on: " + refused.removeprefix("Nothing was pushed: "))
+    record = design_record(path)
     try:
         _, result = hand(PROPOSALS, ["HEAD", f"^{base}"], path,
-                         {"why": a.title or "a run's change", "by": f"run {a.run}" if a.run else "a run"})
+                         {"why": a.title or "a run's change", "by": f"run {a.run}" if a.run else "a run",
+                          # The design record travels with the change, so the core checks it too.
+                          "design_record": record})
     except RuntimeError as e:
         return say(state="error", reason=f"the change could not be handed to the protected core: {e}")
     print(f"rouh-land: handed to the protected core as {result.name.replace('.result.json', '')}; waiting for its checks",
@@ -312,18 +322,44 @@ def land_code(a, path: str, tries: int = 3) -> int:
                reason="the protected core did not take it: " + str(got.get("refused") or got.get("error") or "no reason given"))
 
 
-def design_check(path: str, before: str) -> str:
-    """The sentence that refuses a change to the screen without a clean design record, or ""."""
-    if not (Path(path) / "rouh" / "design_standard.py").is_file():
-        return ""
-    if os.environ.get("ROUH_DESIGN_GUARD", "1") != "1":
-        return ""
-    got = subprocess.run([sys.executable, "-m", "rouh.design_standard", "check", "--repo", path, "--before", before,
-                          "--after", "HEAD", "--record", str(Path(path) / ".design" / "record.json")],
-                         cwd=path, capture_output=True, text=True)
-    said = (got.stdout.strip().splitlines() or [""])[-1]
-    print(f"rouh-land: {said}", file=sys.stderr, flush=True)
-    return said if got.returncode == 1 else ""
+def design_record(path: str) -> dict | None:
+    """The run's design record (tools/design/record.py, .design/record.json), sent with the change."""
+    try:
+        return json.loads((Path(path) / ".design" / "record.json").read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return None
+
+
+def build_checks(path: str, before: str) -> tuple[str, str]:
+    """Every check of rouh/buildchecks.py on before..HEAD: ("", "") when they pass, else the sentence
+    that refuses and land.sh's flag. Run from a copy of the change's own HEAD, as land.sh runs it."""
+    import tempfile
+
+    if git("cat-file", "-e", "HEAD:rouh/buildchecks.py", cwd=path).returncode:
+        return "", ""
+    home = Path(tempfile.mkdtemp(prefix="rouh-land-checks-"))
+    try:
+        arch = subprocess.run(["git", "-c", "safe.directory=*", "archive", "HEAD", "--", "rouh", ":!rouh/static",
+                               ":!rouh/templates"], cwd=path, capture_output=True)
+        subprocess.run(["tar", "-x", "-C", str(home)], input=arch.stdout, check=False)
+        print("rouh-land: the checks before a change goes live (rouh/buildchecks.py)", file=sys.stderr, flush=True)
+        got = subprocess.run([sys.executable, "-m", "rouh.buildchecks", "run", "--repo", path, "--before", before,
+                              "--after", "HEAD", "--record", str(Path(path) / ".design" / "record.json"),
+                              "--home", str(home)], cwd=str(home), capture_output=True, text=True)
+        for line in got.stderr.splitlines():
+            print("rouh-land: " + line.removeprefix("buildchecks: "), file=sys.stderr, flush=True)
+        answer = {}
+        for line in reversed(got.stdout.splitlines()):
+            if line.startswith("BUILDCHECKS "):
+                answer = json.loads(line[len("BUILDCHECKS "):])
+                break
+        if answer.get("ok"):
+            return "", ""
+        failed = answer.get("failed") or {}
+        return (failed.get("why") or "the checks before a change goes live could not run: "
+                + (got.stderr or got.stdout).strip()[-300:]), failed.get("flag") or "checks=false"
+    finally:
+        subprocess.run(["rm", "-rf", str(home)], check=False)
 
 
 def land_workspace(a, path: str) -> int:

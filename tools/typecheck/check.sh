@@ -16,7 +16,7 @@
 # so a job's fresh worktree does not download it again.
 #
 # land.sh runs this before it pushes anything that touches the page's code,
-# and refuses to land work that does not pass (`types_guard` there). The
+# and refuses to land work that does not pass (`rouh/buildchecks.py`, `types`). The
 # types worth knowing are in rouh/static/app/protocol.d.ts (the WebSocket
 # messages and the card blocks) and globals.d.ts (what other scripts put on
 # window). AGENTS.md, under "The page's types", says how to work with it.

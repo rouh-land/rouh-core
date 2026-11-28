@@ -732,277 +732,46 @@ move_to() {
   return 1
 }
 
-# One number, one task. Asked right before every push, of main as it is and
-# main as it would be, so it holds whoever wrote the commit: a task number or an
-# object id that this landing would put on a second folder stops it here, with
-# the sentence saying which folders and what to do (`rouh/numbering.py`).
-# Without it two jobs started together can each make "the next" task.
-# Nothing is pushed, nothing is thrown away: the work stays on this branch.
-numbers_guard() {
-  local said
+# The checks before a push: one list, written once, in rouh/buildchecks.py (Petar, 28 November 2026:
+# "everything needs to be streamlined through one build process"). Asked right before every push:
+# no box's secret committed, one number for one task, the page's types, the mail replay, the LLM
+# service, the old server's layout, the gene contract, every file owned by a gene, the design
+# standard, and how each gene says it was used, each only for the work it concerns. The same list
+# is run by bin/rouh-land in the containers' worker, by rouh/codechanges.py in the core for every
+# proposal, by rouh/code_evolution.py, and inside the protected core by rouh/selfcheck/own.py; this
+# is only the call. The list and its modules are the commit's own (HEAD's copy, as the guards here
+# used to run them), and land.sh's own when the repository is not Rouh's code (the workspace).
+# The first that fails stops the landing with its sentence and its flag (types=false, design=false,
+# duplicate=true ...); nothing is pushed and nothing is thrown away: the work stays on its branch.
+build_checks() {
+  local home copy out rc said flag why
   [ -n "$PY" ] || return 0
-  said=$(PYTHONPATH="$SELF_DIR${PYTHONPATH:+:$PYTHONPATH}" \
-    "$PY" -m rouh.numbering check --repo "$REPO" --before "$TARGET_REF" --after HEAD)
-  [ "$?" = "0" ] && return 0
-  say "$said"
-  finish 1 state=error landed=false duplicate=true "reason=$said"
-}
-
-# A box handed to a job is never committed. Asked right before every push, of
-# every commit about to be pushed, not only of the end result: a box's file
-# added in one commit and deleted in the next is still in the history. A job is
-# handed a box as a file at .secrets/box-<number> in its own folder (rouh/boxes.py,
-# "Handing a box to a job"), with a .gitignore of `*` beside it, so only a run
-# that forced it in gets here; nothing is pushed, and the work stays on its branch.
-secrets_guard() {
-  local found said
-  found=$(gq log --format= --name-only "$TARGET_REF..HEAD" 2>/dev/null \
-    | grep -E '(^|/)\.secrets(/|$)' | sort -u | head -3 | paste -sd ',' -)
-  [ -n "$found" ] || return 0
-  said="Nothing was pushed: a commit about to be pushed holds a box handed to a job ($found). A box's file in .secrets is never committed; take it out of the branch's history and land again."
-  say "$said"
-  finish 1 state=error landed=false secrets=true "reason=$said"
-}
-
-# The page's types. Asked right before every push, beside one number, one task,
-# of work that touches the page's code: app.js, its modules in
-# rouh/static/app/, or the type checker's own settings. `tsc --noEmit` over
-# the page has to pass before anything lands (tools/typecheck/check.sh), so a
-# field misspelt in a WebSocket message
-# or a card block stops here, with the errors, rather than reaching a screen.
-# What is checked is the commit about to be pushed, not the worktree.
-# Nothing is pushed and nothing is thrown away: the work stays on this branch.
-TYPED_PATHS=(rouh/static/app.js rouh/static/app rouh/static/vad.d.ts tsconfig.json tools/typecheck)
-types_guard() {
-  local changed said rc typed first errors
-  gq cat-file -e HEAD:tools/typecheck/check.sh || return 0
-  changed=$(gq diff --name-only "$TARGET_REF" HEAD -- "${TYPED_PATHS[@]}")
-  [ -n "$changed" ] || return 0
-  say "checking the page's types, since this changes $(printf '%s' "$changed" | head -1)"
-  typed=$(mktemp -d 2>/dev/null) || fail "nowhere to check the page's types"
-  gq archive HEAD -- "${TYPED_PATHS[@]}" | tar -x -C "$typed" 2>/dev/null
-  said=$("$typed/tools/typecheck/check.sh" "$typed" 2>&1); rc="$?"
-  rm -rf -- "$typed"
-  # tsc names files relative to wherever it ran; the copy's folder means nothing.
-  said=$(printf '%s' "$said" | sed "s#[^ (]*$(basename "$typed")/##g")
-  if [ "$rc" = "0" ]; then
-    say "the page's types check"
+  copy=$(mktemp -d 2>/dev/null) || fail "nowhere to run the checks before a push"
+  if gq cat-file -e HEAD:rouh/buildchecks.py; then
+    gq archive HEAD -- rouh ':!rouh/static' ':!rouh/templates' | tar -x -C "$copy" 2>/dev/null
+    home="$copy"
+  elif [ -f "$SELF_DIR/rouh/buildchecks.py" ]; then
+    home="$SELF_DIR"
+  else
+    rm -rf -- "$copy"
     return 0
   fi
-  first=$(printf '%s\n' "$said" | grep -m1 . || true)
-  errors=$(printf '%s\n' "$said" | grep -c 'error TS' || true)
-  if [ "$errors" = "1" ]; then errors="1 error"; else errors="$errors errors"; fi
-  said="Nothing was pushed: the page's type check (tools/typecheck/check.sh) did not pass, $errors. The first: $first"
-  say "$said"
-  finish 1 state=error landed=false types=false "reason=$said"
-}
-
-# The mail replay. Asked right before every push, beside the page's types, of
-# work that touches how Rouh handles mail and messages from trusted contacts.
-# A case that regresses stops a landing: `python -m rouh.mail_replay` judges
-# every real case kept in
-# rouh/testing/mail_replay.json, ask by ask, against the outcome it must have,
-# and fails if any module but the outbox can send to a contact (MAIL.md, D9).
-# It needs nothing but the standard library and the commit about to be pushed.
-MAIL_PATHS=(rouh/mail_cases.py rouh/mail_ledger.py rouh/mail_outbox.py rouh/mail_replay.py
-  rouh/mail_turn.py rouh/mail_alerts.py rouh/grants.py rouh/trusted.py rouh/reminders.py
-  rouh/telegram_guests.py rouh/telegram_chat.py rouh/case_dry_run.py rouh/case_fixes.py
-  rouh/case_trace.py rouh/decision_sources.py rouh/testing/mail_replay.json
-  rouh/management/commands/case_follow_up.py rouh/clockwork_grants.py rouh/timekeeper.py
-  rouh/case_actions.py rouh/capabilities.py rouh/capabilities.lock.json rouh/capability_grants.py
-  rouh/genes/manifests)
-mail_guard() {
-  local changed said rc copy last first
-  gq cat-file -e HEAD:rouh/mail_replay.py || return 0
-  [ -n "$PY" ] || return 0
-  changed=$(gq diff --name-only "$TARGET_REF" HEAD -- "${MAIL_PATHS[@]}")
-  [ -n "$changed" ] || return 0
-  say "replaying the mail cases, since this changes $(printf '%s' "$changed" | head -1)"
-  copy=$(mktemp -d 2>/dev/null) || fail "nowhere to replay the mail cases"
-  gq archive HEAD -- rouh ':!rouh/static' ':!rouh/templates' | tar -x -C "$copy" 2>/dev/null
-  said=$(cd "$copy" && "$PY" -m rouh.mail_replay 2>&1); rc="$?"
+  out=$(cd "$home" && ROUH_DESIGN_GUARD="$(setting ROUH_DESIGN_GUARD 1)" "$PY" -m rouh.buildchecks run \
+    --repo "$REPO" --before "$TARGET_REF" --after HEAD --record "$REPO/.design/record.json" \
+    --home "$home" 2>"$copy/.said"); rc="$?"
+  while IFS= read -r said; do say "${said#buildchecks: }"; done <"$copy/.said"
   rm -rf -- "$copy"
-  last=$(printf '%s\n' "$said" | grep . | tail -1)
-  if [ "$rc" = "0" ]; then
-    say "the mail replay: $last"
-    return 0
-  fi
-  first=$(printf '%s\n' "$said" | grep -m1 '^FAIL' || printf '%s' "$last")
-  said="Nothing was pushed: the mail replay (python -m rouh.mail_replay) did not pass: ${last%.}. The first: $first"
-  say "$said"
-  finish 1 state=error landed=false mail=false "reason=$said"
-}
-
-# The LLM service. Asked right before every push, beside the mail replay, of work
-# that touches Rouh's Python. Every call to a model goes through the model the
-# Models page selects for it, with no exceptions, and this keeps it that way:
-# `python -m rouh.llmguard` fails on a model client made past rouh/llmlog.py, a model
-# asked past the LLM service, or a model named in code. Standard library only.
-llm_guard() {
-  local changed said rc copy last first
-  gq cat-file -e HEAD:rouh/llmguard.py || return 0
-  [ -n "$PY" ] || return 0
-  changed=$(gq diff --name-only "$TARGET_REF" HEAD -- 'rouh/*.py' 'rouh/**/*.py')
-  [ -n "$changed" ] || return 0
-  say "checking every model call goes through the LLM service, since this changes $(printf '%s' "$changed" | head -1)"
-  copy=$(mktemp -d 2>/dev/null) || fail "nowhere to check the model calls"
-  gq archive HEAD -- rouh ':!rouh/static' ':!rouh/templates' | tar -x -C "$copy" 2>/dev/null
-  said=$(cd "$copy" && "$PY" -m rouh.llmguard 2>&1); rc="$?"
-  rm -rf -- "$copy"
-  last=$(printf '%s\n' "$said" | grep . | tail -1)
-  if [ "$rc" = "0" ]; then
-    say "the LLM service: $last"
-    return 0
-  fi
-  first=$(printf '%s\n' "$said" | grep -m1 '^FAIL' || printf '%s' "$last")
-  said="Nothing was pushed: a model is asked or named past the LLM service (python -m rouh.llmguard): ${last%.}. The first: $first"
-  say "$said"
-  finish 1 state=error landed=false llm=false "reason=$said"
-}
-
-# The old server's layout. Asked right before every push of work that touches Rouh's code, the one
-# program or bin/: since the move to containers (31 October 2026) code that called systemd or read
-# /var/www/rouh failed there quietly, so every such mention is listed with why it is right
-# (`python -m rouh.hostguard`, rouh/hostpaths.json). Standard library only.
-host_guard() {
-  local changed said rc copy last first
-  gq cat-file -e HEAD:rouh/hostguard.py || return 0
-  [ -n "$PY" ] || return 0
-  changed=$(gq diff --name-only "$TARGET_REF" HEAD -- rouh one bin)
-  [ -n "$changed" ] || return 0
-  copy=$(mktemp -d 2>/dev/null) || fail "nowhere to check the old server's layout"
-  gq archive HEAD -- rouh one bin ':!rouh/static' | tar -x -C "$copy" 2>/dev/null
-  said=$(cd "$copy" && "$PY" -m rouh.hostguard 2>&1); rc="$?"
-  rm -rf -- "$copy"
-  last=$(printf '%s\n' "$said" | grep . | tail -1)
-  if [ "$rc" = "0" ]; then
-    say "the old server's layout: $last"
-    return 0
-  fi
-  first=$(printf '%s\n' "$said" | grep -m1 '^FAIL' || printf '%s' "$last")
-  said="Nothing was pushed: code names the old server's layout without saying why (python -m rouh.hostguard): $first"
-  say "$said"
-  finish 1 state=error landed=false hosts=false "reason=$said"
-}
-
-# The gene contract. Asked right before every push, beside the mail replay, of
-# work that touches the gene registry, the page's markup or its script.
-# The navigation is drawn from one registry of genes, one manifest per gene
-# (GENES.md), and this check fails when a link is added outside it or a
-# manifest has no valid group:
-# `python -m rouh.genes` reads every gene manifest, the page and its script, and
-# tries itself on broken copies. Standard library only.
-GENE_PATHS=(rouh/genes rouh/templates/rouh/index.html rouh/templates/rouh/_nav_row.html
-  rouh/static/app rouh/static/app.js)
-genes_guard() {
-  local changed said rc copy last first
-  gq cat-file -e HEAD:rouh/genes/__main__.py || return 0
-  [ -n "$PY" ] || return 0
-  changed=$(gq diff --name-only "$TARGET_REF" HEAD -- "${GENE_PATHS[@]}")
-  [ -n "$changed" ] || return 0
-  say "checking the gene contract, since this changes $(printf '%s' "$changed" | head -1)"
-  copy=$(mktemp -d 2>/dev/null) || fail "nowhere to check the gene contract"
-  # rouh/capabilities.py checks a manifest's capabilities (CAPABILITIES.md); standard library only.
-  gq archive HEAD -- rouh/__init__.py rouh/genes rouh/capabilities.py rouh/capabilities.lock.json \
-    rouh/templates/rouh rouh/static | tar -x -C "$copy" 2>/dev/null
-  said=$(cd "$copy" && "$PY" -m rouh.genes 2>&1); rc="$?"
-  rm -rf -- "$copy"
-  last=$(printf '%s\n' "$said" | grep . | tail -1)
-  if [ "$rc" = "0" ]; then
-    say "the gene contract: $last"
-    return 0
-  fi
-  first=$(printf '%s\n' "$said" | grep -m1 '^FAIL' || printf '%s' "$last")
-  said="Nothing was pushed: the gene contract (python -m rouh.genes) does not hold: ${last%.}. The first: $first"
-  say "$said"
-  finish 1 state=error landed=false genes=false "reason=$said"
-}
-
-# Every file belongs to a gene. Asked right before every push, of every change.
-# There is no plumbing that is not a gene: every file of
-# Rouh is owned by one or more genes in rouh/genes/owners.json, so that every
-# change is written into the history of the genes whose files it touched
-# (GENES.md, "Every file belongs to a gene"). A change that adds or changes a
-# file no gene owns stops here, naming the file, until the map gives it one.
-# The workspace is the person's own work, not Rouh, and is never asked about.
-# Standard library only; the map and its checker are the commit's own.
-owners_guard() {
-  local said rc copy
-  gq cat-file -e HEAD:rouh/genes/owners.py || return 0
-  [ -n "$PY" ] || return 0
-  copy=$(mktemp -d 2>/dev/null) || fail "nowhere to check which gene each file belongs to"
-  gq archive HEAD -- rouh/genes | tar -x -C "$copy" 2>/dev/null
-  : >"$copy/rouh/__init__.py"
-  said=$(cd "$copy" && "$PY" -m rouh.genes.owners changed --repo "$REPO" --before "$TARGET_REF" --after HEAD 2>/dev/null); rc="$?"
-  rm -rf -- "$copy"
-  if [ "$rc" = "0" ]; then
-    say "$said"
-    return 0
-  fi
-  said="Nothing was pushed: $(printf '%s\n' "$said" | grep -m1 . || printf 'the gene ownership map could not be read')"
-  say "$said"
-  finish 1 state=error landed=false owners=false "reason=$said"
-}
-
-# The design standard. Asked right before every push of work that changes the screen:
-# rouh/static/, rouh/templates/, one/static/ (Petar, 7 November 2026, task 169). Every
-# change a person sees follows one design process in two tiers (rouh/design_standard.py),
-# and the run keeps its record with tools/design/record.py in .design/record.json of
-# its own checkout, never committed. A change to the screen stops here when the record
-# is missing, a journey was missed, the check of the real screens at 1440 and 390 px
-# found a fault (sideways scroll, cut text, a covering panel, a page that draws almost
-# nothing, a script error, a broken image, a request to another site), a full-tier
-# design still has a critic blocker, or the screen's files changed after the check. A
-# commit line "Design: none - <why>" says a change to those files shows nothing new.
-# Standard library only; nothing is pushed and nothing is thrown away.
-design_guard() {
-  local said rc copy
-  gq cat-file -e HEAD:rouh/design_standard.py || return 0
-  [ -n "$PY" ] || return 0
-  [ "$(setting ROUH_DESIGN_GUARD 1)" = "1" ] || return 0
-  copy=$(mktemp -d 2>/dev/null) || fail "nowhere to check the design record"
-  mkdir -p "$copy/rouh" && : >"$copy/rouh/__init__.py"
-  gq show HEAD:rouh/design_standard.py >"$copy/rouh/design_standard.py" 2>/dev/null
-  said=$(cd "$copy" && "$PY" -m rouh.design_standard check --repo "$REPO" --before "$TARGET_REF" \
-    --after HEAD --record "$REPO/.design/record.json" 2>&1); rc="$?"
-  rm -rf -- "$copy"
-  if [ "$rc" = "0" ]; then
-    say "$(printf '%s\n' "$said" | grep . | tail -1)"
-    return 0
-  fi
-  said="Nothing was pushed: $(printf '%s\n' "$said" | grep . | tail -1)"
-  say "$said"
-  finish 1 state=error landed=false design=false "reason=$said"
-}
-
-# How a gene says it was used. Asked right before every push of work that touches
-# Rouh's Python or the gene registry. A gene's trial counts the times its own
-# code says it was used, which never adds up for a gene whose code never says
-# it. So every gene with a switch declares its use
-# signals, and its code reports each named one through evolution.used(switch,
-# event): `python -m rouh.genes.signals` fails on a gene that declares none, an
-# event declared and never reported, or one reported and never declared
-# (GENES.md, "How a gene says it was used"). Standard library only.
-signals_guard() {
-  local changed said rc copy last first
-  gq cat-file -e HEAD:rouh/genes/signals.py || return 0
-  [ -n "$PY" ] || return 0
-  changed=$(gq diff --name-only "$TARGET_REF" HEAD -- 'rouh/*.py' 'rouh/**/*.py' rouh/genes)
-  [ -n "$changed" ] || return 0
-  say "checking how each gene says it was used, since this changes $(printf '%s' "$changed" | head -1)"
-  copy=$(mktemp -d 2>/dev/null) || fail "nowhere to check how the genes say they were used"
-  gq archive HEAD -- rouh ':!rouh/static' ':!rouh/templates' | tar -x -C "$copy" 2>/dev/null
-  said=$(cd "$copy" && "$PY" -m rouh.genes.signals 2>&1); rc="$?"
-  rm -rf -- "$copy"
-  last=$(printf '%s\n' "$said" | grep . | tail -1)
-  if [ "$rc" = "0" ]; then
-    say "the use signals: $last"
-    return 0
-  fi
-  first=$(printf '%s\n' "$said" | grep -m1 '^FAIL' || printf '%s' "$last")
-  said="Nothing was pushed: a gene does not say how it was used (python -m rouh.genes.signals): ${last%.}. The first: $first"
-  say "$said"
-  finish 1 state=error landed=false signals=false "reason=$said"
+  [ "$rc" = "0" ] && return 0
+  flag=$(printf '%s\n' "$out" | "$PY" -c 'import json, sys
+for l in reversed(sys.stdin.read().splitlines()):
+    if l.startswith("BUILDCHECKS "):
+        print((json.loads(l[12:]).get("failed") or {}).get("flag") or "checks=false"); break' 2>/dev/null)
+  why=$(printf '%s\n' "$out" | "$PY" -c 'import json, sys
+for l in reversed(sys.stdin.read().splitlines()):
+    if l.startswith("BUILDCHECKS "):
+        print((json.loads(l[12:]).get("failed") or {}).get("why") or ""); break' 2>/dev/null)
+  [ -n "$why" ] || why="Nothing was pushed: the checks before a push could not run: $(printf '%s' "$out" | tail -c 300)"
+  finish 1 state=error landed=false "${flag:-checks=false}" "reason=$why"
 }
 
 # The stack test. Asked before the lock is taken, of work that touches what only
@@ -1706,16 +1475,7 @@ if [ -n "$ANSWER" ]; then
       "answered=$ANSWER" "sha=$(gq rev-parse HEAD)" "files=lines@$FILES_FILE" \
       "reason=replayed onto $TARGET and not pushed, as asked"
   fi
-  secrets_guard
-  numbers_guard
-  types_guard
-  mail_guard
-  llm_guard
-  host_guard
-  genes_guard
-  owners_guard
-  design_guard
-  signals_guard
+  build_checks
   note_landing
   ERR=$(g push -q "$REMOTE" "HEAD:$TARGET" 2>&1)
   if [ "$?" != "0" ]; then
@@ -1736,8 +1496,7 @@ fi
 # checks before a push, which need the server's own Python, are not run here.
 if [ "$(setting ROUH_LAND_FIT_ONLY 0)" = "1" ]; then
   STACK_GUARD="0"
-  numbers_guard() { :; }; types_guard() { :; }; mail_guard() { :; }; llm_guard() { :; }; host_guard() { :; }
-  genes_guard() { :; }; owners_guard() { :; }; signals_guard() { :; }; design_guard() { :; }
+  build_checks() { :; }
   # Nor the record of collisions Rouh keeps: that is Rouh's Python, and the worker is not Rouh.
   conflicts() { return 0; }
 fi
@@ -1854,16 +1613,7 @@ if gq merge-base --is-ancestor "$TARGET_REF" HEAD >/dev/null 2>&1; then
   FILES_FILE=$(tmpfile files.txt)
   gq diff --name-only "$BASE..HEAD" >"$FILES_FILE" 2>/dev/null || : >"$FILES_FILE"
   SHA=$(gq rev-parse HEAD)
-  secrets_guard
-  numbers_guard
-  types_guard
-  mail_guard
-  llm_guard
-  host_guard
-  genes_guard
-  owners_guard
-  design_guard
-  signals_guard
+  build_checks
   note_landing
   ERR=$(g push -q "$REMOTE" "HEAD:$TARGET" 2>&1)
   if [ "$?" = "0" ]; then
@@ -2336,16 +2086,7 @@ gq diff --name-only "$TARGET_REF..HEAD" >"$FILES_FILE" || : >"$FILES_FILE"
 SHA=$(gq rev-parse HEAD)
 PUSH_ERR=""
 for try in 1 2 3; do
-  secrets_guard
-  numbers_guard
-  types_guard
-  mail_guard
-  llm_guard
-  host_guard
-  genes_guard
-  owners_guard
-  design_guard
-  signals_guard
+  build_checks
   note_landing
   PUSH_ERR=$(g push -q "$REMOTE" "HEAD:$TARGET" 2>&1)
   if [ "$?" = "0" ]; then

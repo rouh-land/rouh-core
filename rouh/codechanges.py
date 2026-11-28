@@ -140,6 +140,9 @@ def take(bundle: Path) -> dict:
         return {"ok": False, "commit": commit, "moved_on": base,
                 "refused": f"it is not on top of the code that runs ({base[:12]}): another change went live "
                            "while it waited, so it has to be fitted on top of that one first"}
+    refused = checks_refuse(base, commit, meta.get("design_record"))
+    if refused:
+        return {"ok": False, "commit": commit, "refused": refused, "checks": False}
     try:
         answer = guardface.ask("propose", commit=commit, why=why, by=str(meta.get("by") or "a run")[:80],
                                timeout=3600.0)
@@ -151,6 +154,38 @@ def take(bundle: Path) -> dict:
     _keep_landing(str(meta.get("by") or ""), commits)
     return {"ok": True, "commit": commit, "commits": commits, "point": answer.get("point"),
             "said": answer.get("said", "")}
+
+
+#: The checks of rouh/buildchecks.py run here, in the core: every "diff" check, and the page's types.
+CORE_CHECKS = frozenset({"secrets", "numbers", "types", "owners", "design"})
+
+
+def checks_refuse(base: str, commit: str, design_record=None, skip: tuple = (), why_skipped: str = "") -> str:
+    """The checks of `rouh/buildchecks.py` that read only git, on base..commit, with the code that
+    runs (never the proposed code: nothing of it is executed in the core). The sentence that refuses
+    the change, or "" when they pass.
+
+    Every proposal comes through here, whoever handed it - a run through bin/rouh-land, a bundle
+    from guard/bin/rouh-propose, anything else put in the folder - so this is where the containers'
+    route holds the same checks as land.sh (Petar, 28 November 2026: "everything needs to be
+    streamlined through one build process"). The checks that run code are the protected core's,
+    on its sandboxed copy (rouh/selfcheck/own.py)."""
+    from . import buildchecks
+
+    if not base or not commit:
+        return ""
+    ctx = buildchecks.Ctx(repo=str(code_dir()), before=base, after=commit,
+                          record_json=json.dumps(design_record) if isinstance(design_record, dict) else "",
+                          home=buildchecks.HOME)
+    # The diff checks, and the page's types: tsc only reads the change's files, with the checker of
+    # the code that runs, so it executes nothing of the change either.
+    got = buildchecks.run(ctx, kinds=("diff", "code"), only=CORE_CHECKS, skip=set(skip))
+    if why_skipped and skip:
+        log.info("codechanges: %s skipped for %s: %s", ", ".join(skip), commit[:12], why_skipped)
+    if got.get("ok"):
+        return ""
+    why = (got.get("failed") or {}).get("why") or "a check before a change goes live did not pass"
+    return why.replace("Nothing was pushed", "It was not checked further", 1)
 
 
 def _keep_landing(by: str, commits: list[str]) -> None:

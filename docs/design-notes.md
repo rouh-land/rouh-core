@@ -1716,6 +1716,10 @@ starting.
 `main`. Every job ends with it: a change to Rouh's own code, a run of the one
 program, a job in the person's workspace. Nothing else pushes, and the briefs
 say so.
+The checks it asks right before a push are not its own: they are the one list in
+`rouh/buildchecks.py`, which `bin/rouh-land`, the core's check of every proposal
+(`rouh/codechanges.py`) and the protected core's own check of Rouh run as well
+(AGENTS.md, "One build process", 28 November 2026).
 
 It exists because of 20 September 2026, when three jobs finished good work and
 pushed none of it. 5f932c8 was already on main from an earlier attempt and

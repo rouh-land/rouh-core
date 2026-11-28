@@ -1721,8 +1721,10 @@ class Runs(_RunInteraction):
             return False
         if result.get("needs_person") or result.get("conflict") or result.get("parked"):
             return False
-        if "collides" in reason or "did not take it" in reason or "Nothing was handed on" in reason:
-            # A collision is the writer's to reconcile; checks the change failed and a missing
+        if ("collides" in reason or "did not take it" in reason or "Nothing was handed on" in reason
+                or "Nothing was pushed" in reason):
+            # A collision is the writer's to reconcile; checks the change failed (rouh/buildchecks.py,
+            # "Nothing was pushed" from land.sh, "Nothing was handed on" from rouh-land) and a missing
             # design record are the change's own. Landing it again would change nothing.
             return False
         if "half done" in reason or "shares no history" in reason:

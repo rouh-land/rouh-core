@@ -44,7 +44,7 @@ So this runs, with no database, no model and nothing sent:
   the owner says yes to, and a late promise's nudge they say yes to (`ALLOWED_SLACK_SENDS`).
 
 `python -m rouh.mail_replay` prints each check and exits 1 when any fails. `land.sh` runs it
-before it pushes anything that touches the mail code (`mail_guard`), and refuses to land work
+before it pushes anything that touches the mail code (`rouh/buildchecks.py`, `mail`), and refuses to land work
 that does not pass.
 """
 from __future__ import annotations

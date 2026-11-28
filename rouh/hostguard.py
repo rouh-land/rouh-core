@@ -15,7 +15,7 @@ its reason. The deploy tools (`deploy/`, `one/deploy/`, `land.sh`, `update-all.s
 not read.
 
 The protected core runs it with Rouh's own checks on every change of its code
-(`rouh/selfcheck/own.py`), and `land.sh` before it pushes work that touches Python (`host_guard`).
+(`rouh/selfcheck/own.py`), and `land.sh` before it pushes work that touches Python (`rouh/buildchecks.py`, `host`).
 Standard library only.
 
     python -m rouh.hostguard            check; the last line says what it found

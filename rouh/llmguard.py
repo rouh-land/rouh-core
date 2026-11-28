@@ -15,7 +15,7 @@ this reads Rouh's own source and fails on any of three things:
    their facts (`NAMES_KEPT`): the list to choose from, prices, context sizes,
    image models. A model named anywhere else is a model nobody picked.
 
-Run by `land.sh` before every push that touches Rouh's Python (`llm_guard`), and by
+Run by `land.sh` before every push that touches Rouh's Python (`rouh/buildchecks.py`, `llm`), and by
 the deploy (`deploy/rouh.sh`, through `python -m rouh.llmlog`). Standard library only,
 so it runs without Rouh's packages. Claude Code and Codex are programs of their own,
 started for a run, and are not this.

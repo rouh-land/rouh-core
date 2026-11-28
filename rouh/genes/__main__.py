@@ -3,7 +3,7 @@
 Petar, 12 October 2026: "A test that fails if a navigation link is added
 outside the registry, or a manifest lacks a valid group." Not a suite: one
 check of one contract, a second or so, standard library only, run by
-`land.sh` (`genes_guard`) before it pushes work that touches the registry,
+`land.sh` (`rouh/buildchecks.py`, `genes`) before it pushes work that touches the registry,
 the page's markup or its script, the way the mail replay is run for the mail.
 
 It fails, naming each problem, when

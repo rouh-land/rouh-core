@@ -301,6 +301,7 @@
     "bin/rouh-land",
     "rouh/selfcheck/landing.py",
     "land.sh",
+    "rouh/buildchecks.py",
     "rouh/hostguard.py",
     "rouh/hostpaths.json",
     "update-all.sh",

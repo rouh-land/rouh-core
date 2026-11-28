@@ -1024,6 +1024,19 @@ def _propose(doc: dict, row: dict, rel: dict, by: str, work: Path, plan: dict, c
                      "database_plan": exact_database("")["database_plan"], "not_applicable": False, "model": "",
                      "reason": plan.get("reason", ""), "exact": {}, "merged": []}
                     if any(r["database"] for r in unit) else None)
+    # The same checks every change passes (rouh/buildchecks.py, through rouh/codechanges.py: Petar,
+    # 28 November 2026, "everything needs to be streamlined through one build process"), those that
+    # read only git, before the protected core runs the rest. The design check is the one left out,
+    # with this reason: an adapted master change carries master's own screen, designed and checked
+    # where master landed it, and this Rouh has no design record of its own to give for it.
+    from .codechanges import checks_refuse
+
+    base_now = u._git("rev-parse", "HEAD", cwd=u.code_dir()).stdout.strip()
+    refused = checks_refuse(base_now, commit, skip=("design",),
+                            why_skipped="a master change's screen was designed and checked where master landed it")
+    if refused:
+        u._change(pending=None)
+        raise CoreRefused(u._plain_refusal(refused))
     try:
         answer = guardface.ask("propose", commit=commit, why="Master change: " + "; ".join(r["purpose"] for r in unit)[:300],
                                by="Rouh's update (" + by + ")", update=evidence, timeout=3600)
