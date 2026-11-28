@@ -28,9 +28,9 @@
      A clear of more than a handful asks once, and every clear offers Undo.
      Cleared ones are kept, under Show: Cleared, and can be restored.
    - It follows the list as it moves anywhere (`moved`, from the socket's
-     `notices`), and the keyboard does all of it: j and k or the arrows move,
-     Enter opens, x picks, e clears, u marks read or unread, / searches, Esc
-     steps back out.
+     `notices`). It has no keyboard shortcuts of its own: Petar, 28 November
+     2026, "not needed for notifications". Esc still closes the filters sheet,
+     and then the page.
 
    The layer, its address and the bell are app/runs.js's and app/notices.js's,
    handed over through `window.RouhNoticesHost` (close, moved) and
@@ -61,7 +61,6 @@
     /** Picked: every one in the view (`all`), or these ids. */
     all: false, picked: {},
     /** The row the keyboard is on, by id. */
-    at: 0,
     /** Ids that arrived while the page was open, marked for a moment. */
     fresh: {}, known: {},
     /** The filters' sheet, on a narrow page. */
@@ -330,7 +329,6 @@
   function toggle(n) {
     if (!hasMore(n)) return;
     P.opened = P.opened === n.id ? 0 : n.id;
-    P.at = n.id;
     if (P.opened && (n.state === 'new' || n.state === 'later')) {
       n.state = 'read';
       postJSON('/api/notifications/act', { act: 'read', ids: [n.id] }).then(function () {
@@ -514,11 +512,10 @@
         e.preventDefault();
         if (input.value) { input.value = ''; setView({ q: '' }); }
         else input.blur();
-      } else if (e.key === 'Enter' || e.key === 'ArrowDown') {
+      } else if (e.key === 'Enter') {
         e.preventDefault();
         clearTimeout(P.searchTimer);
         if (input.value.trim() !== P.v.q) setView({ q: input.value.trim() });
-        moveTo(0, true);
       }
     });
     find.appendChild(input);
@@ -1006,7 +1003,7 @@
     var more = hasMore(n);
     var opened = more && P.opened === n.id;
     var li = el('li', 'nf-row' + (isUnread(n) ? ' unread' : '') + (opened ? ' open' : '') +
-      (n.state === 'dismissed' ? ' cleared' : '') + (P.at === n.id ? ' at' : '') +
+      (n.state === 'dismissed' ? ' cleared' : '') +
       (P.fresh[n.id] && Date.now() - P.fresh[n.id] < 8000 ? ' fresh' : '') + (isPicked(n) ? ' picked' : ''));
     li.setAttribute('data-id', String(n.id));
 
@@ -1172,61 +1169,19 @@
       P.items.forEach(function (x) { P.picked[x.id] = true; });
     }
     if (on) P.picked[n.id] = true; else delete P.picked[n.id];
-    P.at = n.id;
     draw();
   }
 
-  /* ---------- the keyboard ---------- */
+  /* ---------- Escape ---------- */
 
   function rowNode(id) { return /** @type {HTMLElement | null} */ (document.querySelector('#nfBody .nf-row[data-id="' + id + '"]')); }
-  /** Move the keyboard's row by `by`, or to the first with `first`. */
-  function moveTo(by, first) {
-    if (!P.items.length) return;
-    var i = P.items.findIndex(function (n) { return n.id === P.at; });
-    i = first || i < 0 ? 0 : Math.max(0, Math.min(P.items.length - 1, i + by));
-    P.at = P.items[i].id;
-    var rows = document.querySelectorAll('#nfBody .nf-row.at');
-    for (var k = 0; k < rows.length; k++) rows[k].classList.remove('at');
-    var row = rowNode(P.at);
-    if (row) {
-      row.classList.add('at');
-      var strip = /** @type {HTMLElement | null} */ (row.querySelector('.nf-open'));
-      if (strip) strip.focus({ preventScroll: true });
-      if (row.scrollIntoView) row.scrollIntoView({ block: 'nearest' });
-    }
-    if (i >= P.items.length - 3) loadMore();
-  }
-  function current() { return P.items.filter(function (n) { return n.id === P.at; })[0]; }
-
+  /** Esc closes the filters sheet on a narrow screen; otherwise it is the layer's, and
+   *  closes the page. The page has no other keys (Petar, 28 November 2026). */
   function keys(e) {
-    if (!P.open || e.defaultPrevented) return;
-    var t = e.target;
-    var typing = t instanceof Element && !!t.closest('input:not([type=checkbox]), textarea, select, [contenteditable="true"], dialog');
-    if (typing) return;
-    if (e.metaKey || e.ctrlKey || e.altKey) return;
-    var n = current();
-    var k = e.key;
-    if (k === 'j' || k === 'ArrowDown') { e.preventDefault(); moveTo(1); }
-    else if (k === 'k' || k === 'ArrowUp') { e.preventDefault(); moveTo(-1); }
-    else if (k === '/') { e.preventDefault(); var s = $('nfSearch'); if (s) s.focus(); }
-    else if ((k === 'Enter' || k === 'o') && n && !(t instanceof Element && t.closest('a, button:not(.nf-open)'))) { e.preventDefault(); toggle(n); }
-    else if (k === 'x' && n) { e.preventDefault(); pickOne(n, !isPicked(n)); }
-    else if ((k === 'e' || k === 'Delete' || k === '#') && n) {
-      e.preventDefault();
-      var i = P.items.indexOf(n);
-      var next = P.items[i + 1] || P.items[i - 1];
-      if (n.state === 'dismissed') bulk('restore', { ids: [n.id], n: 1 });
-      else bulk('clear', { ids: [n.id], n: 1 });
-      if (next) P.at = next.id;
-    }
-    else if (k === 'u' && n && n.state !== 'dismissed') { e.preventDefault(); bulk(isUnread(n) ? 'read' : 'unread', { ids: [n.id], n: 1 }); }
-    else if (k === '?') { e.preventDefault(); var h = $('nfKeys'); if (h) /** @type {HTMLDetailsElement} */ (h).open = !(/** @type {HTMLDetailsElement} */ (h).open); }
-    else if (k === 'Escape') {
-      if (P.sheet) { e.preventDefault(); P.sheet = false; draw(); }
-      else if (pickedCount()) { e.preventDefault(); unpick(); draw(); }
-      else if (P.opened) { e.preventDefault(); var was = P.opened; P.opened = 0; draw(); var r = rowNode(was); var st = r && r.querySelector('.nf-open'); if (st) /** @type {HTMLElement} */ (st).focus(); }
-      // Otherwise Escape is the layer's, and closes the page.
-    }
+    if (!P.open || e.defaultPrevented || e.key !== 'Escape' || !P.sheet) return;
+    e.preventDefault();
+    P.sheet = false;
+    draw();
   }
 
   /* ---------- loading as it is scrolled to, and what the page drew ---------- */

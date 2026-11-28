@@ -137,7 +137,6 @@
 .nf-row:hover { background: color-mix(in srgb, var(--panel) 70%, transparent); }
 .nf-row.unread { background: var(--panel); border-color: var(--line-soft); }
 .nf-row.open { background: var(--panel); border-color: var(--line); }
-.nf-row.at { border-color: color-mix(in srgb, var(--accent) 60%, var(--line)); }
 .nf-row.picked { background: color-mix(in srgb, var(--accent) 8%, var(--panel)); }
 .nf-row.cleared { opacity: .8; }
 .nf-row.fresh { animation: nf-fresh 2.4s ease-out 1; }
@@ -235,22 +234,8 @@ button.nf-place { appearance: none; }
 .nf-ask-p { margin: 0; font-size: 13.5px; line-height: 1.5; color: var(--dim); }
 .nf-ask-row { display: flex; justify-content: flex-end; gap: 8px; margin-top: 8px; flex-wrap: wrap; }
 
-/* The keys, folded under the list's heading. */
-.nf-keys { font-size: 12.5px; color: var(--dim); }
-.nf-keys summary { cursor: pointer; display: inline-flex; align-items: center; gap: 6px; min-height: 28px; list-style: none; }
-.nf-keys summary::-webkit-details-marker { display: none; }
-.nf-keys[open] summary::after { transform: rotate(-135deg) translateY(-1px); }
-.nf-keys summary:hover { color: var(--text); }
-.nf-keys dl { display: grid; grid-template-columns: auto 1fr; gap: 4px 12px; margin: 8px 0 0; }
-.nf-keys dt { font-family: var(--mono); color: var(--text); }
-.nf-keys dd { margin: 0; }
-
-/* No keyboard to speak of on a narrow screen: its shortcuts' line gives the list its room. */
-@media (max-width: 600px) { .nf-keys { display: none; } }
-
 /* A finger: everything it presses at least 44 px. */
 @media (pointer: coarse) {
-  .nf-keys { display: none; }
   .nf-chip, .nf-btn, .nf-place, .nf-pop-item, .nf-on, .nf-select, .nf-search-in, .nf-date-in { min-height: 44px; }
   .nf-icon, .nf-pick, .nf-toast-x { min-width: 44px; min-height: 44px; }
   .nf-row { --nf-line: 44px; }
