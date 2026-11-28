@@ -38,7 +38,9 @@
 .gp-hide { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 .gp-only[aria-pressed="true"] { border-color: var(--accent); background: var(--accent-soft); }
 .gp-only:hover { border-color: var(--dim); }
-.gp-only:focus-visible, .gp-search:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.gp-only:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+/* A field is ringed on its own edge, never by a second outline outside it. */
+.gp-search:focus-visible { outline: none; border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
 .gp-count { font-variant-numeric: tabular-nums; color: var(--dim); }
 .gp-search-wrap { flex: 1 1 220px; min-width: 0; display: flex; }
 .gp-search {

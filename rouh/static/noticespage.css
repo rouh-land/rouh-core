@@ -41,6 +41,12 @@
   font: inherit; font-size: 13px; font-weight: 600; color: var(--accent); text-align: left; justify-self: start; }
 .nf-link:hover { text-decoration: underline; }
 .nf-layer :is(button, a, input, select, summary):focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+/* A field the person types or picks in is ringed on its own edge, as Rouh's other
+   fields are: the border turns the accent and thickens to 2 px inside the field's
+   own shape. Never an outline around it, which drew a second ring outside the
+   rounded border and was cut off by the scrolling list's edge. */
+.nf-layer :is(.nf-search-in, .nf-date-in, .nf-select):focus-visible {
+  outline: none; border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
 
 /* The toolbar: search, sort, Clear by, and on a narrow page the filters' button. */
 .nf-tools { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
@@ -49,7 +55,6 @@
 .nf-search-in { width: 100%; min-height: 40px; padding: 0 14px 0 38px; border-radius: 999px;
   border: 1px solid var(--line); background: var(--bg); color: var(--text); font: inherit; font-size: 14px; color-scheme: dark; }
 .nf-search-in::placeholder { color: var(--dimmer); }
-.nf-search-in:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
 .nf-sort { display: inline-flex; align-items: center; gap: 8px; font-size: 13px; color: var(--dim); }
 .nf-select { min-height: 40px; padding: 0 12px; border-radius: 999px; border: 1px solid var(--line);
   background: var(--panel-2); color: var(--text); font: inherit; font-size: 13px; color-scheme: dark; cursor: pointer; }
