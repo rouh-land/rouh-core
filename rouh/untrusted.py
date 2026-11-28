@@ -97,6 +97,9 @@ SOURCES = {
                        "description written by whoever made it"),
     # Reddit's posts (`rouh/reddit.py`); a refusal is Rouh's own words (`ours`).
     "reddit_search": "Reddit posts, each written by the person it names",
+    # An EU trade mark's register entry (`rouh/trade_marks.py`), whose names, goods and document
+    # titles were written by the applicant and the office.
+    "eu_trade_mark": "EUIPO's register entry for a trade mark, its names written by the applicant",
     # People on LinkedIn, and one person's whole profile and posts, which are
     # theirs only where labelled so: a repost is the original author's words
     # (`rouh/linkedin.py`, `relation`). Each tool boxes these itself inside

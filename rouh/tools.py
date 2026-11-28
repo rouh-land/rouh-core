@@ -2962,6 +2962,14 @@ class ToolRegistry:
         self._own("reddit_search", reddit.DESCRIPTION, reddit.SCHEMA, self._reddit_search,
                   brief="Search Reddit posts, all of it or one subreddit")
 
+        # An EU trade mark read from EUIPO's own register (`rouh/trade_marks.py`): eSearch plus and
+        # TMview are JavaScript apps web_fetch reads as an empty page, their data is not.
+        from . import trade_marks
+
+        self._own(trade_marks.TOOL_NAME, trade_marks.DESCRIPTION, trade_marks.SCHEMA,
+                  self._eu_trade_mark,
+                  brief="Where an EU trade mark stands, from EUIPO's register")
+
         if self.apify is not None:
             self._linkedin_tools()
 
@@ -17396,6 +17404,15 @@ class ToolRegistry:
             note = "Transcribed now."
         return untrusted.ours(
             note + "\n" + untrusted.wrap(said, untrusted.source_for("youtube_transcript")))
+
+    async def _eu_trade_mark(self, args, emit):
+        """An EU trade mark read from EUIPO's register (`rouh/trade_marks.py`)."""
+        from . import trade_marks
+
+        who = self.google.person() if self.google is not None else None
+        today = datetime.now(clock.zone_of(who)).date().isoformat()
+        said, _found = await trade_marks.answer(args or {}, today)
+        return said
 
     async def _reddit_search(self, args, emit):
         """Posts on Reddit matching a query (`rouh/reddit.py`)."""

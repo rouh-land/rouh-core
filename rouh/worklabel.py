@@ -1345,6 +1345,11 @@ def _meeting_hours(a):
     return "Counting your meeting time", _arg(a, "company") or _arg(a, "person") or ""
 
 
+@_step("eu_trade_mark")
+def _eu_trade_mark(a):
+    return "Reading the EU trade mark register", _arg(a, "number") or ""
+
+
 @_step("public_holidays")
 def _public_holidays(a):
     return "Reading public holidays", _arg(a, "country") or ""

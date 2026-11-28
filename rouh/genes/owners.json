@@ -112,6 +112,7 @@
     "PROTOCOL.md",
     "rouh/static/app/protocol.d.ts",
     "rouh/reddit.py",
+    "rouh/trade_marks.py",
     "rouh/own_words.py"
    ],
    "needed_by": [

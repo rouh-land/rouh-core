@@ -126,6 +126,8 @@ READS = frozenset({
     "youtube_search", "youtube_transcript", "linkedin_search", "linkedin_profile",
     # Reddit's posts, read through its API (20 November 2026, task 191).
     "reddit_search",
+    # An EU trade mark read from EUIPO's public register (`rouh/trade_marks.py`).
+    "eu_trade_mark",
     # Reads that were in no table until 20 November 2026 (task 191, 191-02 package 1.7), so each
     # was unknown, and unknown always waited for the owner: 10 of the 50 decisions waiting on 19
     # November were one of these. Each reads and changes nothing.
@@ -311,7 +313,7 @@ HEARTBEAT_OWN = frozenset({"heartbeat_end", "heartbeat_ask", "heartbeat_brief", 
 #: its files (Rouh holds it to that conversation in `rouh/job_mail.py`), asking Rouh, and the
 #: public web.
 CONTACT_MAY = frozenset({MAIL_FIND, MAIL_FILE, REQUEST, REQUEST_STATUS,
-                         "youtube_search", "youtube_transcript", "reddit_search"})
+                         "youtube_search", "youtube_transcript", "reddit_search", "eu_trade_mark"})
 
 #: Arguments only the gateway reads, taken off before a tool is run or queued.
 WHY_ARG = "rouh_why"

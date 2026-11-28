@@ -436,7 +436,7 @@ def saw(message: dict) -> None:
 
 #: Research, and reading Rouh's own state, which changes nothing anywhere.
 FREE = frozenset({
-    "web_search", "web_fetch", "look_into", "youtube_search", "youtube_transcript",
+    "web_search", "web_fetch", "look_into", "youtube_search", "youtube_transcript", "eu_trade_mark",
     "read_doc", "search_drive", "list_drive_folder", "list_shared_drives", "list_drive_permissions",
     "check_tasks", "look_at_task", "read_task_log", "what_task_changed", "job_status", "one_runs",
     "what_is_running", "upcoming", "what_was_on_screen", "read_card", "recall_result", "show_on_screen",

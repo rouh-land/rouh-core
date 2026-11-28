@@ -57,6 +57,9 @@ MAY_USE = (
     "update_contact_profile",
     "web_search",
     "web_fetch",
+    # An EU trade mark read from EUIPO's public register (`rouh/trade_marks.py`): a public page's
+    # data, read only, for a contact's Clockwork watch on a trade mark as much as for anybody.
+    "eu_trade_mark",
     "read_mail",
     "read_mail_attachment",
     "read_recent_mail",
