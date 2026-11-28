@@ -723,6 +723,35 @@ class Runs(_RunInteraction):
         finally:
             self._launching.discard(run_id)
 
+    async def _never_saved(self, run: dict[str, Any], engine: str, cwd: str) -> bool:
+        """Whether a run of Claude Code being carried on has no conversation to carry on.
+
+        Claude Code writes its session file at its first message, so a run stopped in the
+        seconds before that has a session id and nothing behind it, and ``--resume`` of it
+        says "No conversation found with session ID" and exits 1, every time it is started
+        again. On 28 November 2026 run cf0b1615 was started at 10:08:23, the worker went down
+        for a deploy five seconds later, and it died three times that way and ended having
+        done nothing. Such a run starts again from its brief, in a new session, instead.
+        Only a file that is plainly not there counts: one that could not be read is resumed.
+        """
+        session = str(run.get("session_id") or "")
+        if engine != "claude" or not session:
+            return False
+        path = str(run.get("transcript") or "")
+        if not path.endswith(f"{session}.jsonl"):
+            # Where Claude Code keeps it: the checkout's path with every other character a dash.
+            folder = "".join(c if c.isalnum() else "-" for c in cwd)
+            path = os.path.join(self._home(run), ".claude", "projects", folder, f"{session}.jsonl")
+        records, why = await self.p.transcripts._whole(path, self.s.space(run.get("space")).user)
+        if records or why != "its transcript is empty or gone":
+            return False
+        log.warning("run %s has no conversation saved for session %s: starting it from its brief",
+                    run["id"], session)
+        self.list.append("run.fresh", run=run["id"], body={
+            "why": "its conversation was never saved, so it was started again from its brief",
+            "session_id": session})
+        return True
+
     async def _checkout(self, run: dict[str, Any]) -> dict[str, Any]:
         """The run's folder: the one it has, or a fresh one in its space."""
         cwd = run.get("cwd")
@@ -804,12 +833,12 @@ class Runs(_RunInteraction):
                                             code_repo=str(Path(self.s.spaces_dir) / "rouh"),
                                             **told)
             append = f"{append}\n\n---\n\n{told_how}" if append else told_how
-            if resume and run.get("session_id"):
+            if resume and run.get("session_id") and not await self._never_saved(run, engine, cwd):
                 session, resume_id = None, run["session_id"]
             else:
                 session, resume_id = str(uuid.uuid4()), None
             first = prompt
-        elif resume:
+        elif resume and not await self._never_saved(run, engine, cwd):
             session, resume_id = None, run.get("session_id")
             first = prompt or agents.RESTARTED
         else:
@@ -822,6 +851,9 @@ class Runs(_RunInteraction):
             await self.docs.write(brief_path, brief, mode="600", space=space)
             session, resume_id = str(uuid.uuid4()), None
             first = agents.first_prompt(brief, brief_path)
+            if resume and prompt:
+                # Carried on with something to say, but from the start: it is said after the brief.
+                first = f"{first}\n\n{prompt}"
         mcp_config = await self.docs.seed_trust(cwd, bypass=self.s.access == "full",
                                                 space=space, engine=engine)
         if engine == "codex":
